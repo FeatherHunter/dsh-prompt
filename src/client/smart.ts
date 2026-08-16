@@ -188,8 +188,16 @@ export function SmartCardHost(props: any): any {
     onClick: () => { if (dragMovedRef.current) return; setManualOpen(true); setDismissed(false) },
   })
 
-  // ── 卡（从点向右展开；点 = 卡最左侧、垂直居中；靠边时卡片自身 clamp 进视口，圆点保持在用户放置处）──
-  const cardPos = { x: Math.max(8, Math.min(effectivePos.x, (typeof window !== 'undefined' ? window.innerWidth : 1280) - CARD_W - 8)), y: Math.max(8, Math.min(effectivePos.y - CARD_H / 2, (typeof window !== 'undefined' ? window.innerHeight : 800) - CARD_H - 8)) }
+  // ── 卡：从圆点右侧展开（卡左缘 = 圆点右缘，垂直以圆点为中心）；空间不足自动折返，始终保持贴合 ──
+  const dotX = effectivePos.x, dotY = effectivePos.y
+  let cardX = dotX + DOT_SIZE + 4
+  if (cardX + CARD_W > vw - 8) cardX = Math.max(8, dotX - CARD_W - 4) // 右侧放不下 → 向左展开
+  cardX = Math.max(8, Math.min(cardX, vw - CARD_W - 8))
+  let cardY = dotY - CARD_H / 2 // 垂直居中于圆点
+  if (cardY + CARD_H > vh - 8) cardY = Math.max(8, dotY - CARD_H) // 底部放不下 → 卡底对齐圆点
+  else if (cardY < 8) cardY = Math.min(vh - CARD_H - 8, dotY) // 顶部放不下 → 卡顶对齐圆点
+  cardY = Math.max(8, Math.min(cardY, vh - CARD_H - 8))
+  const cardPos = { x: cardX, y: cardY }
   const cardStyle: any = {
     position: 'fixed', left: cardPos.x, top: cardPos.y,
     width: CARD_W, zIndex: 400, pointerEvents: 'auto',

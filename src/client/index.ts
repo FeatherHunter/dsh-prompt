@@ -1,6 +1,6 @@
 /**
  * dsh-prompt — client 入口（v1 常规模式 + v1.1 智能模式）
- * 装配：input.left 入口按钮 / input.overlay 面板浮层 / settings.plugins.tab 模板管理页 / inputTriggers /prompt 触发源（#9）/ shell.overlay 智能悬浮卡（#10）
+ * 装配：input.left 入口按钮 / input.overlay 面板浮层 / settings.section 配置页（直属设置面板）/ inputTriggers /prompt 触发源（#9）/ shell.overlay 智能悬浮卡（#10）
  */
 import { getReact, TemplateBrowser, setGoSettingsHandler } from './panel'
 import { EntryButton } from './button'
@@ -60,9 +60,9 @@ export function apply(ctx: ClientContext): void {
     ctx.slots.register({ name: 'conversation.input.overlay', id: 'dsh-prompt-panel', order: 2, label: () => 'dsh-prompt panel' }, PanelHost),
   ), 'dsh-prompt: panel')
 
-  // 设置页模板管理
-  ctx.effect(() => ctx.slots.inject('settings.plugins.tab', () =>
-    ctx.slots.register({ name: 'settings.plugins.tab', id: 'dsh-prompt-settings', order: 10, label: () => 'dsh-prompt（模板管理）' }, SettingsPage),
+  // 设置页（直属设置面板的配置页，非插件子类）：智能开关 + 模板管理
+  ctx.effect(() => ctx.slots.inject('settings.section', () =>
+    ctx.slots.register({ name: 'settings.section', id: 'dsh-prompt', order: 50, label: () => 'dsh-prompt' }, SettingsPage),
   ), 'dsh-prompt: settings')
 
   // 面板「设置 → 模板管理」：当前 v1 关闭面板即可（设置页经 ⚙ → 插件 → dsh-prompt 到达）

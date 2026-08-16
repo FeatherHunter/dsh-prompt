@@ -152,19 +152,23 @@ export function SmartCardHost(props: any): any {
   const line = '1px solid var(--dsw-alias-border-l1)'
 
   // ── 点（idle 手柄；卡显示时互斥消失）──
+  // 圆点：橙色圆 + 小型 SVG 闪电（不用 emoji——emoji 会以全色大尺寸渲染盖住圆底）
   const dot = h('div', {
     key: 'dot',
     style: {
       position: 'fixed', left: pos.x, top: pos.y,
       width: DOT_SIZE, height: DOT_SIZE, borderRadius: '50%',
-      background: accent, border: '2px solid rgba(255,255,255,0.25)',
+      background: accent, border: '2px solid rgba(255,255,255,0.3)',
       boxShadow: 'var(--dsw-shadow-lv3)', cursor: 'grab', zIndex: 400, pointerEvents: 'auto',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 11, color: '#1a1a1e', fontWeight: 700, userSelect: 'none',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none',
     },
     title: t('smartDot'),
     onPointerDown: startDrag,
-  }, '⚡')
+  }, [
+    h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: '#1a1a1e', stroke: 'none', style: { display: 'block' } }, [
+      h('path', { d: 'M13 2 L3 14 h7 l-1 8 10-12 h-7 l1-8 z' }),
+    ]),
+  ])
 
   // ── 卡（从点向右展开；点 = 卡最左侧、垂直居中；靠边时卡片自身 clamp 进视口，圆点保持在用户放置处）──
   const cardPos = { x: Math.max(8, Math.min(pos.x, (typeof window !== 'undefined' ? window.innerWidth : 1280) - CARD_W - 8)), y: Math.max(8, Math.min(pos.y - CARD_H / 2, (typeof window !== 'undefined' ? window.innerHeight : 800) - CARD_H - 8)) }

@@ -203,10 +203,11 @@ export function SmartCardHost(props: any): any {
   // ── 卡：从圆点右侧展开（卡左缘 = 圆点右缘，垂直以圆点为中心）；用真实高度锚定，贴边自动折返 ──
   const dotX = effectivePos.x, dotY = effectivePos.y
   const cardHeight = cardH > 0 ? cardH : CARD_H_EST
-  let cardX = dotX + DOT_SIZE + 4
-  if (cardX + CARD_W > vw - 8) cardX = Math.max(8, dotX - CARD_W - 4) // 右侧放不下 → 向左展开
+  // 圆点 = 卡片左下角，零间距：卡左缘=圆点左缘、卡底边=圆点顶边，向 右上 展开
+  let cardX = dotX
+  if (cardX + CARD_W > vw - 8) cardX = Math.max(8, dotX - CARD_W) // 右侧放不下 → 向左展开（卡右缘贴圆点左缘）
   cardX = Math.max(8, Math.min(cardX, vw - CARD_W - 8))
-  let cardY = dotY - cardHeight // 卡底边在圆点高度处，卡片向右上展开
+  let cardY = dotY - cardHeight
   if (cardY < 8) cardY = 8 // 顶部放不下 → 贴顶（圆点保持在原位）
   cardY = Math.max(8, Math.min(cardY, vh - cardHeight - 8))
   const cardPos = { x: cardX, y: cardY }

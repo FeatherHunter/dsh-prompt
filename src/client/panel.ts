@@ -88,6 +88,24 @@ export function TemplateBrowser(props: BrowserProps): any {
   const q = qState[0]
   const modalState = react.useState<ModalState | null>(null)
   const modal = modalState[0]
+  const offsetState = react.useState(0)
+  const offsetLeft = offsetState[0]
+  const rootRef = react.useRef<any>(null)
+  const highlightState = react.useState<string | null>(null)
+  const highlightId = highlightState[0]
+
+  // 横向对齐 ⚡Prompt 按钮（仅紧凑面板）：测按钮在锚点内的水平偏移
+  react.useEffect(() => {
+    if (!compact) return
+    try {
+      const btn = typeof document !== 'undefined' ? document.querySelector('[data-dsh-prompt-entry]') : null
+      if (btn && rootRef.current && rootRef.current.offsetParent) {
+        const br = (btn as HTMLElement).getBoundingClientRect()
+        const ar = (rootRef.current.offsetParent as HTMLElement).getBoundingClientRect()
+        offsetState[1](Math.max(0, br.left - ar.left))
+      }
+    } catch (e) { /* ignore */ }
+  }, [])
 
   // 语言跟随 html[lang]
   react.useEffect(() => {
@@ -125,8 +143,8 @@ export function TemplateBrowser(props: BrowserProps): any {
   const line = '1px solid var(--dsw-alias-border-l1)'
   const panelStyle: any = compact
     ? {
-        position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 96,
-        zIndex: 300, width: 430, maxHeight: 500,
+        position: 'absolute', left: offsetLeft, bottom: 'calc(100% + 8px)',
+        zIndex: 300, width: 430,
         display: 'flex', flexDirection: 'column',
         background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',
         borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)', overflow: 'hidden',
@@ -139,21 +157,25 @@ export function TemplateBrowser(props: BrowserProps): any {
   const headStyle: any = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: line }
   const titleStyle: any = { fontWeight: 700, fontSize: 13 }
   const addBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-specific-accent,#f0a45c)', fontSize: 16, lineHeight: 1, cursor: 'pointer' }
-  const tabsStyle: any = { display: 'flex', gap: 4, padding: '8px 12px 0', flexWrap: 'wrap' }
+  const closeBtn: any = { width: 26, height: 26, borderRadius: 7, border: 0, background: 'transparent', color: dim, fontSize: 16, lineHeight: 1, cursor: 'pointer' }
+  const headBtns: any = { display: 'flex', gap: 4, alignItems: 'center' }
+  const tabsStyle: any = { display: 'flex', gap: 4, padding: '5px 12px 0', flexWrap: 'wrap' }
   const tabBtn = (on: boolean): any => ({
-    padding: '3px 10px', borderRadius: 999, border: line, background: on ? 'var(--dsw-alias-bg-layer-3)' : 'transparent',
-    color: on ? base : muted, cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: 12,
+    padding: '2px 8px', borderRadius: 999, border: line, background: on ? 'var(--dsw-alias-bg-layer-3)' : 'transparent',
+    color: on ? base : muted, cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: 11,
   })
-  const domainRowStyle: any = { display: 'flex', gap: 4, padding: '6px 12px 0', flexWrap: 'wrap' }
+  const domainRowStyle: any = { display: 'flex', gap: 4, padding: '3px 12px 0', flexWrap: 'wrap' }
   const searchStyle: any = { margin: '8px 12px', padding: '6px 10px', borderRadius: 8, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: base, fontFamily: 'var(--dsw-font-family)', fontSize: 12.5, outline: 'none' }
-  const listStyle: any = { overflow: 'auto', padding: '4px 8px 10px', flex: 1 }
-  const itemStyle: any = { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', borderRadius: 8, cursor: 'pointer' }
+  const listStyle: any = compact
+    ? { overflow: 'auto', padding: '4px 8px 10px', maxHeight: 170 } // 恒定 3 行完整可见，内部滚动
+    : { overflow: 'auto', padding: '4px 8px 10px', flex: 1 }
+  const itemStyle: any = { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 9px', borderRadius: 8, cursor: 'pointer' }
   const pinStyle = (on: boolean): any => ({ flex: 'none', width: 18, textAlign: 'center', color: on ? 'var(--dsw-specific-accent,#f0a45c)' : dim, cursor: 'pointer', fontSize: 12, border: 0, background: 'transparent' })
   const nmStyle: any = { flex: 1, minWidth: 0, fontSize: 12.8, color: base }
   const subStyle: any = { display: 'block', fontSize: 11, color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
   const tagStyle: any = { flex: 'none', fontSize: 10.5, color: dim, border: line, padding: '1px 6px', borderRadius: 999 }
   const actStyle: any = { display: 'flex', gap: 4, flex: 'none' }
-  const actBtn = (danger?: boolean): any => ({ border: line, background: 'var(--dsw-alias-bg-layer-2)', color: danger ? 'var(--dsw-specific-danger,#e06c75)' : muted, cursor: 'pointer', fontSize: 11, padding: '2px 7px', borderRadius: 6, fontFamily: 'var(--dsw-font-family)' })
+  const actBtn = (danger?: boolean): any => ({ border: line, background: 'transparent', color: danger ? 'var(--dsw-specific-danger,#e06c75)' : dim, cursor: 'pointer', fontSize: 11, padding: '1px 8px', borderRadius: 999, fontFamily: 'var(--dsw-font-family)', whiteSpace: 'nowrap' })
   const footStyle: any = { padding: '8px 12px', borderTop: line, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: dim }
   const footLink: any = { color: 'var(--dsw-specific-accent,#f0a45c)', cursor: 'pointer', textDecoration: 'none', background: 'transparent', border: 0, fontFamily: 'var(--dsw-font-family)', fontSize: 11 }
   const maskStyle: any = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }
@@ -174,8 +196,20 @@ export function TemplateBrowser(props: BrowserProps): any {
 
   const handleCopy = (e: any, id: string) => {
     e.stopPropagation()
-    copyPresetToCustom(id)
+    const c = copyPresetToCustom(id)
+    if (!c) return
+    // 创建反馈：自动置顶（容量允许）→ 切「自定义」tab → 高亮新项 → 滚入视野
+    const r = togglePin(c.id)
+    tabState[1](CUSTOM_TAG)
+    highlightState[1](c.id)
     refresh()
+    setTimeout(() => {
+      highlightState[1](null)
+      try {
+        const el = typeof document !== 'undefined' ? document.querySelector('[data-dsh-prompt-id="' + c.id + '"]') : null
+        if (el) (el as HTMLElement).scrollIntoView({ block: 'nearest' })
+      } catch (err) { /* ignore */ }
+    }, 1600)
   }
 
   const handleDel = (e: any, x: PromptTemplate) => {
@@ -251,7 +285,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   const tabNodes = h('div', { style: tabsStyle }, tabs.map((tb) =>
     h('button', { key: tb.id, style: tabBtn(tab === tb.id), onClick: () => { tabState[1](tb.id); refresh() } }, tb.label),
   ))
-  const domainNodes = tab === CUSTOM_TAG ? null : h('div', { style: domainRowStyle }, DOMAIN_FILTERS.map((d) =>
+  const domainNodes = h('div', { style: domainRowStyle }, DOMAIN_FILTERS.map((d) =>
     h('button', { key: d, style: tabBtn(domain === d), onClick: () => { domainState[1](d); refresh() } }, d === 'all' ? t('domainAll') : d),
   ))
   const rows = sorted.map((x) => {
@@ -265,7 +299,8 @@ export function TemplateBrowser(props: BrowserProps): any {
       : h('span', { style: actStyle }, [
           h('button', { style: actBtn(), onClick: (e: any) => handleCopy(e, x.id) }, t('copy')),
         ])
-    return h('div', { key: x.id, style: itemStyle, onClick: () => handlePick(x), title: t('insertHint') }, [
+    const itemBg = highlightId === x.id ? 'rgba(240,164,92,0.16)' : undefined
+    return h('div', { key: x.id, style: { ...itemStyle, background: itemBg }, 'data-dsh-prompt-id': x.id, onClick: () => handlePick(x), title: t('insertHint') }, [
       h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, pinned ? '★' : '☆'),
       h('span', { style: nmStyle }, [
         x.name,
@@ -279,17 +314,18 @@ export function TemplateBrowser(props: BrowserProps): any {
     ? h('div', { style: listStyle }, rows)
     : h('div', { style: { padding: 14, color: dim, fontSize: 12 } }, t('noMatch'))
 
-  const footer = compact
-    ? h('div', { style: footStyle }, [
-        h('span', null, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
-        h('button', { style: footLink, onClick: () => { setPanelOpen(false); emitGoSettings() } }, t('goSettings')),
-      ])
-    : null
+  const footer = null
 
-  return h('div', { style: panelStyle }, [
+  return h('div', { ref: rootRef, style: panelStyle }, [
     compact ? h('div', { style: headStyle }, [
       h('span', { style: titleStyle }, '⚡ ' + t('panelTitle')),
-      h('button', { style: addBtn, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋'),
+      h('span', { style: { fontSize: 11, color: dim, marginLeft: 6 } }, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
+      h('div', { style: { flex: 1 } }),
+      h('button', { style: footLink, onClick: () => { setPanelOpen(false); emitGoSettings() } }, t('goSettings')),
+      h('div', { style: headBtns }, [
+        h('button', { style: addBtn, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋'),
+        h('button', { style: closeBtn, title: t('close'), onClick: () => setPanelOpen(false) }, '×'),
+      ]),
     ]) : null,
     tabNodes,
     domainNodes,

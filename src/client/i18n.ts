@@ -17,7 +17,7 @@ export function tr(lang: Lang, m: I18NMap): string {
 }
 
 export const STR = {
-  panelTitle: { zh: 'Prompt 调色板', en: 'Prompt Palette' },
+  panelTitle: { zh: 'Prompt', en: 'Prompt' },
   entryBtn: { zh: 'Prompt', en: 'Prompt' },
   add: { zh: '新增自定义模板', en: 'Add custom template' },
   searchPh: { zh: '搜索模板…', en: 'Search templates…' },
@@ -51,4 +51,5 @@ export const STR = {
   delOk: { zh: '删除', en: 'Delete' },
   pinFull: { zh: '置顶已达上限（5 个）', en: 'Pin limit reached (5)' },
   insertHint: { zh: '点击即插入', en: 'Click to insert' },
+  close: { zh: '关闭', en: 'Close' },
 }

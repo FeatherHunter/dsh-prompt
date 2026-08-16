@@ -227,6 +227,9 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
   ].join('\n') },
 ]
 
+// 统一补 builtin 标志（预制只读；自定义由 store 管理）
+PRESET_TEMPLATES.forEach((t) => { t.builtin = true })
+
 export function getPresetById(id: string): PromptTemplate | undefined {
   return PRESET_TEMPLATES.find((t) => t.id === id)
 }

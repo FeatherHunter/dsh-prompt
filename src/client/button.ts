@@ -24,9 +24,12 @@ export function EntryButton(props: any): any {
   }
   return h('button', {
     style, title: tr(lang, STR.entryBtn),
+    'data-dsh-prompt-entry': '1',
     onClick: () => setPanelOpen(!isPanelOpen()),
   }, [
-    h('span', { style: { color: 'var(--dsw-specific-accent,#f0a45c)', fontSize: 14 } }, '⚡'),
+    h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--dsw-specific-accent,#f0a45c)', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, [
+      h('path', { d: 'M13 2 L3 14 h7 l-1 8 10-12 h-7 l1-8 z' }),
+    ]),
     h('span', null, tr(lang, STR.entryBtn)),
   ])
 }

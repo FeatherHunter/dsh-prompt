@@ -103,6 +103,7 @@ export function SmartCardHost(props: any): any {
   // 键盘可达：卡片打开且焦点在 composer 时 ↑↓ 移动 / Enter 填入 / Esc 收起
   react.useEffect(() => {
     if (!showCard || candidates.length === 0) return
+    if (typeof document === 'undefined') return
     const onKey = (e: KeyboardEvent) => {
       try {
         const ae = document.activeElement as HTMLElement | null

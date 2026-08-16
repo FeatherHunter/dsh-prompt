@@ -15,7 +15,7 @@ import {
 } from './smartstore'
 import { getLang, tr, STR } from './i18n'
 
-const DOT_SIZE = 18
+const DOT_SIZE = 22
 const CARD_W = 360
 const CARD_H = 300
 
@@ -80,14 +80,16 @@ export function SmartCardHost(props: any): any {
   // 订阅输入桥（overlay 发布）
   react.useEffect(() => onSmartInput(() => setInput(getSmartInput())), [])
 
-  // 位置：载入记忆（无 → 右下角默认），视口 clamp
+  // 位置：载入记忆（无 → 右下角、输入区上方默认），按圆点尺寸 clamp（圆点可贴近角落）
   react.useEffect(() => {
-    const saved = loadSmartPos() || { x: (typeof window !== 'undefined' ? window.innerWidth : 1280) - 64, y: (typeof window !== 'undefined' ? window.innerHeight : 800) - 96 }
-    const p = clampPos(saved, CARD_W, CARD_H)
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+    const saved = loadSmartPos() || { x: vw - DOT_SIZE - 24, y: vh - DOT_SIZE - 150 }
+    const p = clampPos(saved, DOT_SIZE, DOT_SIZE)
     posRef.current = p
     setPos(p)
   }, [])
-  const applyPos = (p: SmartPos) => { const c = clampPos(p, CARD_W, CARD_H); posRef.current = c; setPos(c) }
+  const applyPos = (p: SmartPos) => { const c = clampPos(p, DOT_SIZE, DOT_SIZE); posRef.current = c; setPos(c) }
 
   // 用户改动草稿 → 解除「插入后抑制」与「Esc 收起」
   react.useEffect(() => { clearSuppression(draft); if (dismissed) setDismissed(false) }, [draft])
@@ -134,7 +136,7 @@ export function SmartCardHost(props: any): any {
     const up = (ev: PointerEvent) => {
       document.removeEventListener('pointermove', move)
       document.removeEventListener('pointerup', up)
-      const p = clampPos({ x: base.x + (ev.clientX - sx), y: base.y + (ev.clientY - sy) }, CARD_W, CARD_H)
+      const p = clampPos({ x: base.x + (ev.clientX - sx), y: base.y + (ev.clientY - sy) }, DOT_SIZE, DOT_SIZE)
       posRef.current = p; setPos(p); saveSmartPos(p)
     }
     document.addEventListener('pointermove', move)
@@ -155,16 +157,16 @@ export function SmartCardHost(props: any): any {
     style: {
       position: 'fixed', left: pos.x, top: pos.y,
       width: DOT_SIZE, height: DOT_SIZE, borderRadius: '50%',
-      background: accent, boxShadow: 'var(--dsw-shadow-lv2)',
-      cursor: 'grab', zIndex: 400, pointerEvents: 'auto',
+      background: accent, border: '2px solid rgba(255,255,255,0.25)',
+      boxShadow: 'var(--dsw-shadow-lv3)', cursor: 'grab', zIndex: 400, pointerEvents: 'auto',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 10, color: '#1a1a1e', fontWeight: 700, userSelect: 'none',
+      fontSize: 11, color: '#1a1a1e', fontWeight: 700, userSelect: 'none',
     },
     title: t('smartDot'),
     onPointerDown: startDrag,
   }, '⚡')
 
-  // ── 卡（从点向右展开；点 = 卡最左侧、垂直居中，卡顶部相对点偏移半个卡高）──
+  // ── 卡（从点向右展开；点 = 卡最左侧、垂直居中；靠边时卡片自身 clamp 进视口，圆点保持在用户放置处）──
   const cardPos = { x: Math.max(8, Math.min(pos.x, (typeof window !== 'undefined' ? window.innerWidth : 1280) - CARD_W - 8)), y: Math.max(8, Math.min(pos.y - CARD_H / 2, (typeof window !== 'undefined' ? window.innerHeight : 800) - CARD_H - 8)) }
   const cardStyle: any = {
     position: 'fixed', left: cardPos.x, top: cardPos.y,

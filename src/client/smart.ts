@@ -163,9 +163,10 @@ export function SmartCardHost(props: any): any {
     onPointerDown: startDrag,
   }, '⚡')
 
-  // ── 卡（从点向右展开）──
+  // ── 卡（从点向右展开；点 = 卡最左侧、垂直居中，卡顶部相对点偏移半个卡高）──
+  const cardPos = { x: Math.max(8, Math.min(pos.x, (typeof window !== 'undefined' ? window.innerWidth : 1280) - CARD_W - 8)), y: Math.max(8, Math.min(pos.y - CARD_H / 2, (typeof window !== 'undefined' ? window.innerHeight : 800) - CARD_H - 8)) }
   const cardStyle: any = {
-    position: 'fixed', left: pos.x, top: pos.y,
+    position: 'fixed', left: cardPos.x, top: cardPos.y,
     width: CARD_W, zIndex: 400, pointerEvents: 'auto',
     background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',
     borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)',
@@ -198,7 +199,9 @@ export function SmartCardHost(props: any): any {
       h('div', { style: { flex: 1 } }),
       h('button', {
         style: { border: 0, background: 'transparent', color: dim, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '2px 4px' },
-        title: t('smartDismiss'), onClick: (e: any) => { e.stopPropagation(); setDismissed(true) },
+        title: t('smartDismiss'),
+        onPointerDown: (e: any) => e.stopPropagation(),
+        onClick: (e: any) => { e.stopPropagation(); setDismissed(true) },
       }, '×'),
     ]),
     h('div', { style: { maxHeight: 220, overflow: 'auto' } }, rows),

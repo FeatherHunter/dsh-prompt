@@ -7,7 +7,7 @@
  */
 import { getReact } from './panel'
 import { smartCandidates, firstFieldCaret, type ScoredTemplate } from './match'
-import { allTemplates, sortedTemplates, bumpUsage } from './store'
+import { allTemplates, bumpUsage } from './store'
 import {
   getSmartInput, onSmartInput, isSmartEnabled, setSmartEnabled,
   onSmartEnabled, loadSmartPos, saveSmartPos, suppressCard, isSuppressed, clearSuppression,
@@ -131,9 +131,9 @@ export function SmartCardHost(props: any): any {
 
   const suppressed = isSuppressed(draft)
   const candidates: ScoredTemplate[] = !enabled || suppressed ? [] : smartCandidates(draft)
-  // 手动展开且无匹配时：展示最近/常用模板（置顶→用量，≤3）作兜底内容
-  const recentRows: ScoredTemplate[] = sortedTemplates(allTemplates()).slice(0, 3).map((tpl) => ({ tpl, score: 0, strongHits: [], weakHits: [] }))
-  const rows: ScoredTemplate[] = candidates.length > 0 ? candidates : (manualOpen ? recentRows : [])
+  // 手动展开且无匹配时：中性常用兜底（预设顺序 ≤3，不按用量——避免"用过一次就一直冒"）
+  const fallbackRows: ScoredTemplate[] = allTemplates().slice(0, 3).map((tpl) => ({ tpl, score: 0, strongHits: [], weakHits: [] }))
+  const rows: ScoredTemplate[] = candidates.length > 0 ? candidates : (manualOpen ? fallbackRows : [])
   rowsRef.current = rows
   const showCard = rows.length > 0 && !dismissed
 
@@ -195,30 +195,42 @@ export function SmartCardHost(props: any): any {
     width: CARD_W, zIndex: 400, pointerEvents: 'auto',
     background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',
     borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)',
-    display: 'flex', flexDirection: 'column', overflow: 'hidden',
-    fontFamily: 'var(--dsw-font-family)', fontSize: 12.5, color: base,
+    display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 10px',
+    fontFamily: 'var(--dsw-font-family)', fontSize: 12, color: base,
   }
   const headStyle: any = { display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderBottom: line, cursor: 'grab' }
+  // 行 = 圆角子卡片（原型样式）：编号 + 名称 + 标签(·分N/·最近) + 命中词 + 「点击填入」按钮
   const rowStyle: any = {
-    display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
-    borderBottom: line,
+    display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px',
+    background: 'var(--dsw-alias-bg-layer-2)', border: '1px solid var(--dsw-alias-border-l1)',
+    borderRadius: 8,
   }
+  const rowNum: any = { color: dim, fontSize: 11, flex: 'none' }
+  const rowName: any = { fontWeight: 500, flex: 'none', whiteSpace: 'nowrap' }
+  const rowTag: any = { color: muted, flex: 'none', fontSize: 11 }
+  const rowHint: any = { color: dim, flex: '1 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }
   const fillBtn: any = {
-    flex: 'none', border: 0, borderRadius: 7, padding: '4px 10px',
-    background: accent, color: '#1a1a1e', fontWeight: 600, cursor: 'pointer',
-    fontFamily: 'var(--dsw-font-family)', fontSize: 11.5, whiteSpace: 'nowrap',
+    flex: 'none', border: '1px solid var(--dsw-alias-border-l2)',
+    background: 'rgba(255,255,255,0.13)', color: base,
+    borderRadius: 6, padding: '3px 10px', cursor: 'pointer',
+    fontFamily: 'var(--dsw-font-family)', fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap',
   }
   const rowNodes = rows.map((c, i) => {
-    const hits = c.score > 0 ? (c.strongHits.join(' / ') + (c.weakHits.length ? ' · ' + c.weakHits.join(' / ') : '')) : t('smartRecent')
+    const common = c.score === 0
+    const domain = (c.tpl as any).domain || (c.tpl as any).tag || ''
+    const tagText = (domain ? domain + ' ' : '') + (common ? '·常用' : '·分' + c.score)
+    const hits = common ? t('smartCommon') : (c.strongHits.join(' / ') + (c.weakHits.length ? ' · ' + c.weakHits.join(' / ') : ''))
     return h('div', { key: c.tpl.id, style: rowStyle }, [
-      h('span', { style: { flex: 'none', fontWeight: 600, fontSize: 12.8, color: base } }, c.tpl.name),
-      h('span', { style: { flex: '1 1 auto', minWidth: 0, color: dim, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, hits),
+      h('span', { style: rowNum }, String(i + 1)),
+      h('span', { style: rowName }, c.tpl.name),
+      h('span', { style: rowTag }, tagText),
+      h('span', { style: rowHint }, hits),
       h('button', { style: fillBtn, title: t('smartFill'), onClick: (e: any) => { e.stopPropagation(); doPick(c) } }, t('smartFill')),
     ])
   })
   const card = h('div', { key: 'card', style: cardStyle }, [
     h('div', { style: headStyle, onPointerDown: startDrag }, [
-      h('span', { style: { fontWeight: 700, fontSize: 12.5 } }, '⚡ ' + t('smartTitle')),
+      h('span', { style: { fontWeight: 600, fontSize: 12 } }, t('smartTitle')),
       h('span', { style: { color: dim, fontSize: 11 } }, t('smartHint')),
       h('div', { style: { flex: 1 } }),
       h('button', {

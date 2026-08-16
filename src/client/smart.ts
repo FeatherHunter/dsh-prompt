@@ -15,7 +15,7 @@ import {
 } from './smartstore'
 import { getLang, tr, STR } from './i18n'
 
-const DOT_SIZE = 22
+const DOT_SIZE = 28
 const CARD_W = 360
 const CARD_H = 300
 
@@ -88,7 +88,7 @@ export function SmartCardHost(props: any): any {
   react.useEffect(() => {
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
-    const saved = loadSmartPos() || { x: vw - DOT_SIZE - 24, y: vh - DOT_SIZE - 150 }
+    const saved = loadSmartPos() || { x: 32, y: Math.round(vh * 0.72) }
     const p = clampPos(saved, DOT_SIZE, DOT_SIZE)
     posRef.current = p
     setPos(p)
@@ -150,7 +150,7 @@ export function SmartCardHost(props: any): any {
   // 首帧必渲染：pos 尚未从 localStorage 载入时先用默认值（右下角），effect 载入后精确定位
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800
-  const effectivePos = pos !== null ? pos : { x: vw - DOT_SIZE - 24, y: vh - DOT_SIZE - 150 }
+  const effectivePos = pos !== null ? pos : { x: 32, y: Math.round(vh * 0.72) }
   if (!enabled) return null
 
   const base = 'var(--dsw-alias-label-primary)'
@@ -166,14 +166,14 @@ export function SmartCardHost(props: any): any {
     style: {
       position: 'fixed', left: effectivePos.x, top: effectivePos.y,
       width: DOT_SIZE, height: DOT_SIZE, borderRadius: '50%',
-      background: accent, border: '2px solid rgba(255,255,255,0.3)',
+      background: accent, border: '2px solid rgba(255,255,255,0.35)',
       boxShadow: 'var(--dsw-shadow-lv3)', cursor: 'grab', zIndex: 400, pointerEvents: 'auto',
       display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none',
     },
     title: t('smartDot'),
     onPointerDown: startDrag,
   }, [
-    h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: '#1a1a1e', stroke: 'none', style: { display: 'block' } }, [
+    h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: '#1a1a1e', stroke: 'none', style: { display: 'block' } }, [
       h('path', { d: 'M13 2 L3 14 h7 l-1 8 10-12 h-7 l1-8 z' }),
     ]),
   ])

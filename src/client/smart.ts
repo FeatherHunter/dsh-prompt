@@ -206,9 +206,8 @@ export function SmartCardHost(props: any): any {
   let cardX = dotX + DOT_SIZE + 4
   if (cardX + CARD_W > vw - 8) cardX = Math.max(8, dotX - CARD_W - 4) // 右侧放不下 → 向左展开
   cardX = Math.max(8, Math.min(cardX, vw - CARD_W - 8))
-  let cardY = dotY - cardHeight / 2 // 垂直中心对准圆点
-  if (cardY + cardHeight > vh - 8) cardY = Math.max(8, dotY - cardHeight) // 底部放不下 → 卡底贴圆点
-  else if (cardY < 8) cardY = Math.min(vh - cardHeight - 8, dotY) // 顶部放不下 → 卡顶贴圆点
+  let cardY = dotY - cardHeight // 卡底边在圆点高度处，卡片向右上展开
+  if (cardY < 8) cardY = 8 // 顶部放不下 → 贴顶（圆点保持在原位）
   cardY = Math.max(8, Math.min(cardY, vh - cardHeight - 8))
   const cardPos = { x: cardX, y: cardY }
   const cardStyle: any = {

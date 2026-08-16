@@ -7,7 +7,7 @@
  */
 import { getReact } from './panel'
 import { smartCandidates, firstFieldCaret, type ScoredTemplate } from './match'
-import { bumpUsage } from './store'
+import { allTemplates, sortedTemplates, bumpUsage } from './store'
 import {
   getSmartInput, onSmartInput, isSmartEnabled, setSmartEnabled,
   onSmartEnabled, loadSmartPos, saveSmartPos, suppressCard, isSuppressed, clearSuppression,
@@ -15,7 +15,7 @@ import {
 } from './smartstore'
 import { getLang, tr, STR } from './i18n'
 
-const DOT_SIZE = 28
+const DOT_SIZE = 12 // 还原原设计：12px 次级色低调圆点（原型 GlobalDot 样式）
 const CARD_W = 360
 const CARD_H = 300
 
@@ -88,10 +88,11 @@ export function SmartCardHost(props: any): any {
   const [input, setInput] = react.useState(getSmartInput())
   const [draft, setDraft] = react.useState(readActiveDraft())
   const [pos, setPos] = react.useState<SmartPos | null>(null)
-  const [highlight, setHighlight] = react.useState(0)
   const [dismissed, setDismissed] = react.useState(false)
+  const [manualOpen, setManualOpen] = react.useState(false)
   const posRef = react.useRef<SmartPos | null>(null)
-  const candidatesRef = react.useRef<ScoredTemplate[]>([])
+  const rowsRef = react.useRef<ScoredTemplate[]>([])
+  const dragMovedRef = react.useRef(false)
 
   // 订阅输入桥（仅用于 actions/插入）+ 开关变更（设置页实时同步）
   react.useEffect(() => {
@@ -122,48 +123,34 @@ export function SmartCardHost(props: any): any {
   }, [])
   const applyPos = (p: SmartPos) => { const c = clampPos(p, DOT_SIZE, DOT_SIZE); posRef.current = c; setPos(c) }
 
-  // 用户改动草稿 → 解除「插入后抑制」与「Esc 收起」
-  react.useEffect(() => { clearSuppression(draft); if (dismissed) setDismissed(false) }, [draft])
+  // 用户改动草稿 → 解除「插入后抑制」「Esc 收起」「手动展开」（回到自动出卡行为）
+  react.useEffect(() => { clearSuppression(draft); if (dismissed) setDismissed(false); if (manualOpen) setManualOpen(false) }, [draft])
 
   const lang = getLang()
   const t = (k: keyof typeof STR) => tr(lang, STR[k])
 
   const suppressed = isSuppressed(draft)
   const candidates: ScoredTemplate[] = !enabled || suppressed ? [] : smartCandidates(draft)
-  candidatesRef.current = candidates
-  const showCard = candidates.length > 0 && !dismissed
+  // 手动展开且无匹配时：展示最近/常用模板（置顶→用量，≤3）作兜底内容
+  const recentRows: ScoredTemplate[] = sortedTemplates(allTemplates()).slice(0, 3).map((tpl) => ({ tpl, score: 0, strongHits: [], weakHits: [] }))
+  const rows: ScoredTemplate[] = candidates.length > 0 ? candidates : (manualOpen ? recentRows : [])
+  rowsRef.current = rows
+  const showCard = rows.length > 0 && !dismissed
 
-  // 键盘可达：卡片打开且焦点在 composer 时 ↑↓ 移动 / Enter 填入 / Esc 收起
-  react.useEffect(() => {
-    if (!showCard || candidates.length === 0) return
-    if (typeof document === 'undefined') return
-    const onKey = (e: KeyboardEvent) => {
-      try {
-        const ae = document.activeElement as HTMLElement | null
-        if (!ae || ae.tagName !== 'TEXTAREA') return
-        if ((ae as HTMLTextAreaElement).value !== draft) return
-        const list = candidatesRef.current
-        if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); setHighlight((n) => (n + 1) % list.length) }
-        else if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); setHighlight((n) => (n - 1 + list.length) % list.length) }
-        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const c = list[highlight]; if (c) doPick(c) }
-        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setDismissed(true) }
-      } catch (err) { /* ignore */ }
-    }
-    document.addEventListener('keydown', onKey, true)
-    return () => document.removeEventListener('keydown', onKey, true)
-  }, [showCard, draft, highlight, candidates.length])
+  // 不捕获键盘：Enter/↑↓ 保持输入框原生语义（用户要求），仅手动点击「点击填入」按钮录入
 
   const doPick = (c: ScoredTemplate) => {
     smartInsert(c.tpl.body, c.tpl.id)
-    setDismissed(true)
+    setDismissed(true); setManualOpen(false)
   }
 
-  // 拖动（点/卡头均可）：pointer 事件 + 位置记忆
+  // 拖动（点/卡头均可）：pointer 事件 + 位置记忆；移动过则不算点击
   const startDrag = (e: any) => {
     e.preventDefault(); e.stopPropagation()
+    dragMovedRef.current = false
     const base = posRef.current || { x: 0, y: 0 }
     const sx = e.clientX, sy = e.clientY
-    const move = (ev: PointerEvent) => { applyPos({ x: base.x + (ev.clientX - sx), y: base.y + (ev.clientY - sy) }) }
+    const move = (ev: PointerEvent) => { dragMovedRef.current = true; applyPos({ x: base.x + (ev.clientX - sx), y: base.y + (ev.clientY - sy) }) }
     const up = (ev: PointerEvent) => {
       document.removeEventListener('pointermove', move)
       document.removeEventListener('pointerup', up)
@@ -186,24 +173,20 @@ export function SmartCardHost(props: any): any {
   const accent = 'var(--dsw-specific-accent,#f0a45c)'
   const line = '1px solid var(--dsw-alias-border-l1)'
 
-  // ── 点（idle 手柄；卡显示时互斥消失）──
-  // 圆点：橙色圆 + 小型 SVG 闪电（不用 emoji——emoji 会以全色大尺寸渲染盖住圆底）
+  // ── 点（idle 手柄；卡显示时互斥消失）── 还原原设计：12px 次级色低调圆点，点击展开
   const dot = h('div', {
     key: 'dot',
     style: {
       position: 'fixed', left: effectivePos.x, top: effectivePos.y,
       width: DOT_SIZE, height: DOT_SIZE, borderRadius: '50%',
-      background: accent, border: '2px solid rgba(255,255,255,0.35)',
-      boxShadow: 'var(--dsw-shadow-lv3)', cursor: 'grab', zIndex: 400, pointerEvents: 'auto',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none',
+      background: 'var(--dsw-alias-label-tertiary)', opacity: 0.45,
+      boxShadow: 'var(--dsw-shadow-lv1)', cursor: 'grab', zIndex: 400, pointerEvents: 'auto',
+      userSelect: 'none',
     },
     title: t('smartDot'),
     onPointerDown: startDrag,
-  }, [
-    h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: '#1a1a1e', stroke: 'none', style: { display: 'block' } }, [
-      h('path', { d: 'M13 2 L3 14 h7 l-1 8 10-12 h-7 l1-8 z' }),
-    ]),
-  ])
+    onClick: () => { if (dragMovedRef.current) return; setManualOpen(true); setDismissed(false) },
+  })
 
   // ── 卡（从点向右展开；点 = 卡最左侧、垂直居中；靠边时卡片自身 clamp 进视口，圆点保持在用户放置处）──
   const cardPos = { x: Math.max(8, Math.min(effectivePos.x, (typeof window !== 'undefined' ? window.innerWidth : 1280) - CARD_W - 8)), y: Math.max(8, Math.min(effectivePos.y - CARD_H / 2, (typeof window !== 'undefined' ? window.innerHeight : 800) - CARD_H - 8)) }
@@ -216,19 +199,18 @@ export function SmartCardHost(props: any): any {
     fontFamily: 'var(--dsw-font-family)', fontSize: 12.5, color: base,
   }
   const headStyle: any = { display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderBottom: line, cursor: 'grab' }
-  const rowStyle = (on: boolean): any => ({
+  const rowStyle: any = {
     display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
-    background: on ? 'var(--dsw-alias-interactive-bg-hover)' : 'transparent',
-    borderBottom: line, cursor: 'pointer',
-  })
+    borderBottom: line,
+  }
   const fillBtn: any = {
     flex: 'none', border: 0, borderRadius: 7, padding: '4px 10px',
     background: accent, color: '#1a1a1e', fontWeight: 600, cursor: 'pointer',
     fontFamily: 'var(--dsw-font-family)', fontSize: 11.5, whiteSpace: 'nowrap',
   }
-  const rows = candidates.map((c, i) => {
+  const rowNodes = rows.map((c, i) => {
     const hits = c.score > 0 ? (c.strongHits.join(' / ') + (c.weakHits.length ? ' · ' + c.weakHits.join(' / ') : '')) : t('smartRecent')
-    return h('div', { key: c.tpl.id, style: rowStyle(i === highlight), onClick: () => doPick(c) }, [
+    return h('div', { key: c.tpl.id, style: rowStyle }, [
       h('span', { style: { flex: 'none', fontWeight: 600, fontSize: 12.8, color: base } }, c.tpl.name),
       h('span', { style: { flex: '1 1 auto', minWidth: 0, color: dim, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, hits),
       h('button', { style: fillBtn, title: t('smartFill'), onClick: (e: any) => { e.stopPropagation(); doPick(c) } }, t('smartFill')),
@@ -243,10 +225,10 @@ export function SmartCardHost(props: any): any {
         style: { border: 0, background: 'transparent', color: dim, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '2px 4px' },
         title: t('smartDismiss'),
         onPointerDown: (e: any) => e.stopPropagation(),
-        onClick: (e: any) => { e.stopPropagation(); setDismissed(true) },
+        onClick: (e: any) => { e.stopPropagation(); setDismissed(true); setManualOpen(false) },
       }, '×'),
     ]),
-    h('div', { style: { maxHeight: 220, overflow: 'auto' } }, rows),
+    h('div', { style: { maxHeight: 220, overflow: 'auto' } }, rowNodes),
   ])
 
   return showCard ? card : dot

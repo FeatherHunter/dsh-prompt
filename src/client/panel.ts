@@ -7,7 +7,7 @@ import type { PromptTemplate } from './templates'
 import { PRESET_TEMPLATES, getPresetById } from './templates'
 import {
   allTemplates, sortedTemplates, displayTag, isPinned, togglePin, canPinMore,
-  addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, MAX_BODY,
+  addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, templateHaystack, MAX_BODY,
 } from './store'
 import { setPanelOpen } from './state'
 import { getLang, tr, STR, type Lang } from './i18n'
@@ -128,8 +128,9 @@ export function TemplateBrowser(props: BrowserProps): any {
     return true
   })
   const ql = q.trim().toLowerCase()
+  // 搜索与 /prompt 触发源共用检索底座（名称/正文/领域/阶段/动作/标签）
   const filtered = ql
-    ? list.filter((x) => (x.name + x.nameEn + x.body).toLowerCase().indexOf(ql) >= 0)
+    ? list.filter((x) => templateHaystack(x).indexOf(ql) >= 0)
     : list
   const sorted = sortedTemplates(filtered)
 

@@ -71,6 +71,12 @@ export function displayTag(t: PromptTemplate): string {
   return t.domain
 }
 
+/** 检索串（面板搜索与 /prompt 触发源共用）：名称/英文名/正文/领域/阶段/动作/标签 */
+export function templateHaystack(t: PromptTemplate): string {
+  const tag = !t.builtin ? ((t as CustomTemplate).tag || '自定义') : ''
+  return (t.name + ' ' + (t.nameEn || '') + ' ' + (t.body || '') + ' ' + t.domain + ' ' + t.stage + ' ' + (t.action || []).join(' ') + ' ' + tag).toLowerCase()
+}
+
 /** 排序：置顶（pin 在前）→ 用量计数降序。用量仅供排序，不显示数字。 */
 export function sortedTemplates(list: PromptTemplate[]): PromptTemplate[] {
   const usage = loadUsage()

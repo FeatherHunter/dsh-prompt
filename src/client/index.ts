@@ -1,18 +1,20 @@
 /**
  * dsh-prompt — client 入口（v1 常规模式）
- * 装配：input.left 入口按钮 / input.overlay 面板浮层 / settings.plugins.tab 模板管理页
+ * 装配：input.left 入口按钮 / input.overlay 面板浮层 / settings.plugins.tab 模板管理页 / inputTriggers /prompt 触发源（#9）
  */
 import { getReact, TemplateBrowser, setGoSettingsHandler } from './panel'
 import { EntryButton } from './button'
 import { SettingsPage } from './settings'
+import { buildPromptSource } from './trigger'
 import { isPanelOpen, onPanelOpen } from './state'
 
 type ClientContext = {
   slots: any
+  inputTriggers: any
   effect: (fn: () => unknown, key?: string) => unknown
 }
 
-export const inject = ['slots']
+export const inject = ['slots', 'inputTriggers']
 
 /** 面板浮层（conversation.input.overlay，session 作用域 → 有 useInput/inputActions） */
 function PanelHost(props: any): any {
@@ -52,4 +54,9 @@ export function apply(ctx: ClientContext): void {
 
   // 面板「设置 → 模板管理」：当前 v1 关闭面板即可（设置页经 ⚙ → 插件 → dsh-prompt 到达）
   setGoSettingsHandler(() => { /* 跳转宿主设置页留待后续（需要宿主 settings 路由 API） */ })
+
+  // /prompt 触发源（#9）：列出预制+自定义模板，支持过滤（标签/搜索），选中即插入
+  if (ctx.inputTriggers && typeof ctx.inputTriggers.registerSource === 'function') {
+    ctx.effect(() => ctx.inputTriggers.registerSource(buildPromptSource()), 'dsh-prompt: /prompt source')
+  }
 }

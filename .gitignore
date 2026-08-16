@@ -1,0 +1,6 @@
+node_modules/
+lib/client.js
+lib/client.js.map
+*.tgz
+*.tsbuildinfo
+.DS_Store

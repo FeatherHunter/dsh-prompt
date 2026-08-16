@@ -28,6 +28,21 @@ function clampPos(p: SmartPos, w: number, h: number): SmartPos {
   }
 }
 
+/** 读取当前输入框草稿：优先焦点 textarea，其次可见 textarea；无 → 空串 */
+function readActiveDraft(): string {
+  try {
+    if (typeof document === 'undefined') return ''
+    const ae = document.activeElement as HTMLTextAreaElement | null
+    if (ae && ae.tagName === 'TEXTAREA') return ae.value || ''
+    const tas = document.querySelectorAll('textarea')
+    for (let i = 0; i < tas.length; i++) {
+      const ta = tas[i] as HTMLTextAreaElement
+      if (ta.offsetParent !== null) return ta.value || ''
+    }
+  } catch (e) { /* ignore */ }
+  return ''
+}
+
 /** 光标位置：焦点 textarea（value===draft）的 selectionStart，找不到 → 末尾 */
 function caretInDraft(draft: string): number {
   try {
@@ -43,8 +58,9 @@ function caretInDraft(draft: string): number {
 
 /** 智能插入：光标处插入模板正文（不覆盖），光标定位到首字段冒号后；用量+1；抑制卡片重现 */
 export function smartInsert(body: string, id: string): void {
-  const { actions, draft } = getSmartInput()
+  const { actions } = getSmartInput()
   if (!actions || typeof actions.setDraft !== 'function') return
+  const draft = readActiveDraft()
   const caret = caretInDraft(draft)
   const newDraft = draft.slice(0, caret) + body + draft.slice(caret)
   actions.setDraft(newDraft)
@@ -70,18 +86,29 @@ export function SmartCardHost(props: any): any {
 
   const [enabled, setEnabled] = react.useState(isSmartEnabled())
   const [input, setInput] = react.useState(getSmartInput())
+  const [draft, setDraft] = react.useState(readActiveDraft())
   const [pos, setPos] = react.useState<SmartPos | null>(null)
   const [highlight, setHighlight] = react.useState(0)
   const [dismissed, setDismissed] = react.useState(false)
   const posRef = react.useRef<SmartPos | null>(null)
   const candidatesRef = react.useRef<ScoredTemplate[]>([])
-  const draft = (input && input.draft) || ''
 
-  // 订阅输入桥（overlay 发布）+ 开关变更（设置页实时同步）
+  // 订阅输入桥（仅用于 actions/插入）+ 开关变更（设置页实时同步）
   react.useEffect(() => {
     const off1 = onSmartInput(() => setInput(getSmartInput()))
     const off2 = onSmartEnabled((on) => setEnabled(on))
     return () => { off1(); off2() }
+  }, [])
+
+  // 草稿来源 = 输入框 textarea 真实值（轮询 + focus 事件；与面板插入同源，不依赖 overlay 重渲染）
+  react.useEffect(() => {
+    const timer = setInterval(() => {
+      const d = readActiveDraft()
+      setDraft((prev) => (prev === d ? prev : d))
+    }, 350)
+    const onFocus = () => { setDraft(readActiveDraft()) }
+    if (typeof document !== 'undefined') document.addEventListener('focusin', onFocus, true)
+    return () => { clearInterval(timer); if (typeof document !== 'undefined') document.removeEventListener('focusin', onFocus, true) }
   }, [])
 
   // 位置：载入记忆（无 → 右下角、输入区上方默认），按圆点尺寸 clamp（圆点可贴近角落）

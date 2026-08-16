@@ -62,7 +62,7 @@ export function apply(ctx: ClientContext): void {
 
   // 设置页（直属设置面板的配置页，非插件子类）：智能开关 + 模板管理
   ctx.effect(() => ctx.slots.inject('settings.section', () =>
-    ctx.slots.register({ name: 'settings.section', id: 'dsh-prompt', order: 50, label: () => 'dsh-prompt' }, SettingsPage),
+    ctx.slots.register({ name: 'settings.section', id: 'dsh-prompt-palette', priority: 10, order: 50, label: () => 'dsh-prompt' }, SettingsPage),
   ), 'dsh-prompt: settings')
 
   // 面板「设置 → 模板管理」：当前 v1 关闭面板即可（设置页经 ⚙ → 插件 → dsh-prompt 到达）

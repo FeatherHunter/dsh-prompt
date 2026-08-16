@@ -10,7 +10,7 @@ import { smartCandidates, firstFieldCaret, type ScoredTemplate } from './match'
 import { bumpUsage } from './store'
 import {
   getSmartInput, onSmartInput, isSmartEnabled, setSmartEnabled,
-  loadSmartPos, saveSmartPos, suppressCard, isSuppressed, clearSuppression,
+  onSmartEnabled, loadSmartPos, saveSmartPos, suppressCard, isSuppressed, clearSuppression,
   type SmartPos,
 } from './smartstore'
 import { getLang, tr, STR } from './i18n'
@@ -77,8 +77,12 @@ export function SmartCardHost(props: any): any {
   const candidatesRef = react.useRef<ScoredTemplate[]>([])
   const draft = (input && input.draft) || ''
 
-  // 订阅输入桥（overlay 发布）
-  react.useEffect(() => onSmartInput(() => setInput(getSmartInput())), [])
+  // 订阅输入桥（overlay 发布）+ 开关变更（设置页实时同步）
+  react.useEffect(() => {
+    const off1 = onSmartInput(() => setInput(getSmartInput()))
+    const off2 = onSmartEnabled((on) => setEnabled(on))
+    return () => { off1(); off2() }
+  }, [])
 
   // 位置：载入记忆（无 → 右下角、输入区上方默认），按圆点尺寸 clamp（圆点可贴近角落）
   react.useEffect(() => {
@@ -143,7 +147,11 @@ export function SmartCardHost(props: any): any {
     document.addEventListener('pointerup', up)
   }
 
-  if (!enabled || pos === null) return null
+  // 首帧必渲染：pos 尚未从 localStorage 载入时先用默认值（右下角），effect 载入后精确定位
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+  const effectivePos = pos !== null ? pos : { x: vw - DOT_SIZE - 24, y: vh - DOT_SIZE - 150 }
+  if (!enabled) return null
 
   const base = 'var(--dsw-alias-label-primary)'
   const muted = 'var(--dsw-alias-label-secondary)'
@@ -156,7 +164,7 @@ export function SmartCardHost(props: any): any {
   const dot = h('div', {
     key: 'dot',
     style: {
-      position: 'fixed', left: pos.x, top: pos.y,
+      position: 'fixed', left: effectivePos.x, top: effectivePos.y,
       width: DOT_SIZE, height: DOT_SIZE, borderRadius: '50%',
       background: accent, border: '2px solid rgba(255,255,255,0.3)',
       boxShadow: 'var(--dsw-shadow-lv3)', cursor: 'grab', zIndex: 400, pointerEvents: 'auto',
@@ -171,7 +179,7 @@ export function SmartCardHost(props: any): any {
   ])
 
   // ── 卡（从点向右展开；点 = 卡最左侧、垂直居中；靠边时卡片自身 clamp 进视口，圆点保持在用户放置处）──
-  const cardPos = { x: Math.max(8, Math.min(pos.x, (typeof window !== 'undefined' ? window.innerWidth : 1280) - CARD_W - 8)), y: Math.max(8, Math.min(pos.y - CARD_H / 2, (typeof window !== 'undefined' ? window.innerHeight : 800) - CARD_H - 8)) }
+  const cardPos = { x: Math.max(8, Math.min(effectivePos.x, (typeof window !== 'undefined' ? window.innerWidth : 1280) - CARD_W - 8)), y: Math.max(8, Math.min(effectivePos.y - CARD_H / 2, (typeof window !== 'undefined' ? window.innerHeight : 800) - CARD_H - 8)) }
   const cardStyle: any = {
     position: 'fixed', left: cardPos.x, top: cardPos.y,
     width: CARD_W, zIndex: 400, pointerEvents: 'auto',

@@ -27,7 +27,8 @@ export function onSmartInput(fn: () => void): () => void {
 const SMART_KEY = 'dsh.prompt.smart'
 const POS_KEY = 'dsh.prompt.smartPos'
 
-/** 智能模式开关：默认开（localStorage 缺省 true） */
+/** 智能模式开关：默认开（localStorage 缺省 true）；变更广播（设置页 ↔ 悬浮卡实时同步） */
+const enabledListeners = new Set<(on: boolean) => void>()
 export function isSmartEnabled(): boolean {
   try {
     const s = globalThis.localStorage
@@ -38,6 +39,11 @@ export function isSmartEnabled(): boolean {
 }
 export function setSmartEnabled(on: boolean): void {
   try { globalThis.localStorage?.setItem(SMART_KEY, on ? '1' : '0') } catch (e) { /* ignore */ }
+  enabledListeners.forEach((fn) => { try { fn(on) } catch (e) { /* ignore */ } })
+}
+export function onSmartEnabled(fn: (on: boolean) => void): () => void {
+  enabledListeners.add(fn)
+  return () => { enabledListeners.delete(fn) }
 }
 
 export interface SmartPos { x: number; y: number }

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE — dsh-prompt 面板 UI（丢弃用）</title>
+<style>
+  :root {
+    --bg: #16161a; --bg2: #1e1e24; --bg3: #26262e; --line: #34343e;
+    --txt: #e8e8ec; --dim: #9a9aa5; --acc: #f0a45c; --ok: #6fce8f; --err: #e06c75;
+    --font: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--txt); height: 100vh; overflow: hidden; }
+  .app { display: flex; height: 100vh; }
+  .sidebar { width: 220px; background: var(--bg2); border-right: 1px solid var(--line); padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .sidebar .logo { font-size: 13px; font-weight: 700; padding: 4px 6px 12px; }
+  .side-item { padding: 7px 10px; border-radius: 7px; font-size: 12.5px; color: var(--dim); cursor: pointer; }
+  .side-item.on { background: var(--bg3); color: var(--txt); }
+  .side-item.settings { margin-top: auto; }
+  .main { flex: 1; display: flex; flex-direction: column; }
+  .msgs { flex: 1; overflow: auto; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { max-width: 78%; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.55; }
+  .msg.user { align-self: flex-end; background: #2c3a52; }
+  .msg.bot { align-self: flex-start; background: var(--bg2); border: 1px solid var(--line); }
+  .composer { padding: 10px 18px 16px; border-top: 1px solid var(--line); background: var(--bg); }
+  .inputrow { display: flex; align-items: flex-end; gap: 8px; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; position: relative; }
+  .inputrow textarea { flex: 1; background: transparent; border: 0; outline: 0; color: var(--txt); font: 13px/1.5 var(--font); resize: none; min-height: 40px; padding: 6px 2px; }
+  .sendbtn { width: 34px; height: 34px; border-radius: 9px; background: var(--acc); color: #1a1a1e; border: 0; font-weight: 700; cursor: pointer; flex: none; }
+  .sendbtn:disabled { opacity: .35; cursor: default; }
+  .entrybtn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 9px; background: var(--bg3); border: 1px solid var(--line); color: var(--txt); font: 12.5px var(--font); cursor: pointer; flex: none; margin-bottom: 4px; }
+  .entrybtn:hover { border-color: var(--acc); }
+  .entrybtn .bolt { color: var(--acc); font-size: 14px; }
+  .entryrow { display: flex; align-items: center; gap: 8px; }
+  .panel { background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.55); overflow: hidden; display: flex; flex-direction: column; }
+  .phead { padding: 10px 12px 8px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .phead .title { font-size: 13px; font-weight: 700; }
+  .phead .add { width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg3); color: var(--acc); font-size: 16px; line-height: 1; cursor: pointer; }
+  .ptabs { display: flex; gap: 4px; padding: 8px 12px 0; flex-wrap: wrap; }
+  .ptab { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--dim); font: 12px var(--font); cursor: pointer; }
+  .ptab.on { background: var(--bg3); color: var(--txt); border-color: var(--acc); }
+  .psearch { margin: 8px 12px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg3); color: var(--txt); font: 12.5px var(--font); outline: 0; }
+  .plist { overflow: auto; padding: 4px 8px 10px; }
+  .pitem { display: flex; align-items: center; gap: 8px; padding: 8px 9px; border-radius: 8px; cursor: pointer; position: relative; }
+  .pitem:hover { background: var(--bg3); }
+  .pitem .pin { flex: none; width: 18px; text-align: center; color: var(--dim); cursor: pointer; font-size: 12px; }
+  .pitem .pin.on { color: var(--acc); }
+  .pitem .nm { flex: 1; min-width: 0; font-size: 12.8px; }
+  .pitem .nm .sub { display: block; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pitem .tag { flex: none; font-size: 10.5px; color: var(--dim); border: 1px solid var(--line); padding: 1px 6px; border-radius: 999px; }
+  .pitem .acts { display: none; gap: 4px; flex: none; }
+  .pitem:hover .acts { display: inline-flex; }
+  .pitem .acts button { border: 1px solid var(--line); background: var(--bg2); color: var(--dim); font: 11px var(--font); padding: 2px 7px; border-radius: 6px; cursor: pointer; }
+  .pitem .acts button:hover { color: var(--txt); }
+  .pitem .acts button.del:hover { color: var(--err); border-color: var(--err); }
+  .pfoot { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); }
+  .pfoot a { color: var(--acc); cursor: pointer; text-decoration: none; }
+  .mask { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; z-index: 90; }
+  .modal { width: 460px; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .modal h3 { font-size: 14px; }
+  .modal input, .modal textarea, .modal select { width: 100%; background: var(--bg3); border: 1px solid var(--line); color: var(--txt); border-radius: 8px; padding: 8px 10px; font: 12.5px var(--font); outline: 0; }
+  .modal textarea { height: 110px; resize: vertical; }
+  .mbtns { display: flex; justify-content: flex-end; gap: 8px; }
+  .mbtns button { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg3); color: var(--txt); font: 12.5px var(--font); cursor: pointer; }
+  .mbtns .primary { background: var(--acc); color: #1a1a1e; border: 0; font-weight: 600; }
+  .mbtns .danger { color: var(--err); }
+  .overlaypanel { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 50; }
+  .drawer { position: absolute; right: 0; bottom: calc(100% + 12px); width: 640px; height: 420px; z-index: 50; display: flex; }
+  .drawer .col-list { width: 260px; border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+  .drawer .col-prev { flex: 1; padding: 14px; overflow: auto; font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; background: var(--bg); }
+  .drawer .plist { flex: 1; overflow: auto; }
+  .vbar { position: fixed; right: 12px; top: 12px; background: var(--bg3); border: 1px solid var(--line); border-radius: 999px; padding: 5px 8px; display: flex; gap: 4px; z-index: 200; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+  .vbar button { border: 0; background: transparent; color: var(--dim); font: 12px var(--font); padding: 4px 12px; border-radius: 999px; cursor: pointer; }
+  .vbar button.on { background: var(--acc); color: #1a1a1e; font-weight: 600; }
+  .vbar .mark { color: var(--err); font-weight: 700; font-size: 11px; padding: 4px 8px; }
+  .dbg { position: fixed; left: 232px; top: 12px; bottom: auto; background: rgba(20,20,24,.92); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: 10.5px/1.5 ui-monospace, monospace; color: var(--dim); max-width: 420px; z-index: 190; }
+  .dbg b { color: var(--ok); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="logo">DSH · dsh-prompt <span style="font-size:10px;color:var(--err)">PROTOTYPE</span></div>
+    <div class="side-item on">会话 1</div>
+    <div class="side-item">会话 2</div>
+    <div class="side-item">新会话 +</div>
+    <div class="side-item settings" id="settingsLink">⚙ 设置（模板管理页）</div>
+  </div>
+  <div class="main">
+    <div class="msgs">
+      <div class="msg bot">你好，我是 DSH。有什么可以帮你？</div>
+      <div class="msg user">帮我看看这个方案有哪些风险</div>
+      <div class="msg bot">好的，可以从几个角度分析……</div>
+    </div>
+    <div class="composer">
+      <div class="inputrow" id="composerBar">
+        <div class="entryrow">
+          <button class="entrybtn" id="entryBtn"><span class="bolt">⚡</span> Prompt</button>
+        </div>
+        <textarea id="ta" placeholder="输入消息…" rows="2"></textarea>
+        <button class="sendbtn" disabled>➤</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="dbg" id="dbg"></div>
+<div class="vbar">
+  <span class="mark">丢弃用原型</span>
+  <button data-v="a">A 浮层面板</button>
+  <button data-v="b">B 输入覆盖</button>
+  <button data-v="c">C 侧栏抽屉</button>
+</div>
+
+<script>
+"use strict";
+var TAGS = ["思考框架", "学习", "工程", "执行", "自定义"];
+var templates = [
+  { id:"fp",   name:"第一性原理拆解", tag:"思考框架", count:24, pin:true,  body:"请用第一性原理分析 [主题]：\n1. 基本组成单元是什么？\n2. 哪些是不可改变的真理？\n3. 去掉所有假设后还剩下什么？\n4. 哪些常识其实可以颠覆？\n5. 基于以上给出原创见解。" },
+  { id:"soc",  name:"苏格拉底式追问", tag:"思考框架", count:19, pin:false, body:"请用苏格拉底式追问帮我思考 [主题]：复述我的核心假设 → 3 个最有力的质疑 → 一个我没考虑到的视角 → 你还会问我什么？" },
+  { id:"adv",  name:"对抗式审查（红队）", tag:"思考框架", count:15, pin:false, body:"请对 [方案] 做对抗式审查：最强的 5 个假设如何失效？3 个反例？隐藏的认知偏差？失败最可能的原因排序？何种证据能让你改变立场？" },
+  { id:"dec",  name:"决策博弈分析", tag:"思考框架", count:12, pin:false, body:"你是冷静的决策分析师。对 [我的处境]：每个选项最坏/最好/最可能的结果？10 年后我会后悔什么？哪条路没有回头路？你会怎么选、为什么？有没有第三个选项？" },
+  { id:"pre",  name:"事前验尸", tag:"思考框架", count:8,  pin:false, body:"假设 [方案] 一年后彻底失败。事后回溯：按可能性列出 8 个失败原因，前 3 个的预防措施，现在该监控的早期信号，是否有致命缺陷。" },
+  { id:"code", name:"代码审查", tag:"工程", count:21, pin:true,  body:"请审查以下代码：正确性（bug/边界/并发）、安全（注入/鉴权/敏感信息）、可维护性、性能；按严重程度排序并给出修改建议（含示例）。" },
+  { id:"test", name:"测试用例设计", tag:"工程", count:9,  pin:false, body:"为 [功能] 设计测试用例：正常路径、边界与极端值、异常处理、并发/幂等场景；指出最容易漏的用例与对应风险。" },
+  { id:"learn",name:"学习路线设计", tag:"学习", count:11, pin:false, body:"为 [领域] 设计从零到实战的学习路线：分阶段目标、每阶段核心主题与练习、伪学习陷阱、30 天最小闭环与掌握检验基准。" },
+  { id:"snap", name:"零丢失快照", tag:"执行", count:6,  pin:false, body:"执行一次零丢失快照：按「目的地/约束与偏好/已确认决定/待决问题/雾区」五类全量复述会话信息，每条标注出处，单独列「可疑遗漏」供我裁决。" },
+  { id:"c1",   name:"我的周报模板", tag:"自定义", count:7, pin:false, own:true, body:"请基于本周工作生成周报：本周完成 / 遇到的问题与解决 / 下周计划 / 需要的支持。语气简洁，分点输出。" },
+  { id:"c2",   name:"重构检查清单", tag:"自定义", count:3, pin:false, own:true, body:"重构前逐项自查：行为是否保持不变？有没有测试保护？每一步能否独立提交？风险点是否标注？" },
+];
+
+var state = { q:"", tab:"全部", panelOpen:false };
+var variant = new URLSearchParams(location.search).get("v") || "a";
+
+var el = {
+  bar: document.getElementById("composerBar"),
+  entry: document.getElementById("entryBtn"),
+  panelRoot: null,
+  dbg: document.getElementById("dbg"),
+  ta: document.getElementById("ta"),
+  settings: document.getElementById("settingsLink"),
+};
+
+function sorted() {
+  var arr = templates.slice();
+  arr.sort(function(a,b){ return (b.pin?1:0)-(a.pin?1:0) || b.count-a.count; });
+  return arr;
+}
+function filtered() {
+  var q = state.q.trim().toLowerCase();
+  return sorted().filter(function(t){
+    if (state.tab!=="全部" && t.tag!==state.tab) return false;
+    if (!q) return true;
+    return (t.name+t.tag+t.body).toLowerCase().indexOf(q)>=0;
+  });
+}
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function itemHTML(t) {
+  var acts = t.own
+    ? '<span class="acts"><button data-act="edit">编辑</button><button class="del" data-act="del">删除</button></span>'
+    : '<span class="acts"><button data-act="copy">复制为自定义</button></span>';
+  return '<div class="pitem" data-id="'+t.id+'">'
+    + '<span class="pin'+(t.pin?" on":"")+'" data-act="pin" title="置顶/取消置顶">'+(t.pin?"★":"☆")+'</span>'
+    + '<span class="nm">'+esc(t.name)+'<span class="sub">'+esc(t.body.slice(0,44))+'…</span></span>'
+    + '<span class="tag">'+esc(t.tag)+'</span>'
+    + acts + '</div>';
+}
+function panelShell(body) {
+  return '<div class="panel">'
+    + '<div class="phead"><span class="title">⚡ Prompt 调色板</span>'
+    + '<button class="add" id="addBtn" title="新增自定义模板">＋</button></div>'
+    + '<div class="ptabs" id="tabs"></div>'
+    + '<input class="psearch" id="search" placeholder="搜索模板…" value="'+esc(state.q)+'">'
+    + body
+    + '<div class="pfoot"><span>预制 '+(templates.filter(function(t){return !t.own;}).length)+' · 自定义 '+templates.filter(function(t){return t.own;}).length+'</span><a id="goSettings">⚙ 设置 → 模板管理</a></div>'
+    + '</div>';
+}
+function tabsHTML() {
+  return ["全部"].concat(TAGS).map(function(t){
+    return '<button class="ptab'+(state.tab===t?" on":"")+'" data-tab="'+t+'">'+t+'</button>';
+  }).join("");
+}
+function renderPanel() {
+  if (el.panelRoot) { el.panelRoot.remove(); el.panelRoot=null; }
+  if (!state.panelOpen) { surface(); return; }
+  var list = filtered().map(itemHTML).join("") || '<div style="padding:14px;color:var(--dim);font-size:12px">无匹配模板</div>';
+  var root = document.createElement("div");
+  if (variant==="a") {
+    root.className = "panel";
+    root.style.cssText = "position:absolute;left:0;bottom:calc(100% + 8px);width:420px;max-height:480px;z-index:50;";
+    root.innerHTML = panelShell('<div class="plist" id="plist">'+list+'</div>');
+  } else if (variant==="b") {
+    root.className = "overlaypanel";
+    root.innerHTML = panelShell('<div class="plist" id="plist">'+list+'</div>');
+  } else {
+    root.innerHTML = '<div class="drawer">'
+      + '<div class="col-list"><div class="ptabs" id="tabs"></div><div class="plist" id="plist">'+list+'</div>'
+      + '<div class="pfoot"><a id="goSettings">⚙ 设置 → 模板管理</a></div></div>'
+      + '<div class="col-prev" id="drawerPrev">← 点左侧模板查看全文预览</div></div>';
+  }
+  el.bar.appendChild(root);
+  el.panelRoot = root;
+  bindPanel();
+  surface();
+}
+function surface() {
+  var order = sorted().map(function(t){ return (t.pin?"★":"☆")+t.name+"("+t.count+")"; }).join(" → ");
+  el.dbg.innerHTML = "<b>内部排序（计数不显示）:</b> " + esc(order) + "<br><b>面板:</b> 变体 " + variant.toUpperCase() + (state.panelOpen ? " 开" : " 关");
+}
+function addModal(editOf) {
+  var t = editOf || { name:"", tag:"自定义", body:"" };
+  var m = document.createElement("div");
+  m.className = "mask";
+  m.innerHTML = '<div class="modal"><h3>'+(editOf?"编辑自定义模板":"新增自定义模板")+'</h3>'
+    + '<input id="mName" placeholder="模板名称" value="'+esc(t.name)+'">'
+    + '<select id="mTag">'+TAGS.map(function(x){return '<option'+(x===t.tag?" selected":"")+'>'+x+'</option>';}).join("")+'</select>'
+    + '<textarea id="mBody" placeholder="Prompt 正文（≤1000 字）">'+esc(t.body)+'</textarea>'
+    + '<div class="mbtns"><button id="mCancel">取消</button><button class="primary" id="mOk">'+(editOf?"保存":"添加")+'</button></div></div>';
+  document.body.appendChild(m);
+  m.querySelector("#mCancel").onclick = function(){ m.remove(); };
+  m.querySelector("#mOk").onclick = function(){
+    var nm = m.querySelector("#mName").value.trim(), bd = m.querySelector("#mBody").value.trim();
+    if (!nm) { alert("名称必填"); return; }
+    if (bd.length > 1000) { alert("正文超过 1000 字上限"); return; }
+    if (editOf) { editOf.name = nm; editOf.tag = m.querySelector("#mTag").value; editOf.body = bd; }
+    else { templates.push({ id:"c"+Date.now(), name:nm, tag:m.querySelector("#mTag").value, count:0, pin:false, own:true, body:bd }); }
+    m.remove(); renderPanel();
+  };
+}
+function confirmDel(id) {
+  var t = templates.find(function(x){return x.id===id;});
+  if (!t) return;
+  var m = document.createElement("div");
+  m.className = "mask";
+  m.innerHTML = '<div class="modal"><h3>删除确认</h3><div style="font-size:12.5px;color:var(--dim)">确定删除自定义模板「<b style="color:var(--txt)">'+esc(t.name)+'</b>」吗？此操作不可撤销。</div>'
+    + '<div class="mbtns"><button id="mCancel">取消</button><button class="danger" id="mOk">删除</button></div></div>';
+  document.body.appendChild(m);
+  m.querySelector("#mCancel").onclick = function(){ m.remove(); };
+  m.querySelector("#mOk").onclick = function(){ templates = templates.filter(function(x){return x.id!==id;}); m.remove(); renderPanel(); };
+}
+function bindPanel() {
+  var root = el.panelRoot; if (!root) return;
+  var tabs = root.querySelector("#tabs");
+  if (tabs) { tabs.innerHTML = tabsHTML(); tabs.querySelectorAll("[data-tab]").forEach(function(b){
+    b.onclick = function(){ state.tab = b.getAttribute("data-tab"); renderPanel(); };
+  }); }
+  var search = root.querySelector("#search");
+  if (search) search.oninput = function(){
+    state.q = search.value;
+    renderPanel();
+    var ns = el.panelRoot && el.panelRoot.querySelector("#search");
+    if (ns) { ns.focus(); ns.setSelectionRange(ns.value.length, ns.value.length); }
+  };
+  var add = root.querySelector("#addBtn");
+  if (add) add.onclick = function(){ addModal(null); };
+  var gs = root.querySelector("#goSettings");
+  if (gs) gs.onclick = function(){ alert("设置页 → 插件 → dsh-prompt（真实插件走 settings.plugins.tab）"); };
+  var list = root.querySelector("#plist");
+  if (list) list.querySelectorAll(".pitem").forEach(function(item){
+    var id = item.getAttribute("data-id");
+    var t = templates.find(function(x){return x.id===id;});
+    item.addEventListener("mouseenter", function(){
+      if (variant==="c") { var p = root.querySelector("#drawerPrev"); if (p) p.textContent = t.body; }
+    });
+    item.querySelectorAll("[data-act]").forEach(function(b){
+      b.onclick = function(ev){
+        ev.stopPropagation();
+        var act = b.getAttribute("data-act");
+        if (act==="pin") { t.pin = !t.pin; renderPanel(); }
+        else if (act==="edit") { addModal(t); }
+        else if (act==="del") { confirmDel(t.id); }
+        else if (act==="copy") { templates.push({ id:"c"+Date.now(), name:t.name+"（副本）", tag:"自定义", count:0, pin:false, own:true, body:t.body }); renderPanel(); }
+      };
+    });
+    item.addEventListener("click", function(ev){
+      if (ev.target.closest("[data-act]")) return;
+      insertTemplate(t);
+    });
+  });
+}
+function insertTemplate(t) {
+  var ta = el.ta;
+  var before = ta.value.slice(0, ta.selectionStart);
+  var after = ta.value.slice(ta.selectionEnd);
+  ta.value = before + (before && !before.endsWith("\n") ? "\n" : "") + t.body + after;
+  t.count += 1;
+  ta.focus();
+  /* 规则1：点击模板插入后，面板自动关闭 */
+  state.panelOpen = false;
+  renderPanel();
+}
+function setVariant(v) {
+  variant = v;
+  if (el.panelRoot) { el.panelRoot.remove(); el.panelRoot = null; }
+  document.querySelectorAll(".vbar button").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-v")===v); });
+  if (state.panelOpen) renderPanel(); else surface();
+}
+el.entry.onclick = function(){ state.panelOpen = !state.panelOpen; renderPanel(); };
+el.ta.oninput = function(){ el.ta.closest(".inputrow").querySelector(".sendbtn").disabled = el.ta.value.trim()===""; };
+document.addEventListener("mousedown", function(e){
+  /* 规则2：编辑/删除/新增弹窗打开时，面板保持打开（弹窗在面板外，需豁免） */
+  if (document.querySelector(".mask")) return;
+  if (state.panelOpen && el.panelRoot && !el.panelRoot.contains(e.target) && !el.entry.contains(e.target)) { state.panelOpen=false; renderPanel(); }
+});
+el.settings.onclick = function(){ alert("设置页 → 插件 → dsh-prompt（真实插件走 settings.plugins.tab）"); };
+document.querySelectorAll(".vbar button").forEach(function(b){ b.onclick = function(){ setVariant(b.getAttribute("data-v")); }; });
+setVariant(variant);
+if (new URLSearchParams(location.search).get("open")==="1") { state.panelOpen = true; renderPanel(); }
+</script>
+</body>
+</html>

@@ -9,6 +9,7 @@ import { PRESET_TEMPLATES, getPresetById } from './templates'
 const CUSTOMS_KEY = 'dsh.prompt.customs'
 const USAGE_KEY = 'dsh.prompt.usage'
 const PINNED_KEY = 'dsh.prompt.pinned'
+const LAST_USED_KEY = 'dsh.prompt.lastUsed'
 const MAX_PIN = 5
 const MAX_BODY = 1000
 
@@ -47,6 +48,17 @@ export function bumpUsage(id: string): void {
   const u = loadUsage()
   u[id] = (u[id] || 0) + 1
   saveJSON(USAGE_KEY, u)
+  saveJSON(LAST_USED_KEY, id) // 最近使用（智能卡「1 条最近」槽）
+}
+
+/** 最近一次使用的模板 id（智能模式「最近使用」候选；无 → null） */
+export function loadLastUsed(): string | null {
+  try {
+    const s = ls()
+    if (!s) return null
+    const raw = s.getItem(LAST_USED_KEY)
+    return raw ? JSON.parse(raw) as string : null
+  } catch (e) { return null }
 }
 
 export function loadPinned(): string[] {

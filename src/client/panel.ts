@@ -11,6 +11,7 @@ import {
 } from './store'
 import { setPanelOpen } from './state'
 import { getLang, tr, STR, type Lang } from './i18n'
+import { setSmartInput } from './smartstore'
 
 export function getReact(): any {
   if (typeof require === 'function') { try { return require('react') } catch (e) { /* ignore */ } }

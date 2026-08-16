@@ -52,4 +52,12 @@ export const STR = {
   pinFull: { zh: '置顶已达上限（5 个）', en: 'Pin limit reached (5)' },
   insertHint: { zh: '点击即插入', en: 'Click to insert' },
   close: { zh: '关闭', en: 'Close' },
+  smartToggle: { zh: '智能模式悬浮卡（输入匹配时推荐模板；默认开）', en: 'Smart card (recommends templates while typing; on by default)' },
+  smartToggleHint: { zh: '默认开；关闭后仅保留 ⚡Prompt 面板与 /prompt 触发源', en: 'On by default; when off, only the panel and /prompt remain' },
+  smartDot: { zh: '智能模式 · 拖动调整位置；输入匹配时出卡', en: 'Smart mode · drag to move; card appears on match' },
+  smartTitle: { zh: '智能推荐', en: 'Smart suggest' },
+  smartHint: { zh: '点击即填入', en: 'Click to insert' },
+  smartFill: { zh: '点击填入', en: 'Insert' },
+  smartDismiss: { zh: '收起（继续输入可再次出现）', en: 'Dismiss (reappears as you type)' },
+  smartRecent: { zh: '最近使用', en: 'Recently used' },
 }

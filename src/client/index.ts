@@ -1,11 +1,13 @@
 /**
- * dsh-prompt — client 入口（v1 常规模式）
- * 装配：input.left 入口按钮 / input.overlay 面板浮层 / settings.plugins.tab 模板管理页 / inputTriggers /prompt 触发源（#9）
+ * dsh-prompt — client 入口（v1 常规模式 + v1.1 智能模式）
+ * 装配：input.left 入口按钮 / input.overlay 面板浮层 / settings.plugins.tab 模板管理页 / inputTriggers /prompt 触发源（#9）/ shell.overlay 智能悬浮卡（#10）
  */
 import { getReact, TemplateBrowser, setGoSettingsHandler } from './panel'
 import { EntryButton } from './button'
 import { SettingsPage } from './settings'
 import { buildPromptSource } from './trigger'
+import { SmartCardHost } from './smart'
+import { setSmartInput } from './smartstore'
 import { isPanelOpen, onPanelOpen } from './state'
 
 type ClientContext = {
@@ -24,6 +26,17 @@ function PanelHost(props: any): any {
   const openState = react.useState(isPanelOpen())
   const open = openState[0]
   react.useEffect(() => { onPanelOpen((v) => openState[1](v)); console.log('[dsh-prompt] PanelHost props:', Object.keys(props), '| useInput?', !!props.useInput, '| inputActions?', !!props.inputActions) }, [])
+  // 智能模式桥接：把当前会话输入发布给 shell.overlay 悬浮卡（每次渲染同步，无变化由 setSmartInput 去重）
+  react.useEffect(() => {
+    let st: any = null
+    try { st = props.useInput ? props.useInput((s: any) => s) : null } catch (e) { /* ignore */ }
+    setSmartInput({ sessionId: props.sessionId, draft: (st && st.draft) || '', useInput: props.useInput, actions: props.inputActions })
+  })
+  // 会话卸载 → 清空输入桥（悬浮卡回到纯点状态）
+  react.useEffect(() => {
+    const sid = props.sessionId
+    return () => { if (sid !== undefined) setSmartInput({ draft: '' }) }
+  }, [props.sessionId])
   if (!open) return null
   return h(TemplateBrowser, { compact: true, useInput: props.useInput, inputActions: props.inputActions })
 }
@@ -59,4 +72,9 @@ export function apply(ctx: ClientContext): void {
   if (ctx.inputTriggers && typeof ctx.inputTriggers.registerSource === 'function') {
     ctx.effect(() => ctx.inputTriggers.registerSource(buildPromptSource()), 'dsh-prompt: /prompt source')
   }
+
+  // 智能模式悬浮卡（#10）：shell.overlay root 作用域 — 全局单点/自由拖动/仅命中出现
+  ctx.effect(() => ctx.slots.inject('shell.overlay', () =>
+    ctx.slots.register({ name: 'shell.overlay', id: 'dsh-prompt-smart', order: 200, label: () => 'dsh-prompt smart' }, SmartCardHost),
+  ), 'dsh-prompt: smart card')
 }

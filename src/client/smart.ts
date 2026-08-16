@@ -17,6 +17,7 @@ import { getLang, tr, STR } from './i18n'
 
 const DOT_SIZE = 12 // 还原原设计：12px 次级色低调圆点（原型 GlobalDot 样式）
 const CARD_W = 280 // 内容宽度收窄
+const CARD_H_EST = 150 // 卡片高度估算（首次渲染未测量时用；测量后精确锚定）
 const CARD_H = 300
 
 function clampPos(p: SmartPos, w: number, h: number): SmartPos {
@@ -90,7 +91,9 @@ export function SmartCardHost(props: any): any {
   const [pos, setPos] = react.useState<SmartPos | null>(null)
   const [dismissed, setDismissed] = react.useState(false)
   const [manualOpen, setManualOpen] = react.useState(false)
+  const [cardH, setCardH] = react.useState(0)
   const posRef = react.useRef<SmartPos | null>(null)
+  const cardRef = react.useRef<any>(null)
   const rowsRef = react.useRef<ScoredTemplate[]>([])
   const dragMovedRef = react.useRef(false)
 
@@ -136,6 +139,15 @@ export function SmartCardHost(props: any): any {
   const rows: ScoredTemplate[] = candidates.length > 0 ? candidates : (manualOpen ? fallbackRows : [])
   rowsRef.current = rows
   const showCard = rows.length > 0 && !dismissed
+
+  // 测量卡片真实高度（布局后回调）：保证卡与圆点贴合，不因估算偏差悬空（hooks 顺序：在 early return 之前）
+  react.useEffect(() => {
+    if (!showCard) return
+    const el = cardRef.current
+    if (!el) return
+    const h = (el as HTMLElement).offsetHeight || 0
+    if (h > 0 && h !== cardH) setCardH(h)
+  }, [showCard, rows.length])
 
   // 不捕获键盘：Enter/↑↓ 保持输入框原生语义（用户要求），仅手动点击「点击填入」按钮录入
 
@@ -188,15 +200,16 @@ export function SmartCardHost(props: any): any {
     onClick: () => { if (dragMovedRef.current) return; setManualOpen(true); setDismissed(false) },
   })
 
-  // ── 卡：从圆点右侧展开（卡左缘 = 圆点右缘，垂直以圆点为中心）；空间不足自动折返，始终保持贴合 ──
+  // ── 卡：从圆点右侧展开（卡左缘 = 圆点右缘，垂直以圆点为中心）；用真实高度锚定，贴边自动折返 ──
   const dotX = effectivePos.x, dotY = effectivePos.y
+  const cardHeight = cardH > 0 ? cardH : CARD_H_EST
   let cardX = dotX + DOT_SIZE + 4
   if (cardX + CARD_W > vw - 8) cardX = Math.max(8, dotX - CARD_W - 4) // 右侧放不下 → 向左展开
   cardX = Math.max(8, Math.min(cardX, vw - CARD_W - 8))
-  let cardY = dotY - CARD_H / 2 // 垂直居中于圆点
-  if (cardY + CARD_H > vh - 8) cardY = Math.max(8, dotY - CARD_H) // 底部放不下 → 卡底对齐圆点
-  else if (cardY < 8) cardY = Math.min(vh - CARD_H - 8, dotY) // 顶部放不下 → 卡顶对齐圆点
-  cardY = Math.max(8, Math.min(cardY, vh - CARD_H - 8))
+  let cardY = dotY - cardHeight / 2 // 垂直中心对准圆点
+  if (cardY + cardHeight > vh - 8) cardY = Math.max(8, dotY - cardHeight) // 底部放不下 → 卡底贴圆点
+  else if (cardY < 8) cardY = Math.min(vh - cardHeight - 8, dotY) // 顶部放不下 → 卡顶贴圆点
+  cardY = Math.max(8, Math.min(cardY, vh - cardHeight - 8))
   const cardPos = { x: cardX, y: cardY }
   const cardStyle: any = {
     position: 'fixed', left: cardPos.x, top: cardPos.y,
@@ -237,7 +250,7 @@ export function SmartCardHost(props: any): any {
       h('button', { style: fillBtn, title: t('smartFill'), onClick: (e: any) => { e.stopPropagation(); doPick(c) } }, t('smartFill')),
     ])
   })
-  const card = h('div', { key: 'card', style: cardStyle }, [
+  const card = h('div', { key: 'card', ref: cardRef, style: cardStyle }, [
     h('div', { style: headStyle, onPointerDown: startDrag }, [
       h('span', { style: { fontWeight: 600, fontSize: 11 } }, t('smartTitle')),
       h('span', { style: { color: dim, fontSize: 10 } }, t('smartHint')),

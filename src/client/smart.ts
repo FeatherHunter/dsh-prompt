@@ -16,7 +16,7 @@ import {
 import { getLang, tr, STR } from './i18n'
 
 const DOT_SIZE = 12 // 还原原设计：12px 次级色低调圆点（原型 GlobalDot 样式）
-const CARD_W = 360
+const CARD_W = 280 // 内容宽度收窄
 const CARD_H = 300
 
 function clampPos(p: SmartPos, w: number, h: number): SmartPos {
@@ -211,7 +211,7 @@ export function SmartCardHost(props: any): any {
   const rowStyle: any = {
     display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px',
     background: 'var(--dsw-alias-bg-layer-2)', border: '1px solid var(--dsw-alias-border-l1)',
-    borderRadius: 8,
+    borderRadius: 8, cursor: 'pointer',
   }
   const rowNum: any = { color: dim, fontSize: 11, flex: 'none' }
   const rowName: any = { fontWeight: 500, flex: 'none', whiteSpace: 'nowrap' }
@@ -228,7 +228,7 @@ export function SmartCardHost(props: any): any {
     const domain = (c.tpl as any).domain || (c.tpl as any).tag || ''
     const tagText = (domain ? domain + ' ' : '') + (common ? '·常用' : '·分' + c.score)
     const hits = common ? t('smartCommon') : (c.strongHits.join(' / ') + (c.weakHits.length ? ' · ' + c.weakHits.join(' / ') : ''))
-    return h('div', { key: c.tpl.id, style: rowStyle }, [
+    return h('div', { key: c.tpl.id, style: rowStyle, onClick: () => doPick(c), title: t('smartFill') }, [
       h('span', { style: rowNum }, String(i + 1)),
       h('span', { style: rowName }, c.tpl.name),
       h('span', { style: rowTag }, tagText),

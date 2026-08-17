@@ -9,34 +9,34 @@
 <rect width="100%" height="100%" fill="url(#so)"/>
 <rect width="100%" height="100%" fill="url(#sdots)"/>
 <rect x="40" y="14" width="84" height="28" rx="14" fill="#0A0A0A" stroke="#56B6C2"/>
-<text x="82" y="33" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="17" font-weight="700" fill="#56B6C2">方式 3</text>
-<text x="140" y="34" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="21.5" font-weight="700" fill="#e8e8f0">智能悬浮卡：输入命中模板，自动出卡</text>
+<text x="82" y="33" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="15" font-weight="700" fill="#56B6C2">方式 3</text>
+<text x="140" y="34" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="19.5" font-weight="700" fill="#e8e8f0">智能悬浮卡：输入命中模板，自动出卡</text>
 <rect x="40" y="54" width="800" height="56" rx="14" fill="url(#sg)" stroke="#2a2a34" filter="url(#sglow)"/>
 <circle cx="66" cy="82" r="5" fill="#FAB283"/>
-<text x="84" y="87" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="19.5" font-weight="700" fill="#f0f0f6">智能推荐</text>
-<text x="822" y="87" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="18.5" fill="#8a8a94">×</text>
+<text x="84" y="87" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="17.5" font-weight="700" fill="#f0f0f6">智能推荐</text>
+<text x="822" y="87" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" fill="#8a8a94">×</text>
 <rect x="56" y="124" width="330" height="58" rx="11" fill="#0e0e14" stroke="#2a2a34"/>
 <circle cx="76" cy="152" r="8" fill="#FAB283" opacity="0.9"/>
 <path d="M74 145.5l.6 1.3 1.4.6-1.4.6-.6 1.3-.6-1.3-1.4-.6 1.4-.6z" fill="#0d0d12"/>
-<text x="92" y="157" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="19" font-weight="600" fill="#f0f0f6">决策博弈分析</text>
+<text x="92" y="157" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="17" font-weight="600" fill="#f0f0f6">决策博弈分析</text>
 <rect x="232" y="133" width="44" height="20" rx="10" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="254" y="147" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14" fill="#a0a0ac">·分6</text>
+<text x="254" y="147" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12" fill="#a0a0ac">·分6</text>
 <rect x="286" y="130" width="72" height="24" rx="10" fill="#0A0A0A" stroke="#FAB283"/>
-<text x="322" y="146" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#FAB283">点击填入</text>
+<text x="322" y="146" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12.5" fill="#FAB283">点击填入</text>
 <rect x="56" y="192" width="330" height="58" rx="11" fill="#0e0e14" stroke="#2a2a34"/>
 <circle cx="76" cy="220" r="8" fill="#56B6C2" opacity="0.9"/>
 <path d="M74 213.5l.6 1.3 1.4.6-1.4.6-.6 1.3-.6-1.3-1.4-.6 1.4-.6z" fill="#0d0d12"/>
-<text x="92" y="225" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="19" font-weight="600" fill="#f0f0f6">第一性原理拆解</text>
+<text x="92" y="225" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="17" font-weight="600" fill="#f0f0f6">第一性原理拆解</text>
 <rect x="232" y="201" width="44" height="20" rx="10" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="254" y="215" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14" fill="#a0a0ac">·分2</text>
+<text x="254" y="215" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12" fill="#a0a0ac">·分2</text>
 <rect x="286" y="198" width="72" height="24" rx="10" fill="#0A0A0A" stroke="#FAB283"/>
-<text x="322" y="214" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#FAB283">点击填入</text>
+<text x="322" y="214" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12.5" fill="#FAB283">点击填入</text>
 <circle cx="412" cy="174" r="11" fill="#FAB283"/>
 <path d="M410 167.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z" fill="#0d0d12"/>
-<text x="452" y="180" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="18.5" fill="#6d6d6d">全局圆点 · 拖动记忆 · 点击展开</text>
-<text x="452" y="272" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="18.5" fill="#6d6d6d">点整行即填入 · 光标定位到</text>
-<text x="452" y="294" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="18.5" fill="#6d6d6d">第一个字段冒号后 · 直接开写</text>
+<text x="452" y="180" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" fill="#6d6d6d">全局圆点 · 拖动记忆 · 点击展开</text>
+<text x="452" y="272" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" fill="#6d6d6d">点整行即填入 · 光标定位到</text>
+<text x="452" y="294" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" fill="#6d6d6d">第一个字段冒号后 · 直接开写</text>
 <rect x="40" y="318" width="800" height="52" rx="14" fill="#0e0e14" stroke="#2a2a34"/>
-<text x="60" y="350" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="17.5" fill="#b8b8c2">评分 = 专属词×2 + 通用词×1，<tspan fill="#FAB283" font-weight="700">≥2 分才出卡</tspan>（宁缺毋滥）</text>
-<text x="60" y="376" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="17.5" fill="#b8b8c2">不捕获键盘，Enter 照常发送 · × 收起回圆点，继续输入可再次出现 · 设置里可关</text>
+<text x="60" y="350" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">评分 = 专属词×2 + 通用词×1，<tspan fill="#FAB283" font-weight="700">≥2 分才出卡</tspan>（宁缺毋滥）</text>
+<text x="60" y="376" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">不捕获键盘，Enter 照常发送 · × 收起回圆点，继续输入可再次出现 · 设置里可关</text>
 </svg>

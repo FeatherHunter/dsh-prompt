@@ -6,7 +6,7 @@
 
 本仓库构建的、可发布到 npm 并随 `dsh plugin add` 安装进 DSH profile 的扩展包。装配机制（bundle：`cordis.patch.yml` + 构建产物）与发布管线（npm + GitHub Release 双通道）参照 `dsh-opencode-palette` 的写法，但两者是相互独立的插件。
 
-## prompt 调色板 (prompt palette)
+## prompt 工具箱 (prompt toolbox)
 
 本插件的产品形态：一个按钮展开的预制 / 自定义 prompt 清单，点击即插入当前对话输入框。与「主题调色板」（dsh-opencode-palette，配色切换）无关。
 

@@ -2,7 +2,7 @@
 
 **🌐 [中文](../README.md) · [English](README.en.md)**
 
-**A Prompt palette for DeepSeek Harness: 24 deep templates, custom management, /prompt trigger source, and a smart suggestion card — click once, inserted into your current conversation.**
+**A Prompt toolbox for DeepSeek Harness: 24 deep templates, custom management, /prompt trigger source, and a smart suggestion card — click once, inserted into your current conversation.**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
 [![npm](https://img.shields.io/npm/v/dsh-prompt)](https://www.npmjs.com/package/dsh-prompt)

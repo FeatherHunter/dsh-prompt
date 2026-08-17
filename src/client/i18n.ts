@@ -20,6 +20,7 @@ export const STR = {
   panelTitle: { zh: 'Prompt', en: 'Prompt' },
   entryBtn: { zh: 'Prompt', en: 'Prompt' },
   add: { zh: '新增自定义模板', en: 'Add custom template' },
+  addShort: { zh: '新增', en: 'Add' },
   searchPh: { zh: '搜索模板…', en: 'Search templates…' },
   tabAll: { zh: '全部', en: 'All' },
   tabBefore: { zh: '执行前', en: 'Before' },

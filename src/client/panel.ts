@@ -328,7 +328,11 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('button', { style: addBtn, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋'),
         h('button', { style: closeBtn, title: t('close'), onClick: () => setPanelOpen(false) }, '×'),
       ]),
-    ]) : null,
+    ]) : h('div', { style: headStyle }, [
+      h('span', { style: titleStyle }, '⚡ ' + t('panelTitle')),
+      h('div', { style: { flex: 1 } }),
+      h('button', { style: { ...addBtn, width: 'auto', padding: '0 12px', fontSize: 12.5 }, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋ ' + t('addShort')),
+    ]),
     tabNodes,
     domainNodes,
     h('input', { style: searchStyle, placeholder: t('searchPh'), value: q, onChange: (e: any) => qState[1](e.target.value) }),

@@ -10,13 +10,6 @@
 [![platform](https://img.shields.io/badge/platform-DeepSeek%20Harness-1f6feb.svg)](https://github.com/deepseek-ai/DeepSeek-Harness)
 
 ![hero](assets/hero-zh.svg)
-
-## 📦 本人的其他技能 · More from FeatherHunter
-
-| 仓库 | 痛点 → 解决 |
-| --- | --- |
-| [🎨 dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette) | 看腻了 DSH 默认皮肤？**34 款 opencode 经典主题一键换上**，即点即换。 |
-| [🧠 dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck) | AI 只会聊天、不会干活？**25 个工程技能（wayfinder / triage / grilling / handoff）装好即用**。 |
 ## 痛点
 
 写对话时最烦的三件事：**想不起来用什么 Prompt**、**满屏找历史记录里那条好用的**、**复制粘贴改来改去**。
@@ -87,6 +80,13 @@ npm run build          # 完整构建
 ```
 
 源码 `src/client/*`（面板/触发源/智能匹配/词表/设置页）；匹配引擎与 /prompt 共用数据与排序基础；决策记录见 [issue #1（wayfinding map）](https://github.com/FeatherHunter/dsh-prompt/issues/1)。
+
+## 作者的其他作品
+
+喜欢这个插件的话，这些可能你也用得上：
+
+- [**dsh-opencode-palette**](https://github.com/FeatherHunter/dsh-opencode-palette) —— 觉得 DSH 默认界面看腻了？34 款 opencode 经典主题，点一下就换。
+- [**dsh-mattpocock-skills-deck**](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck) —— 想让 AI 不只是会聊天？25 个工程技能装好即用，一条安装 Prompt 的事。
 
 ## 参与贡献
 

@@ -154,7 +154,6 @@ export function TemplateBrowser(props: BrowserProps): any {
       }
     : {
         display: 'flex', flexDirection: 'column', gap: 8, padding: 12,
-        height: '100%', minHeight: 0, boxSizing: 'border-box',
         fontFamily: 'var(--dsw-font-family)', fontSize: 'var(--dsw-font-markdown-base-font-size)', color: base,
       }
   const headStyle: any = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: line }
@@ -170,8 +169,8 @@ export function TemplateBrowser(props: BrowserProps): any {
   const domainRowStyle: any = { display: 'flex', gap: 4, padding: '3px 12px 0', flexWrap: 'wrap' }
   const searchStyle: any = { margin: '8px 12px', padding: '6px 10px', borderRadius: 8, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: base, fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none' }
   const listStyle: any = compact
-    ? { overflow: 'auto', padding: '3px 6px 8px', maxHeight: 170 } // 恒定约 5 行完整可见，内部滚动
-    : { overflow: 'auto', padding: '3px 6px 8px', flex: 1, minHeight: 0 }
+    ? { overflow: 'auto', padding: '3px 6px 8px', maxHeight: 170 } // 面板：恒定约 5 行，内部滚动
+    : { padding: '3px 6px 8px' } // 设置页：自然高度，由宿主设置面板整页滚动
   const itemStyle: any = { display: 'flex', alignItems: 'center', gap: 8, padding: '3px 6px', borderRadius: 8, cursor: 'pointer' }
   const pinStyle = (on: boolean): any => ({ flex: 'none', width: 18, textAlign: 'center', color: on ? 'var(--dsw-specific-accent,#f0a45c)' : dim, cursor: 'pointer', fontSize: 12, border: 0, background: 'transparent' })
   const nmStyle: any = { flex: 1, minWidth: 0, fontSize: '0.98em', color: base }

@@ -27,7 +27,7 @@
 <path d="M120 22l3.4 7.2 7.2 3.4-7.2 3.4-3.4 7.2-3.4-7.2-7.2-3.4 7.2-3.4z" fill="#FAB283"/>
 </g>
 <text x="640" y="176" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="58" font-weight="800" letter-spacing="1" fill="url(#tG)">别再复制粘贴 Prompt 了</text>
-<text x="640" y="226" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="25" fill="#b8b8c2">预制 24 条深度模板 · 一点即插入 · 输入即推荐</text>
+<text x="640" y="226" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="25" fill="#b8b8c2">三种方式叫出模板：点一下 · 输一个 · 它自己来</text>
 <g>
 <rect x="336" y="250" width="156" height="36" rx="18" fill="#17171f" stroke="#2e2e3a"/>
 <circle cx="360" cy="268" r="6" fill="#FAB283"/>

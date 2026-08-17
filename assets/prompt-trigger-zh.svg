@@ -8,31 +8,33 @@
 <rect width="100%" height="100%" fill="#0a0a0c"/>
 <rect width="100%" height="100%" fill="url(#po)"/>
 <rect width="100%" height="100%" fill="url(#pdots)"/>
-<text x="40" y="44" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="19.5" font-weight="700" fill="#e8e8f0">鍦ㄨ緭鍏ユ鐩存帴杈撳叆 <tspan fill="#FAB283" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">/prompt</tspan>锛岀户缁緭鍏ュ嵆杩囨护</text>
+<rect x="40" y="14" width="84" height="28" rx="14" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="82" y="33" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="15" font-weight="700" fill="#FAB283">方式 2</text>
+<text x="140" y="34" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="19.5" font-weight="700" fill="#e8e8f0">/prompt 触发源：输入即过滤，回车即插入</text>
 <rect x="40" y="64" width="800" height="58" rx="14" fill="url(#pg)" stroke="#2a2a34" filter="url(#pglow)"/>
 <text x="66" y="102" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="26" fill="#FAB283">/prompt</text>
-<text x="176" y="102" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="26" fill="#4a4a56">鎬濊€冩鏋?/text>
+<text x="176" y="102" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="26" fill="#4a4a56">思考框架…</text>
 <rect x="326" y="80" width="120" height="24" rx="12" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="386" y="97" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#a0a0ac">鍖归厤 10 涓ā鏉?/text>
+<text x="386" y="97" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#a0a0ac">匹配 10 个模板</text>
 <rect x="40" y="142" width="800" height="50" rx="11" fill="#0e0e14" stroke="#2a2a34" filter="url(#pglow)"/>
 <circle cx="66" cy="167" r="6" fill="#FAB283"/>
-<text x="86" y="172" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="18.5" font-weight="600" fill="#f0f0f6">绗竴鎬у師鐞嗘媶瑙?/text>
+<text x="86" y="172" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="18.5" font-weight="600" fill="#f0f0f6">第一性原理拆解</text>
 <rect x="252" y="157" width="70" height="20" rx="10" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="287" y="171" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13.5" fill="#a0a0ac">鎬濊€冩鏋?/text>
-<text x="700" y="172" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#5c5c66">鍛戒腑: 绗竴鎬у師鐞?鏈川/鍋囪</text>
-<text x="822" y="172" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#FAB283">鍥炶溅鎻掑叆 鈻?/text>
+<text x="287" y="171" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13.5" fill="#a0a0ac">思考框架</text>
+<text x="690" y="172" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#5c5c66">命中: 第一性原理/本质/假设</text>
+<text x="822" y="172" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#FAB283">回车插入 ↵</text>
 <rect x="40" y="202" width="800" height="50" rx="11" fill="#0e0e14" stroke="#2a2a34"/>
 <circle cx="66" cy="227" r="6" fill="#56B6C2"/>
-<text x="86" y="232" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="18.5" font-weight="600" fill="#f0f0f6">鍐崇瓥鍗氬紙鍒嗘瀽</text>
+<text x="86" y="232" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="18.5" font-weight="600" fill="#f0f0f6">决策博弈分析</text>
 <rect x="252" y="217" width="70" height="20" rx="10" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="287" y="231" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13.5" fill="#a0a0ac">鎬濊€冩鏋?/text>
-<text x="700" y="232" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#5c5c66">鍛戒腑: 鍐崇瓥/閫夐」/绾犵粨</text>
-<text x="822" y="232" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#FAB283">鍥炶溅鎻掑叆 鈻?/text>
+<text x="287" y="231" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13.5" fill="#a0a0ac">思考框架</text>
+<text x="690" y="232" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#5c5c66">命中: 决策/选项/纠结</text>
+<text x="822" y="232" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#FAB283">回车插入 ↵</text>
 <rect x="40" y="262" width="800" height="50" rx="11" fill="#0e0e14" stroke="#2a2a34"/>
 <circle cx="66" cy="287" r="6" fill="#9D7CD8"/>
-<text x="86" y="292" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="18.5" font-weight="600" fill="#f0f0f6">瀵规姉寮忓鏌?/text>
+<text x="86" y="292" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="18.5" font-weight="600" fill="#f0f0f6">对抗式审查</text>
 <rect x="252" y="277" width="70" height="20" rx="10" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="287" y="291" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13.5" fill="#a0a0ac">鎬濊€冩鏋?/text>
-<text x="700" y="292" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#5c5c66">鍛戒腑: 瀵规姉寮?绾㈤槦/鍙嶄緥</text>
-<text x="822" y="292" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#FAB283">鍥炶溅鎻掑叆 鈻?/text>
+<text x="287" y="291" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13.5" fill="#a0a0ac">思考框架</text>
+<text x="690" y="292" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#5c5c66">命中: 对抗式/红队/反例</text>
+<text x="822" y="292" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14.5" fill="#FAB283">回车插入 ↵</text>
 </svg>

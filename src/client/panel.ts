@@ -320,7 +320,7 @@ export function TemplateBrowser(props: BrowserProps): any {
 
   return h('div', { ref: rootRef, style: panelStyle }, [
     compact ? h('div', { style: headStyle }, [
-      h('span', { style: titleStyle }, '⚡ ' + t('panelTitle')),
+      h('span', { style: titleStyle }, t('panelTitle')),
       h('span', { style: { fontSize: 11, color: dim, marginLeft: 6 } }, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
       h('div', { style: { flex: 1 } }),
       h('button', { style: footLink, onClick: () => { setPanelOpen(false); emitGoSettings() } }, t('goSettings')),
@@ -329,7 +329,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('button', { style: closeBtn, title: t('close'), onClick: () => setPanelOpen(false) }, '×'),
       ]),
     ]) : h('div', { style: headStyle }, [
-      h('span', { style: titleStyle }, '⚡ ' + t('panelTitle')),
+      h('span', { style: titleStyle }, t('panelTitle')),
       h('div', { style: { flex: 1 } }),
       h('button', { style: { ...addBtn, width: 'auto', padding: '0 12px', fontSize: 12.5 }, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋ ' + t('addShort')),
     ]),

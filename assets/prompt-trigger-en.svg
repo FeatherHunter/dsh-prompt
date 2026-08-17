@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="320" viewBox="0 0 880 320">
+<defs>
+<radialGradient id="te1o" cx="10%" cy="0%" r="70%"><stop offset="0%" stop-color="#FAB283" stop-opacity="0.14"/><stop offset="100%" stop-color="#FAB283" stop-opacity="0"/></radialGradient>
+<linearGradient id="te1g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#15151c"/><stop offset="100%" stop-color="#0d0d12"/></linearGradient>
+<filter id="te1glow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#000" flood-opacity="0.55"/></filter>
+<pattern id="te1dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r="1.2" fill="#fff" opacity="0.04"/></pattern>
+</defs>
+<rect width="100%" height="100%" fill="#0a0a0c"/>
+<rect width="100%" height="100%" fill="url(#te1o)"/>
+<rect width="100%" height="100%" fill="url(#te1dots)"/>
+<rect x="40" y="14" width="84" height="28" rx="14" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="82" y="33" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15" font-weight="700" fill="#FAB283">Way 2</text>
+<text x="140" y="34" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19.5" font-weight="700" fill="#e8e8f0">/prompt trigger — filter as you type, Enter to insert</text>
+<rect x="40" y="64" width="800" height="58" rx="14" fill="url(#te1g)" stroke="#2a2a34" filter="url(#te1glow)"/>
+<text x="66" y="102" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="26" fill="#FAB283">/prompt</text>
+<text x="176" y="102" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" fill="#4a4a56">name/body/tag…</text>
+<rect x="326" y="80" width="100" height="24" rx="12" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="376" y="97" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#a0a0ac">10 matches</text>
+<rect x="40" y="142" width="800" height="50" rx="11" fill="#0e0e14" stroke="#2a2a34" filter="url(#te1glow)"/>
+<circle cx="66" cy="167" r="6" fill="#FAB283"/>
+<text x="86" y="172" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="18.5" font-weight="600" fill="#f0f0f6">First principles</text>
+<rect x="252" y="157" width="70" height="20" rx="10" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="287" y="171" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="13.5" fill="#a0a0ac">Think</text>
+<text x="690" y="172" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#5c5c66">hit: first principles/essence/assumptions</text>
+<text x="822" y="172" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#FAB283">Enter ↵</text>
+<rect x="40" y="202" width="800" height="50" rx="11" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="66" cy="227" r="6" fill="#56B6C2"/>
+<text x="86" y="232" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="18.5" font-weight="600" fill="#f0f0f6">Decision game</text>
+<rect x="252" y="217" width="70" height="20" rx="10" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="287" y="231" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="13.5" fill="#a0a0ac">Think</text>
+<text x="690" y="232" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#5c5c66">hit: decision/options/dilemma</text>
+<text x="822" y="232" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#FAB283">Enter ↵</text>
+<rect x="40" y="262" width="800" height="50" rx="11" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="66" cy="287" r="6" fill="#9D7CD8"/>
+<text x="86" y="292" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="18.5" font-weight="600" fill="#f0f0f6">Adversarial</text>
+<rect x="252" y="277" width="70" height="20" rx="10" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="287" y="291" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="13.5" fill="#a0a0ac">Think</text>
+<text x="690" y="292" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#5c5c66">hit: adversarial/red team/counter-example</text>
+<text x="822" y="292" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#FAB283">Enter ↵</text>
+</svg>

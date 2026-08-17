@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="380" viewBox="0 0 880 380">
+<defs>
+<radialGradient id="se1o" cx="15%" cy="0%" r="70%"><stop offset="0%" stop-color="#56B6C2" stop-opacity="0.14"/><stop offset="100%" stop-color="#56B6C2" stop-opacity="0"/></radialGradient>
+<linearGradient id="se1g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#15151c"/><stop offset="100%" stop-color="#0d0d12"/></linearGradient>
+<filter id="se1glow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#000" flood-opacity="0.55"/></filter>
+<pattern id="se1dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r="1.2" fill="#fff" opacity="0.04"/></pattern>
+</defs>
+<rect width="100%" height="100%" fill="#0a0a0c"/>
+<rect width="100%" height="100%" fill="url(#se1o)"/>
+<rect width="100%" height="100%" fill="url(#se1dots)"/>
+<rect x="40" y="14" width="84" height="28" rx="14" fill="#0A0A0A" stroke="#56B6C2"/>
+<text x="82" y="33" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15" font-weight="700" fill="#56B6C2">Way 3</text>
+<text x="140" y="34" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19.5" font-weight="700" fill="#e8e8f0">Smart card — matches your draft, auto-suggests</text>
+<rect x="40" y="54" width="800" height="56" rx="14" fill="url(#se1g)" stroke="#2a2a34" filter="url(#se1glow)"/>
+<circle cx="66" cy="82" r="5" fill="#FAB283"/>
+<text x="84" y="87" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="17.5" font-weight="700" fill="#f0f0f6">Smart suggest</text>
+<text x="822" y="87" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="16.5" fill="#8a8a94">×</text>
+<rect x="56" y="124" width="330" height="58" rx="11" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="76" cy="152" r="8" fill="#FAB283" opacity="0.9"/>
+<path d="M74 145.5l.6 1.3 1.4.6-1.4.6-.6 1.3-.6-1.3-1.4-.6 1.4-.6z" fill="#0d0d12"/>
+<text x="92" y="157" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="17" font-weight="600" fill="#f0f0f6">Decision game</text>
+<rect x="236" y="133" width="40" height="20" rx="10" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="256" y="147" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="12" fill="#a0a0ac">·6</text>
+<rect x="300" y="130" width="72" height="24" rx="10" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="336" y="146" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="12.5" fill="#FAB283">Fill in</text>
+<rect x="56" y="192" width="330" height="58" rx="11" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="76" cy="220" r="8" fill="#56B6C2" opacity="0.9"/>
+<path d="M74 213.5l.6 1.3 1.4.6-1.4.6-.6 1.3-.6-1.3-1.4-.6 1.4-.6z" fill="#0d0d12"/>
+<text x="92" y="225" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" font-weight="600" fill="#f0f0f6">First principles</text>
+<rect x="236" y="201" width="40" height="20" rx="10" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="256" y="215" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="12" fill="#a0a0ac">·2</text>
+<rect x="300" y="198" width="72" height="24" rx="10" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="336" y="214" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="12.5" fill="#FAB283">Fill in</text>
+<circle cx="412" cy="174" r="11" fill="#FAB283"/>
+<path d="M410 167.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z" fill="#0d0d12"/>
+<text x="452" y="180" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="16.5" fill="#6d6d6d">Global dot · remembers spot · click to expand</text>
+<text x="452" y="272" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="16.5" fill="#6d6d6d">Click a row — the cursor lands at</text>
+<text x="452" y="294" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="16.5" fill="#6d6d6d">the first field's colon; type right away</text>
+<rect x="40" y="318" width="800" height="52" rx="14" fill="#0e0e14" stroke="#2a2a34"/>
+<text x="60" y="350" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">Score = specific words×2 + generic×1, <tspan fill="#FAB283" font-weight="700">shown only at ≥2</tspan> (better absent than noisy)</text>
+<text x="60" y="376" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">No keyboard capture · Enter still sends · × collapses, typing re-suggests · toggle in settings</text>
+</svg>

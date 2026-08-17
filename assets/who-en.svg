@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="310" viewBox="0 0 880 310">
+<defs>
+<radialGradient id="we1o" cx="15%" cy="0%" r="70%"><stop offset="0%" stop-color="#FAB283" stop-opacity="0.12"/><stop offset="100%" stop-color="#FAB283" stop-opacity="0"/></radialGradient>
+<linearGradient id="we1g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#15151c"/><stop offset="100%" stop-color="#0d0d12"/></linearGradient>
+<pattern id="we1dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r="1.2" fill="#fff" opacity="0.04"/></pattern>
+</defs>
+<rect width="100%" height="100%" fill="#0a0a0c"/>
+<rect width="100%" height="100%" fill="url(#we1o)"/>
+<rect width="100%" height="100%" fill="url(#we1dots)"/>
+<rect x="32" y="16" width="264" height="156" rx="14" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="72" cy="52" r="15" fill="#FAB283"/>
+<text x="72" y="58" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="16" font-weight="700" fill="#0d0d12">1</text>
+<text x="96" y="92" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="17" font-weight="700" fill="#f0f0f6">Can't recall a Prompt</text>
+<text x="96" y="118" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#9a9aa4">Re-invent it every time</text>
+<text x="96" y="142" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#9a9aa4">History scrolls don't help</text>
+<rect x="320" y="16" width="264" height="156" rx="14" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="360" cy="52" r="15" fill="#56B6C2"/>
+<text x="360" y="58" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="16" font-weight="700" fill="#0d0d12">2</text>
+<text x="384" y="92" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="17" font-weight="700" fill="#f0f0f6">The good one hides</text>
+<text x="384" y="118" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#9a9aa4">Endless history, never found</text>
+<text x="384" y="142" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#9a9aa4">and never complete</text>
+<rect x="608" y="16" width="264" height="156" rx="14" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="648" cy="52" r="15" fill="#9D7CD8"/>
+<text x="648" y="58" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="16" font-weight="700" fill="#0d0d12">3</text>
+<text x="672" y="92" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="17" font-weight="700" fill="#f0f0f6">Copy-paste &amp; repeat</text>
+<text x="672" y="118" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#9a9aa4">Templates never accumulate</text>
+<text x="672" y="142" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#9a9aa4">edits always feel risky</text>
+<text x="440" y="206" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="26" fill="#4a4a56">↓</text>
+<rect x="40" y="220" width="800" height="74" rx="14" fill="url(#we1g)" stroke="#2e2e3a"/>
+<text x="440" y="252" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="18" font-weight="700"><tspan fill="#FAB283">Click once — </tspan><tspan fill="#f0f0f6">the template lands in your input box</tspan></text>
+<text x="440" y="278" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15" fill="#9a9aa4">No memorizing · No searching · No copy-pasting</text>
+</svg>

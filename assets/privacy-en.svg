@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="190" viewBox="0 0 880 190">
+<defs>
+<radialGradient id="vne1o" cx="10%" cy="0%" r="70%"><stop offset="0%" stop-color="#56B6C2" stop-opacity="0.12"/><stop offset="100%" stop-color="#56B6C2" stop-opacity="0"/></radialGradient>
+<linearGradient id="vne1g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#15151c"/><stop offset="100%" stop-color="#0d0d12"/></linearGradient>
+<filter id="vne1glow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#000" flood-opacity="0.55"/></filter>
+<pattern id="vne1dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r="1.2" fill="#fff" opacity="0.04"/></pattern>
+</defs>
+<rect width="100%" height="100%" fill="#0a0a0c"/>
+<rect width="100%" height="100%" fill="url(#vne1o)"/>
+<rect width="100%" height="100%" fill="url(#vne1dots)"/>
+<rect x="40" y="14" width="800" height="150" rx="16" fill="url(#vne1g)" stroke="#26262f" filter="url(#vne1glow)"/>
+<circle cx="104" cy="89" r="30" fill="#12121a" stroke="#2e2e3a"/>
+<path d="M92 84a12 12 0 0 1 24 0" fill="none" stroke="#56B6C2" stroke-width="3.2" stroke-linecap="round"/>
+<rect x="90" y="84" width="28" height="24" rx="5" fill="#56B6C2"/>
+<circle cx="104" cy="94" r="3.5" fill="#0d0d12"/>
+<text x="156" y="84" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="22" font-weight="700" fill="#f0f0f6">Everything stays local</text>
+<text x="156" y="114" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19" fill="#b8b8c2">Templates · usage · pins · card position — localStorage only,</text>
+<text x="156" y="140" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19" fill="#b8b8c2">nothing uploaded, nothing tracked.</text>
+</svg>

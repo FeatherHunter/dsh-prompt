@@ -25,7 +25,7 @@ export function SettingsPage(props: any): any {
     color: 'var(--dsw-specific-accent,#f0a45c)', cursor: 'pointer', textDecoration: 'none',
     display: 'inline-flex', alignItems: 'center', gap: 5,
   }
-  return h('div', { style: { padding: 8, display: 'flex', flexDirection: 'column' } }, [
+  return h('div', { style: { padding: 4, display: 'flex', flexDirection: 'column' } }, [
     h('div', { style: linkRow }, [
       h('a', { style: linkStyle, href: 'https://github.com/FeatherHunter/dsh-prompt', target: '_blank', rel: 'noreferrer' }, '⛭ ' + t('gitHubRepo')),
       h('a', { style: linkStyle, href: 'https://github.com/FeatherHunter/dsh-prompt/issues/new', target: '_blank', rel: 'noreferrer' }, '⚠ ' + t('feedback')),

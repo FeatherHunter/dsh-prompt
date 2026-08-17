@@ -153,24 +153,24 @@ export function TemplateBrowser(props: BrowserProps): any {
         fontFamily: 'var(--dsw-font-family)', fontSize: 'var(--dsw-font-markdown-base-font-size)', color: base,
       }
     : {
-        display: 'flex', flexDirection: 'column', gap: 8, padding: 12,
+        display: 'flex', flexDirection: 'column', gap: 6, padding: '6px 8px',
         fontFamily: 'var(--dsw-font-family)', fontSize: 'var(--dsw-font-markdown-base-font-size)', color: base,
       }
-  const headStyle: any = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: line }
+  const headStyle: any = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderBottom: line }
   const titleStyle: any = { fontWeight: 700, fontSize: '1em' }
   const addBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-specific-accent,#f0a45c)', fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
   const closeBtn: any = { width: 26, height: 26, borderRadius: 7, border: 0, background: 'transparent', color: dim, fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
   const headBtns: any = { display: 'flex', gap: 4, alignItems: 'center' }
-  const tabsStyle: any = { display: 'flex', gap: 4, padding: '5px 12px 0', flexWrap: 'wrap' }
+  const tabsStyle: any = { display: 'flex', gap: 4, padding: '4px 8px 0', flexWrap: 'wrap' }
   const tabBtn = (on: boolean): any => ({
     padding: '2px 8px', borderRadius: 999, border: line, background: on ? 'var(--dsw-alias-bg-layer-3)' : 'transparent',
     color: on ? base : muted, cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em',
   })
-  const domainRowStyle: any = { display: 'flex', gap: 4, padding: '3px 12px 0', flexWrap: 'wrap' }
-  const searchStyle: any = { margin: '8px 12px', padding: '6px 10px', borderRadius: 8, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: base, fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none' }
+  const domainRowStyle: any = { display: 'flex', gap: 4, padding: '3px 8px 0', flexWrap: 'wrap' }
+  const searchStyle: any = { margin: '5px 8px 4px', padding: '5px 9px', borderRadius: 8, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: base, fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none' }
   const listStyle: any = compact
-    ? { overflow: 'auto', padding: '3px 6px 8px', maxHeight: 170 } // 面板：恒定约 5 行，内部滚动
-    : { padding: '3px 6px 8px' } // 设置页：自然高度，由宿主设置面板整页滚动
+    ? { overflow: 'auto', padding: '2px 4px 8px', maxHeight: 170 } // 面板：恒定约 5 行，内部滚动
+    : { padding: '2px 4px 8px' } // 设置页：自然高度，由宿主设置面板整页滚动
   const itemStyle: any = { display: 'flex', alignItems: 'flex-start', gap: 8, padding: '4px 6px', borderRadius: 8, cursor: 'pointer' }
   const pinStyle = (on: boolean): any => ({ flex: 'none', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 0, background: 'transparent', borderRadius: 6 })
   const nmStyle: any = { flex: 'none', minWidth: 0, fontSize: '0.98em', color: base, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }

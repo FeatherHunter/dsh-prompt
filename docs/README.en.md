@@ -11,6 +11,12 @@
 
 ![hero](assets/hero-zh.svg)
 
+## 📦 My other skills · More from FeatherHunter
+
+| Repo | One-liner (pain → fix) |
+| --- | --- |
+| [🎨 dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette) | Tired of the default DSH look? **34 official opencode themes, one click, persisted.** |
+| [🧠 dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck) | AI that chats but can't get things done? **25 engineering skills (wayfinder / triage / grilling / handoff), installed in one prompt.** |
 ## The pain
 
 Three annoyances when writing: **forgetting which prompt to use**, **digging through history for that one good prompt**, **copy-paste and endless tweaking**.

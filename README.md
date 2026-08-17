@@ -11,6 +11,12 @@
 
 ![hero](assets/hero-zh.svg)
 
+## 📦 本人的其他技能 · More from FeatherHunter
+
+| 仓库 | 痛点 → 解决 |
+| --- | --- |
+| [🎨 dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette) | 看腻了 DSH 默认皮肤？**34 款 opencode 经典主题一键换上**，即点即换。 |
+| [🧠 dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck) | AI 只会聊天、不会干活？**25 个工程技能（wayfinder / triage / grilling / handoff）装好即用**。 |
 ## 痛点
 
 写对话时最烦的三件事：**想不起来用什么 Prompt**、**满屏找历史记录里那条好用的**、**复制粘贴改来改去**。

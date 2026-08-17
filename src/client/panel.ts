@@ -150,7 +150,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         display: 'flex', flexDirection: 'column',
         background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',
         borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)', overflow: 'hidden',
-        fontFamily: 'var(--dsw-font-family)', fontSize: 12.5, color: base,
+        fontFamily: 'var(--dsw-font-family)', fontSize: 'var(--dsw-font-markdown-base-font-size)', color: base,
       }
     : {
         display: 'flex', flexDirection: 'column', gap: 8, padding: 12,
@@ -158,8 +158,8 @@ export function TemplateBrowser(props: BrowserProps): any {
       }
   const headStyle: any = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: line }
   const titleStyle: any = { fontWeight: 700, fontSize: '1em' }
-  const addBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-specific-accent,#f0a45c)', fontSize: 16, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
-  const closeBtn: any = { width: 26, height: 26, borderRadius: 7, border: 0, background: 'transparent', color: dim, fontSize: 16, lineHeight: 1, cursor: 'pointer' }
+  const addBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-specific-accent,#f0a45c)', fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
+  const closeBtn: any = { width: 26, height: 26, borderRadius: 7, border: 0, background: 'transparent', color: dim, fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
   const headBtns: any = { display: 'flex', gap: 4, alignItems: 'center' }
   const tabsStyle: any = { display: 'flex', gap: 4, padding: '5px 12px 0', flexWrap: 'wrap' }
   const tabBtn = (on: boolean): any => ({
@@ -175,7 +175,8 @@ export function TemplateBrowser(props: BrowserProps): any {
   const pinStyle = (on: boolean): any => ({ flex: 'none', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 0, background: 'transparent', borderRadius: 6 })
   const nmStyle: any = { flex: 'none', minWidth: 0, fontSize: '0.98em', color: base, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
   const subStyle: any = { display: 'block', fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
-  const tagStyle: any = { flex: 'none', fontSize: '0.8em', color: dim, border: line, padding: '1px 6px', borderRadius: 999 }
+  // 勋章式标签：填充底色 + 精致胶囊
+  const tagStyle: any = { flex: 'none', fontSize: '0.7em', fontWeight: 500, color: muted, background: 'var(--dsw-alias-bg-layer-3)', border: '1px solid var(--dsw-alias-border-l2)', padding: '0 7px', borderRadius: 999, lineHeight: '15px', letterSpacing: '0.02em', whiteSpace: 'nowrap' }
   const actStyle: any = { display: 'flex', gap: 4, flex: 'none' }
   const actBtn = (danger?: boolean): any => ({ border: line, background: 'transparent', color: danger ? 'var(--dsw-specific-danger,#e06c75)' : dim, cursor: 'pointer', fontSize: '0.85em', padding: '1px 8px', borderRadius: 999, fontFamily: 'var(--dsw-font-family)', whiteSpace: 'nowrap' })
   const footStyle: any = { padding: '8px 12px', borderTop: line, display: 'flex', justifyContent: 'space-between', fontSize: '0.85em', color: dim }
@@ -252,7 +253,7 @@ export function TemplateBrowser(props: BrowserProps): any {
             h('input', { style: fieldStyle, placeholder: t('namePh'), value: name, onChange: (e: any) => setName(e.target.value) }),
             h('input', { style: fieldStyle, placeholder: t('tagPh'), value: tag, onChange: (e: any) => setTag(e.target.value) }),
             h('textarea', { style: { ...fieldStyle, height: 110, resize: 'vertical' }, placeholder: t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),
-            err[0] ? h('div', { style: { fontSize: 12, color: 'var(--dsw-specific-danger,#e06c75)' } }, t(err[0] as keyof typeof STR)) : null,
+              err[0] ? h('div', { style: { fontSize: '0.92em', color: 'var(--dsw-specific-danger,#e06c75)' } }, t(err[0] as keyof typeof STR)) : null,
             h('div', { style: mbtnsStyle }, [
               h('button', { style: mbtn(), onClick: () => modalState[1](null) }, t('cancel')),
               h('button', { style: mbtn(true), onClick: doOk }, editing ? t('save') : t('addOk')),
@@ -265,8 +266,8 @@ export function TemplateBrowser(props: BrowserProps): any {
       const doDel = () => { removeCustom(modal.t!.id); modalState[1](null); refresh() }
       modalNode = h('div', { style: maskStyle, onClick: (e: any) => { if (e.target === e.currentTarget) modalState[1](null) } }, [
         h('div', { style: modalStyle }, [
-          h('h3', { style: { fontSize: 14, margin: 0 } }, t('delTitle')),
-          h('div', { style: { fontSize: 12.5, color: dim } }, t('delMsg') + '「' + modal.t.name + '」' + t('delUnrecover')),
+          h('h3', { style: { fontSize: '1.08em', margin: 0 } }, t('delTitle')),
+          h('div', { style: { fontSize: '0.96em', color: dim } }, t('delMsg') + '「' + modal.t.name + '」' + t('delUnrecover')),
           h('div', { style: mbtnsStyle }, [
             h('button', { style: mbtn(), onClick: () => modalState[1](null) }, t('cancel')),
             h('button', { style: mbtn(false, true), onClick: doDel }, t('delOk')),
@@ -301,7 +302,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       : h('span', { style: actStyle }, [
           h('button', { style: actBtn(), onClick: (e: any) => handleCopy(e, x.id) }, t('copy')),
         ])
-    const itemBg = highlightId === x.id ? 'rgba(240,164,92,0.16)' : undefined
+    const itemBg = highlightId === x.id ? 'var(--dsw-alias-interactive-bg-hover)' : undefined
     return h('div', { key: x.id, style: { ...itemStyle, background: itemBg }, 'data-dsh-prompt-id': x.id, onClick: () => handlePick(x), title: t('insertHint') }, [
       h('div', { style: { flex: 'none', paddingTop: 2 } }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
@@ -324,7 +325,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   })
   const listNode = rows.length > 0
     ? h('div', { style: listStyle }, rows)
-    : h('div', { style: { padding: 14, color: dim, fontSize: 12 } }, t('noMatch'))
+    : h('div', { style: { padding: 14, color: dim, fontSize: '0.92em' } }, t('noMatch'))
 
   const footer = null
 
@@ -337,7 +338,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('path', { d: 'M18.5 2.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z' }),
       ]),
       h('span', { style: titleStyle }, t('panelTitle')),
-      h('span', { style: { fontSize: 11, color: dim, marginLeft: 6 } }, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
+      h('span', { style: { fontSize: '0.85em', color: dim, marginLeft: 6 } }, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
       h('div', { style: { flex: 1 } }),
       h('button', { style: footLink, onClick: () => { setPanelOpen(false); emitGoSettings() } }, t('goSettings')),
       h('div', { style: headBtns }, [
@@ -353,7 +354,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       ]),
       h('span', { style: titleStyle }, t('panelTitle')),
       h('div', { style: { flex: 1 } }),
-      h('button', { style: { ...addBtn, width: 'auto', padding: '0 12px', fontSize: 12.5 }, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋ ' + t('addShort')),
+      h('button', { style: { ...addBtn, width: 'auto', padding: '0 12px', fontSize: '0.92em' }, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋ ' + t('addShort')),
     ]),
     tabNodes,
     domainNodes,

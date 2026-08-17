@@ -234,7 +234,7 @@ export function SmartCardHost(props: any): any {
   const rowHint: any = { color: dim, flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.77em' }
   const fillBtn: any = {
     flex: 'none', border: '1px solid var(--dsw-alias-border-l2)',
-    background: 'rgba(255,255,255,0.10)', color: base,
+    background: 'var(--dsw-alias-bg-layer-3)', color: base,
     borderRadius: 5, padding: '1px 7px', cursor: 'pointer',
     fontFamily: 'var(--dsw-font-family)', fontSize: '0.8em', fontWeight: 500, whiteSpace: 'nowrap',
   }

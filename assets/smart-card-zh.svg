@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="880" height="308" viewBox="0 0 880 308">
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="380" viewBox="0 0 880 380">
 <defs>
 <radialGradient id="so" cx="15%" cy="0%" r="70%"><stop offset="0%" stop-color="#56B6C2" stop-opacity="0.14"/><stop offset="100%" stop-color="#56B6C2" stop-opacity="0"/></radialGradient>
 <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#15151c"/><stop offset="100%" stop-color="#0d0d12"/></linearGradient>
@@ -36,4 +36,7 @@
 <text x="452" y="180" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" fill="#6d6d6d">全局圆点 · 拖动记忆 · 点击展开</text>
 <text x="452" y="272" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" fill="#6d6d6d">点整行即填入 · 光标定位到</text>
 <text x="452" y="294" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" fill="#6d6d6d">第一个字段冒号后 · 直接开写</text>
+<rect x="40" y="318" width="800" height="52" rx="14" fill="#0e0e14" stroke="#2a2a34"/>
+<text x="60" y="350" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">评分 = 专属词×2 + 通用词×1，<tspan fill="#FAB283" font-weight="700">≥2 分才出卡</tspan>（宁缺毋滥）</text>
+<text x="60" y="376" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">不捕获键盘，Enter 照常发送 · × 收起回圆点，继续输入可再次出现 · 设置里可关</text>
 </svg>

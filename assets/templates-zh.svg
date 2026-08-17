@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="480" viewBox="0 0 960 480">
+<defs>
+<radialGradient id="t1o" cx="10%" cy="0%" r="70%"><stop offset="0%" stop-color="#9D7CD8" stop-opacity="0.12"/><stop offset="100%" stop-color="#9D7CD8" stop-opacity="0"/></radialGradient>
+<pattern id="t1dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r="1.2" fill="#fff" opacity="0.04"/></pattern>
+</defs>
+<rect width="100%" height="100%" fill="#0a0a0c"/>
+<rect width="100%" height="100%" fill="url(#t1o)"/>
+<rect width="100%" height="100%" fill="url(#t1dots)"/>
+<rect x="40" y="16" width="440" height="136" rx="14" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="66" cy="42" r="5" fill="#FAB283"/>
+<text x="80" y="48" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19" font-weight="700" fill="#f0f0f6">第一性原理拆解</text>
+<rect x="384" y="32" width="74" height="22" rx="11" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="421" y="47" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14" fill="#a0a0ac">思考框架</text>
+<text x="64" y="82" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">请用第一性原理分析以下主题…</text>
+<text x="64" y="108" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">5. 基于以上推演给出你的原创见解。<tspan fill="#FAB283">主题：</tspan></text>
+<text x="64" y="134" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">（在冒号后直接输入，零删除）</text>
+<rect x="496" y="16" width="440" height="136" rx="14" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="522" cy="42" r="5" fill="#56B6C2"/>
+<text x="536" y="48" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19" font-weight="700" fill="#f0f0f6">对抗式审查</text>
+<rect x="840" y="32" width="74" height="22" rx="11" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="877" y="47" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14" fill="#a0a0ac">思考框架</text>
+<text x="520" y="82" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">请对以下方案做对抗式审查（红队角色）…</text>
+<text x="520" y="108" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">4. 什么证据能让你改变立场。<tspan fill="#FAB283">方案/结论：</tspan></text>
+<text x="520" y="134" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">（在冒号后直接输入，零删除）</text>
+<rect x="40" y="168" width="440" height="136" rx="14" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="66" cy="194" r="5" fill="#9D7CD8"/>
+<text x="80" y="200" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19" font-weight="700" fill="#f0f0f6">决策博弈分析</text>
+<rect x="384" y="184" width="74" height="22" rx="11" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="421" y="199" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14" fill="#a0a0ac">思考框架</text>
+<text x="64" y="234" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">你是一位冷静的决策分析师…</text>
+<text x="64" y="260" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">6. 有没有哪条路是「没有回头路」的。<tspan fill="#FAB283">我的处境：</tspan></text>
+<text x="64" y="286" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">（在冒号后直接输入，零删除）</text>
+<rect x="496" y="168" width="440" height="136" rx="14" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="522" cy="194" r="5" fill="#FAB283"/>
+<text x="536" y="200" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19" font-weight="700" fill="#f0f0f6">零丢失快照</text>
+<rect x="840" y="184" width="56" height="22" rx="11" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="868" y="199" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14" fill="#a0a0ac">执行</text>
+<text x="520" y="234" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">把我们从会话开始至今的关键信息逐条列出</text>
+<text x="520" y="260" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">——不压缩、不合并，宁可啰嗦不可省略。</text>
+<text x="520" y="286" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">（在冒号后直接输入，零删除）</text>
+<rect x="40" y="320" width="440" height="136" rx="14" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="66" cy="346" r="5" fill="#56B6C2"/>
+<text x="80" y="352" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19" font-weight="700" fill="#f0f0f6">MECE 拆解</text>
+<rect x="384" y="336" width="74" height="22" rx="11" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="421" y="351" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14" fill="#a0a0ac">思考框架</text>
+<text x="64" y="386" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">请用 MECE 原则拆解以下问题…</text>
+<text x="64" y="412" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">4. 给出按重要性排序后的关键子问题清单。<tspan fill="#FAB283">问题：</tspan></text>
+<text x="64" y="438" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">（在冒号后直接输入，零删除）</text>
+<rect x="496" y="320" width="440" height="136" rx="14" fill="url(#t1g)" stroke="#2e2e3a"/>
+<linearGradient id="t1g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#14141c"/><stop offset="100%" stop-color="#0d0d12"/></linearGradient>
+<circle cx="522" cy="346" r="5" fill="#FAB283"/>
+<text x="536" y="352" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19" font-weight="700" fill="#f0f0f6">共 24 条预制</text>
+<text x="520" y="386" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">思考框架 10 · 学习 3 · 工程 4 · 执行 7</text>
+<text x="520" y="412" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">全部冒号表单式：指令段 + 字段段</text>
+<text x="520" y="438" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="15.5" fill="#b8b8c2">插入后光标定位到第一个字段冒号后</text>
+</svg>

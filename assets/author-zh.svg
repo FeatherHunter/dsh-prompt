@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="290" viewBox="0 0 880 290">
+<defs>
+<radialGradient id="a1o" cx="10%" cy="0%" r="70%"><stop offset="0%" stop-color="#FAB283" stop-opacity="0.10"/><stop offset="100%" stop-color="#FAB283" stop-opacity="0"/></radialGradient>
+<pattern id="a1dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r="1.2" fill="#fff" opacity="0.04"/></pattern>
+</defs>
+<rect width="100%" height="100%" fill="#0a0a0c"/>
+<rect width="100%" height="100%" fill="url(#a1o)"/>
+<rect width="100%" height="100%" fill="url(#a1dots)"/>
+<rect x="40" y="14" width="800" height="132" rx="16" fill="#0e0e14" stroke="#2a2a34"/>
+<rect x="40" y="14" width="6" height="132" fill="#FAB283"/>
+<text x="76" y="74" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="48" font-weight="800" fill="#FAB283">“</text>
+<text x="132" y="66" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="18" fill="#e8e8f0">做这个插件，是因为我自己也烦「现找 Prompt」这件事。</text>
+<text x="132" y="96" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="18" fill="#e8e8f0">使用中有什么卡点，直接开 Issue，我会认真看。</text>
+<text x="132" y="126" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="16" fill="#8a8a94">—— FeatherHunter</text>
+<rect x="40" y="158" width="800" height="96" rx="16" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="70" cy="190" r="6" fill="#9D7CD8"/>
+<text x="90" y="196" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19" font-weight="700" fill="#f0f0f6">参与贡献</text>
+<text x="76" y="228" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="17" fill="#b8b8c2">新预制模板（冒号表单式）· 词表打磨 · UI 细节 · 文档翻译</text>
+<text x="76" y="252" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="17" fill="#b8b8c2">—— Issue / PR 都欢迎。</text>
+</svg>

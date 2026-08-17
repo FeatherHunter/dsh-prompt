@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="460" height="110" viewBox="0 0 460 110">
+<defs>
+<pattern id="l1dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r="1.2" fill="#fff" opacity="0.04"/></pattern>
+</defs>
+<rect width="100%" height="100%" fill="#0a0a0c"/>
+<rect width="100%" height="100%" fill="url(#l1dots)"/>
+<rect x="40" y="30" width="160" height="50" rx="25" fill="#17171f" stroke="#2e2e3a"/>
+<text x="120" y="62" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="22" font-weight="800" fill="#e8e8f0">MIT License</text>
+<text x="224" y="62" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="20" fill="#8a8a94">© FeatherHunter</text>
+</svg>

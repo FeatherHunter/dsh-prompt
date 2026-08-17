@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="380" viewBox="0 0 880 380">
+<defs>
+<radialGradient id="c1o" cx="10%" cy="0%" r="70%"><stop offset="0%" stop-color="#9D7CD8" stop-opacity="0.12"/><stop offset="100%" stop-color="#9D7CD8" stop-opacity="0"/></radialGradient>
+<linearGradient id="c1g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#15151c"/><stop offset="100%" stop-color="#0d0d12"/></linearGradient>
+<filter id="c1glow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#000" flood-opacity="0.55"/></filter>
+<pattern id="c1dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r="1.2" fill="#fff" opacity="0.04"/></pattern>
+</defs>
+<rect width="100%" height="100%" fill="#0a0a0c"/>
+<rect width="100%" height="100%" fill="url(#c1o)"/>
+<rect width="100%" height="100%" fill="url(#c1dots)"/>
+<rect x="40" y="14" width="800" height="310" rx="16" fill="url(#c1g)" stroke="#26262f" filter="url(#c1glow)"/>
+<rect x="40" y="14" width="800" height="48" rx="16" fill="#101016"/>
+<rect x="40" y="46" width="800" height="16" fill="#101016"/>
+<circle cx="70" cy="38" r="6.5" fill="#9D7CD8"/>
+<path d="M70 32a6 6 0 0 0-6 6 6 6 0 0 0 12 0 6 6 0 0 0-6-6z" fill="none"/>
+<text x="90" y="45" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="21" font-weight="700" fill="#f0f0f6">设置 · 提示词模板</text>
+<text x="76" y="112" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="18" font-weight="600" fill="#f0f0f6">智能模式悬浮卡</text>
+<text x="76" y="134" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#8a8a94">输入命中模板时自动推荐（默认开）</text>
+<rect x="676" y="90" width="48" height="26" rx="13" fill="#56B6C2"/>
+<circle cx="712" cy="103" r="9" fill="#ffffff"/>
+<text x="744" y="108" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14" fill="#8a8a94">默认开</text>
+<line x1="56" y1="150" x2="824" y2="150" stroke="#26262f" stroke-width="1.5"/>
+<text x="76" y="188" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="18" font-weight="600" fill="#f0f0f6">模板管理</text>
+<text x="76" y="210" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14.5" fill="#8a8a94">自建可编辑/删除 · 预制可一键「复制为自定义」</text>
+<rect x="560" y="170" width="84" height="28" rx="9" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="602" y="189" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14" fill="#d0d0da">＋新增</text>
+<rect x="656" y="170" width="64" height="28" rx="9" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="688" y="189" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14" fill="#d0d0da">编辑</text>
+<rect x="732" y="170" width="64" height="28" rx="9" fill="#1a1a24" stroke="#8a4a4a"/>
+<text x="764" y="189" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14" fill="#d07575">删除</text>
+<line x1="56" y1="232" x2="824" y2="232" stroke="#26262f" stroke-width="1.5"/>
+<text x="76" y="270" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="18" font-weight="600" fill="#f0f0f6">顶部链接</text>
+<rect x="560" y="252" width="112" height="28" rx="9" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="616" y="271" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14" fill="#FAB283">GitHub 仓库</text>
+<rect x="684" y="252" width="112" height="28" rx="9" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="740" y="271" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="14" fill="#FAB283">反馈故障</text>
+<text x="40" y="356" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="16" fill="#8a8a94">界面双语（中文/English）· 字体、字号、颜色跟随 DSH 主题</text>
+</svg>

@@ -31,7 +31,8 @@
   "scripts": {
     "build": "bash scripts/build.sh",
     "build:client": "tsdown",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:modal": "node scripts/test-modal-remount.cjs"
   },
   "dsh": {
     "bundle": {
@@ -47,6 +48,8 @@
     }
   },
   "devDependencies": {
+    "react": "^18.3.1",
+    "react-test-renderer": "^18.3.1",
     "tsdown": "^0.22.14",
     "typescript": "^5.9.3",
     "unrun": "^0.3.1"

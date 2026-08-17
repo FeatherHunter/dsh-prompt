@@ -4,3 +4,5 @@ lib/client.js.map
 *.tgz
 *.tsbuildinfo
 .DS_Store
+scripts/.rt-tmp/
+.tmp-rt2/

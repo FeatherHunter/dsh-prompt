@@ -62,4 +62,6 @@ export const STR = {
   smartDismiss: { zh: '收起（继续输入可再次出现）', en: 'Dismiss (reappears as you type)' },
   smartRecent: { zh: '最近使用', en: 'Recently used' },
   smartCommon: { zh: '常用模板', en: 'Common templates' },
+  gitHubRepo: { zh: 'GitHub 仓库', en: 'GitHub repo' },
+  feedback: { zh: '反馈故障', en: 'Report issue' },
 }

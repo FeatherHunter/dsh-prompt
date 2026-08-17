@@ -17,6 +17,14 @@ export function SettingsPage(props: any): any {
     display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px',
     fontFamily: 'var(--dsw-font-family)', fontSize: 12.5, color: 'var(--dsw-alias-label-primary)',
   }
+  const linkRow: any = {
+    display: 'flex', gap: 18, padding: '12px 4px 2px', borderTop: '1px solid var(--dsw-alias-border-l1)',
+    fontSize: '0.88em', fontFamily: 'var(--dsw-font-family)',
+  }
+  const linkStyle: any = {
+    color: 'var(--dsw-specific-accent,#f0a45c)', cursor: 'pointer', textDecoration: 'none',
+    display: 'inline-flex', alignItems: 'center', gap: 5,
+  }
   return h('div', { style: { padding: 8, display: 'flex', flexDirection: 'column' } }, [
     h('label', { style: row, title: t('smartToggleHint') }, [
       h('input', {
@@ -26,5 +34,9 @@ export function SettingsPage(props: any): any {
       h('span', null, t('smartToggle')),
     ]),
     h(TemplateBrowser, { compact: false }),
+    h('div', { style: linkRow }, [
+      h('a', { style: linkStyle, href: 'https://github.com/FeatherHunter/dsh-prompt', target: '_blank', rel: 'noreferrer' }, '⛭ ' + t('gitHubRepo')),
+      h('a', { style: linkStyle, href: 'https://github.com/FeatherHunter/dsh-prompt/issues/new', target: '_blank', rel: 'noreferrer' }, '⚠ ' + t('feedback')),
+    ]),
   ])
 }

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="240" viewBox="0 0 880 240">
+<defs>
+<filter id="gl3" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#000" flood-opacity="0.5"/></filter>
+</defs>
+<rect width="100%" height="100%" fill="#0a0a0a"/>
+<text x="60" y="60" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="20" fill="#EEEEEE">输入：</text>
+<text x="130" y="60" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="20" fill="#9a9aa4">帮我做个决策，两个选项很纠结</text>
+<rect x="40" y="90" width="330" height="120" rx="14" fill="#0A0A0A" stroke="#2a2a30" filter="url(#gl3)"/>
+<rect x="40" y="90" width="330" height="34" rx="14" fill="#0A0A0A"/>
+<rect x="40" y="110" width="330" height="14" fill="#0A0A0A"/>
+<circle cx="62" cy="107" r="5" fill="#FAB283"/>
+<text x="80" y="112" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13.5" font-weight="600" fill="#EEEEEE">智能推荐</text>
+<text x="352" y="112" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13" fill="#8a8a94">×</text>
+<rect x="56" y="136" width="298" height="34" rx="8" fill="#0A0A0A" stroke="#2a2a30"/>
+<circle cx="72" cy="153" r="6" fill="#FAB283"/>
+<rect x="86" y="146" width="96" height="5" rx="2.5" fill="#EEEEEE" opacity="0.85"/>
+<rect x="192" y="146" width="40" height="14" rx="7" fill="#1a1a22" stroke="#3a3a44"/>
+<text x="212" y="157" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="8.5" fill="#9a9aa4">·分6</text>
+<rect x="290" y="146" width="48" height="20" rx="9" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="314" y="159" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="9" fill="#FAB283">点击填入</text>
+<rect x="56" y="178" width="298" height="24" rx="8" fill="#0A0A0A" stroke="#2a2a30"/>
+<circle cx="72" cy="190" r="6" fill="#9D7CD8"/>
+<rect x="86" y="184" width="80" height="5" rx="2.5" fill="#EEEEEE" opacity="0.7"/>
+<rect x="290" y="180" width="48" height="20" rx="9" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="314" y="193" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="9" fill="#FAB283">点击填入</text>
+<circle cx="406" cy="150" r="10" fill="#FAB283" opacity="0.9"/>
+<text x="520" y="158" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16" fill="#6d6d6d">圆点 = 全局手柄 · 拖动记忆 · 匹配即出卡</text>
+</svg>

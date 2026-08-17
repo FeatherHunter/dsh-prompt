@@ -1,7 +1,21 @@
 {
   "name": "dsh-prompt",
   "version": "0.1.0",
-  "description": "DSH prompt 调色板：预制 + 自定义 prompt 模板，点击即插入当前对话输入框（v1 常规模式 + v1.1 智能模式悬浮卡）",
+  "description": "DSH prompt 调色板：预制 + 自定义 prompt 模板，点击即插入当前对话输入框（v1 常规模式 + v1.1 智能模式悬浮卡） | Prompt palette for DeepSeek Harness: preset + custom prompt templates, one-click insert into the conversation.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek",
+    "deepseek-harness",
+    "prompt",
+    "prompts",
+    "templates",
+    "prompt-templates",
+    "preset-prompts",
+    "ai",
+    "llm",
+    "palette"
+  ],
   "type": "module",
   "main": "lib/index.js",
   "exports": {

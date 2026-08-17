@@ -13,7 +13,7 @@
 <path d="M92 84a12 12 0 0 1 24 0" fill="none" stroke="#56B6C2" stroke-width="3.2" stroke-linecap="round"/>
 <rect x="90" y="84" width="28" height="24" rx="5" fill="#56B6C2"/>
 <circle cx="104" cy="94" r="3.5" fill="#0d0d12"/>
-<text x="156" y="84" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="20" font-weight="700" fill="#f0f0f6">所有数据都在本地</text>
-<text x="156" y="112" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="17" fill="#b8b8c2">模板 · 用量 · 置顶 · 悬浮卡位置 —— 只存 localStorage，</text>
-<text x="156" y="138" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="17" fill="#b8b8c2">不上传任何内容，不采集任何使用行为。</text>
+<text x="156" y="84" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="22" font-weight="700" fill="#f0f0f6">所有数据都在本地</text>
+<text x="156" y="112" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19" fill="#b8b8c2">模板 · 用量 · 置顶 · 悬浮卡位置 —— 只存 localStorage，</text>
+<text x="156" y="138" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,Noto Sans SC,sans-serif" font-size="19" fill="#b8b8c2">不上传任何内容，不采集任何使用行为。</text>
 </svg>

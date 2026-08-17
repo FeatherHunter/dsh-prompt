@@ -11,6 +11,25 @@
 
 ![hero](assets/hero-zh.svg)
 
+## 快速导航
+
+[![一条命令安装](assets/nav-install.svg)](#一条命令安装)
+
+[![三种方式叫出模板](assets/nav-ways.svg)](#三种方式叫出模板)
+
+[![24 条深度模板](assets/nav-templates.svg)](#模板长这样)
+
+[![自定义与管理](assets/nav-settings.svg)](#自定义与管理)
+
+[![常见问题](assets/nav-faq.svg)](#常见问题)
+
+[![npm 发布](assets/nav-npm.svg)](https://www.npmjs.com/package/dsh-prompt)
+
+[![反馈故障](assets/nav-issues.svg)](https://github.com/FeatherHunter/dsh-prompt/issues/new)
+
+[![更新日志](assets/nav-releases.svg)](https://github.com/FeatherHunter/dsh-prompt/releases)
+
+
 ## 这是给你的吗
 
 ![这是给你的吗](assets/who-zh.svg)

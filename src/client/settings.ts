@@ -26,6 +26,10 @@ export function SettingsPage(props: any): any {
     display: 'inline-flex', alignItems: 'center', gap: 5,
   }
   return h('div', { style: { padding: 8, display: 'flex', flexDirection: 'column' } }, [
+    h('div', { style: linkRow }, [
+      h('a', { style: linkStyle, href: 'https://github.com/FeatherHunter/dsh-prompt', target: '_blank', rel: 'noreferrer' }, '⛭ ' + t('gitHubRepo')),
+      h('a', { style: linkStyle, href: 'https://github.com/FeatherHunter/dsh-prompt/issues/new', target: '_blank', rel: 'noreferrer' }, '⚠ ' + t('feedback')),
+    ]),
     h('label', { style: row, title: t('smartToggleHint') }, [
       h('input', {
         type: 'checkbox', checked: smartOn,
@@ -34,9 +38,5 @@ export function SettingsPage(props: any): any {
       h('span', null, t('smartToggle')),
     ]),
     h(TemplateBrowser, { compact: false }),
-    h('div', { style: linkRow }, [
-      h('a', { style: linkStyle, href: 'https://github.com/FeatherHunter/dsh-prompt', target: '_blank', rel: 'noreferrer' }, '⛭ ' + t('gitHubRepo')),
-      h('a', { style: linkStyle, href: 'https://github.com/FeatherHunter/dsh-prompt/issues/new', target: '_blank', rel: 'noreferrer' }, '⚠ ' + t('feedback')),
-    ]),
   ])
 }

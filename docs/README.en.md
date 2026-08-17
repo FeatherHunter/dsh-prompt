@@ -50,7 +50,7 @@ There is a **⚡ Prompt** button beside the conversation input in DeepSeek Harne
 
 ## Settings
 
-**Settings → Plugins → dsh-prompt**:
+**Settings → Prompt Templates** (a direct settings page):
 
 - **Smart suggestion card** switch (on by default)
 - **Template management**: full CRUD (add / edit / delete / copy preset to custom)

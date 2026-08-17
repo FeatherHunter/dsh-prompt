@@ -158,7 +158,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       }
   const headStyle: any = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: line }
   const titleStyle: any = { fontWeight: 700, fontSize: '1em' }
-  const addBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-specific-accent,#f0a45c)', fontSize: 16, lineHeight: 1, cursor: 'pointer' }
+  const addBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-specific-accent,#f0a45c)', fontSize: 16, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
   const closeBtn: any = { width: 26, height: 26, borderRadius: 7, border: 0, background: 'transparent', color: dim, fontSize: 16, lineHeight: 1, cursor: 'pointer' }
   const headBtns: any = { display: 'flex', gap: 4, alignItems: 'center' }
   const tabsStyle: any = { display: 'flex', gap: 4, padding: '5px 12px 0', flexWrap: 'wrap' }

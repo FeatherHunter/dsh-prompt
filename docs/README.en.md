@@ -105,7 +105,7 @@ Source in `src/client/*` (panel/trigger/smart matching/word tables/settings page
 
 Two more DSH plugins:
 
-- [**dsh-opencode-palette**](https://github.com/FeatherHunter/dsh-opencode-palette) — 34 opencode official themes, one-click reskin for DSH.
+- [**dsh-opencode-palette**](https://github.com/FeatherHunter/dsh-opencode-palette) — Love opencode's look? Your DSH can wear it too — 34 classic themes, easier on the eyes, happier to code in.
 - [**dsh-mattpocock-skills-deck**](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck) — 25 engineering skill packs, paste one install Prompt to use.
 
 ## Contributing

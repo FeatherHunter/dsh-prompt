@@ -105,7 +105,7 @@ npm run build          # 完整构建
 
 还写了两款 DSH 插件：
 
-- [**dsh-opencode-palette**](https://github.com/FeatherHunter/dsh-opencode-palette) —— 34 款 opencode 官方主题，DSH 界面一键换肤。
+- [**dsh-opencode-palette**](https://github.com/FeatherHunter/dsh-opencode-palette) —— 喜欢 opencode 的配色？让 DSH 也穿上它 —— 34 款经典主题，眼睛舒服了，码字也开心。
 - [**dsh-mattpocock-skills-deck**](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck) —— 25 个工程技能包，粘贴一段安装 Prompt 即用。
 
 ## 参与贡献

@@ -17,7 +17,7 @@ export function SettingsPage(props: any): any {
     display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px',
     fontFamily: 'var(--dsw-font-family)', fontSize: 12.5, color: 'var(--dsw-alias-label-primary)',
   }
-  return h('div', { style: { padding: 8 } }, [
+  return h('div', { style: { padding: 8, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, boxSizing: 'border-box' } }, [
     h('label', { style: row, title: t('smartToggleHint') }, [
       h('input', {
         type: 'checkbox', checked: smartOn,

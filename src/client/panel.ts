@@ -154,37 +154,38 @@ export function TemplateBrowser(props: BrowserProps): any {
       }
     : {
         display: 'flex', flexDirection: 'column', gap: 8, padding: 12,
-        fontFamily: 'var(--dsw-font-family)', fontSize: 12.5, color: base,
+        height: '100%', minHeight: 0, boxSizing: 'border-box',
+        fontFamily: 'var(--dsw-font-family)', fontSize: 'var(--dsw-font-markdown-base-font-size)', color: base,
       }
   const headStyle: any = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: line }
-  const titleStyle: any = { fontWeight: 700, fontSize: 13 }
+  const titleStyle: any = { fontWeight: 700, fontSize: '1em' }
   const addBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-specific-accent,#f0a45c)', fontSize: 16, lineHeight: 1, cursor: 'pointer' }
   const closeBtn: any = { width: 26, height: 26, borderRadius: 7, border: 0, background: 'transparent', color: dim, fontSize: 16, lineHeight: 1, cursor: 'pointer' }
   const headBtns: any = { display: 'flex', gap: 4, alignItems: 'center' }
   const tabsStyle: any = { display: 'flex', gap: 4, padding: '5px 12px 0', flexWrap: 'wrap' }
   const tabBtn = (on: boolean): any => ({
     padding: '2px 8px', borderRadius: 999, border: line, background: on ? 'var(--dsw-alias-bg-layer-3)' : 'transparent',
-    color: on ? base : muted, cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: 11,
+    color: on ? base : muted, cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em',
   })
   const domainRowStyle: any = { display: 'flex', gap: 4, padding: '3px 12px 0', flexWrap: 'wrap' }
-  const searchStyle: any = { margin: '8px 12px', padding: '6px 10px', borderRadius: 8, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: base, fontFamily: 'var(--dsw-font-family)', fontSize: 12.5, outline: 'none' }
+  const searchStyle: any = { margin: '8px 12px', padding: '6px 10px', borderRadius: 8, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: base, fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none' }
   const listStyle: any = compact
-    ? { overflow: 'auto', padding: '4px 8px 10px', maxHeight: 170 } // 恒定 3 行完整可见，内部滚动
-    : { overflow: 'auto', padding: '4px 8px 10px', flex: 1 }
-  const itemStyle: any = { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 9px', borderRadius: 8, cursor: 'pointer' }
+    ? { overflow: 'auto', padding: '3px 6px 8px', maxHeight: 170 } // 恒定约 5 行完整可见，内部滚动
+    : { overflow: 'auto', padding: '3px 6px 8px', flex: 1, minHeight: 0 }
+  const itemStyle: any = { display: 'flex', alignItems: 'center', gap: 8, padding: '3px 6px', borderRadius: 8, cursor: 'pointer' }
   const pinStyle = (on: boolean): any => ({ flex: 'none', width: 18, textAlign: 'center', color: on ? 'var(--dsw-specific-accent,#f0a45c)' : dim, cursor: 'pointer', fontSize: 12, border: 0, background: 'transparent' })
-  const nmStyle: any = { flex: 1, minWidth: 0, fontSize: 12.8, color: base }
-  const subStyle: any = { display: 'block', fontSize: 11, color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
-  const tagStyle: any = { flex: 'none', fontSize: 10.5, color: dim, border: line, padding: '1px 6px', borderRadius: 999 }
+  const nmStyle: any = { flex: 1, minWidth: 0, fontSize: '0.98em', color: base }
+  const subStyle: any = { display: 'block', fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+  const tagStyle: any = { flex: 'none', fontSize: '0.8em', color: dim, border: line, padding: '1px 6px', borderRadius: 999 }
   const actStyle: any = { display: 'flex', gap: 4, flex: 'none' }
-  const actBtn = (danger?: boolean): any => ({ border: line, background: 'transparent', color: danger ? 'var(--dsw-specific-danger,#e06c75)' : dim, cursor: 'pointer', fontSize: 11, padding: '1px 8px', borderRadius: 999, fontFamily: 'var(--dsw-font-family)', whiteSpace: 'nowrap' })
-  const footStyle: any = { padding: '8px 12px', borderTop: line, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: dim }
-  const footLink: any = { color: 'var(--dsw-specific-accent,#f0a45c)', cursor: 'pointer', textDecoration: 'none', background: 'transparent', border: 0, fontFamily: 'var(--dsw-font-family)', fontSize: 11 }
+  const actBtn = (danger?: boolean): any => ({ border: line, background: 'transparent', color: danger ? 'var(--dsw-specific-danger,#e06c75)' : dim, cursor: 'pointer', fontSize: '0.85em', padding: '1px 8px', borderRadius: 999, fontFamily: 'var(--dsw-font-family)', whiteSpace: 'nowrap' })
+  const footStyle: any = { padding: '8px 12px', borderTop: line, display: 'flex', justifyContent: 'space-between', fontSize: '0.85em', color: dim }
+  const footLink: any = { color: 'var(--dsw-specific-accent,#f0a45c)', cursor: 'pointer', textDecoration: 'none', background: 'transparent', border: 0, fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em' }
   const maskStyle: any = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }
   const modalStyle: any = { width: 460, background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, fontFamily: 'var(--dsw-font-family)', color: base }
-  const fieldStyle: any = { width: '100%', background: 'var(--dsw-alias-bg-layer-3)', border: line, color: base, borderRadius: 8, padding: '8px 10px', fontFamily: 'var(--dsw-font-family)', fontSize: 12.5, outline: 'none', boxSizing: 'border-box' }
+  const fieldStyle: any = { width: '100%', background: 'var(--dsw-alias-bg-layer-3)', border: line, color: base, borderRadius: 8, padding: '8px 10px', fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none', boxSizing: 'border-box' }
   const mbtnsStyle: any = { display: 'flex', justifyContent: 'flex-end', gap: 8 }
-  const mbtn = (primary?: boolean, danger?: boolean): any => ({ padding: '6px 14px', borderRadius: 8, border: primary ? 0 : line, background: primary ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-bg-layer-3)', color: primary ? '#1a1a1e' : (danger ? 'var(--dsw-specific-danger,#e06c75)' : base), cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: 12.5 })
+  const mbtn = (primary?: boolean, danger?: boolean): any => ({ padding: '6px 14px', borderRadius: 8, border: primary ? 0 : line, background: primary ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-bg-layer-3)', color: primary ? '#1a1a1e' : (danger ? 'var(--dsw-specific-danger,#e06c75)' : base), cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em' })
 
   // ── 操作 ──
   const handlePick = (x: PromptTemplate) => { onPick(x, useInput, inputActions) }
@@ -248,7 +249,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         }
         return h('div', { style: maskStyle, onClick: (e: any) => { if (e.target === e.currentTarget) modalState[1](null) } }, [
           h('div', { style: modalStyle }, [
-            h('h3', { style: { fontSize: 14, margin: 0 } }, editing ? t('editTitle') : t('addTitle')),
+            h('h3', { style: { fontSize: '1.08em', margin: 0 } }, editing ? t('editTitle') : t('addTitle')),
             h('input', { style: fieldStyle, placeholder: t('namePh'), value: name, onChange: (e: any) => setName(e.target.value) }),
             h('input', { style: fieldStyle, placeholder: t('tagPh'), value: tag, onChange: (e: any) => setTag(e.target.value) }),
             h('textarea', { style: { ...fieldStyle, height: 110, resize: 'vertical' }, placeholder: t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),

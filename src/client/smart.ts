@@ -218,7 +218,7 @@ export function SmartCardHost(props: any): any {
     background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',
     borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)',
     display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 10px',
-    fontFamily: 'var(--dsw-font-family)', fontSize: 12, color: base,
+    fontFamily: 'var(--dsw-font-family)', fontSize: 'var(--dsw-font-markdown-base-font-size)', color: base,
   }
   const headStyle: any = { display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderBottom: line, cursor: 'grab', minWidth: 0 }
   // 行 = 圆角子卡片（原型样式）：编号 + 名称 + 标签(·分N/·最近) + 命中词 + 「点击填入」按钮
@@ -228,15 +228,15 @@ export function SmartCardHost(props: any): any {
     background: 'var(--dsw-alias-bg-layer-2)', border: '1px solid var(--dsw-alias-border-l1)',
     borderRadius: 8, cursor: 'pointer', overflow: 'hidden',
   }
-  const rowNum: any = { color: dim, fontSize: 10, flex: 'none' }
-  const rowName: any = { fontWeight: 500, fontSize: 11.5, flex: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }
-  const rowTag: any = { color: muted, flex: 'none', fontSize: 10 }
-  const rowHint: any = { color: dim, flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10 }
+  const rowNum: any = { color: dim, fontSize: '0.77em', flex: 'none' }
+  const rowName: any = { fontWeight: 500, fontSize: '0.88em', flex: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }
+  const rowTag: any = { color: muted, flex: 'none', fontSize: '0.77em' }
+  const rowHint: any = { color: dim, flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.77em' }
   const fillBtn: any = {
     flex: 'none', border: '1px solid var(--dsw-alias-border-l2)',
     background: 'rgba(255,255,255,0.10)', color: base,
     borderRadius: 5, padding: '1px 7px', cursor: 'pointer',
-    fontFamily: 'var(--dsw-font-family)', fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap',
+    fontFamily: 'var(--dsw-font-family)', fontSize: '0.8em', fontWeight: 500, whiteSpace: 'nowrap',
   }
   const rowNodes = rows.map((c, i) => {
     const common = c.score === 0
@@ -253,11 +253,11 @@ export function SmartCardHost(props: any): any {
   })
   const card = h('div', { key: 'card', ref: cardRef, style: cardStyle }, [
     h('div', { style: headStyle, onPointerDown: startDrag }, [
-      h('span', { style: { fontWeight: 600, fontSize: 11 } }, t('smartTitle')),
-      h('span', { style: { color: dim, fontSize: 10 } }, t('smartHint')),
+      h('span', { style: { fontWeight: 600, fontSize: '0.85em' } }, t('smartTitle')),
+      h('span', { style: { color: dim, fontSize: '0.77em' } }, t('smartHint')),
       h('div', { style: { flex: 1 } }),
       h('button', {
-        style: { border: 0, background: 'transparent', color: dim, cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: '0 2px', flex: 'none' },
+        style: { border: 0, background: 'transparent', color: dim, cursor: 'pointer', fontSize: '0.92em', lineHeight: 1, padding: '0 2px', flex: 'none' },
         title: t('smartDismiss'),
         onPointerDown: (e: any) => e.stopPropagation(),
         onClick: (e: any) => { e.stopPropagation(); setDismissed(true); setManualOpen(false) },

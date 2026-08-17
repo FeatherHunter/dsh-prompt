@@ -8,6 +8,7 @@ import { SettingsPage } from './settings'
 import { buildPromptSource } from './trigger'
 import { SmartCardHost } from './smart'
 import { setSmartInput } from './smartstore'
+import { getLang } from './i18n'
 import { isPanelOpen, onPanelOpen } from './state'
 
 type ClientContext = {
@@ -62,11 +63,25 @@ export function apply(ctx: ClientContext): void {
 
   // 设置页（直属设置面板的配置页，非插件子类）：智能开关 + 模板管理
   ctx.effect(() => ctx.slots.inject('settings.section', () =>
-    ctx.slots.register({ name: 'settings.section', id: 'dsh-prompt-palette', priority: 10, order: 50, label: () => 'dsh-prompt' }, SettingsPage),
+    ctx.slots.register({ name: 'settings.section', id: 'dsh-prompt-palette', priority: 10, order: 50, label: () => (getLang() === 'zh' ? 'Prompt 模板' : 'Prompt Templates') }, SettingsPage),
   ), 'dsh-prompt: settings')
 
   // 面板「设置 → 模板管理」：当前 v1 关闭面板即可（设置页经 ⚙ → 插件 → dsh-prompt 到达）
-  setGoSettingsHandler(() => { /* 跳转宿主设置页留待后续（需要宿主 settings 路由 API） */ })
+  // 面板「设置 → 模板管理」：打开设置面板并选中本插件配置页（宿主无全局 open API → DOM 触发侧栏设置按钮 + 导航项）
+  setGoSettingsHandler(() => {
+    try {
+      if (typeof document === 'undefined') return
+      const btns = Array.prototype.slice.call(document.querySelectorAll('button[aria-haspopup="dialog"]')) as HTMLElement[]
+      const trig = btns.find((b) => /设置|Settings/.test((b.textContent || '').trim())) || btns[0]
+      if (trig) trig.click()
+      setTimeout(() => {
+        const label = getLang() === 'zh' ? 'Prompt 模板' : 'Prompt Templates'
+        const cells = Array.prototype.slice.call(document.querySelectorAll('button')) as HTMLElement[]
+        const cell = cells.find((b) => (b.textContent || '').trim() === label)
+        if (cell) cell.click()
+      }, 150)
+    } catch (e) { /* ignore */ }
+  })
 
   // /prompt 触发源（#9）：列出预制+自定义模板，支持过滤（标签/搜索），选中即插入
   if (ctx.inputTriggers && typeof ctx.inputTriggers.registerSource === 'function') {

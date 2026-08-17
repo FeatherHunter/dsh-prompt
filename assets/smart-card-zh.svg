@@ -8,29 +8,29 @@
 <rect width="100%" height="100%" fill="#0a0a0c"/>
 <rect width="100%" height="100%" fill="url(#so)"/>
 <rect width="100%" height="100%" fill="url(#sdots)"/>
-<text x="40" y="42" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="17" font-weight="700" fill="#e8e8f0">输入<tspan fill="#9a9aa4" font-weight="400">「帮我做个决策，两个选项很纠结」</tspan> → 自动出卡</text>
+<text x="40" y="42" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="19.5" font-weight="700" fill="#e8e8f0">杈撳叆<tspan fill="#9a9aa4" font-weight="400">銆屽府鎴戝仛涓喅绛栵紝涓や釜閫夐」寰堢籂缁撱€?/tspan> 鈫?鑷姩鍑哄崱</text>
 <rect x="40" y="62" width="800" height="56" rx="14" fill="url(#sg)" stroke="#2a2a34" filter="url(#sglow)"/>
 <circle cx="66" cy="90" r="5" fill="#FAB283"/>
-<text x="84" y="95" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="15" font-weight="700" fill="#f0f0f6">智能推荐</text>
-<text x="822" y="95" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14" fill="#8a8a94">×</text>
+<text x="84" y="95" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="17.5" font-weight="700" fill="#f0f0f6">鏅鸿兘鎺ㄨ崘</text>
+<text x="822" y="95" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" fill="#8a8a94">脳</text>
 <rect x="56" y="132" width="330" height="60" rx="11" fill="#0e0e14" stroke="#2a2a34"/>
 <circle cx="76" cy="156" r="8" fill="#FAB283" opacity="0.9"/>
 <path d="M74 150.5l.6 1.3 1.4.6-1.4.6-.6 1.3-.6-1.3-1.4-.6 1.4-.6z" fill="#0d0d12"/>
 <rect x="92" y="146" width="110" height="6" rx="3" fill="#EEEEEE" opacity="0.9"/>
 <rect x="92" y="160" width="220" height="5" rx="2.5" fill="#EEEEEE" opacity="0.5"/>
 <rect x="218" y="146" width="44" height="17" rx="8.5" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="240" y="158" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="9.5" fill="#a0a0ac">·分6</text>
+<text x="240" y="158" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12" fill="#a0a0ac">路鍒?</text>
 <rect x="286" y="144" width="72" height="24" rx="10" fill="#0A0A0A" stroke="#FAB283"/>
-<text x="322" y="160" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="10" fill="#FAB283">点击填入</text>
+<text x="322" y="160" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12.5" fill="#FAB283">鐐瑰嚮濉叆</text>
 <rect x="56" y="202" width="330" height="34" rx="11" fill="#0e0e14" stroke="#2a2a34"/>
 <circle cx="76" cy="219" r="8" fill="#9D7CD8" opacity="0.9"/>
 <path d="M74 213.5l.6 1.3 1.4.6-1.4.6-.6 1.3-.6-1.3-1.4-.6 1.4-.6z" fill="#0d0d12"/>
 <rect x="92" y="212" width="90" height="6" rx="3" fill="#EEEEEE" opacity="0.8"/>
 <rect x="286" y="210" width="72" height="24" rx="10" fill="#0A0A0A" stroke="#FAB283"/>
-<text x="322" y="226" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="10" fill="#FAB283">点击填入</text>
+<text x="322" y="226" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12.5" fill="#FAB283">鐐瑰嚮濉叆</text>
 <circle cx="412" cy="168" r="11" fill="#FAB283"/>
 <path d="M410 161.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z" fill="#0d0d12"/>
-<text x="452" y="174" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14" fill="#6d6d6d">全局圆点 · 拖动记忆 · 点击展开</text>
-<text x="520" y="210" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14" fill="#6d6d6d">点整行即填入，光标定位到</text>
-<text x="520" y="230" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="14" fill="#6d6d6d">第一个字段冒号后，直接开写</text>
+<text x="452" y="174" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" fill="#6d6d6d">鍏ㄥ眬鍦嗙偣 路 鎷栧姩璁板繂 路 鐐瑰嚮灞曞紑</text>
+<text x="520" y="210" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" fill="#6d6d6d">鐐规暣琛屽嵆濉叆锛屽厜鏍囧畾浣嶅埌</text>
+<text x="520" y="230" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" fill="#6d6d6d">绗竴涓瓧娈靛啋鍙峰悗锛岀洿鎺ュ紑鍐?/text>
 </svg>

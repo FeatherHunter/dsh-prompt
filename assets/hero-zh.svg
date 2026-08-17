@@ -15,105 +15,106 @@
 <rect width="100%" height="100%" fill="url(#hV)"/>
 <rect width="100%" height="100%" fill="url(#hT)"/>
 <rect width="100%" height="100%" fill="url(#dots)"/>
-<text x="640" y="42" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="15" letter-spacing="6" fill="#5c5c66">DEEPSEEK HARNESS · PLUGIN</text>
-<g transform="translate(576,52)">
-<circle cx="64" cy="64" r="44" fill="#12121a" stroke="#2e2e3a" stroke-width="2"/>
-<circle cx="64" cy="64" r="36" fill="none" stroke="#FAB283" stroke-opacity="0.25" stroke-width="1.5"/>
+<text x="640" y="44" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="17.5" letter-spacing="6" fill="#5c5c66">DEEPSEEK HARNESS · PLUGIN</text>
+<g transform="translate(572,54)">
+<circle cx="68" cy="68" r="48" fill="#12121a" stroke="#2e2e3a" stroke-width="2"/>
+<circle cx="68" cy="68" r="40" fill="none" stroke="#FAB283" stroke-opacity="0.25" stroke-width="1.5"/>
 <g filter="url(#bulbGlow)">
-<path d="M64 36c-10.6 0-19.3 8.7-19.3 19.4 0 6.6 3.3 12.4 8.4 16.1l.4 2h20.9l.4-2c5.1-3.7 8.4-9.5 8.4-16.1C83.3 44.7 74.6 36 64 36z" fill="url(#bulbG)"/>
-<path d="M50 79h28" stroke="#FAB283" stroke-width="4.4" stroke-linecap="round"/>
-<path d="M55 90h18" stroke="#FAB283" stroke-width="4.4" stroke-linecap="round"/>
+<path d="M68 38c-11.5 0-21 9.5-21 21 0 7.2 3.6 13.5 9.1 17.5l.4 2.2h23l.4-2.2c5.5-4 9.1-10.3 9.1-17.5 0-11.5-9.5-21-21-21z" fill="url(#bulbG)"/>
+<path d="M53 86h30" stroke="#FAB283" stroke-width="4.8" stroke-linecap="round"/>
+<path d="M59 98h18" stroke="#FAB283" stroke-width="4.8" stroke-linecap="round"/>
 </g>
-<path d="M112 20l3.2 6.8 6.8 3.2-6.8 3.2-3.2 6.8-3.2-6.8-6.8-3.2 6.8-3.2z" fill="#FAB283"/>
+<path d="M120 22l3.4 7.2 7.2 3.4-7.2 3.4-3.4 7.2-3.4-7.2-7.2-3.4 7.2-3.4z" fill="#FAB283"/>
 </g>
-<text x="640" y="168" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="54" font-weight="800" letter-spacing="1" fill="url(#tG)">别再复制粘贴 Prompt 了</text>
-<text x="640" y="212" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="22" fill="#b8b8c2">预制 24 条深度模板 · 一点即插入 · 输入即推荐</text>
+<text x="640" y="176" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="58" font-weight="800" letter-spacing="1" fill="url(#tG)">别再复制粘贴 Prompt 了</text>
+<text x="640" y="226" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="25" fill="#b8b8c2">预制 24 条深度模板 · 一点即插入 · 输入即推荐</text>
 <g>
-<rect x="356" y="238" width="120" height="30" rx="15" fill="#17171f" stroke="#2e2e3a"/>
-<circle cx="376" cy="253" r="5" fill="#FAB283"/>
-<text x="390" y="257" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13" fill="#e6e6ee">24 条预制</text>
-<rect x="492" y="238" width="140" height="30" rx="15" fill="#17171f" stroke="#2e2e3a"/>
-<circle cx="512" cy="253" r="5" fill="#9D7CD8"/>
-<text x="526" y="257" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#e6e6ee">/prompt</text>
-<rect x="648" y="238" width="150" height="30" rx="15" fill="#17171f" stroke="#2e2e3a"/>
-<circle cx="668" cy="253" r="5" fill="#56B6C2"/>
-<text x="682" y="257" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13" fill="#e6e6ee">智能悬浮卡</text>
-<rect x="814" y="238" width="110" height="30" rx="15" fill="#17171f" stroke="#2e2e3a"/>
-<circle cx="834" cy="253" r="5" fill="#FAB283"/>
-<text x="848" y="257" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13" fill="#e6e6ee">自定义</text>
+<rect x="336" y="250" width="156" height="36" rx="18" fill="#17171f" stroke="#2e2e3a"/>
+<circle cx="360" cy="268" r="6" fill="#FAB283"/>
+<text x="376" y="273" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16" fill="#e6e6ee">24 条预制</text>
+<rect x="508" y="250" width="178" height="36" rx="18" fill="#17171f" stroke="#2e2e3a"/>
+<circle cx="532" cy="268" r="6" fill="#9D7CD8"/>
+<text x="548" y="273" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="16" fill="#e6e6ee">/prompt</text>
+<rect x="702" y="250" width="190" height="36" rx="18" fill="#17171f" stroke="#2e2e3a"/>
+<circle cx="726" cy="268" r="6" fill="#56B6C2"/>
+<text x="742" y="273" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16" fill="#e6e6ee">智能悬浮卡</text>
+<rect x="908" y="250" width="140" height="36" rx="18" fill="#17171f" stroke="#2e2e3a"/>
+<circle cx="932" cy="268" r="6" fill="#FAB283"/>
+<text x="948" y="273" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16" fill="#e6e6ee">自定义</text>
 </g>
 <g filter="url(#glow)">
-<rect x="60" y="296" width="560" height="304" rx="18" fill="url(#cardG)" stroke="#26262f"/>
-<rect x="60" y="296" width="560" height="44" rx="18" fill="#101016"/>
-<rect x="60" y="324" width="560" height="16" fill="#101016"/>
-<circle cx="86" cy="318" r="6" fill="#FAB283"/>
-<g transform="translate(90,306) scale(0.62)"><path d="M15 14c.2-1 .7-1.7 1.5-2.5C17.5 10.6 18 9.3 18 8a6 6 0 1 0-12 0c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5" fill="none" stroke="#FAB283" stroke-width="2.4"/><path d="M9 18h6" stroke="#FAB283" stroke-width="2.4"/><path d="M10 22h4" stroke="#FAB283" stroke-width="2.4"/></g>
-<text x="120" y="323" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" font-weight="700" fill="#f0f0f6">Prompt</text>
-<rect x="584" y="310" width="24" height="24" rx="7" fill="#0A0A0A" stroke="#2e2e3a"/>
-<text x="596" y="327" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="15" fill="#FAB283">＋</text>
-<rect x="76" y="356" width="260" height="28" rx="9" fill="#0e0e14" stroke="#26262f"/>
-<rect x="348" y="356" width="256" height="28" rx="9" fill="#0e0e14" stroke="#26262f"/>
-<rect x="76" y="398" width="528" height="58" rx="12" fill="#0e0e14" stroke="#2a2a34"/>
-<circle cx="94" cy="414" r="5.5" fill="#9D7CD8"/>
-<path d="M98 409.5c-1.7 0-3.1 1.4-3.1 3.1 0 1 .5 2 1.3 2.6l.1.3h3.4l.1-.3c.8-.6 1.3-1.6 1.3-2.6 0-1.7-1.4-3.1-3.1-3.1z" fill="none" stroke="#FAB283" stroke-width="1.1" stroke-linecap="round"/>
-<path d="M96.5 415h3" stroke="#FAB283" stroke-width="1.1" stroke-linecap="round"/>
-<rect x="108" y="406" width="150" height="6" rx="3" fill="#EEEEEE" opacity="0.85"/>
-<rect x="108" y="418" width="260" height="5" rx="2.5" fill="#EEEEEE" opacity="0.45"/>
-<rect x="272" y="406" width="36" height="17" rx="8.5" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="290" y="418" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="9.5" fill="#a0a0ac">工程</text>
-<rect x="486" y="404" width="62" height="22" rx="10" fill="#0A0A0A" stroke="#FAB283"/>
-<text x="517" y="419" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="10" fill="#FAB283">复制为自定义</text>
-<rect x="76" y="466" width="528" height="58" rx="12" fill="#0e0e14" stroke="#2a2a34"/>
-<circle cx="94" cy="482" r="5.5" fill="#56B6C2"/>
-<path d="M98 477.5c-1.7 0-3.1 1.4-3.1 3.1 0 1 .5 2 1.3 2.6l.1.3h3.4l.1-.3c.8-.6 1.3-1.6 1.3-2.6 0-1.7-1.4-3.1-3.1-3.1z" fill="none" stroke="#FAB283" stroke-width="1.1" stroke-linecap="round"/>
-<path d="M96.5 483h3" stroke="#FAB283" stroke-width="1.1" stroke-linecap="round"/>
-<rect x="108" y="474" width="120" height="6" rx="3" fill="#EEEEEE" opacity="0.85"/>
-<rect x="108" y="486" width="240" height="5" rx="2.5" fill="#EEEEEE" opacity="0.45"/>
-<rect x="240" y="474" width="52" height="17" rx="8.5" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="266" y="486" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="9.5" fill="#a0a0ac">思考框架</text>
-<rect x="486" y="472" width="62" height="22" rx="10" fill="#0A0A0A" stroke="#FAB283"/>
-<text x="517" y="487" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="10" fill="#FAB283">复制为自定义</text>
-<rect x="76" y="534" width="528" height="46" rx="12" fill="#0e0e14" stroke="#2a2a34"/>
-<circle cx="94" cy="550" r="5.5" fill="#FAB283"/>
-<rect x="108" y="542" width="130" height="6" rx="3" fill="#EEEEEE" opacity="0.8"/>
-<rect x="108" y="554" width="200" height="5" rx="2.5" fill="#EEEEEE" opacity="0.45"/>
-<rect x="250" y="542" width="36" height="17" rx="8.5" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="268" y="554" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="9.5" fill="#a0a0ac">执行</text>
+<rect x="60" y="312" width="560" height="292" rx="18" fill="url(#cardG)" stroke="#26262f"/>
+<rect x="60" y="312" width="560" height="46" rx="18" fill="#101016"/>
+<rect x="60" y="342" width="560" height="16" fill="#101016"/>
+<circle cx="88" cy="335" r="6.5" fill="#FAB283"/>
+<g transform="translate(94,321) scale(0.72)"><path d="M15 14c.2-1 .7-1.7 1.5-2.5C17.5 10.6 18 9.3 18 8a6 6 0 1 0-12 0c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5" fill="none" stroke="#FAB283" stroke-width="2.4"/><path d="M9 18h6" stroke="#FAB283" stroke-width="2.4"/><path d="M10 22h4" stroke="#FAB283" stroke-width="2.4"/></g>
+<text x="126" y="341" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="19.5" font-weight="700" fill="#f0f0f6">Prompt</text>
+<rect x="584" y="325" width="26" height="26" rx="8" fill="#0A0A0A" stroke="#2e2e3a"/>
+<text x="597" y="344" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="18" fill="#FAB283">＋</text>
+<rect x="76" y="372" width="262" height="30" rx="9" fill="#0e0e14" stroke="#26262f"/>
+<rect x="350" y="372" width="254" height="30" rx="9" fill="#0e0e14" stroke="#26262f"/>
+<rect x="76" y="416" width="528" height="62" rx="12" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="96" cy="434" r="6" fill="#9D7CD8"/>
+<path d="M100 428.5c-1.9 0-3.5 1.6-3.5 3.5 0 1.2.6 2.2 1.5 2.9l.1.4h3.8l.1-.4c.9-.7 1.5-1.7 1.5-2.9 0-1.9-1.6-3.5-3.5-3.5z" fill="none" stroke="#FAB283" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M98 436h4" stroke="#FAB283" stroke-width="1.2" stroke-linecap="round"/>
+<rect x="112" y="425" width="160" height="7" rx="3.5" fill="#EEEEEE" opacity="0.85"/>
+<rect x="112" y="440" width="280" height="6" rx="3" fill="#EEEEEE" opacity="0.45"/>
+<rect x="286" y="425" width="48" height="22" rx="11" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="310" y="440" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12.5" fill="#a0a0ac">工程</text>
+<rect x="484" y="422" width="96" height="28" rx="12" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="532" y="441" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13.5" fill="#FAB283">复制为自定义</text>
+<rect x="76" y="490" width="528" height="62" rx="12" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="96" cy="508" r="6" fill="#56B6C2"/>
+<path d="M100 502.5c-1.9 0-3.5 1.6-3.5 3.5 0 1.2.6 2.2 1.5 2.9l.1.4h3.8l.1-.4c.9-.7 1.5-1.7 1.5-2.9 0-1.9-1.6-3.5-3.5-3.5z" fill="none" stroke="#FAB283" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M98 510h4" stroke="#FAB283" stroke-width="1.2" stroke-linecap="round"/>
+<rect x="112" y="499" width="130" height="7" rx="3.5" fill="#EEEEEE" opacity="0.85"/>
+<rect x="112" y="514" width="260" height="6" rx="3" fill="#EEEEEE" opacity="0.45"/>
+<rect x="254" y="499" width="68" height="22" rx="11" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="288" y="514" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12.5" fill="#a0a0ac">思考框架</text>
+<rect x="484" y="496" width="96" height="28" rx="12" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="532" y="515" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13.5" fill="#FAB283">复制为自定义</text>
+<rect x="76" y="564" width="528" height="46" rx="12" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="96" cy="582" r="6" fill="#FAB283"/>
+<rect x="112" y="572" width="140" height="7" rx="3.5" fill="#EEEEEE" opacity="0.8"/>
+<rect x="112" y="587" width="220" height="6" rx="3" fill="#EEEEEE" opacity="0.45"/>
+<rect x="264" y="572" width="48" height="22" rx="11" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="288" y="587" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12.5" fill="#a0a0ac">执行</text>
 </g>
 <g filter="url(#glow)">
-<rect x="660" y="296" width="560" height="304" rx="18" fill="url(#cardG)" stroke="#26262f"/>
-<rect x="660" y="296" width="560" height="44" rx="18" fill="#101016"/>
-<rect x="660" y="324" width="560" height="16" fill="#101016"/>
-<circle cx="686" cy="318" r="6" fill="#FAB283"/>
-<text x="704" y="323" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="16.5" font-weight="700" fill="#f0f0f6">智能推荐</text>
-<text x="1204" y="323" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="15" fill="#8a8a94">×</text>
-<rect x="676" y="356" width="528" height="66" rx="12" fill="#0e0e14" stroke="#2a2a34"/>
-<circle cx="696" cy="381" r="9" fill="#FAB283" opacity="0.9"/>
-<path d="M694 375.5l.6 1.3 1.4.6-1.4.6-.6 1.3-.6-1.3-1.4-.6 1.4-.6z" fill="#0d0d12"/>
-<rect x="714" y="370" width="160" height="6" rx="3" fill="#EEEEEE" opacity="0.9"/>
-<rect x="714" y="384" width="300" height="5" rx="2.5" fill="#EEEEEE" opacity="0.5"/>
-<rect x="900" y="370" width="46" height="17" rx="8.5" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="923" y="382" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="9.5" fill="#a0a0ac">·分6</text>
-<rect x="1124" y="368" width="64" height="24" rx="10" fill="#0A0A0A" stroke="#FAB283"/>
-<text x="1156" y="384" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="10" fill="#FAB283">点击填入</text>
-<rect x="676" y="434" width="528" height="66" rx="12" fill="#0e0e14" stroke="#2a2a34"/>
-<circle cx="696" cy="459" r="9" fill="#56B6C2" opacity="0.9"/>
-<path d="M694 453.5l.6 1.3 1.4.6-1.4.6-.6 1.3-.6-1.3-1.4-.6 1.4-.6z" fill="#0d0d12"/>
-<rect x="714" y="448" width="120" height="6" rx="3" fill="#EEEEEE" opacity="0.9"/>
-<rect x="714" y="462" width="260" height="5" rx="2.5" fill="#EEEEEE" opacity="0.5"/>
-<rect x="846" y="448" width="46" height="17" rx="8.5" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="869" y="460" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="9.5" fill="#a0a0ac">·分2</text>
-<rect x="1124" y="446" width="64" height="24" rx="10" fill="#0A0A0A" stroke="#FAB283"/>
-<text x="1156" y="462" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="10" fill="#FAB283">点击填入</text>
-<rect x="676" y="512" width="528" height="60" rx="12" fill="#0e0e14" stroke="#2a2a34"/>
-<circle cx="696" cy="535" r="9" fill="#9D7CD8" opacity="0.9"/>
-<path d="M694 529.5l.6 1.3 1.4.6-1.4.6-.6 1.3-.6-1.3-1.4-.6 1.4-.6z" fill="#0d0d12"/>
-<rect x="714" y="524" width="130" height="6" rx="3" fill="#EEEEEE" opacity="0.9"/>
-<rect x="714" y="538" width="280" height="5" rx="2.5" fill="#EEEEEE" opacity="0.5"/>
-<rect x="858" y="524" width="60" height="17" rx="8.5" fill="#1a1a24" stroke="#3a3a46"/>
-<text x="888" y="536" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="9.5" fill="#a0a0ac">·最近</text>
-<rect x="1124" y="522" width="64" height="24" rx="10" fill="#0A0A0A" stroke="#FAB283"/>
-<text x="1156" y="538" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="10" fill="#FAB283">点击填入</text>
-<circle cx="628" cy="600" r="13" fill="#FAB283" opacity="0.92"/>
+<rect x="660" y="312" width="560" height="292" rx="18" fill="url(#cardG)" stroke="#26262f"/>
+<rect x="660" y="312" width="560" height="46" rx="18" fill="#101016"/>
+<rect x="660" y="342" width="560" height="16" fill="#101016"/>
+<circle cx="688" cy="335" r="6.5" fill="#FAB283"/>
+<text x="708" y="341" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="19.5" font-weight="700" fill="#f0f0f6">智能推荐</text>
+<text x="1204" y="341" text-anchor="end" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="18" fill="#8a8a94">×</text>
+<rect x="676" y="372" width="528" height="70" rx="12" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="698" cy="400" r="10" fill="#FAB283" opacity="0.9"/>
+<path d="M696 393.5l.7 1.5 1.6.7-1.6.7-.7 1.5-.7-1.5-1.6-.7 1.6-.7z" fill="#0d0d12"/>
+<rect x="718" y="388" width="170" height="7" rx="3.5" fill="#EEEEEE" opacity="0.9"/>
+<rect x="718" y="404" width="310" height="6" rx="3" fill="#EEEEEE" opacity="0.5"/>
+<rect x="906" y="388" width="58" height="22" rx="11" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="935" y="403" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12.5" fill="#a0a0ac">·分6</text>
+<rect x="1120" y="385" width="66" height="28" rx="12" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="1153" y="403" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13.5" fill="#FAB283">点击填入</text>
+<rect x="676" y="454" width="528" height="70" rx="12" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="698" cy="482" r="10" fill="#56B6C2" opacity="0.9"/>
+<path d="M696 475.5l.7 1.5 1.6.7-1.6.7-.7 1.5-.7-1.5-1.6-.7 1.6-.7z" fill="#0d0d12"/>
+<rect x="718" y="470" width="130" height="7" rx="3.5" fill="#EEEEEE" opacity="0.9"/>
+<rect x="718" y="486" width="270" height="6" rx="3" fill="#EEEEEE" opacity="0.5"/>
+<rect x="856" y="470" width="58" height="22" rx="11" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="885" y="485" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12.5" fill="#a0a0ac">·分2</text>
+<rect x="1120" y="467" width="66" height="28" rx="12" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="1153" y="485" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13.5" fill="#FAB283">点击填入</text>
+<rect x="676" y="536" width="528" height="60" rx="12" fill="#0e0e14" stroke="#2a2a34"/>
+<circle cx="698" cy="560" r="10" fill="#9D7CD8" opacity="0.9"/>
+<path d="M696 553.5l.7 1.5 1.6.7-1.6.7-.7 1.5-.7-1.5-1.6-.7 1.6-.7z" fill="#0d0d12"/>
+<rect x="718" y="548" width="140" height="7" rx="3.5" fill="#EEEEEE" opacity="0.9"/>
+<rect x="718" y="564" width="290" height="6" rx="3" fill="#EEEEEE" opacity="0.5"/>
+<rect x="866" y="548" width="74" height="22" rx="11" fill="#1a1a24" stroke="#3a3a46"/>
+<text x="903" y="563" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="12.5" fill="#a0a0ac">·最近</text>
+<rect x="1120" y="545" width="66" height="28" rx="12" fill="#0A0A0A" stroke="#FAB283"/>
+<text x="1153" y="563" text-anchor="middle" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="13.5" fill="#FAB283">点击填入</text>
+<circle cx="628" cy="604" r="14" fill="#FAB283" opacity="0.92"/>
+<text x="660" y="609" font-family="-apple-system,Segoe UI,Microsoft YaHei,PingFang SC,sans-serif" font-size="17" fill="#6d6d6d">全局圆点 · 拖动记忆 · 点击展开</text>
 </g>
 </svg>

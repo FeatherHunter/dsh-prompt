@@ -169,9 +169,9 @@ export function TemplateBrowser(props: BrowserProps): any {
   const domainRowStyle: any = { display: 'flex', gap: 4, padding: '3px 8px 0', flexWrap: 'wrap' }
   const searchStyle: any = { margin: '5px 8px 4px', padding: '5px 9px', borderRadius: 8, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: base, fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none' }
   const listStyle: any = compact
-    ? { overflow: 'auto', padding: '2px 4px 8px', maxHeight: 170 } // 面板：恒定约 5 行，内部滚动
-    : { padding: '2px 4px 8px' } // 设置页：自然高度，由宿主设置面板整页滚动
-  const itemStyle: any = { display: 'flex', alignItems: 'flex-start', gap: 8, padding: '4px 6px', borderRadius: 8, cursor: 'pointer' }
+    ? { overflow: 'auto', padding: '2px 2px 8px', maxHeight: 170 } // 面板：恒定约 5 行，内部滚动
+    : { padding: '2px 2px 8px' } // 设置页：自然高度，由宿主设置面板整页滚动
+  const itemStyle: any = { display: 'flex', alignItems: 'flex-start', gap: 6, padding: '4px 2px', borderRadius: 8, cursor: 'pointer' }
   const pinStyle = (on: boolean): any => ({ flex: 'none', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 0, background: 'transparent', borderRadius: 6 })
   const nmStyle: any = { flex: 'none', minWidth: 0, fontSize: '0.98em', color: base, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
   const subStyle: any = { display: 'block', fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }

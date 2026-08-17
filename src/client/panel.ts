@@ -172,7 +172,7 @@ export function TemplateBrowser(props: BrowserProps): any {
     ? { overflow: 'auto', padding: '3px 6px 8px', maxHeight: 170 } // 面板：恒定约 5 行，内部滚动
     : { padding: '3px 6px 8px' } // 设置页：自然高度，由宿主设置面板整页滚动
   const itemStyle: any = { display: 'flex', alignItems: 'center', gap: 8, padding: '3px 6px', borderRadius: 8, cursor: 'pointer' }
-  const pinStyle = (on: boolean): any => ({ flex: 'none', width: 18, textAlign: 'center', color: on ? 'var(--dsw-specific-accent,#f0a45c)' : dim, cursor: 'pointer', fontSize: 12, border: 0, background: 'transparent' })
+  const pinStyle = (on: boolean): any => ({ flex: 'none', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 0, background: 'transparent', borderRadius: 6 })
   const nmStyle: any = { flex: 1, minWidth: 0, fontSize: '0.98em', color: base }
   const subStyle: any = { display: 'block', fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
   const tagStyle: any = { flex: 'none', fontSize: '0.8em', color: dim, border: line, padding: '1px 6px', borderRadius: 999 }
@@ -303,7 +303,11 @@ export function TemplateBrowser(props: BrowserProps): any {
         ])
     const itemBg = highlightId === x.id ? 'rgba(240,164,92,0.16)' : undefined
     return h('div', { key: x.id, style: { ...itemStyle, background: itemBg }, 'data-dsh-prompt-id': x.id, onClick: () => handlePick(x), title: t('insertHint') }, [
-      h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, pinned ? '★' : '☆'),
+      h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
+        h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : 'none', stroke: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : dim, strokeWidth: 1.8, strokeLinejoin: 'round', style: { display: 'block' } }, [
+          h('path', { d: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' }),
+        ]),
+      ]),
       h('span', { style: nmStyle }, [
         x.name,
         h('span', { style: subStyle }, (x.body || '').slice(0, 44) + '…'),
@@ -320,6 +324,11 @@ export function TemplateBrowser(props: BrowserProps): any {
 
   return h('div', { ref: rootRef, style: panelStyle }, [
     compact ? h('div', { style: headStyle }, [
+      h('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--dsw-specific-accent,#f0a45c)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, [
+        h('path', { d: 'M15 14c.2-1 .7-1.7 1.5-2.5C17.5 10.6 18 9.3 18 8a6 6 0 1 0-12 0c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5' }),
+        h('path', { d: 'M9 18h6' }),
+        h('path', { d: 'M10 22h4' }),
+      ]),
       h('span', { style: titleStyle }, t('panelTitle')),
       h('span', { style: { fontSize: 11, color: dim, marginLeft: 6 } }, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
       h('div', { style: { flex: 1 } }),
@@ -329,6 +338,11 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('button', { style: closeBtn, title: t('close'), onClick: () => setPanelOpen(false) }, '×'),
       ]),
     ]) : h('div', { style: headStyle }, [
+      h('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--dsw-specific-accent,#f0a45c)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, [
+        h('path', { d: 'M15 14c.2-1 .7-1.7 1.5-2.5C17.5 10.6 18 9.3 18 8a6 6 0 1 0-12 0c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5' }),
+        h('path', { d: 'M9 18h6' }),
+        h('path', { d: 'M10 22h4' }),
+      ]),
       h('span', { style: titleStyle }, t('panelTitle')),
       h('div', { style: { flex: 1 } }),
       h('button', { style: { ...addBtn, width: 'auto', padding: '0 12px', fontSize: 12.5 }, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋ ' + t('addShort')),

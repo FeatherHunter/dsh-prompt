@@ -27,11 +27,12 @@ export function EntryButton(props: any): any {
     'data-dsh-prompt-entry': '1',
     onClick: () => setPanelOpen(!isPanelOpen()),
   }, [
-    // 图标：闪电（⚡ 品牌）+ 双星芒（智能提醒/预制建议语义）
+    // 图标：灯泡（提醒/点子语义）+ 小星芒（智能建议）—— 方案 C
     h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--dsw-specific-accent,#f0a45c)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, [
-      h('path', { d: 'M13 2 L3 14 h7 l-1 8 10-12 h-7 l1-8 z' }),
-      h('path', { d: 'M18.5 2.5 l.9 1.9 1.9.9 -1.9.9 -.9 1.9 -.9 -1.9 -1.9 -.9 1.9 -.9 z' }),
-      h('path', { d: 'M4.5 17.5 l.7 1.5 1.5.7 -1.5.7 -.7 1.5 -.7 -1.5 -1.5 -.7 1.5 -.7 z' }),
+      h('path', { d: 'M15 14c.2-1 .7-1.7 1.5-2.5C17.5 10.6 18 9.3 18 8a6 6 0 1 0-12 0c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5' }),
+      h('path', { d: 'M9 18h6' }),
+      h('path', { d: 'M10 22h4' }),
+      h('path', { d: 'M18.5 2.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z' }),
     ]),
     h('span', null, tr(lang, STR.entryBtn)),
   ])

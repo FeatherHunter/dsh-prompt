@@ -71,6 +71,65 @@ export function onPick(t: PromptTemplate, useInput: any, inputActions: any): voi
 }
 
 /** 模板浏览（面板 / 设置页共用） */
+// ── 弹窗组件（模块级稳定类型：内联函数组件会在父组件每次重渲染时被整体卸载重建 → 输入内容丢失）──
+const modalMaskStyle: any = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }
+const modalCardStyle: any = { width: 460, background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, fontFamily: 'var(--dsw-font-family)', color: 'var(--dsw-alias-label-primary)' }
+const modalFieldStyle: any = { width: '100%', background: 'var(--dsw-alias-bg-layer-3)', border: '1px solid var(--dsw-alias-border-l1)', color: 'var(--dsw-alias-label-primary)', borderRadius: 8, padding: '8px 10px', fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none', boxSizing: 'border-box' }
+const modalBtnsStyle: any = { display: 'flex', justifyContent: 'flex-end', gap: 8 }
+const modalBtn = (primary?: boolean, danger?: boolean): any => ({ padding: '6px 14px', borderRadius: 8, border: primary ? 0 : '1px solid var(--dsw-alias-border-l1)', background: primary ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-bg-layer-3)', color: primary ? '#1a1a1e' : (danger ? 'var(--dsw-specific-danger,#e06c75)' : 'var(--dsw-alias-label-primary)'), cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em' })
+
+/** 新建/编辑弹窗（模块级稳定组件，避免父级重渲染时被卸载重置） */
+function TemplateModal(props: any): any {
+  const react = getReact()
+  if (!react) return null
+  const h = react.createElement
+  const editing = props.kind === 'edit' && !!props.tpl
+  const s1 = react.useState(editing ? props.tpl.name : '')
+  const name = s1[0]; const setName = s1[1]
+  const s2 = react.useState(editing ? (props.tpl as any).tag || CUSTOM_TAG : CUSTOM_TAG)
+  const tag = s2[0]; const setTag = s2[1]
+  const s3 = react.useState(editing ? props.tpl.body : '')
+  const body = s3[0]; const setBody = s3[1]
+  const errState = react.useState<string | null>(null)
+  const err = errState[0]; const setErr = errState[1]
+  const doOk = () => {
+    const nm = name.trim(), bd = body.trim()
+    if (!nm) { setErr('nameRequired'); return }
+    if (bd.length > MAX_BODY) { setErr('bodyTooLong'); return }
+    props.onOk && props.onOk({ name: nm, tag: tag || CUSTOM_TAG, body: bd })
+  }
+  return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
+    h('div', { style: modalCardStyle }, [
+      h('h3', { style: { fontSize: '1.08em', margin: 0 } }, editing ? props.t('editTitle') : props.t('addTitle')),
+      h('input', { style: modalFieldStyle, placeholder: props.t('namePh'), value: name, onChange: (e: any) => setName(e.target.value) }),
+      h('input', { style: modalFieldStyle, placeholder: props.t('tagPh'), value: tag, onChange: (e: any) => setTag(e.target.value) }),
+      h('textarea', { style: { ...modalFieldStyle, height: 110, resize: 'vertical' }, placeholder: props.t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),
+      err ? h('div', { style: { fontSize: '0.92em', color: 'var(--dsw-specific-danger,#e06c75)' } }, props.t(err as keyof typeof STR)) : null,
+      h('div', { style: modalBtnsStyle }, [
+        h('button', { style: modalBtn(), onClick: props.onCancel }, props.t('cancel')),
+        h('button', { style: modalBtn(true), onClick: doOk }, editing ? props.t('save') : props.t('addOk')),
+      ]),
+    ]),
+  ])
+}
+
+/** 删除确认弹窗（同样模块级稳定组件） */
+function ConfirmDelete(props: any): any {
+  const react = getReact()
+  if (!react) return null
+  const h = react.createElement
+  return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
+    h('div', { style: modalCardStyle }, [
+      h('h3', { style: { fontSize: '1.08em', margin: 0 } }, props.t('delTitle')),
+      h('div', { style: { fontSize: '0.96em', color: 'var(--dsw-alias-label-tertiary)' } }, props.t('delMsg') + '「' + props.tpl.name + '」' + props.t('delUnrecover')),
+      h('div', { style: modalBtnsStyle }, [
+        h('button', { style: modalBtn(), onClick: props.onCancel }, props.t('cancel')),
+        h('button', { style: modalBtn(false, true), onClick: props.onOk }, props.t('delOk')),
+      ]),
+    ]),
+  ])
+}
+
 export function TemplateBrowser(props: BrowserProps): any {
   const react = getReact()
   if (!react) return null
@@ -181,11 +240,6 @@ export function TemplateBrowser(props: BrowserProps): any {
   const actBtn = (danger?: boolean): any => ({ border: line, background: 'transparent', color: danger ? 'var(--dsw-specific-danger,#e06c75)' : dim, cursor: 'pointer', fontSize: '0.85em', padding: '1px 8px', borderRadius: 999, fontFamily: 'var(--dsw-font-family)', whiteSpace: 'nowrap' })
   const footStyle: any = { padding: '8px 12px', borderTop: line, display: 'flex', justifyContent: 'space-between', fontSize: '0.85em', color: dim }
   const footLink: any = { color: 'var(--dsw-specific-accent,#f0a45c)', cursor: 'pointer', textDecoration: 'none', background: 'transparent', border: 0, fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em' }
-  const maskStyle: any = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }
-  const modalStyle: any = { width: 460, background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, fontFamily: 'var(--dsw-font-family)', color: base }
-  const fieldStyle: any = { width: '100%', background: 'var(--dsw-alias-bg-layer-3)', border: line, color: base, borderRadius: 8, padding: '8px 10px', fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none', boxSizing: 'border-box' }
-  const mbtnsStyle: any = { display: 'flex', justifyContent: 'flex-end', gap: 8 }
-  const mbtn = (primary?: boolean, danger?: boolean): any => ({ padding: '6px 14px', borderRadius: 8, border: primary ? 0 : line, background: primary ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-bg-layer-3)', color: primary ? '#1a1a1e' : (danger ? 'var(--dsw-specific-danger,#e06c75)' : base), cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em' })
 
   // ── 操作 ──
   const handlePick = (x: PromptTemplate) => { onPick(x, useInput, inputActions) }
@@ -225,54 +279,29 @@ export function TemplateBrowser(props: BrowserProps): any {
     modalState[1]({ kind: 'edit', t: x })
   }
 
-  // ── 弹窗（新增/编辑/删除确认）──
+  // ── 弹窗（新增/编辑/删除确认）── 模块级稳定组件：内联函数组件会在父级每次重渲染时被卸载重建 → 输入内容丢失
   let modalNode: any = null
   if (modal) {
     if (modal.kind === 'add' || modal.kind === 'edit') {
-      const editing = modal.kind === 'edit' && modal.t
-      let name = editing ? modal.t!.name : ''
-      let tag = editing ? (modal.t as any).tag || CUSTOM_TAG : CUSTOM_TAG
-      let body = editing ? modal.t!.body : ''
-      const ModalInner = () => {
-        const s1 = react.useState(name); name = s1[0]; const setName = s1[1]
-        const s2 = react.useState(tag); tag = s2[0]; const setTag = s2[1]
-        const s3 = react.useState(body); body = s3[0]; const setBody = s3[1]
-        const err = react.useState<string | null>(null)
-        const doOk = () => {
-          const nm = name.trim(), bd = body.trim()
-          if (!nm) { err[1]('nameRequired'); return }
-          if (bd.length > MAX_BODY) { err[1]('bodyTooLong'); return }
-          if (editing) { updateCustom(modal.t!.id, { name: nm, tag, body: bd }) }
-          else { addCustom(nm, tag || CUSTOM_TAG, bd) }
-          modalState[1](null)
-          refresh()
-        }
-        return h('div', { style: maskStyle, onClick: (e: any) => { if (e.target === e.currentTarget) modalState[1](null) } }, [
-          h('div', { style: modalStyle }, [
-            h('h3', { style: { fontSize: '1.08em', margin: 0 } }, editing ? t('editTitle') : t('addTitle')),
-            h('input', { style: fieldStyle, placeholder: t('namePh'), value: name, onChange: (e: any) => setName(e.target.value) }),
-            h('input', { style: fieldStyle, placeholder: t('tagPh'), value: tag, onChange: (e: any) => setTag(e.target.value) }),
-            h('textarea', { style: { ...fieldStyle, height: 110, resize: 'vertical' }, placeholder: t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),
-              err[0] ? h('div', { style: { fontSize: '0.92em', color: 'var(--dsw-specific-danger,#e06c75)' } }, t(err[0] as keyof typeof STR)) : null,
-            h('div', { style: mbtnsStyle }, [
-              h('button', { style: mbtn(), onClick: () => modalState[1](null) }, t('cancel')),
-              h('button', { style: mbtn(true), onClick: doOk }, editing ? t('save') : t('addOk')),
-            ]),
-          ]),
-        ])
-      }
-      modalNode = h(ModalInner)
+      modalNode = h('div', { key: 'tplmodal-' + modal.kind + (modal.t ? '-' + modal.t.id : '') }, [
+        h(TemplateModal, {
+          kind: modal.kind, tpl: modal.t, t,
+          onCancel: () => modalState[1](null),
+          onOk: (f: { name: string; tag: string; body: string }) => {
+            if (modal.kind === 'edit' && modal.t) { updateCustom(modal.t.id, f) }
+            else { addCustom(f.name, f.tag, f.body) }
+            modalState[1](null)
+            refresh()
+          },
+        }),
+      ])
     } else if (modal.kind === 'del' && modal.t) {
-      const doDel = () => { removeCustom(modal.t!.id); modalState[1](null); refresh() }
-      modalNode = h('div', { style: maskStyle, onClick: (e: any) => { if (e.target === e.currentTarget) modalState[1](null) } }, [
-        h('div', { style: modalStyle }, [
-          h('h3', { style: { fontSize: '1.08em', margin: 0 } }, t('delTitle')),
-          h('div', { style: { fontSize: '0.96em', color: dim } }, t('delMsg') + '「' + modal.t.name + '」' + t('delUnrecover')),
-          h('div', { style: mbtnsStyle }, [
-            h('button', { style: mbtn(), onClick: () => modalState[1](null) }, t('cancel')),
-            h('button', { style: mbtn(false, true), onClick: doDel }, t('delOk')),
-          ]),
-        ]),
+      modalNode = h('div', { key: 'del-' + modal.t.id }, [
+        h(ConfirmDelete, {
+          tpl: modal.t, t,
+          onCancel: () => modalState[1](null),
+          onOk: () => { removeCustom(modal.t!.id); modalState[1](null); refresh() },
+        }),
       ])
     }
   }

@@ -34,11 +34,18 @@ function readActiveDraft(): string {
   try {
     if (typeof document === 'undefined') return ''
     const ae = document.activeElement as HTMLTextAreaElement | null
-    if (ae && ae.tagName === 'TEXTAREA') return ae.value || ''
+    if (ae && ae.tagName === 'TEXTAREA') {
+      // 弹窗/表单输入 ≠ 会话草稿：面板新增/编辑弹窗内打字不应触发智能卡
+      try { if (ae.closest && ae.closest('[data-dsh-prompt-modal]')) return '' } catch (e) { /* ignore */ }
+      return ae.value || ''
+    }
     const tas = document.querySelectorAll('textarea')
     for (let i = 0; i < tas.length; i++) {
       const ta = tas[i] as HTMLTextAreaElement
-      if (ta.offsetParent !== null) return ta.value || ''
+      if (ta.offsetParent !== null) {
+        try { if (ta.closest && ta.closest('[data-dsh-prompt-modal]')) continue } catch (e) { /* ignore */ }
+        return ta.value || ''
+      }
     }
   } catch (e) { /* ignore */ }
   return ''

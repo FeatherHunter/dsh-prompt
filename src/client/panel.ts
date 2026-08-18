@@ -9,7 +9,7 @@ import {
   allTemplates, sortedTemplates, displayTag, isPinned, togglePin, canPinMore,
   addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, templateHaystack, MAX_BODY,
 } from './store'
-import { setPanelOpen } from './state'
+import { setPanelOpen, schedulePanelClose, cancelPanelClose } from './state'
 import { getLang, tr, STR, type Lang } from './i18n'
 import { setSmartInput } from './smartstore'
 
@@ -148,23 +148,35 @@ export function TemplateBrowser(props: BrowserProps): any {
   const q = qState[0]
   const modalState = react.useState<ModalState | null>(null)
   const modal = modalState[0]
-  const offsetState = react.useState(0)
-  const offsetLeft = offsetState[0]
+  const posState = react.useState<{ left: number; bottom: number } | null>(null)
+  const pos = posState[0]
   const rootRef = react.useRef<any>(null)
   const highlightState = react.useState<string | null>(null)
   const highlightId = highlightState[0]
 
-  // 横向对齐 ⚡Prompt 按钮（仅紧凑面板）：测按钮在锚点内的水平偏移
+  // 正上方对齐 ⚡Prompt 按钮（仅紧凑面板/popover）：fixed + 按钮视口 rect
+  // 列表左缘与按钮左缘垂直对齐（left = btn.left）；列表底边在按钮顶边之上 → 整体位于按钮正上方
   react.useEffect(() => {
     if (!compact) return
-    try {
-      const btn = typeof document !== 'undefined' ? document.querySelector('[data-dsh-prompt-entry]') : null
-      if (btn && rootRef.current && rootRef.current.offsetParent) {
+    const compute = () => {
+      try {
+        const btn = typeof document !== 'undefined' ? document.querySelector('[data-dsh-prompt-entry]') : null
+        if (!btn) return
         const br = (btn as HTMLElement).getBoundingClientRect()
-        const ar = (rootRef.current.offsetParent as HTMLElement).getBoundingClientRect()
-        offsetState[1](Math.max(0, br.left - ar.left))
-      }
-    } catch (e) { /* ignore */ }
+        const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
+        const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+        const width = 560
+        let left = br.left
+        if (left < 8) left = 8 // 左越界贴左
+        if (left + width > vw - 8) left = Math.max(8, vw - width - 8) // 右越界回挤
+        posState[1]({ left, bottom: vh - br.top + 8 }) // 面板底边 = 按钮顶边上方 8px
+      } catch (e) { /* ignore */ }
+    }
+    compute()
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', compute)
+      return () => window.removeEventListener('resize', compute)
+    }
   }, [])
 
   // 语言跟随 html[lang]
@@ -204,8 +216,8 @@ export function TemplateBrowser(props: BrowserProps): any {
   const line = '1px solid var(--dsw-alias-border-l1)'
   const panelStyle: any = compact
     ? {
-        position: 'absolute', left: offsetLeft, bottom: 'calc(100% + 8px)',
-        zIndex: 300, width: 430,
+        position: 'fixed', left: (pos && pos.left) || 0, bottom: (pos && pos.bottom) || 0,
+        zIndex: 500, width: 560,
         display: 'flex', flexDirection: 'column',
         background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',
         borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)', overflow: 'hidden',
@@ -228,9 +240,9 @@ export function TemplateBrowser(props: BrowserProps): any {
   const domainRowStyle: any = { display: 'flex', gap: 4, padding: '3px 8px 0', flexWrap: 'wrap' }
   const searchStyle: any = { margin: '5px 8px 4px', padding: '5px 9px', borderRadius: 8, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: base, fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none' }
   const listStyle: any = compact
-    ? { overflow: 'auto', padding: '2px 2px 8px', maxHeight: 170 } // 面板：恒定约 5 行，内部滚动
+    ? { overflow: 'auto', padding: '2px 2px 8px', maxHeight: 360 } // 面板：约 10 个单行 item 可见，内部滚动
     : { padding: '2px 2px 8px' } // 设置页：自然高度，由宿主设置面板整页滚动
-  const itemStyle: any = { display: 'flex', alignItems: 'flex-start', gap: 6, padding: '4px 2px', borderRadius: 8, cursor: 'pointer' }
+  const itemStyle: any = { display: 'flex', gap: 6, borderRadius: 8, cursor: 'pointer', alignItems: compact ? 'center' : 'flex-start', padding: compact ? '3px 6px' : '4px 2px' }
   const pinStyle = (on: boolean): any => ({ flex: 'none', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 0, background: 'transparent', borderRadius: 6 })
   const nmStyle: any = { flex: 'none', minWidth: 0, fontSize: '0.98em', color: base, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
   const subStyle: any = { display: 'block', fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
@@ -332,6 +344,24 @@ export function TemplateBrowser(props: BrowserProps): any {
           h('button', { style: actBtn(), onClick: (e: any) => handleCopy(e, x.id) }, t('copy')),
         ])
     const itemBg = highlightId === x.id ? 'var(--dsw-alias-interactive-bg-hover)' : undefined
+    // 简介 = body 首行（一句话），标题之后跟随 —— 单行显示
+    const intro = (x.body || '').split('\n')[0].trim()
+    // 紧凑（⚡Prompt 浮层）：单行 —— 图钉 + 标题 + 简介 + 操作横排，不再占两行
+    if (compact) {
+      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, minWidth: 0 }, 'data-dsh-prompt-id': x.id, onClick: () => handlePick(x), title: t('insertHint') }, [
+        h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
+          h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : 'none', stroke: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : dim, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, [
+            h('path', { d: 'M12 17v5' }),
+            h('path', { d: 'M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z' }),
+          ]),
+        ]),
+        h('span', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' } }, [
+          h('span', { style: { flex: 'none', fontSize: '0.95em', color: base, fontWeight: 600, whiteSpace: 'nowrap' } }, x.name),
+          h('span', { style: { flex: '1 1 auto', minWidth: 0, fontSize: '0.85em', color: muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, intro),
+        ]),
+        h('span', { style: actStyle }, acts),
+      ])
+    }
     return h('div', { key: x.id, style: { ...itemStyle, background: itemBg }, 'data-dsh-prompt-id': x.id, onClick: () => handlePick(x), title: t('insertHint') }, [
       h('div', { style: { flex: 'none', paddingTop: 2 } }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
@@ -358,7 +388,9 @@ export function TemplateBrowser(props: BrowserProps): any {
 
   const footer = null
 
-  return h('div', { ref: rootRef, style: panelStyle }, [
+  // 浮层根节点 hover 接管：鼠标进列表 → 取消关窗；离开列表 → 延迟关窗（仅紧凑浮层有 hover 开合语义）
+  const rootHover = compact ? { onMouseEnter: () => cancelPanelClose(), onMouseLeave: () => schedulePanelClose(150) } : null
+  return h('div', { ref: rootRef, style: panelStyle, ...rootHover }, [
     compact ? h('div', { style: headStyle }, [
       h('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--dsw-specific-accent,#f0a45c)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, [
         h('path', { d: 'M15 14c.2-1 .7-1.7 1.5-2.5C17.5 10.6 18 9.3 18 8a6 6 0 1 0-12 0c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5' }),

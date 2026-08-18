@@ -2,7 +2,7 @@
  * dsh-prompt — 入口按钮（conversation.input.left）
  */
 import { getReact } from './panel'
-import { isPanelOpen, setPanelOpen } from './state'
+import { isPanelOpen, setPanelOpen, cancelPanelClose, schedulePanelClose } from './state'
 import { getLang, tr, STR } from './i18n'
 
 export function EntryButton(props: any): any {
@@ -25,7 +25,11 @@ export function EntryButton(props: any): any {
   return h('button', {
     style, title: tr(lang, STR.entryBtn),
     'data-dsh-prompt-entry': '1',
-    onClick: () => setPanelOpen(!isPanelOpen()),
+    // hover 触发：进入即开；离开延迟 150ms 关（列表接管时取消）
+    onMouseEnter: () => { cancelPanelClose(); setPanelOpen(true) },
+    onMouseLeave: () => { schedulePanelClose(150) },
+    // click 保留：触屏 tap / 键盘 focus+Enter 的 fallback + 手动开关
+    onClick: () => { cancelPanelClose(); setPanelOpen(!isPanelOpen()) },
   }, [
     // 图标：灯泡（提醒/点子语义）+ 小星芒（智能建议）—— 方案 C
     h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--dsw-specific-accent,#f0a45c)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, [

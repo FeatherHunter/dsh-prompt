@@ -11,7 +11,7 @@ import {
   allTemplates, sortedTemplates, sortedTemplatesBottomUp, displayTag, isPinned, togglePin, canPinMore,
   addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, templateHaystack, MAX_BODY,
 } from './store'
-import { setPanelOpen, schedulePanelClose, cancelPanelClose } from './state'
+import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './state'
 import { getLang, tr, STR, type Lang } from './i18n'
 import { setSmartInput } from './smartstore'
 
@@ -190,6 +190,15 @@ export function TemplateBrowser(props: BrowserProps): any {
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
     return () => { obs.disconnect() }
   }, [])
+
+  // #14 回归：紧凑浮层弹窗打开期间抑制 hover 自动关窗（含入口按钮的 schedulePanelClose）
+  // - 本地根节点 hover 同步抑制（防御式） + 全局 gate（覆盖入口按钮）
+  react.useEffect(() => {
+    if (!compact) return
+    if (modal) setHoverCloseSuppressed(true)
+    else setHoverCloseSuppressed(false)
+    return () => { setHoverCloseSuppressed(false) }
+  }, [compact, modal])
 
   const refresh = () => setTick((n) => n + 1)
   const t = (k: keyof typeof STR) => tr(lang, STR[k])
@@ -402,7 +411,8 @@ export function TemplateBrowser(props: BrowserProps): any {
   const footer = null
 
   // 浮层根节点 hover 接管：鼠标进列表 → 取消关窗；离开列表 → 延迟关窗（仅紧凑浮层有 hover 开合语义）
-  const rootHover = compact ? { onMouseEnter: () => cancelPanelClose(), onMouseLeave: () => schedulePanelClose(150) } : null
+  // #14：弹窗打开时禁止触发关窗（本地防御 + 全局 gate 双保险，输入时微移动/焦点变化不丢弹窗）
+  const rootHover = compact ? { onMouseEnter: () => cancelPanelClose(), onMouseLeave: () => { if (modal) return; schedulePanelClose(150) } } : null
   return h('div', { ref: rootRef, style: panelStyle, ...rootHover }, [
     compact ? h('div', { style: headStyle }, [
       h('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--dsw-specific-accent,#f0a45c)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, [

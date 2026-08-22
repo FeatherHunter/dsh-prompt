@@ -32,7 +32,9 @@
     "build": "bash scripts/build.sh",
     "build:client": "tsdown",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:modal": "node scripts/test-modal-remount.cjs"
+    "test:modal": "node scripts/test-modal-remount.cjs",
+    "test:issue-14": "node scripts/test-issue-14.cjs",
+    "test": "npm run test:modal && npm run test:issue-14"
   },
   "dsh": {
     "bundle": {

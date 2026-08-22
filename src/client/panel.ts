@@ -2,11 +2,13 @@
  * dsh-prompt — 模板浏览组件（面板 popover 与设置页共用）
  * #4 交互定稿：tabs（阶段）+ 领域筛选 + 搜索；排序=置顶≤5 → 用量；单击插入（光标处/末尾、不覆盖、自动聚焦）；
  * 插入后自动关闭；编辑/删除/新增时保持打开；hover 快捷操作；＋弹窗新增；删除二次确认；预制可复制为自定义。
+ * #13 bottom-up：compact 浮层（⚡Prompt 悬浮列表）改 bottom-up——最常用在底部，未使用在顶部；置顶簇在底部；打开自动滚到底部。
+ * 设置页（compact=false）保持原 Top-down。
  */
 import type { PromptTemplate } from './templates'
 import { PRESET_TEMPLATES, getPresetById } from './templates'
 import {
-  allTemplates, sortedTemplates, displayTag, isPinned, togglePin, canPinMore,
+  allTemplates, sortedTemplates, sortedTemplatesBottomUp, displayTag, isPinned, togglePin, canPinMore,
   addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, templateHaystack, MAX_BODY,
 } from './store'
 import { setPanelOpen, schedulePanelClose, cancelPanelClose } from './state'
@@ -151,6 +153,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   const posState = react.useState<{ left: number; bottom: number } | null>(null)
   const pos = posState[0]
   const rootRef = react.useRef<any>(null)
+  const listRef = react.useRef<any>(null)
   const highlightState = react.useState<string | null>(null)
   const highlightId = highlightState[0]
 
@@ -204,7 +207,17 @@ export function TemplateBrowser(props: BrowserProps): any {
   const filtered = ql
     ? list.filter((x) => templateHaystack(x).indexOf(ql) >= 0)
     : list
-  const sorted = sortedTemplates(filtered)
+  // 悬浮列表 bottom-up：compact 浮层按用量升序（最常用在底部），设置页保持原置顶→用量降序
+  const sorted = compact ? sortedTemplatesBottomUp(filtered) : sortedTemplates(filtered)
+
+  // bottom-up 浮层：打开 / 过滤变化后自动滚到底部，首屏即见最常用
+  react.useEffect(() => {
+    if (!compact) return
+    const el = listRef.current
+    if (!el) return
+    const id = setTimeout(() => { try { el.scrollTop = el.scrollHeight } catch (e) { /* ignore */ } }, 0)
+    return () => clearTimeout(id)
+  }, [compact, tab, domain, q, filtered.length, sorted.length])
 
   const presetCount = PRESET_TEMPLATES.length
   const customCount = customs.length
@@ -383,7 +396,7 @@ export function TemplateBrowser(props: BrowserProps): any {
     ])
   })
   const listNode = rows.length > 0
-    ? h('div', { style: listStyle }, rows)
+    ? h('div', { ref: compact ? listRef : null, style: listStyle }, rows)
     : h('div', { style: { padding: 14, color: dim, fontSize: '0.92em' } }, t('noMatch'))
 
   const footer = null

@@ -101,6 +101,40 @@ export function sortedTemplates(list: PromptTemplate[]): PromptTemplate[] {
   })
 }
 
+/** 置顶原始顺序（预制按 final.md 定稿顺序，自定义按 createdAt）—— bottom-up 同分 tie-breaker */
+const presetOrderMap = new Map<string, number>(PRESET_TEMPLATES.map((t, i) => [t.id, i]))
+function tieBreakOrder(a: PromptTemplate, b: PromptTemplate): number {
+  const aCustom = a as CustomTemplate
+  const bCustom = b as CustomTemplate
+  const aBuilt = !!a.builtin
+  const bBuilt = !!b.builtin
+  if (aBuilt && bBuilt) return (presetOrderMap.get(a.id) ?? 9999) - (presetOrderMap.get(b.id) ?? 9999)
+  if (!aBuilt && !bBuilt) return (aCustom.createdAt || 0) - (bCustom.createdAt || 0)
+  return aBuilt ? -1 : 1 // 预制在前，自定义在后（同为 0 次时稳定可预期）
+}
+
+/** bottom-up 排序：最常用在底部（DOM 底部 = 视觉底部），未使用在顶部
+ *  - 非置顶在上、置顶簇在底部最贴近按钮
+ *  - 簇内按用量升序（0→max，max 最靠底），同分按预制原始顺序 / 自定义创建时间
+ */
+export function sortedTemplatesBottomUp(list: PromptTemplate[]): PromptTemplate[] {
+  const usage = loadUsage()
+  const pinned = loadPinned()
+  const isPinned = (id: string) => pinned.indexOf(id) >= 0
+  const pinIdx = (id: string) => pinned.indexOf(id)
+  return [...list].sort((a, b) => {
+    const ap = isPinned(a.id), bp = isPinned(b.id)
+    if (ap !== bp) return ap ? 1 : -1 // 非置顶在前（顶部），置顶在后（底部）
+    const ua = usage[a.id] || 0, ub = usage[b.id] || 0
+    if (ua !== ub) return ua - ub // 升序：少用在上，多用在下
+    if (ap && bp) {
+      const pa = pinIdx(a.id), pb = pinIdx(b.id)
+      if (pa !== pb) return pa - pb
+    }
+    return tieBreakOrder(a, b)
+  })
+}
+
 /** 置顶切换（置顶数 ≤5）；返回是否成功（超限返回 false） */
 export function togglePin(id: string): { pinned: string[]; ok: boolean } {
   const pinned = loadPinned()

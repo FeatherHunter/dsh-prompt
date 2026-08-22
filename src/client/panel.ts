@@ -193,12 +193,13 @@ export function TemplateBrowser(props: BrowserProps): any {
 
   // #14 回归：紧凑浮层弹窗打开期间抑制 hover 自动关窗（含入口按钮的 schedulePanelClose）
   // - 本地根节点 hover 同步抑制（防御式） + 全局 gate（覆盖入口按钮）
+  // deps 用 !!modal 避免对象身份抖动；onCancel/onOk 中同步清门控以消除 effect 下一帧前的竞态窗口
   react.useEffect(() => {
     if (!compact) return
     if (modal) setHoverCloseSuppressed(true)
     else setHoverCloseSuppressed(false)
     return () => { setHoverCloseSuppressed(false) }
-  }, [compact, modal])
+  }, [compact, !!modal])
 
   const refresh = () => setTick((n) => n + 1)
   const t = (k: keyof typeof STR) => tr(lang, STR[k])
@@ -320,11 +321,11 @@ export function TemplateBrowser(props: BrowserProps): any {
       modalNode = h('div', { key: 'tplmodal-' + modal.kind + (modal.t ? '-' + modal.t.id : '') }, [
         h(TemplateModal, {
           kind: modal.kind, tpl: modal.t, t,
-          onCancel: () => modalState[1](null),
+          onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null) },
           onOk: (f: { name: string; tag: string; body: string }) => {
             if (modal.kind === 'edit' && modal.t) { updateCustom(modal.t.id, f) }
             else { addCustom(f.name, f.tag, f.body) }
-            modalState[1](null)
+            setHoverCloseSuppressed(false); modalState[1](null)
             refresh()
           },
         }),
@@ -333,8 +334,8 @@ export function TemplateBrowser(props: BrowserProps): any {
       modalNode = h('div', { key: 'del-' + modal.t.id }, [
         h(ConfirmDelete, {
           tpl: modal.t, t,
-          onCancel: () => modalState[1](null),
-          onOk: () => { removeCustom(modal.t!.id); modalState[1](null); refresh() },
+          onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null) },
+          onOk: () => { removeCustom(modal.t!.id); setHoverCloseSuppressed(false); modalState[1](null); refresh() },
         }),
       ])
     }

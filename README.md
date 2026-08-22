@@ -42,10 +42,19 @@
 npm install -g @deepseek-ai/dsh
 ```
 
-安装进你的 profile：
+安装进你的 profile（`0.1.6` 为当前最新，已发布至 [npm](https://www.npmjs.com/package/dsh-prompt) 与 [GitHub Release](https://github.com/FeatherHunter/dsh-prompt/releases/tag/v0.1.6)）：
 
 ```bash
 dsh plugin --profile web add dsh-prompt
+# 或锁定版本
+dsh plugin --profile web add dsh-prompt@0.1.6
+```
+
+查看最新版本：
+
+```bash
+npm view dsh-prompt version --registry=https://registry.npmjs.org --prefer-online
+# → 0.1.6
 ```
 
 **零配置**：DSH 官方 bundle 机制，包内自带 `cordis.patch.yml`，`dsh plugin add` 自动加入 `dsh.profile.bundles` 装配层；`dsh plugin remove` 干净卸载。重启 DSH（或刷新页面）即生效。
@@ -93,14 +102,20 @@ npm run build          # 完整构建
 
 ## 同作者
 
-还写了两款 DSH 插件：
+还写了多款 DSH 插件与工具，欢迎关注：
 
 - [**dsh-opencode-palette**](https://github.com/FeatherHunter/dsh-opencode-palette) —— 34 款 opencode 官方主题，DSH 界面一键换肤。
+- [**dsh-plugin-ui-debug**](https://github.com/FeatherHunter/dsh-plugin-ui-debug) —— 用真实 Chrome 无头浏览器对 DSH 插件 UI 做闭环调试的利器。
 - [**dsh-mattpocock-skills-deck**](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck) —— 25 个工程技能包，粘贴一段安装 Prompt 即用。
+- [**dsh-chinese-skill-patch**](https://github.com/FeatherHunter/dsh-chinese-skill-patch) —— 让 DSH 正确识别中文 `SKILL.md` 的补丁，中文社区必备。
 
 ## 作者的话
 
 ![作者的话](assets/author-zh.svg)
+
+![作者联系方式](assets/author-contact.png)
+
+> 欢迎大家提交 ISSUE，一起把 prompt 工具箱做得更好！[提交 ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues/new)
 
 ## 许可
 

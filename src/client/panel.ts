@@ -221,12 +221,19 @@ export function TemplateBrowser(props: BrowserProps): any {
   const sorted = compact ? sortedTemplatesBottomUp(filtered) : sortedTemplates(filtered)
 
   // bottom-up 浮层：打开 / 过滤变化后自动滚到底部，首屏即见最常用
+  // 使用双 rAF + setTimeout 兜底，确保在 fixed 定位与 flex 布局完成后再滚动；对短列表（无滚动）也保持在底部
   react.useEffect(() => {
     if (!compact) return
-    const el = listRef.current
+    const el = listRef.current as any
     if (!el) return
-    const id = setTimeout(() => { try { el.scrollTop = el.scrollHeight } catch (e) { /* ignore */ } }, 0)
-    return () => clearTimeout(id)
+    let raf1: any, raf2: any, tid: any
+    const scroll = () => { try { el.scrollTop = el.scrollHeight } catch (e) { /* ignore */ } }
+    if (typeof requestAnimationFrame !== 'undefined') {
+      raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(scroll); tid = setTimeout(scroll, 50) })
+    } else {
+      tid = setTimeout(scroll, 30)
+    }
+    return () => { try { if (raf1) cancelAnimationFrame(raf1); if (raf2) cancelAnimationFrame(raf2); clearTimeout(tid) } catch (e) { /* ignore */ } }
   }, [compact, tab, domain, q, filtered.length, sorted.length])
 
   const presetCount = PRESET_TEMPLATES.length
@@ -262,8 +269,10 @@ export function TemplateBrowser(props: BrowserProps): any {
   })
   const domainRowStyle: any = { display: 'flex', gap: 4, padding: '3px 8px 0', flexWrap: 'wrap' }
   const searchStyle: any = { margin: '5px 8px 4px', padding: '5px 9px', borderRadius: 8, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: base, fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none' }
+  // 固定 360 高度：过滤/搜索时不收缩，鼠标不因高度变化而移出面板而误关；约 10 个单行 item 可见，内部滚动
+  // 少量时（≤10）用 flex-end 把内容推到底部，使“最常用在底部”在视觉上贴底
   const listStyle: any = compact
-    ? { overflow: 'auto', padding: '2px 2px 8px', maxHeight: 360 } // 面板：约 10 个单行 item 可见，内部滚动
+    ? { overflow: 'auto', padding: '2px 2px 8px', height: 360, display: 'flex', flexDirection: 'column', justifyContent: sorted.length <= 10 ? 'flex-end' : 'flex-start' }
     : { padding: '2px 2px 8px' } // 设置页：自然高度，由宿主设置面板整页滚动
   const itemStyle: any = { display: 'flex', gap: 6, borderRadius: 8, cursor: 'pointer', alignItems: compact ? 'center' : 'flex-start', padding: compact ? '3px 6px' : '4px 2px' }
   const pinStyle = (on: boolean): any => ({ flex: 'none', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 0, background: 'transparent', borderRadius: 6 })

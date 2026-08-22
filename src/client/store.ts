@@ -114,8 +114,10 @@ function tieBreakOrder(a: PromptTemplate, b: PromptTemplate): number {
 }
 
 /** bottom-up 排序：最常用在底部（DOM 底部 = 视觉底部），未使用在顶部
- *  - 非置顶在上、置顶簇在底部最贴近按钮
- *  - 簇内按用量升序（0→max，max 最靠底），同分按预制原始顺序 / 自定义创建时间
+ *  - 主键：用量升序（0→max，max 最靠底）—— 保证“最常用在底部”绝对可见
+ *  - 次键：同用量时置顶靠后（更贴底），置顶内按 pin 顺序
+ *  - 末键：预制原始顺序 / 自定义创建时间（稳定可预期）
+ *  说明：与设置页的“置顶绝对优先”不同，此处用量优先于置顶，避免低用量置顶把高用量挤到次底部而被误判为“最常用不在底部”。
  */
 export function sortedTemplatesBottomUp(list: PromptTemplate[]): PromptTemplate[] {
   const usage = loadUsage()
@@ -123,10 +125,10 @@ export function sortedTemplatesBottomUp(list: PromptTemplate[]): PromptTemplate[
   const isPinned = (id: string) => pinned.indexOf(id) >= 0
   const pinIdx = (id: string) => pinned.indexOf(id)
   return [...list].sort((a, b) => {
-    const ap = isPinned(a.id), bp = isPinned(b.id)
-    if (ap !== bp) return ap ? 1 : -1 // 非置顶在前（顶部），置顶在后（底部）
     const ua = usage[a.id] || 0, ub = usage[b.id] || 0
-    if (ua !== ub) return ua - ub // 升序：少用在上，多用在下
+    if (ua !== ub) return ua - ub // 主键升序：少用在上，多用在下
+    const ap = isPinned(a.id), bp = isPinned(b.id)
+    if (ap !== bp) return ap ? 1 : -1 // 同用量时置顶靠后（更贴底）
     if (ap && bp) {
       const pa = pinIdx(a.id), pb = pinIdx(b.id)
       if (pa !== pb) return pa - pb

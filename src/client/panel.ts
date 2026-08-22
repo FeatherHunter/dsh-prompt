@@ -247,7 +247,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   const panelStyle: any = compact
     ? {
         position: 'fixed', left: (pos && pos.left) || 0, bottom: (pos && pos.bottom) || 0,
-        zIndex: 500, width: 560,
+        zIndex: 9999, width: 560,
         display: 'flex', flexDirection: 'column',
         background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',
         borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)', overflow: 'hidden',
@@ -416,7 +416,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   })
   const listNode = rows.length > 0
     ? h('div', { ref: compact ? listRef : null, style: listStyle }, rows)
-    : h('div', { style: { padding: 14, color: dim, fontSize: '0.92em' } }, t('noMatch'))
+    : h('div', { style: { height: 360, display: 'flex', alignItems: 'center', justifyContent: 'center', color: dim, fontSize: '0.92em', padding: '2px 2px 8px' } }, t('noMatch'))
 
   const footer = null
 

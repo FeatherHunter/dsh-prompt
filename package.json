@@ -34,6 +34,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:modal": "node scripts/test-modal-remount.cjs",
     "test:issue-14": "node scripts/test-issue-14.cjs",
+    "test:issue-20": "node scripts/test-issue-20.cjs",
+    "test:issue-20-host": "node scripts/test-issue-20-host.cjs",
+    "test:issue-21": "node scripts/test-issue-21.cjs",
+    "test:bottom-up": "node scripts/test-bottom-up.cjs",
     "test": "npm run test:modal && npm run test:issue-14"
   },
   "dsh": {
@@ -50,11 +54,15 @@
     }
   },
   "devDependencies": {
+    "@types/node": "^26.5.0",
     "react": "^18.3.1",
     "react-test-renderer": "^18.3.1",
     "tsdown": "^0.22.14",
     "typescript": "^5.9.3",
     "unrun": "^0.3.1"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "zod": "^4.5.4"
+  }
 }

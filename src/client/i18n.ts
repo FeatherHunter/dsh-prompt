@@ -64,4 +64,5 @@ export const STR = {
   smartCommon: { zh: '常用模板', en: 'Common templates' },
   gitHubRepo: { zh: 'GitHub 仓库', en: 'GitHub repo' },
   feedback: { zh: '反馈故障', en: 'Report issue' },
+  storageNote: { zh: '自定义模板与使用次数保存在 DSH 缓存目录（卸载重装保留）；历史 localStorage 数据不再读取。', en: 'Custom templates and usage live in the DSH cache dir (kept across reinstall); legacy localStorage data is no longer read.' },
 }

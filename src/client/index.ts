@@ -2,12 +2,13 @@
  * dsh-prompt — client 入口（v1 常规模式 + v1.1 智能模式）
  * 装配：input.left 入口按钮 / input.overlay 面板浮层 / settings.section 配置页（直属设置面板）/ inputTriggers /prompt 触发源（#9）/ shell.overlay 智能悬浮卡（#10）
  */
-import { getReact, TemplateBrowser, setGoSettingsHandler } from './panel'
+import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler } from './panel'
 import { EntryButton } from './button'
 import { SettingsPage } from './settings'
 import { buildPromptSource } from './trigger'
 import { SmartCardHost } from './smart'
 import { setSmartInput } from './smartstore'
+import { ensureLoaded } from './store'
 import { getLang } from './i18n'
 import { isPanelOpen, onPanelOpen } from './state'
 
@@ -39,10 +40,13 @@ function PanelHost(props: any): any {
     return () => { if (sid !== undefined) setSmartInput({ draft: '' }) }
   }, [props.sessionId])
   if (!open) return null
-  return h(TemplateBrowser, { compact: true, useInput: props.useInput, inputActions: props.inputActions })
+  // #21 R2：浮层经 PanelPortal 挂到 body，逃离 input.overlay slot 祖先层叠上下文（真机 R1 定位）
+  return h(PanelPortal, null, h(TemplateBrowser, { compact: true, useInput: props.useInput, inputActions: props.inputActions }))
 }
 
 export function apply(ctx: ClientContext): void {
+  // #20：client 启动即拉 host 快照（失败 warn + 内存默认，不阻塞装配）
+  ctx.effect(() => { ensureLoaded().catch(() => undefined) }, 'dsh-prompt: store load')
   // 入口按钮（input.left；开合状态跟随面板）
   ctx.effect(() => ctx.slots.inject('conversation.input.left', () =>
     ctx.slots.register({ name: 'conversation.input.left', id: 'dsh-prompt-entry', order: 10, label: () => 'dsh-prompt' },

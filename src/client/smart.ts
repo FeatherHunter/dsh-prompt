@@ -2,12 +2,12 @@
  * dsh-prompt — 智能模式悬浮卡（v1.1，shell.overlay root 作用域）
  * #5 定稿：全局单手柄点（点=缩小的卡，卡显示时点消失，互斥）/ 卡从点向右展开 /
  * 自由拖动 + 位置记忆（localStorage）+ 视口 clamp / 仅命中出现 / ≤3 候选（top-2 评分 + 最近使用，不足不凑）/
- * 评分=专属词×2+通用词×1（≥2 出卡）/ 排序=评分→用量 / 点击即填入 + 光标定位首字段冒号后（DEC11 修订）/
+ * 评分=专属词×2+通用词×1（≥2 出卡）/ #22 bottom-up：评分升序（最相关在底部）→用量升序 / 序号按排名（1=最相关在底部）/ 点击即填入 + 光标定位首字段冒号后（DEC11 修订）/
  * 默认开可配置关闭 / 与面板各管各的；键盘可达（↑↓/Enter/Esc）。
  */
 import { getReact } from './panel'
 import { smartCandidates, firstFieldCaret, type ScoredTemplate } from './match'
-import { allTemplates, bumpUsage } from './store'
+import { allTemplates, bumpUsage, loadUsage, tieBreakOrder } from './store'
 import {
   getSmartInput, onSmartInput, isSmartEnabled, setSmartEnabled,
   onSmartEnabled, loadSmartPos, saveSmartPos, suppressCard, isSuppressed, clearSuppression,
@@ -141,8 +141,12 @@ export function SmartCardHost(props: any): any {
 
   const suppressed = isSuppressed(draft)
   const candidates: ScoredTemplate[] = !enabled || suppressed ? [] : smartCandidates(draft)
-  // 手动展开且无匹配时：中性常用兜底（预设顺序 ≤3，不按用量——避免"用过一次就一直冒"）
-  const fallbackRows: ScoredTemplate[] = allTemplates().slice(0, 3).map((tpl) => ({ tpl, score: 0, strongHits: [], weakHits: [] }))
+  // 手动展开且无匹配时：中性常用兜底（集合仍取预设前 3、不按用量选集——避免"用过一次就一直冒"；
+  // #22：集合不变，仅行内显示顺序套用 bottom-up=用量升序+末键预制顺序）
+  const fallbackUsage = loadUsage()
+  const fallbackRows: ScoredTemplate[] = [...allTemplates().slice(0, 3)]
+    .sort((a, b) => (fallbackUsage[a.id] || 0) - (fallbackUsage[b.id] || 0) || tieBreakOrder(a, b))
+    .map((tpl) => ({ tpl, score: 0, strongHits: [], weakHits: [] }))
   const rows: ScoredTemplate[] = candidates.length > 0 ? candidates : (manualOpen ? fallbackRows : [])
   rowsRef.current = rows
   const showCard = rows.length > 0 && !dismissed
@@ -193,6 +197,7 @@ export function SmartCardHost(props: any): any {
   const line = '1px solid var(--dsw-alias-border-l1)'
 
   // ── 点（idle 手柄；卡显示时互斥消失）── 还原原设计：12px 次级色低调圆点，点击展开
+  // #21 标尺：智能点/卡保持普通 UI 层 z=400，低于选择浮层 PANEL_Z=9999 与弹窗 MODAL_Z=11000（见 panel.ts）
   const dot = h('div', {
     key: 'dot',
     style: {
@@ -221,7 +226,7 @@ export function SmartCardHost(props: any): any {
   const cardPos = { x: cardX, y: cardY }
   const cardStyle: any = {
     position: 'fixed', left: cardPos.x, top: cardPos.y,
-    width: CARD_W, zIndex: 400, pointerEvents: 'auto',
+    width: CARD_W, zIndex: 400 /* #21 普通层，低于选择类 */, pointerEvents: 'auto',
     background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',
     borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)',
     display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 10px',
@@ -250,8 +255,9 @@ export function SmartCardHost(props: any): any {
     const domain = (c.tpl as any).domain || (c.tpl as any).tag || ''
     const tagText = (domain ? domain + ' ' : '') + (common ? '·常用' : '·分' + c.score)
     const hits = common ? t('smartCommon') : (c.strongHits.join(' / ') + (c.weakHits.length ? ' · ' + c.weakHits.join(' / ') : ''))
+    // #22（Q7=A）：序号按排名而非位置——1=最相关，出现在最底部
     return h('div', { key: c.tpl.id, style: rowStyle, onClick: () => doPick(c), title: t('smartFill') }, [
-      h('span', { style: rowNum }, String(i + 1)),
+      h('span', { style: rowNum }, String(rows.length - i)),
       h('span', { style: rowName }, c.tpl.name),
       h('span', { style: rowTag }, tagText),
       h('span', { style: rowHint }, hits),

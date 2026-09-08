@@ -4,12 +4,15 @@
  * 插入后自动关闭；编辑/删除/新增时保持打开；hover 快捷操作；＋弹窗新增；删除二次确认；预制可复制为自定义。
  * #13 bottom-up：compact 浮层（⚡Prompt 悬浮列表）改 bottom-up——最常用在底部，未使用在顶部；置顶簇在底部；打开自动滚到底部。
  * 设置页（compact=false）保持原 Top-down。
+ * #22 决议（用户 2026-09-09 裁定）：悬浮列表公式（用量升序→同分置顶贴底→pin 序→预制顺序/createdAt）
+ * 为统一下底座，智能卡以评分为主键套用同一门公式；设置页（Q2=C）与 /prompt（Q6=A）保留降序为例外。
  */
 import type { PromptTemplate } from './templates'
 import { PRESET_TEMPLATES, getPresetById } from './templates'
 import {
   allTemplates, sortedTemplates, sortedTemplatesBottomUp, displayTag, isPinned, togglePin, canPinMore,
   addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, templateHaystack, MAX_BODY,
+  ensureLoaded, subscribeStore,
 } from './store'
 import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './state'
 import { getLang, tr, STR, type Lang } from './i18n'
@@ -73,8 +76,14 @@ export function onPick(t: PromptTemplate, useInput: any, inputActions: any): voi
 }
 
 /** 模板浏览（面板 / 设置页共用） */
+// ── 顶层 z 标尺（#21 T4 内决）：选择类 UI 高于一切普通 UI ──
+// PANEL_Z=9999：compact 选择浮层（沿用 #16 已验证值，高于左右侧面板/设置抽屉/智能卡 400//prompt 菜单）。
+// MODAL_Z=11000：新增/编辑/删除确认弹窗遮罩（portaled 到 body，高于 PANEL_Z + 抽屉 + 智能卡）。
+// 智能卡 dot/card 保持 400（smart.ts，普通 UI，低于选择类）。宿主关键层（toast/报错）高于此标尺，不覆盖。
+export const PANEL_Z = 9999
+export const MODAL_Z = 11000
 // ── 弹窗组件（模块级稳定类型：内联函数组件会在父组件每次重渲染时被整体卸载重建 → 输入内容丢失）──
-const modalMaskStyle: any = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }
+const modalMaskStyle: any = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: MODAL_Z }
 const modalCardStyle: any = { width: 460, background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, fontFamily: 'var(--dsw-font-family)', color: 'var(--dsw-alias-label-primary)' }
 const modalFieldStyle: any = { width: '100%', background: 'var(--dsw-alias-bg-layer-3)', border: '1px solid var(--dsw-alias-border-l1)', color: 'var(--dsw-alias-label-primary)', borderRadius: 8, padding: '8px 10px', fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none', boxSizing: 'border-box' }
 const modalBtnsStyle: any = { display: 'flex', justifyContent: 'flex-end', gap: 8 }
@@ -130,6 +139,64 @@ function ConfirmDelete(props: any): any {
       ]),
     ]),
   ])
+}
+
+export function getReactDom(): any {
+  if (typeof require === 'function') { try { return require('react-dom') } catch (e) { /* ignore */ } }
+  if (typeof globalThis !== 'undefined' && (globalThis as any).ReactDOM) return (globalThis as any).ReactDOM
+  return null
+}
+
+/**
+ * 顶层 Portal 底座（#21）：把 children 挂到 document.body，逃离宿主 slot 的祖先层叠上下文，
+ * 使 z 在全局生效而非相对祖先生效。React 事件仍冒泡给 React 祖先（portal 语义），hover 门控不受影响。
+ * 无 DOM（单测）或无 react-dom 时回退为内联渲染，保持 #14 回归覆盖。
+ * 模块级稳定组件：与 TemplateModal 同理，避免父级重渲染时卸载重置。
+ */
+function TopPortal(props: any): any {
+  const react = getReact()
+  if (!react) return null
+  const reactDom = getReactDom()
+  if (typeof document === 'undefined' || !reactDom || typeof reactDom.createPortal !== 'function') {
+    return props.children
+  }
+  const attr = props.rootAttr || 'data-dsh-prompt-top-root'
+  const holder = react.useMemo(() => {
+    try {
+      const el = document.createElement('div')
+      el.setAttribute(attr, '')
+      return el
+    } catch (e) { return null }
+  }, [attr])
+  react.useEffect(() => {
+    if (!holder) return
+    try { document.body.appendChild(holder) } catch (e) { /* ignore */ }
+    return () => { try { document.body.removeChild(holder) } catch (e) { /* ignore */ } }
+  }, [holder])
+  if (!holder) return props.children
+  return reactDom.createPortal(props.children, holder)
+}
+
+/**
+ * 弹窗顶层 Portal（#21）：新增/编辑/删除确认弹窗经 TopPortal 挂到 body，
+ * 逃离面板层叠上下文（compact 面板 PANEL_Z 上下文 / 设置页 settings.section 上下文）。
+ */
+function ModalPortal(props: any): any {
+  const react = getReact()
+  if (!react) return null
+  return react.createElement(TopPortal, { rootAttr: 'data-dsh-prompt-modal-root' }, props.children)
+}
+
+/**
+ * 浮层顶层 Portal（#21 R2）：compact 选择浮层经 TopPortal 挂到 body。
+ * 真机 R1 证实：浮层留在 conversation.input.overlay 内时 PANEL_Z=9999 仍被右侧面板盖住——
+ * 数值从不是问题（宿主面板 host z=25/面板 z=40/drop 遮罩 z=1000，见 dsh-better-sidebar 实测），
+ * 问题是 slot 祖先层叠上下文把整棵子树压平。仅 overlay 实例（PanelHost）用，设置页保持内联。
+ */
+export function PanelPortal(props: any): any {
+  const react = getReact()
+  if (!react) return null
+  return react.createElement(TopPortal, { rootAttr: 'data-dsh-prompt-panel-root' }, props.children)
 }
 
 export function TemplateBrowser(props: BrowserProps): any {
@@ -204,6 +271,14 @@ export function TemplateBrowser(props: BrowserProps): any {
   const refresh = () => setTick((n) => n + 1)
   const t = (k: keyof typeof STR) => tr(lang, STR[k])
 
+  // #20 直接切换：挂载即拉 host 快照，host 变更经订阅刷新（内存缓存同步写后已 refresh，此处补异步到达）
+  react.useEffect(() => {
+    let on = true
+    ensureLoaded().then(() => { if (on) refresh() }, () => undefined)
+    const off = subscribeStore(() => { if (on) refresh() })
+    return () => { on = false; off() }
+  }, [])
+
   // 列表组装：tab=自定义 → 仅自定义；否则 预制+自定义，按 阶段 → 领域 → 搜索过滤，排序
   const customs = allTemplates().filter((x) => !x.builtin)
   const list = allTemplates().filter((x) => {
@@ -247,7 +322,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   const panelStyle: any = compact
     ? {
         position: 'fixed', left: (pos && pos.left) || 0, bottom: (pos && pos.bottom) || 0,
-        zIndex: 9999, width: 560,
+        zIndex: PANEL_Z, width: 560,
         display: 'flex', flexDirection: 'column',
         background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',
         borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)', overflow: 'hidden',
@@ -324,28 +399,33 @@ export function TemplateBrowser(props: BrowserProps): any {
   }
 
   // ── 弹窗（新增/编辑/删除确认）── 模块级稳定组件：内联函数组件会在父级每次重渲染时被卸载重建 → 输入内容丢失
+  // #21 顶层化：经 ModalPortal 挂到 document.body，逃离面板层叠上下文（无 DOM/无 react-dom 时回退内联，#14 行为不变）
   let modalNode: any = null
   if (modal) {
     if (modal.kind === 'add' || modal.kind === 'edit') {
-      modalNode = h('div', { key: 'tplmodal-' + modal.kind + (modal.t ? '-' + modal.t.id : '') }, [
-        h(TemplateModal, {
-          kind: modal.kind, tpl: modal.t, t,
-          onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null) },
-          onOk: (f: { name: string; tag: string; body: string }) => {
-            if (modal.kind === 'edit' && modal.t) { updateCustom(modal.t.id, f) }
-            else { addCustom(f.name, f.tag, f.body) }
-            setHoverCloseSuppressed(false); modalState[1](null)
-            refresh()
-          },
-        }),
+      modalNode = h(ModalPortal, { key: 'portal-tplmodal-' + modal.kind + (modal.t ? '-' + modal.t.id : '') }, [
+        h('div', { key: 'tplmodal-' + modal.kind + (modal.t ? '-' + modal.t.id : '') }, [
+          h(TemplateModal, {
+            kind: modal.kind, tpl: modal.t, t,
+            onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null) },
+            onOk: (f: { name: string; tag: string; body: string }) => {
+              if (modal.kind === 'edit' && modal.t) { updateCustom(modal.t.id, f) }
+              else { addCustom(f.name, f.tag, f.body) }
+              setHoverCloseSuppressed(false); modalState[1](null)
+              refresh()
+            },
+          }),
+        ]),
       ])
     } else if (modal.kind === 'del' && modal.t) {
-      modalNode = h('div', { key: 'del-' + modal.t.id }, [
-        h(ConfirmDelete, {
-          tpl: modal.t, t,
-          onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null) },
-          onOk: () => { removeCustom(modal.t!.id); setHoverCloseSuppressed(false); modalState[1](null); refresh() },
-        }),
+      modalNode = h(ModalPortal, { key: 'portal-del-' + modal.t.id }, [
+        h('div', { key: 'del-' + modal.t.id }, [
+          h(ConfirmDelete, {
+            tpl: modal.t, t,
+            onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null) },
+            onOk: () => { removeCustom(modal.t!.id); setHoverCloseSuppressed(false); modalState[1](null); refresh() },
+          }),
+        ]),
       ])
     }
   }

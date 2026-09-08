@@ -8,7 +8,7 @@ Issues and specs live as GitHub issues, operated via the `gh` CLI. See `docs/age
 
 ### Triage labels
 
-Mandatory label system — every issue carries at least one of `bug`, `needs-triage`, `wayfinder:grilling`. See `docs/agents/triage-labels.md`.
+Default five-role vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 

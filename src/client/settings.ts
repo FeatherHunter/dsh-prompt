@@ -37,6 +37,7 @@ export function SettingsPage(props: any): any {
       }),
       h('span', null, t('smartToggle')),
     ]),
+    h('div', { style: { padding: '2px 4px 8px', fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)', fontFamily: 'var(--dsw-font-family)' } }, t('storageNote')),
     h(TemplateBrowser, { compact: false }),
   ])
 }

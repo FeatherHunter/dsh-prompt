@@ -199,24 +199,6 @@ dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs
 
 </details>
 
-<h2 align="center"><sub>ARCHITECTURE</sub><br>架构</h2>
-
-<div align="center">
-
-面板、触发源、智能匹配、词表、设置页都在 `src/client/`。<br>
-匹配引擎与 `/prompt` 共用一套数据与排序。
-
-</div>
-
-<h2 align="center"><sub>DEVELOPMENT</sub><br>开发</h2>
-
-```bash
-npm run build:client   # tsdown → lib/client.js
-npm run build          # 完整构建（scripts/build.sh）
-npm run typecheck      # 类型检查
-npm run test           # 悬浮窗与回归用例
-```
-
 <h2 align="center"><sub>MORE</sub><br>作者的其他作品</h2>
 
 <div align="center">

@@ -188,24 +188,6 @@ Switching browsers or wiping data loses them — back up favorites.
 
 </details>
 
-<h2 align="center"><sub>ARCHITECTURE</sub><br>Architecture</h2>
-
-<div align="center">
-
-Panel, trigger, smart matching, word tables and settings all live in `src/client/`.<br>
-The matching engine and `/prompt` share one data and ranking base.
-
-</div>
-
-<h2 align="center"><sub>DEVELOPMENT</sub><br>Development</h2>
-
-```bash
-npm run build:client   # tsdown → lib/client.js
-npm run build          # full build (scripts/build.sh)
-npm run typecheck      # type checking
-npm run test           # hover-window and regression cases
-```
-
 <h2 align="center"><sub>MORE</sub><br>More from the author</h2>
 
 <div align="center">

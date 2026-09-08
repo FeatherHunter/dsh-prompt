@@ -5,7 +5,7 @@
 [中文](../README.md) · **English**
 
 **Stop copy-pasting — one click, template in chat.**
-24 deep templates, `/prompt` and smart suggestions as backup.
+24 deep templates, `/prompt` and smart suggestions as backup.<br>
 Works out of the box, fully customizable.
 
 Your ⭐ means the world to me.
@@ -18,7 +18,7 @@ Your ⭐ means the world to me.
 
 <div align="center">
 
-Requires [DSH](https://www.npmjs.com/package/@deepseek-ai/dsh) (DeepSeek Harness). You give the orders, AI does the work.
+Requires [DSH](https://www.npmjs.com/package/@deepseek-ai/dsh) (DeepSeek Harness). You give the orders, AI does the work.<br>
 dsh-prompt turns favorite prompts into clickable templates.
 
 </div>
@@ -38,8 +38,8 @@ dsh plugin --profile web add dsh-prompt@0.1.6 --registry https://registry.npmjs.
 
 <div align="center">
 
-Restart the matching entry once.
-Desktop: fully quit and reopen. Web: restart and refresh.
+Restart the matching entry once.<br>
+Desktop: fully quit and reopen. Web: restart and refresh.<br>
 Zero config: install and go, remove and it's gone.
 
 **👇 A new button left of the input box means success.**
@@ -82,8 +82,8 @@ dsh plugin --profile web remove dsh-prompt   # uninstall
 
 <div align="center">
 
-Hover the ⚡Prompt button and the panel opens (click works too).
-Phase tabs + domain filter + search — click a row, body lands in the box.
+Hover the ⚡Prompt button and the panel opens (click works too).<br>
+Phase tabs + domain filter + search — click a row, body lands in the box.<br>
 Most-used sinks to the bottom, closest to the button.
 
 **👇 The panel looks like this.**
@@ -96,9 +96,9 @@ Most-used sinks to the bottom, closest to the button.
 
 <div align="center">
 
-For keyboard people: type `/prompt`, candidates filter live.
-Each row: "name + tags·phase — first 42 characters".
-Half a name works too: `/prompt retro`.
+For keyboard people: type `/prompt`, candidates filter live.<br>
+Each row: "name + tags·phase — first 42 characters".<br>
+Half a name works too: `/prompt retro`.<br>
 (Screenshots are Chinese in v1; layout is identical.)
 
 **👇 Type half, candidates narrow down.**
@@ -111,7 +111,7 @@ Half a name works too: `/prompt retro`.
 
 <div align="center">
 
-No need to hunt templates — describe your task, cards pop up on hits.
+No need to hunt templates — describe your task, cards pop up on hits.<br>
 On by default, one toggle to silence; local word table only, no network.
 
 </div>
@@ -120,7 +120,7 @@ On by default, one toggle to silence; local word table only, no network.
 
 <div align="center">
 
-24 built-ins across four domains and three phases.
+24 built-ins across four domains and three phases.<br>
 Read-only: unbreakable. Clone to custom to tweak.
 
 **👇 All 24 on one settings page.**
@@ -133,8 +133,8 @@ Read-only: unbreakable. Clone to custom to tweak.
 
 <div align="center">
 
-Save your wording as templates: one click, title + body, done.
-Pin up to 5, delete with one confirm.
+Save your wording as templates: one click, title + body, done.<br>
+Pin up to 5, delete with one confirm.<br>
 Separate storage — upgrades never eat yours.
 
 **👇 The new-template dialog.**
@@ -147,7 +147,7 @@ Separate storage — upgrades never eat yours.
 
 <div align="center">
 
-Templates and counts stay local. Zero network reports.
+Templates and counts stay local. Zero network reports.<br>
 Removing the plugin removes the data.
 
 </div>
@@ -163,7 +163,7 @@ Install once from the official registry (desktop users: swap `--profile web` for
 dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs.org
 ```
 
-Then restart your entry.
+Then restart your entry.<br>
 Desktop: fully quit and reopen. Web: restart and hard-refresh (Ctrl+F5).
 
 </details>
@@ -171,8 +171,8 @@ Desktop: fully quit and reopen. Web: restart and hard-refresh (Ctrl+F5).
 <details>
 <summary>No Prompt button after install?</summary>
 
-Check the plugin went into your entry's profile (wrong profile = silent no-op).
-Desktop app → `--profile desktop`; web service → `--profile web`.
+Check the plugin went into your entry's profile (wrong profile = silent no-op).<br>
+Desktop app → `--profile desktop`; web service → `--profile web`.<br>
 Then restart that entry once.
 
 </details>
@@ -180,7 +180,7 @@ Then restart that entry once.
 <details>
 <summary>Where are custom templates stored? Uploaded anywhere?</summary>
 
-Local browser storage, never uploaded.
+Local browser storage, never uploaded.<br>
 Switching browsers or wiping data loses them — back up favorites.
 
 </details>
@@ -189,7 +189,7 @@ Switching browsers or wiping data loses them — back up favorites.
 
 <div align="center">
 
-Panel, trigger, smart matching, word tables and settings all live in `src/client/`.
+Panel, trigger, smart matching, word tables and settings all live in `src/client/`.<br>
 The matching engine and `/prompt` share one data and ranking base.
 
 </div>
@@ -232,8 +232,8 @@ MIT © FeatherHunter
 
 Thanks to everyone who starred and filed issues — you make this toolbox better, bit by bit.
 
-dsh-prompt is still waiting for its first external contributor.
-File an issue, a PR, or share your templates — your name lands here.
+dsh-prompt is still waiting for its first external contributor.<br>
+File an issue, a PR, or share your templates — your name lands here.<br>
 Ping me if you already did.
 
 </div>

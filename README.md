@@ -5,7 +5,7 @@
 **中文** · [English](docs/README.en.md)
 
 **别再复制粘贴——点一下，模板进对话。**
-24 条深度模板，`/prompt` 与智能推荐主动兜底。
+24 条深度模板，`/prompt` 与智能推荐主动兜底。<br>
 装好即用，可自定义。
 
 你的 ⭐ 是我夜空中最亮的星。
@@ -20,7 +20,7 @@
 
 <div align="center">
 
-前置要求：[DSH](https://www.npmjs.com/package/@deepseek-ai/dsh)（DeepSeek Harness）。在 DSH 里，你下指令、AI 干活。
+前置要求：[DSH](https://www.npmjs.com/package/@deepseek-ai/dsh)（DeepSeek Harness）。在 DSH 里，你下指令、AI 干活。<br>
 dsh-prompt 把常用提示词变成随手可点的模板。
 
 </div>
@@ -42,8 +42,8 @@ dsh plugin --profile desktop add dsh-prompt@0.1.6 --registry https://registry.np
 
 <div align="center">
 
-装完**重启一次对应入口**即生效。
-桌面端完全退出重开，web 端重启后刷新页面。
+装完**重启一次对应入口**即生效。<br>
+桌面端完全退出重开，web 端重启后刷新页面。<br>
 零配置：装了即用，卸了即走。
 
 **👇 装完重启，输入框左侧多出这枚按钮就是成功。**
@@ -86,8 +86,8 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-鼠标移到输入框左侧的 ⚡Prompt 按钮，面板自动展开（点一下也行）。
-阶段 tabs + 领域筛选 + 搜索，点一条，正文进输入框。
+鼠标移到输入框左侧的 ⚡Prompt 按钮，面板自动展开（点一下也行）。<br>
+阶段 tabs + 领域筛选 + 搜索，点一条，正文进输入框。<br>
 最常用的沉在底部，离按钮最近。
 
 **👇 按钮一点，面板长这样。**
@@ -100,8 +100,8 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-键盘党的最爱：输入框敲 `/prompt`，候选实时过滤。
-每行写清“名称 + 标签·阶段 — 正文前 42 字”。
+键盘党的最爱：输入框敲 `/prompt`，候选实时过滤。<br>
+每行写清“名称 + 标签·阶段 — 正文前 42 字”。<br>
 只记得半个名也行：`/prompt 复盘`。
 
 **👇 输一半，候选自动收窄。**
@@ -114,8 +114,8 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-你不用找模板，模板来找你。
-输入框里正常描述任务，命中关键词自动推荐。
+你不用找模板，模板来找你。<br>
+输入框里正常描述任务，命中关键词自动推荐。<br>
 默认开启，设置页可关；只看本地词表，不联网。
 
 </div>
@@ -124,8 +124,8 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-随包 24 条预制模板，覆盖四大领域与三个阶段。
-只读，删不掉改不坏，放心点。
+随包 24 条预制模板，覆盖四大领域与三个阶段。<br>
+只读，删不掉改不坏，放心点。<br>
 想改哪条，复制为自定义再改。
 
 **👇 24 条全貌在设置页一次看完。**
@@ -138,8 +138,8 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-自己的话术存成模板：设置页一点新增，标题 + 正文写好即存。
-常用置顶（最多 5 条），删除一次确认。
+自己的话术存成模板：设置页一点新增，标题 + 正文写好即存。<br>
+常用置顶（最多 5 条），删除一次确认。<br>
 自定义与预制分开存，升级不丢。
 
 **👇 新增弹窗长这样，填完点添加。**
@@ -152,7 +152,7 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-只存本地浏览器，零网络上报。
+只存本地浏览器，零网络上报。<br>
 删插件即删数据。
 
 </div>
@@ -168,7 +168,7 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs.org
 ```
 
-装完重启对应入口。
+装完重启对应入口。<br>
 桌面端完全退出重开，web 端重启后刷新页面（Ctrl+F5）。
 
 </details>
@@ -176,8 +176,8 @@ dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs
 <details>
 <summary>装完没看到 Prompt 按钮？</summary>
 
-先确认插件装进了当前入口对应的 profile（装错等于没装）。
-桌面应用对应 `--profile desktop`，web 服务对应 `--profile web`。
+先确认插件装进了当前入口对应的 profile（装错等于没装）。<br>
+桌面应用对应 `--profile desktop`，web 服务对应 `--profile web`。<br>
 确认无误后重启一次再看。
 
 </details>
@@ -185,7 +185,7 @@ dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs
 <details>
 <summary>自定义模板与用量存在哪？会上传吗？</summary>
 
-存在本地浏览器，不上传。
+存在本地浏览器，不上传。<br>
 换浏览器或清数据会丢，常用模板备一份正文。
 
 </details>
@@ -201,7 +201,7 @@ dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs
 
 <div align="center">
 
-面板、触发源、智能匹配、词表、设置页都在 `src/client/`。
+面板、触发源、智能匹配、词表、设置页都在 `src/client/`。<br>
 匹配引擎与 `/prompt` 共用一套数据与排序。
 
 </div>
@@ -244,8 +244,8 @@ MIT © FeatherHunter
 
 感谢每一位点星、提 Issue 的朋友，是你们让这个工具箱一点点变好。
 
-dsh-prompt 还在等第一位外部贡献者。
-提交 Issue、PR 或分享自定义模板，你的名字就会出现在这里。
+dsh-prompt 还在等第一位外部贡献者。<br>
+提交 Issue、PR 或分享自定义模板，你的名字就会出现在这里。<br>
 已经做过的朋友，请直接告诉我。
 
 </div>

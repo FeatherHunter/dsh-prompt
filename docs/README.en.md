@@ -18,7 +18,8 @@ Your ⭐ means the world to me.
 
 <div align="center">
 
-Requires [DSH](https://www.npmjs.com/package/@deepseek-ai/dsh) (DeepSeek Harness). You give the orders, AI does the work.<br>
+Requires [DSH](https://www.npmjs.com/package/@deepseek-ai/dsh) (DeepSeek Harness).<br>
+You give the orders, AI does the work.<br>
 dsh-prompt turns favorite prompts into clickable templates.
 
 </div>
@@ -121,7 +122,8 @@ On by default, one toggle to silence; local word table only, no network.
 <div align="center">
 
 24 built-ins across four domains and three phases.<br>
-Read-only: unbreakable. Clone to custom to tweak.
+Read-only: unbreakable.<br>
+Clone to custom to tweak.
 
 **👇 All 24 on one settings page.**
 
@@ -164,7 +166,8 @@ dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs
 ```
 
 Then restart your entry.<br>
-Desktop: fully quit and reopen. Web: restart and hard-refresh (Ctrl+F5).
+Desktop: fully quit and reopen.<br>
+Web: restart and hard-refresh (Ctrl+F5).
 
 </details>
 

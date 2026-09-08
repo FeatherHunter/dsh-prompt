@@ -20,7 +20,8 @@
 
 <div align="center">
 
-前置要求：[DSH](https://www.npmjs.com/package/@deepseek-ai/dsh)（DeepSeek Harness）。在 DSH 里，你下指令、AI 干活。<br>
+前置要求：[DSH](https://www.npmjs.com/package/@deepseek-ai/dsh)（DeepSeek Harness）。<br>
+在 DSH 里，你下指令、AI 干活。<br>
 dsh-prompt 把常用提示词变成随手可点的模板。
 
 </div>
@@ -193,7 +194,8 @@ dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs
 <details>
 <summary>有英文文档吗？截图为什么是中文？</summary>
 
-有，见 [English](docs/README.en.md)。截图首版中英共用一套，后续补英文截图。
+有，见 [English](docs/README.en.md)。
+截图首版中英共用一套，后续补英文截图。
 
 </details>
 

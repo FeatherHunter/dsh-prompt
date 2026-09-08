@@ -5,7 +5,8 @@
 [中文](../README.md) · **English**
 
 **Stop copy-pasting — one click, template in chat.**
-24 deep templates, `/prompt` trigger and smart suggestions as backup. Works out of the box, fully customizable.
+24 deep templates, `/prompt` and smart suggestions as backup.
+Works out of the box, fully customizable.
 
 Your ⭐ means the world to me.
 
@@ -17,7 +18,8 @@ Your ⭐ means the world to me.
 
 <div align="center">
 
-Requires [DSH](https://www.npmjs.com/package/@deepseek-ai/dsh) (DeepSeek Harness). You give the orders, AI does the work; dsh-prompt turns your favorite prompts into clickable templates.
+Requires [DSH](https://www.npmjs.com/package/@deepseek-ai/dsh) (DeepSeek Harness). You give the orders, AI does the work.
+dsh-prompt turns favorite prompts into clickable templates.
 
 </div>
 
@@ -36,7 +38,9 @@ dsh plugin --profile web add dsh-prompt@0.1.6 --registry https://registry.npmjs.
 
 <div align="center">
 
-Restart the matching DSH entry once: fully quit and reopen DSH Desktop, or restart `dsh web` and refresh. Zero config: the package ships `cordis.patch.yml`, `dsh plugin add` wires it up, `dsh plugin remove` takes it away cleanly.
+Restart the matching entry once.
+Desktop: fully quit and reopen. Web: restart and refresh.
+Zero config: install and go, remove and it's gone.
 
 **👇 A new button left of the input box means success.**
 
@@ -78,7 +82,9 @@ dsh plugin --profile web remove dsh-prompt   # uninstall
 
 <div align="center">
 
-Hover the ⚡Prompt button left of the input box and the template panel opens: phase tabs (before / during / after) + domain filter + search. Click a row and its body lands in the input box. Most-used sinks to the bottom, closest to the button.
+Hover the ⚡Prompt button and the panel opens (click works too).
+Phase tabs + domain filter + search — click a row, body lands in the box.
+Most-used sinks to the bottom, closest to the button.
 
 **👇 The panel looks like this.**
 
@@ -90,7 +96,10 @@ Hover the ⚡Prompt button left of the input box and the template panel opens: p
 
 <div align="center">
 
-For keyboard people: type `/prompt` in the input box and candidates filter live, each row showing "name + tags·phase — first 42 characters". Half a name works too, e.g. `/prompt retro` keeps only retro-related rows. (Screenshots are Chinese in v1; the layout is identical in English.)
+For keyboard people: type `/prompt`, candidates filter live.
+Each row: "name + tags·phase — first 42 characters".
+Half a name works too: `/prompt retro`.
+(Screenshots are Chinese in v1; layout is identical.)
 
 **👇 Type half, candidates narrow down.**
 
@@ -102,7 +111,8 @@ For keyboard people: type `/prompt` in the input box and candidates filter live,
 
 <div align="center">
 
-No need to hunt templates — describe your task normally and a suggestion card pops up on keyword hits (e.g. retro words surface the retro template). On by default, one toggle in settings to silence it; matching uses a local word table only, no network.
+No need to hunt templates — describe your task, cards pop up on hits.
+On by default, one toggle to silence; local word table only, no network.
 
 </div>
 
@@ -110,7 +120,8 @@ No need to hunt templates — describe your task normally and a suggestion card 
 
 <div align="center">
 
-24 built-in templates across four domains — thinking frameworks, learning, engineering, execution — covering before / during / after. Presets are read-only: unbreakable, undeletable. Clone one to custom to tweak it.
+24 built-ins across four domains and three phases.
+Read-only: unbreakable. Clone to custom to tweak.
 
 **👇 All 24 on one settings page.**
 
@@ -122,7 +133,9 @@ No need to hunt templates — describe your task normally and a suggestion card 
 
 <div align="center">
 
-Save your own wording as your own templates: one click in settings, title + body, done. Pin favorites (up to 5), delete with a single confirm. Custom and preset storage are separate — upgrades never eat yours.
+Save your wording as templates: one click, title + body, done.
+Pin up to 5, delete with one confirm.
+Separate storage — upgrades never eat yours.
 
 **👇 The new-template dialog.**
 
@@ -134,7 +147,8 @@ Save your own wording as your own templates: one click in settings, title + body
 
 <div align="center">
 
-Template bodies and usage counts live in your local browser only. Zero network reports. Removing the plugin removes the data.
+Templates and counts stay local. Zero network reports.
+Removing the plugin removes the data.
 
 </div>
 
@@ -149,21 +163,25 @@ Install once from the official registry (desktop users: swap `--profile web` for
 dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs.org
 ```
 
-Then fully quit and reopen DSH; for web, restart `dsh web` and hard-refresh (Ctrl+F5).
+Then restart your entry.
+Desktop: fully quit and reopen. Web: restart and hard-refresh (Ctrl+F5).
 
 </details>
 
 <details>
 <summary>No Prompt button after install?</summary>
 
-Check the plugin went into the profile behind your current DSH entry (wrong profile = silent no-op): `--profile desktop` for the Desktop app, `--profile web` for the self-hosted service. Then restart that entry once.
+Check the plugin went into your entry's profile (wrong profile = silent no-op).
+Desktop app → `--profile desktop`; web service → `--profile web`.
+Then restart that entry once.
 
 </details>
 
 <details>
 <summary>Where are custom templates stored? Uploaded anywhere?</summary>
 
-Local browser storage, never uploaded. Switching browsers or wiping data loses them — keep a backup of favorites.
+Local browser storage, never uploaded.
+Switching browsers or wiping data loses them — back up favorites.
 
 </details>
 
@@ -171,7 +189,8 @@ Local browser storage, never uploaded. Switching browsers or wiping data loses t
 
 <div align="center">
 
-Panel, trigger, smart matching, word tables and settings all live in `src/client/`; the matching engine and `/prompt` share one data and ranking base.
+Panel, trigger, smart matching, word tables and settings all live in `src/client/`.
+The matching engine and `/prompt` share one data and ranking base.
 
 </div>
 
@@ -213,6 +232,8 @@ MIT © FeatherHunter
 
 Thanks to everyone who starred and filed issues — you make this toolbox better, bit by bit.
 
-dsh-prompt is still waiting for its first external contributor — file an issue, a PR, or share your custom templates, and your name lands here. Ping me if you already did.
+dsh-prompt is still waiting for its first external contributor.
+File an issue, a PR, or share your templates — your name lands here.
+Ping me if you already did.
 
 </div>

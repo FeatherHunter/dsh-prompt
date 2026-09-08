@@ -5,7 +5,7 @@
 **中文** · [English](docs/README.en.md)
 
 **别再复制粘贴——点一下，模板进对话。**
-24 条深度模板随手点，`/prompt` 与智能推荐主动兜底，装好即用、可自定义。
+24 条深度模板，`/prompt` 与智能推荐主动兜底，装好即用、可自定义。
 
 你的 ⭐ 是我夜空中最亮的星。
 
@@ -82,7 +82,7 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-最顺手的一个：鼠标移到输入框左侧的 ⚡Prompt 按钮，模板面板自动展开。阶段 tabs（执行前 / 执行中 / 执行后）+ 领域筛选 + 搜索，需要的那条点一下，正文直接写进输入框。最常用的自动沉到底部，离按钮最近。
+鼠标移到输入框左侧的 ⚡Prompt 按钮，模板面板自动展开（点一下也行）。阶段 tabs（执行前 / 执行中 / 执行后）+ 领域筛选 + 搜索，需要的那条点一下，正文直接写进输入框。最常用的自动沉到底部，离按钮最近。
 
 **👇 按钮一点，面板长这样。**
 
@@ -94,7 +94,7 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-键盘党的最爱：输入框里敲 `/prompt`，候选列表实时过滤，每行写清“名称 + 标签·阶段 — 正文前言”。记得半条模板名也行，比如 `/prompt 复盘`，列表只剩复盘相关的。
+键盘党的最爱：输入框里敲 `/prompt`，候选列表实时过滤，每行写清“名称 + 标签·阶段 — 正文前 42 字”。记得半条模板名也行，比如 `/prompt 复盘`，列表只剩复盘相关的。
 
 **👇 输一半，候选自动收窄。**
 
@@ -126,7 +126,7 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-自己的话术存成自己的模板：设置页一点新增，标题 + 正文写好即存；常用模板可以置顶（最多 5 条），用完即删也只要一次确认。自定义与预制分开存放，升级插件不丢你的东西。
+自己的话术存成自己的模板：设置页一点新增，标题 + 正文写好即存；常用模板可以置顶（最多 5 条），删除只要一次确认。自定义与预制分开存放，升级插件不丢你的东西。
 
 **👇 新增弹窗长这样，填完点添加。**
 
@@ -182,7 +182,7 @@ dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs
 
 <div align="center">
 
-面板、触发源、智能匹配、词表、设置页都在 `src/client/` 里；匹配引擎与 `/prompt` 共用同一套数据与排序。早期决策记录见 [issue #1（wayfinding map）](https://github.com/FeatherHunter/dsh-prompt/issues/1)。
+面板、触发源、智能匹配、词表、设置页都在 `src/client/` 里；匹配引擎与 `/prompt` 共用同一套数据与排序。
 
 </div>
 
@@ -211,7 +211,7 @@ npm run test           # 悬浮窗与回归用例
 
 ---
 
-有问题、有想法？[提交 ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)，需求与 Bug 都欢迎
+有问题、有想法？[提交 ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)，用法交流、新模板点子、需求与 Bug 都欢迎
 
 个人作品，与 DeepSeek Harness 官方没有关系。
 MIT © FeatherHunter
@@ -224,22 +224,6 @@ MIT © FeatherHunter
 
 感谢每一位点星、提 Issue 的朋友，是你们让这个工具箱一点点变好。
 
-dsh-prompt 还在等第一位外部贡献者——提交 Issue、PR 或分享你的自定义模板，你的名字就会出现在这里。如果你已经这么做了，请直接告诉我，排名不分先后。
-
-</div>
-
-<h2 align="center"><sub>CONNECT</sub><br>联系与反馈</h2>
-
-<div align="center">
-
-用法交流、新模板点子、Bug 与需求请直接提 [ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)，比私聊更高效可追溯。
-
-</div>
-
-<h2 align="center"><sub>STARS</sub><br>星标</h2>
-
-<div align="center">
-
-如果 dsh-prompt 帮你省下了复制粘贴的时间，请点一颗 ⭐ 让更多人看见它。
+dsh-prompt 还在等第一位外部贡献者——提交 Issue、PR 或分享你的自定义模板，你的名字就会出现在这里。如果你已经这么做了，请直接告诉我。
 
 </div>

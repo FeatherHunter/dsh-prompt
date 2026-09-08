@@ -5,7 +5,7 @@
 [中文](../README.md) · **English**
 
 **Stop copy-pasting — one click, template in chat.**
-24 deep templates at a click, `/prompt` trigger and smart suggestions as backup. Works out of the box, fully customizable.
+24 deep templates, `/prompt` trigger and smart suggestions as backup. Works out of the box, fully customizable.
 
 Your ⭐ means the world to me.
 
@@ -90,7 +90,7 @@ Hover the ⚡Prompt button left of the input box and the template panel opens: p
 
 <div align="center">
 
-For keyboard people: type `/prompt` in the input box and candidates filter live, each row showing "name + tags·phase — first words". Half a name works too, e.g. `/prompt retro` keeps only retro-related rows. (Screenshots are Chinese in v1; the layout is identical in English.)
+For keyboard people: type `/prompt` in the input box and candidates filter live, each row showing "name + tags·phase — first 42 characters". Half a name works too, e.g. `/prompt retro` keeps only retro-related rows. (Screenshots are Chinese in v1; the layout is identical in English.)
 
 **👇 Type half, candidates narrow down.**
 
@@ -171,7 +171,7 @@ Local browser storage, never uploaded. Switching browsers or wiping data loses t
 
 <div align="center">
 
-Panel, trigger, smart matching, word tables and settings all live in `src/client/`; the matching engine and `/prompt` share one data and ranking base. Early decisions: [issue #1 (wayfinding map)](https://github.com/FeatherHunter/dsh-prompt/issues/1).
+Panel, trigger, smart matching, word tables and settings all live in `src/client/`; the matching engine and `/prompt` share one data and ranking base.
 
 </div>
 
@@ -200,7 +200,7 @@ If you like this one, these may help too:
 
 ---
 
-Questions, ideas? [Open an ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues) — requests and bugs both welcome
+Questions, ideas? [Open an ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues) — usage chat, template ideas, requests and bugs all welcome
 
 A personal project, not affiliated with DeepSeek Harness.
 MIT © FeatherHunter
@@ -213,22 +213,6 @@ MIT © FeatherHunter
 
 Thanks to everyone who starred and filed issues — you make this toolbox better, bit by bit.
 
-dsh-prompt is still waiting for its first external contributor — file an issue, a PR, or share your custom templates, and your name lands here. Ping me if you already did; no particular order.
-
-</div>
-
-<h2 align="center"><sub>CONNECT</sub><br>Contact & feedback</h2>
-
-<div align="center">
-
-Usage chat, template ideas, bugs and requests — [open an ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues), more traceable than DMs.
-
-</div>
-
-<h2 align="center"><sub>STARS</sub><br>Stars</h2>
-
-<div align="center">
-
-If dsh-prompt saved you some copy-pasting, leave a ⭐ so more people can find it.
+dsh-prompt is still waiting for its first external contributor — file an issue, a PR, or share your custom templates, and your name lands here. Ping me if you already did.
 
 </div>

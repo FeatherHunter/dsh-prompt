@@ -1,106 +1,234 @@
-# ⚡ dsh-prompt
+<h1 align="center">dsh-prompt</h1>
 
-**🌐 [中文](../README.md) · [English](README.en.md)**
+<div align="center">
 
-**A Prompt toolbox for DeepSeek Harness: 24 deep templates, custom management, /prompt trigger source, and a smart suggestion card — click once, inserted into your current conversation.**
+[中文](../README.md) · **English**
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
-[![npm](https://img.shields.io/npm/v/dsh-prompt)](https://www.npmjs.com/package/dsh-prompt)
-[![dsh-plugin](https://img.shields.io/badge/dsh-plugin-orange.svg)](https://github.com/FeatherHunter/dsh-prompt)
-[![platform](https://img.shields.io/badge/platform-DeepSeek%20Harness-1f6feb.svg)](https://github.com/deepseek-ai/DeepSeek-Harness)
+**Stop copy-pasting — one click, template in chat.**
+24 deep templates at a click, `/prompt` trigger and smart suggestions as backup. Works out of the box, fully customizable.
 
-![hero](../assets/hero-en.svg)
+Your ⭐ means the world to me.
 
-## Quick navigation
+[![Version](https://img.shields.io/npm/v/dsh-prompt)](https://www.npmjs.com/package/dsh-prompt) [![Downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.npmjs.org%2Fdownloads%2Fpoint%2Flast-month%2Fdsh-prompt&query=%24.downloads&label=downloads&suffix=%2Fmonth&color=brightgreen)](https://www.npmjs.com/package/dsh-prompt) [![Last commit](https://img.shields.io/github/last-commit/FeatherHunter/dsh-prompt)](https://github.com/FeatherHunter/dsh-prompt/commits/main) [![Commits](https://img.shields.io/github/commit-activity/m/FeatherHunter/dsh-prompt)](https://github.com/FeatherHunter/dsh-prompt/graphs/commit-activity) [![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey.svg)](../LICENSE) [![Templates: 24](https://img.shields.io/badge/templates-24-blueviolet.svg)](https://github.com/FeatherHunter/dsh-prompt/blob/main/src/client/templates.ts) [![dsh-plugin](https://img.shields.io/badge/dsh-plugin-orange.svg)](https://github.com/FeatherHunter/dsh-prompt) [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://github.com/FeatherHunter/dsh-prompt/issues)
 
-[![Install in one command](../assets/nav-install-en.svg)](#install-in-one-command)
+</div>
 
-[![Three ways to summon templates](../assets/nav-ways-en.svg)](#three-ways-to-summon-templates)
+<h2 align="center"><sub>INSTALL</sub><br>Install</h2>
 
-[![24 deep templates](../assets/nav-templates-en.svg)](#what-the-templates-look-like)
+<div align="center">
 
-[![Customize & manage](../assets/nav-settings-en.svg)](#customization--management)
+Requires [DSH](https://www.npmjs.com/package/@deepseek-ai/dsh) (DeepSeek Harness). You give the orders, AI does the work; dsh-prompt turns your favorite prompts into clickable templates.
 
-[![FAQ](../assets/nav-faq-en.svg)](#faq)
-
-[![npm release](../assets/nav-npm-en.svg)](https://www.npmjs.com/package/dsh-prompt)
-
-[![Report a bug](../assets/nav-issues-en.svg)](https://github.com/FeatherHunter/dsh-prompt/issues/new)
-
-[![Changelog](../assets/nav-releases-en.svg)](https://github.com/FeatherHunter/dsh-prompt/releases)
-
-## Is this for you
-
-![Is this for you](../assets/who-en.svg)
-
-## Install in one command
-
-You need the **DSH CLI** (DeepSeek Harness command-line tool). If you don't have it yet:
+</div>
 
 ```bash
+# 1. Install the DSH CLI (skip if present)
 npm install -g @deepseek-ai/dsh
+
+# 2. Install dsh-prompt — --profile is REQUIRED: install into the profile
+#    behind the DSH entry you actually use (wrong profile = silent no-op)
+dsh plugin --profile web add dsh-prompt       # self-hosted web service (dsh web)
+#     or
+dsh plugin --profile desktop add dsh-prompt   # DSH Desktop app
+# Pin a version for stability (current 0.1.6):
+dsh plugin --profile web add dsh-prompt@0.1.6 --registry https://registry.npmjs.org
 ```
 
-Install into your profile:
+<div align="center">
+
+Restart the matching DSH entry once: fully quit and reopen DSH Desktop, or restart `dsh web` and refresh. Zero config: the package ships `cordis.patch.yml`, `dsh plugin add` wires it up, `dsh plugin remove` takes it away cleanly.
+
+**👇 A new button left of the input box means success.**
+
+<img src="../assets/readme/01-install-ready.png" width="720" alt="Prompt button left of the input box after install" style="border:1px solid #30363d;border-radius:6px">
+
+</div>
+
+<details>
+<summary>Advanced: no global install, stale updates, let AI do it</summary>
+
+Examples use the web profile — **DSH Desktop users, replace every `--profile web` with `--profile desktop`**.
 
 ```bash
-dsh plugin --profile web add dsh-prompt
+# Without a global install
+npx --yes @deepseek-ai/dsh plugin --profile web add dsh-prompt
+
+# When an update is silently skipped, pin the official registry
+dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs.org
 ```
 
-**Zero config**: official DSH bundle mechanism — the package ships its own `cordis.patch.yml`, and `dsh plugin add` automatically joins it to the `dsh.profile.bundles` assembly layer; `dsh plugin remove` cleans up. Takes effect after restarting DSH (or refreshing the page).
+Paste this to your AI and let it confirm the profile, check the environment and install as needed:
 
-## Three ways to summon templates
+```text
+Please install the DeepSeek Harness plugin dsh-prompt. Read the repo README first: https://github.com/FeatherHunter/dsh-prompt
+First confirm which profile my DSH entry uses (DSH Desktop app → desktop; self-hosted web service → web) and install into the right one;
+then check the environment and install as needed (skip what's present), and report back briefly.
+```
 
-Once installed, templates come from three entry points — pick whichever feels natural:
+</details>
 
-### 1 · ⚡Prompt button
+Upgrade · uninstall (desktop users: swap `--profile web` for `--profile desktop`):
 
-![Way 1 · Prompt button panel](../assets/panel-en.svg)
+```bash
+dsh plugin --profile web update dsh-prompt   # upgrade
+dsh plugin --profile web remove dsh-prompt   # uninstall
+```
 
-### 2 · /prompt trigger source
+<h2 align="center"><sub>PROMPT BUTTON</sub><br>Way 1 · Prompt button</h2>
 
-![Way 2 · /prompt trigger](../assets/prompt-trigger-en.svg)
+<div align="center">
 
-### 3 · Smart suggestion card
+Hover the ⚡Prompt button left of the input box and the template panel opens: phase tabs (before / during / after) + domain filter + search. Click a row and its body lands in the input box. Most-used sinks to the bottom, closest to the button.
 
-![Way 3 · Smart suggestion card](../assets/smart-card-en.svg)
+**👇 The panel looks like this.**
 
-## What the templates look like
+<img src="../assets/readme/02-panel-button.png" width="640" alt="Prompt button hover panel with phase filters and template list" style="border:1px solid #30363d;border-radius:6px">
 
-![Real templates](../assets/templates-en.svg)
+</div>
 
-## Customization & management
+<h2 align="center"><sub>TRIGGER</sub><br>Way 2 · /prompt trigger</h2>
 
-![Customize & manage](../assets/custom-en.svg)
+<div align="center">
 
-## Privacy
+For keyboard people: type `/prompt` in the input box and candidates filter live, each row showing "name + tags·phase — first words". Half a name works too, e.g. `/prompt retro` keeps only retro-related rows. (Screenshots are Chinese in v1; the layout is identical in English.)
 
-![Privacy](../assets/privacy-en.svg)
+**👇 Type half, candidates narrow down.**
 
-## FAQ
+<img src="../assets/readme/03-trigger-prompt.png" width="640" alt="/prompt trigger: filtered candidate list" style="border:1px solid #30363d;border-radius:6px">
 
-![FAQ](../assets/faq-en.svg)
+</div>
 
-## Development
+<h2 align="center"><sub>SMART CARD</sub><br>Way 3 · Smart suggestion card</h2>
+
+<div align="center">
+
+No need to hunt templates — describe your task normally and a suggestion card pops up on keyword hits (e.g. retro words surface the retro template). On by default, one toggle in settings to silence it; matching uses a local word table only, no network.
+
+</div>
+
+<h2 align="center"><sub>TEMPLATES</sub><br>Gallery</h2>
+
+<div align="center">
+
+24 built-in templates across four domains — thinking frameworks, learning, engineering, execution — covering before / during / after. Presets are read-only: unbreakable, undeletable. Clone one to custom to tweak it.
+
+**👇 All 24 on one settings page.**
+
+<img src="../assets/readme/05-templates-gallery.png" width="640" alt="Gallery: 24 preset templates on the settings page" style="border:1px solid #30363d;border-radius:6px">
+
+</div>
+
+<h2 align="center"><sub>CUSTOM</sub><br>Customize & manage</h2>
+
+<div align="center">
+
+Save your own wording as your own templates: one click in settings, title + body, done. Pin favorites (up to 5), delete with a single confirm. Custom and preset storage are separate — upgrades never eat yours.
+
+**👇 The new-template dialog.**
+
+<img src="../assets/readme/06-custom-manage.png" width="640" alt="Custom management: new custom template dialog" style="border:1px solid #30363d;border-radius:6px">
+
+</div>
+
+<h2 align="center"><sub>PRIVACY</sub><br>Privacy</h2>
+
+<div align="center">
+
+Template bodies and usage counts live in your local browser only. Zero network reports. Removing the plugin removes the data.
+
+</div>
+
+<h2 align="center"><sub>FAQ</sub><br>FAQ</h2>
+
+<details open>
+<summary>Still the old version after updating?</summary>
+
+Install once from the official registry (desktop users: swap `--profile web` for `--profile desktop`):
+
+```bash
+dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs.org
+```
+
+Then fully quit and reopen DSH; for web, restart `dsh web` and hard-refresh (Ctrl+F5).
+
+</details>
+
+<details>
+<summary>No Prompt button after install?</summary>
+
+Check the plugin went into the profile behind your current DSH entry (wrong profile = silent no-op): `--profile desktop` for the Desktop app, `--profile web` for the self-hosted service. Then restart that entry once.
+
+</details>
+
+<details>
+<summary>Where are custom templates stored? Uploaded anywhere?</summary>
+
+Local browser storage, never uploaded. Switching browsers or wiping data loses them — keep a backup of favorites.
+
+</details>
+
+<h2 align="center"><sub>ARCHITECTURE</sub><br>Architecture</h2>
+
+<div align="center">
+
+Panel, trigger, smart matching, word tables and settings all live in `src/client/`; the matching engine and `/prompt` share one data and ranking base. Early decisions: [issue #1 (wayfinding map)](https://github.com/FeatherHunter/dsh-prompt/issues/1).
+
+</div>
+
+<h2 align="center"><sub>DEVELOPMENT</sub><br>Development</h2>
 
 ```bash
 npm run build:client   # tsdown → lib/client.js
-npm run build          # full build
+npm run build          # full build (scripts/build.sh)
+npm run typecheck      # type checking
+npm run test           # hover-window and regression cases
 ```
 
-Source in `src/client/*` (panel/trigger/smart matching/word tables/settings page); the matching engine and /prompt share the same data and ranking base; decision records in [issue #1 (wayfinding map)](https://github.com/FeatherHunter/dsh-prompt/issues/1).
+<h2 align="center"><sub>MORE</sub><br>More from the author</h2>
 
-## From the same author
+<div align="center">
 
-Two more DSH plugins:
+If you like this one, these may help too:
 
-- [**dsh-opencode-palette**](https://github.com/FeatherHunter/dsh-opencode-palette) — Love opencode's look? Your DSH can wear it too — 34 classic themes, easier on the eyes, happier to code in.
-- [**dsh-mattpocock-skills-deck**](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck) — 25 engineering skill packs, paste one install Prompt to use.
+**[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** — 34 classic opencode themes for DSH, one click to reskin
 
-## From the author
+**[dsh-plugin-ui-debug](https://github.com/FeatherHunter/dsh-plugin-ui-debug)** — closed-loop UI debugging for DSH plugins with a real headless Chrome
 
-![From the author](../assets/author-en.svg)
+**[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** — 25 engineering skill packs, callable right from the panel
 
-## License
+**[dsh-chinese-skill-patch](https://github.com/FeatherHunter/dsh-chinese-skill-patch)** — use Chinese skill names in DSH directly, no English renames
 
-![License](../assets/license-en.svg)
+---
+
+Questions, ideas? [Open an ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues) — requests and bugs both welcome
+
+A personal project, not affiliated with DeepSeek Harness.
+MIT © FeatherHunter
+
+</div>
+
+<h2 align="center"><sub>THANKS</sub><br>Thanks</h2>
+
+<div align="left">
+
+Thanks to everyone who starred and filed issues — you make this toolbox better, bit by bit.
+
+dsh-prompt is still waiting for its first external contributor — file an issue, a PR, or share your custom templates, and your name lands here. Ping me if you already did; no particular order.
+
+</div>
+
+<h2 align="center"><sub>CONNECT</sub><br>Contact & feedback</h2>
+
+<div align="center">
+
+Usage chat, template ideas, bugs and requests — [open an ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues), more traceable than DMs.
+
+</div>
+
+<h2 align="center"><sub>STARS</sub><br>Stars</h2>
+
+<div align="center">
+
+If dsh-prompt saved you some copy-pasting, leave a ⭐ so more people can find it.
+
+</div>

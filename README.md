@@ -1,122 +1,245 @@
-# ⚡ dsh-prompt
+<h1 align="center">dsh-prompt</h1>
 
-**🌐 [中文](README.md) · [English](docs/README.en.md)**
+<div align="center">
 
-**DeepSeek Harness 的 Prompt 工具箱：24 条深度模板、自定义管理、/prompt 触发源、智能推荐悬浮卡——点一下，插入当前对话。**
+**中文** · [English](docs/README.en.md)
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![npm](https://img.shields.io/npm/v/dsh-prompt)](https://www.npmjs.com/package/dsh-prompt)
-[![dsh-plugin](https://img.shields.io/badge/dsh-plugin-orange.svg)](https://github.com/FeatherHunter/dsh-prompt)
-[![platform](https://img.shields.io/badge/platform-DeepSeek%20Harness-1f6feb.svg)](https://github.com/deepseek-ai/DeepSeek-Harness)
+**别再复制粘贴——点一下，模板进对话。**
+24 条深度模板随手点，`/prompt` 与智能推荐主动兜底，装好即用、可自定义。
 
-![hero](assets/hero-zh.svg)
+你的 ⭐ 是我夜空中最亮的星。
 
-## 快速导航
+*Stop copy-pasting — one click, template in chat.*
 
-[![一条命令安装](assets/nav-install.svg)](#一条命令安装)
+[![版本](https://img.shields.io/npm/v/dsh-prompt?label=%E7%89%88%E6%9C%AC)](https://www.npmjs.com/package/dsh-prompt) [![下载量](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.npmjs.org%2Fdownloads%2Fpoint%2Flast-month%2Fdsh-prompt&query=%24.downloads&label=%E4%B8%8B%E8%BD%BD%E9%87%8F&suffix=%2F%E6%9C%88&color=brightgreen)](https://www.npmjs.com/package/dsh-prompt) [![最近更新](https://img.shields.io/github/last-commit/FeatherHunter/dsh-prompt?label=%E6%9C%80%E8%BF%91%E6%9B%B4%E6%96%B0&color=FE7D37)](https://github.com/FeatherHunter/dsh-prompt/commits/main) [![提交数](https://img.shields.io/github/commit-activity/m/FeatherHunter/dsh-prompt?label=%E6%8F%90%E4%BA%A4%E6%95%B0&color=DFAB01)](https://github.com/FeatherHunter/dsh-prompt/graphs/commit-activity) [![许可证](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-lightgrey.svg)](LICENSE) [![模板-24](https://img.shields.io/badge/%E6%A8%A1%E6%9D%BF-24-blueviolet.svg)](https://github.com/FeatherHunter/dsh-prompt/blob/main/src/client/templates.ts) [![dsh-plugin](https://img.shields.io/badge/dsh-plugin-orange.svg)](https://github.com/FeatherHunter/dsh-prompt) [![期待你参与](https://img.shields.io/badge/%E6%9C%9F%E5%BE%85%E4%BD%A0%E5%8F%82%E4%B8%8E-brightgreen.svg)](https://github.com/FeatherHunter/dsh-prompt/issues)
 
-[![三种方式叫出模板](assets/nav-ways.svg)](#三种方式叫出模板)
+</div>
 
-[![24 条深度模板](assets/nav-templates.svg)](#模板长这样)
+<h2 align="center"><sub>INSTALL</sub><br>安装</h2>
 
-[![自定义与管理](assets/nav-settings.svg)](#自定义与管理)
+<div align="center">
 
-[![常见问题](assets/nav-faq.svg)](#常见问题)
+前置要求：[DSH](https://www.npmjs.com/package/@deepseek-ai/dsh)（DeepSeek Harness）。在 DSH 里，你下指令、AI 干活；dsh-prompt 把常用提示词变成随手可点的模板。
 
-[![npm 发布](assets/nav-npm.svg)](https://www.npmjs.com/package/dsh-prompt)
-
-[![反馈故障](assets/nav-issues.svg)](https://github.com/FeatherHunter/dsh-prompt/issues/new)
-
-[![更新日志](assets/nav-releases.svg)](https://github.com/FeatherHunter/dsh-prompt/releases)
-
-
-## 这是给你的吗
-
-![这是给你的吗](assets/who-zh.svg)
-
-## 一条命令安装
-
-需要 **DSH CLI**（DeepSeek Harness 命令行工具）。还没有就先装：
+</div>
 
 ```bash
+# ① 安装 DSH CLI（已装跳过）
 npm install -g @deepseek-ai/dsh
+
+# ② 安装 dsh-prompt —— --profile 必填：装进你实际使用的 DSH 入口对应的 profile
+#    （装错 profile 等于没装，重启多少次都不会加载）
+dsh plugin --profile web add dsh-prompt     # 用自启 web 服务（dsh web）
+#     或者
+dsh plugin --profile desktop add dsh-prompt   # 用 DSH Desktop 桌面应用
+# 锁定最新版更稳（当前 0.1.6）：
+dsh plugin --profile web add dsh-prompt@0.1.6 --registry https://registry.npmjs.org
+#     或者
+dsh plugin --profile desktop add dsh-prompt@0.1.6 --registry https://registry.npmjs.org
 ```
 
-安装进你的 profile（`0.1.6` 为当前最新，已发布至 [npm](https://www.npmjs.com/package/dsh-prompt) 与 [GitHub Release](https://github.com/FeatherHunter/dsh-prompt/releases/tag/v0.1.6)）：
+<div align="center">
+
+装完**重启一次对应的 DSH 入口**即生效：桌面应用完全退出并重开 DSH Desktop；web 服务重启 `dsh web` 后刷新页面。零配置：包内自带 `cordis.patch.yml`，`dsh plugin add` 自动装配，`dsh plugin remove` 干净卸载。
+
+**👇 装完重启，输入框左侧多出这枚按钮就是成功。**
+
+<img src="assets/readme/01-install-ready.png" width="720" alt="安装成功后输入框左侧的 Prompt 按钮" style="border:1px solid #30363d;border-radius:6px">
+
+</div>
+
+<details>
+<summary>进阶安装：免全局、更新不生效、交给 AI</summary>
+
+下面命令以 web profile 为例——**DSH Desktop 桌面应用用户请把所有 `--profile web` 换成 `--profile desktop`**。
 
 ```bash
-dsh plugin --profile web add dsh-prompt
-# 或锁定版本
-dsh plugin --profile web add dsh-prompt@0.1.6
+# 免全局安装（想更稳，像上面一样锁版本）
+npx --yes @deepseek-ai/dsh plugin --profile web add dsh-prompt
+
+# 更新被静默忽略时，显式指定官方源
+dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs.org
 ```
 
-查看最新版本：
+复制下面这段发给你的 AI，它会确认 profile、检查环境并按需安装：
+
+```text
+请帮我安装 DeepSeek Harness 插件 dsh-prompt。先读仓库 README：https://github.com/FeatherHunter/dsh-prompt
+先确认我实际使用的 DSH 入口对应哪个 profile（DSH Desktop 桌面应用 → desktop；自启 web 服务 → web），把插件装进正确的 profile；
+然后自行检查环境并按需安装（已装的跳过），完成后简要汇报结果。
+```
+
+</details>
+
+升级 · 卸载（desktop profile 用户把 `--profile web` 换成 `--profile desktop`）：
 
 ```bash
-npm view dsh-prompt version --registry=https://registry.npmjs.org --prefer-online
-# → 0.1.6
+dsh plugin --profile web update dsh-prompt   # 升级
+dsh plugin --profile web remove dsh-prompt   # 卸载
 ```
 
-**零配置**：DSH 官方 bundle 机制，包内自带 `cordis.patch.yml`，`dsh plugin add` 自动加入 `dsh.profile.bundles` 装配层；`dsh plugin remove` 干净卸载。重启 DSH（或刷新页面）即生效。
+<h2 align="center"><sub>PROMPT BUTTON</sub><br>入口一 · Prompt 按钮</h2>
 
-## 三种方式叫出模板
+<div align="center">
 
-装好后，模板可以从三个入口出来——选顺手的：
+最顺手的一个：鼠标移到输入框左侧的 ⚡Prompt 按钮，模板面板自动展开。阶段 tabs（执行前 / 执行中 / 执行后）+ 领域筛选 + 搜索，需要的那条点一下，正文直接写进输入框。最常用的自动沉到底部，离按钮最近。
 
-### 1 · ⚡Prompt 按钮
+**👇 按钮一点，面板长这样。**
 
-![方式一 · Prompt 按钮面板](assets/panel-zh.svg)
+<img src="assets/readme/02-panel-button.png" width="640" alt="Prompt 按钮悬浮面板：阶段筛选与模板列表" style="border:1px solid #30363d;border-radius:6px">
 
-### 2 · /prompt 触发源
+</div>
 
-![方式二 · /prompt 触发源](assets/prompt-trigger-zh.svg)
+<h2 align="center"><sub>TRIGGER</sub><br>入口二 · /prompt 触发源</h2>
 
-### 3 · 智能悬浮卡
+<div align="center">
 
-![方式三 · 智能悬浮卡](assets/smart-card-zh.svg)
+键盘党的最爱：输入框里敲 `/prompt`，候选列表实时过滤，每行写清“名称 + 标签·阶段 — 正文前言”。记得半条模板名也行，比如 `/prompt 复盘`，列表只剩复盘相关的。
 
-## 模板长这样
+**👇 输一半，候选自动收窄。**
 
-![真实模板](assets/templates-zh.svg)
+<img src="assets/readme/03-trigger-prompt.png" width="640" alt="/prompt 触发源：输入过滤后的候选列表" style="border:1px solid #30363d;border-radius:6px">
 
-## 自定义与管理
+</div>
 
-![自定义与管理](assets/custom-zh.svg)
+<h2 align="center"><sub>SMART CARD</sub><br>入口三 · 智能悬浮卡</h2>
 
-## 隐私
+<div align="center">
 
-![隐私](assets/privacy-zh.svg)
+你不用找模板，模板来找你：在输入框里正常描述任务，命中关键词时自动弹出悬浮卡推荐（比如输入复盘相关的内容，复盘模板自己冒出来）。默认开启，觉得打扰可在设置页关掉；推荐只看本地词表，不联网。
 
-## 常见问题
+</div>
 
-![常见问题](assets/faq-zh.svg)
+<h2 align="center"><sub>TEMPLATES</sub><br>模板一览</h2>
 
-## 开发
+<div align="center">
+
+随包 24 条预制模板：思考框架、学习、工程、执行四大领域，覆盖执行前 / 执行中 / 执行后。预置只读、删不掉改不坏，放心点；想改哪条，复制为自定义再改。
+
+**👇 24 条全貌在设置页一次看完。**
+
+<img src="assets/readme/05-templates-gallery.png" width="640" alt="模板一览：设置页中的 24 条预制模板" style="border:1px solid #30363d;border-radius:6px">
+
+</div>
+
+<h2 align="center"><sub>CUSTOM</sub><br>自定义与管理</h2>
+
+<div align="center">
+
+自己的话术存成自己的模板：设置页一点新增，标题 + 正文写好即存；常用模板可以置顶（最多 5 条），用完即删也只要一次确认。自定义与预制分开存放，升级插件不丢你的东西。
+
+**👇 新增弹窗长这样，填完点添加。**
+
+<img src="assets/readme/06-custom-manage.png" width="640" alt="自定义管理：新增自定义模板弹窗" style="border:1px solid #30363d;border-radius:6px">
+
+</div>
+
+<h2 align="center"><sub>PRIVACY</sub><br>隐私</h2>
+
+<div align="center">
+
+模板正文与使用计数只存本地浏览器，没有任何网络上报。删插件即删数据，不留尾巴。
+
+</div>
+
+<h2 align="center"><sub>FAQ</sub><br>常见问题</h2>
+
+<details open>
+<summary>更新之后还是旧版本？</summary>
+
+先显式指定官方源装一次（desktop 用户把 `--profile web` 换成 `--profile desktop`）：
+
+```bash
+dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs.org
+```
+
+装完完全退出 DSH 再重开，web 服务重启 `dsh web` 后按 Ctrl+F5 刷新页面。
+
+</details>
+
+<details>
+<summary>装完没看到 Prompt 按钮？</summary>
+
+先确认插件装进了当前 DSH 入口对应的 profile（装错 profile 等于没装）：桌面应用对应 `--profile desktop`，自启 web 服务对应 `--profile web`。确认无误后重启一次对应入口再看。
+
+</details>
+
+<details>
+<summary>自定义模板与用量存在哪？会上传吗？</summary>
+
+存在本地浏览器里，不上传、不联网。换浏览器或清数据会丢，需要的话把常用模板正文备份一份。
+
+</details>
+
+<details>
+<summary>有英文文档吗？截图为什么是中文？</summary>
+
+有，见 [English](docs/README.en.md)。截图首版中英共用一套，后续补英文截图。
+
+</details>
+
+<h2 align="center"><sub>ARCHITECTURE</sub><br>架构</h2>
+
+<div align="center">
+
+面板、触发源、智能匹配、词表、设置页都在 `src/client/` 里；匹配引擎与 `/prompt` 共用同一套数据与排序。早期决策记录见 [issue #1（wayfinding map）](https://github.com/FeatherHunter/dsh-prompt/issues/1)。
+
+</div>
+
+<h2 align="center"><sub>DEVELOPMENT</sub><br>开发</h2>
 
 ```bash
 npm run build:client   # tsdown → lib/client.js
-npm run build          # 完整构建
+npm run build          # 完整构建（scripts/build.sh）
+npm run typecheck      # 类型检查
+npm run test           # 悬浮窗与回归用例
 ```
 
-源码 `src/client/*`（面板/触发源/智能匹配/词表/设置页）；匹配引擎与 /prompt 共用数据与排序基础；决策记录见 [issue #1（wayfinding map）](https://github.com/FeatherHunter/dsh-prompt/issues/1)。
+<h2 align="center"><sub>MORE</sub><br>作者的其他作品</h2>
 
-## 同作者
+<div align="center">
 
-还写了多款 DSH 插件与工具，欢迎关注：
+喜欢这个插件的话，这些可能你也用得上：
 
-- [**dsh-opencode-palette**](https://github.com/FeatherHunter/dsh-opencode-palette) —— 34 款 opencode 官方主题，DSH 界面一键换肤。
-- [**dsh-plugin-ui-debug**](https://github.com/FeatherHunter/dsh-plugin-ui-debug) —— 用真实 Chrome 无头浏览器对 DSH 插件 UI 做闭环调试的利器。
-- [**dsh-mattpocock-skills-deck**](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck) —— 25 个工程技能包，粘贴一段安装 Prompt 即用。
-- [**dsh-chinese-skill-patch**](https://github.com/FeatherHunter/dsh-chinese-skill-patch) —— 让 DSH 正确识别中文 `SKILL.md` 的补丁，中文社区必备。
+**[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** —— 34 款 opencode 经典配色一键换装 DSH，即点即换，重启不丢
 
-## 作者的话
+**[dsh-plugin-ui-debug](https://github.com/FeatherHunter/dsh-plugin-ui-debug)** —— 用真实 Chrome 无头浏览器，给 DSH 插件 UI 做闭环调试
 
-![作者的话](assets/author-zh.svg)
+**[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** —— 25 个工程技能包，面板上直接调用，无需手动装技能
 
-![作者联系方式](assets/author-contact.png)
+**[dsh-chinese-skill-patch](https://github.com/FeatherHunter/dsh-chinese-skill-patch)** —— 让 DSH 直接用中文技能名，技能不必改英文名
 
-> 欢迎大家提交 ISSUE，一起把 prompt 工具箱做得更好！[提交 ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues/new)
+---
 
-## 许可
+有问题、有想法？[提交 ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)，需求与 Bug 都欢迎
 
-![许可](assets/license-zh.svg)
+个人作品，与 DeepSeek Harness 官方没有关系。
+MIT © FeatherHunter
+
+</div>
+
+<h2 align="center"><sub>THANKS</sub><br>致谢</h2>
+
+<div align="left">
+
+感谢每一位点星、提 Issue 的朋友，是你们让这个工具箱一点点变好。
+
+dsh-prompt 还在等第一位外部贡献者——提交 Issue、PR 或分享你的自定义模板，你的名字就会出现在这里。如果你已经这么做了，请直接告诉我，排名不分先后。
+
+</div>
+
+<h2 align="center"><sub>CONNECT</sub><br>联系与反馈</h2>
+
+<div align="center">
+
+用法交流、新模板点子、Bug 与需求请直接提 [ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)，比私聊更高效可追溯。
+
+</div>
+
+<h2 align="center"><sub>STARS</sub><br>星标</h2>
+
+<div align="center">
+
+如果 dsh-prompt 帮你省下了复制粘贴的时间，请点一颗 ⭐ 让更多人看见它。
+
+</div>

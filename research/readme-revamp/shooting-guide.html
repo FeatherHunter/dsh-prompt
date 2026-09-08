@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dsh-prompt README 截图拍摄指南（map #24 / 票 #25 冻结版）</title>
+<style>
+  body { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif; max-width: 960px; margin: 0 auto; padding: 24px; color: #1f2328; background: #fff; line-height: 1.7; }
+  h1 { font-size: 24px; border-bottom: 2px solid #1f6feb; padding-bottom: 8px; }
+  h2 { font-size: 19px; margin-top: 32px; border-left: 4px solid #1f6feb; padding-left: 10px; }
+  .meta { color: #57606a; font-size: 14px; }
+  .rule { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid #d0d7de; padding: 8px 10px; vertical-align: top; }
+  th { background: #f6f8fa; }
+  code { background: #f6f8fa; padding: 1px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 13px; }
+  .shot { border: 1px solid #30363d; border-radius: 6px; padding: 14px 16px; margin: 14px 0; }
+  .shot h3 { margin: 0 0 6px 0; font-size: 16px; }
+  .check { font-size: 15px; }
+  .foot { margin-top: 32px; color: #57606a; font-size: 13px; border-top: 1px solid #d0d7de; padding-top: 12px; }
+  @media print { body { max-width: none; } .no-print { display: none; } }
+</style>
+</head>
+<body>
+<h1>📸 dsh-prompt README 截图拍摄指南</h1>
+<p class="meta">wayfinder map #24 · research 票 #25 冻结版 · 全文见 <code>research/readme-revamp/findings.md</code>（§3）· issue #25 评论 5580198210</p>
+<div class="rule" style="border-color:#cf222e;background:#ffebe9"><strong>2026-09-08 更新（#26 决议）：04 / 07 / 08 不拍，5 张即齐套。</strong>下面 04、07、08 三节已标注“已砍掉”，对应 README 节用纯文字版；实拍为深色 DSH 默认主题，按实拍走。</div>
+
+<h2>通用要求（8 张一致）</h2>
+<div class="rule">
+<ul>
+<li><strong>DSH Web 端（<code>dsh web</code>）· 中文界面 · 浅色主题</strong>；浏览器内容宽度 ≥1280，再按目标宽度导出。</li>
+<li>图片写法统一：<code>width + border:1px solid #30363d;border-radius:6px</code>（深色边框在浅色正文下即参考原文）。</li>
+<li><strong>英文版首版复用中文图</strong>（参考英文版即如此，零复拍）。</li>
+<li>放入目录：<code>D:\dsh-plugin\dsh-prompt\assets\readme\</code>（需新建）。旧 <code>assets/*.svg</code> 37 个由施工票删除，你只管新增 01~08。</li>
+<li>拍摄顺序建议：<strong>01 → 05 / 07 / 06（设置页连拍）→ 02 → 03 → 04</strong>。</li>
+</ul>
+</div>
+
+<h2>8 张分镜：场景 + 步骤（拍完打勾）</h2>
+
+<div class="shot">
+<h3><input type="checkbox" class="check"> 01 · <code>assets/readme/01-install-ready.png</code> · 宽度 720</h3>
+<p><strong>场景：</strong>安装就绪。一条干净的新会话，输入框左侧可见 ⚡Prompt 按钮（源码 <code>src/client/button.ts</code>：输入框左侧入口，hover 即开、click 兜底）。</p>
+<p><strong>步骤：</strong>① 新开 DSH Web 会话，不输入任何字；② 确认输入框左侧有“⚡Prompt”按钮；③ 截输入框整条横幅（含按钮 + 空输入框 + 发送键），停在<strong>未展开面板</strong>的一屏。</p>
+</div>
+
+<div class="shot">
+<h3><input type="checkbox" class="check"> 02 · <code>assets/readme/02-panel-button.png</code> · 宽度 640</h3>
+<p><strong>场景：</strong>入口一 · Prompt 按钮悬浮面板。模板浏览浮层（阶段 tabs 执行前/中/后 + 领域筛选 + 搜索；bottom-up：最常用沉底，置顶簇在底部）。</p>
+<p><strong>步骤：</strong>① 鼠标移到输入框左侧 ⚡Prompt 按钮（或单击），等悬浮面板展开；② 停在“全部 tabs + 若干模板行（图钉 + 标题 + 简介 + hover 操作）”首屏；③ 截面板完整浮层（<strong>含背后的输入框按钮锚点</strong>）。</p>
+</div>
+
+<div class="shot">
+<h3><input type="checkbox" class="check"> 03 · <code>assets/readme/03-trigger-prompt.png</code> · 宽度 640</h3>
+<p><strong>场景：</strong>入口二 · /prompt 触发源。在输入框输 <code>/prompt</code> 弹出候选（行格式“名称 + 标签·阶段 — 正文前42字”，支持 <code>/prompt 复盘</code> 按词过滤）。</p>
+<p><strong>步骤：</strong>① 输入框输 <code>/prompt</code>（半角斜杠），等候选列表弹出；② 再输 <code>/prompt 复盘</code> 展示过滤后行；③ 截“输入框内 <code>/prompt 复盘</code> + 下方候选列表 3~5 行”。</p>
+</div>
+
+<div class="shot">
+<h3>⛔ 04 · <code>assets/readme/04-smart-card.png</code> · 已砍掉（节保留纯文字版，不拍）</h3>
+<p><strong>场景：</strong>入口三 · 智能悬浮卡。输入命中时自动出卡（专属词×2 + 通用词×1，≥2 分出卡，≤3 候选；卡 280px 从圆点向右展开，可拖动）。</p>
+<p><strong>步骤：</strong>① 新会话输入框逐字输入 <code>这次任务做砸了，我想复盘一下，总结可复用经验</code>（命中 retro 强词“复盘 / 可复用经验”，必出卡）；② 等悬浮卡展开（默认开；若无卡先检查设置页智能开关）；③ 截“输入框文字 + 右侧展开的候选卡（2~3 行）”。备选触发句：<code>两个选项很纠结，有沉没成本，帮我决策</code>。</p>
+</div>
+
+<div class="shot">
+<h3><input type="checkbox" class="check"> 05 · <code>assets/readme/05-templates-gallery.png</code> · 宽度 640</h3>
+<p><strong>场景：</strong>模板一览。24 条预制全貌（思考框架 / 学习 / 工程 / 执行 × 执行前 / 中 / 后）。</p>
+<p><strong>步骤：</strong>① DSH 设置 → 插件 → dsh-prompt 设置页；② 停在“阶段 tabs + 领域筛选 + 模板行铺满”首屏；③ 截设置页模板区完整一屏。</p>
+</div>
+
+<div class="shot">
+<h3><input type="checkbox" class="check"> 06 · <code>assets/readme/06-custom-manage.png</code> · 宽度 640</h3>
+<p><strong>场景：</strong>自定义管理。新增 / 编辑弹窗 + 删除二次确认 + 置顶（≤5）+ 预制复制为自定义。</p>
+<p><strong>步骤：</strong>① 设置页点“＋新增”，弹窗填标题 <code>我的复盘模板</code>、正文 <code>请复盘：主题：</code>，截弹窗；② hover 某行出现图钉 / 编辑 / 删除，点删除截二次确认框；③ 可二合一拼图（左弹窗右确认框）。</p>
+</div>
+
+<div class="shot">
+<h3>⛔ 07 · <code>assets/readme/07-privacy-smart-toggle.png</code> · 已砍掉（并入设置节一句话，不拍）</h3>
+<p><strong>场景：</strong>隐私 + 智能开关。设置页顶部（仓库链接行 + “智能模式悬浮卡（输入匹配时推荐模板；默认开）”勾选行）+ 隐私节文字对照（本地存储、无上报）。</p>
+<p><strong>步骤：</strong>① 设置页顶部，截“仓库 / 反馈链接行 + 智能开关勾选行”；② 同屏带出 1~2 行模板区以示位置；③ 隐私节正文写“模板与用量存本地浏览器、无网络上报”，本图即配图。</p>
+</div>
+
+<div class="shot">
+<h3>⛔ 08 · <code>assets/readme/08-faq-reinstall.png</code> · 已砍掉（FAQ 用命令代码块，不拍）</h3>
+<p><strong>场景：</strong>FAQ。更新不生效 → 官方源重装回显（对标参考 08 图）。</p>
+<p><strong>步骤：</strong>① 终端执行 <code>dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs.org</code>；② 等成功回显；③ 截“命令 + 成功回显”完整终端区。desktop 用户把 <code>--profile web</code> 换成 <code>--profile desktop</code>（FAQ 注明）。</p>
+</div>
+
+<h2>04 出卡排障</h2>
+<div class="rule">
+<ol>
+<li>先在设置页确认智能开关已打开；</li>
+<li>换备选触发句再试一次；</li>
+<li>仍不出则截圆点 + 注“输入匹配时出卡”，施工票按文字版兜底。</li>
+</ol>
+</div>
+
+<h2>对照结论（施工队用，你只看一眼）</h2>
+<ul>
+<li>徽章 4→8：保留 license / npm（label 改中文“版本”）/ dsh-plugin / platform；新增下载量 / 最近更新 / 月提交 + 内容背书 <code>模板-24</code> + <code>期待你参与</code>；“未来展望”需 ROADMAP 先不加。</li>
+<li>About：description 不动；homepage 建待办；topics 7→10（+ <code>prompt-engineering</code> / <code>productivity</code> / <code>toolbox</code>，第 10 个可用 <code>dsh</code>）。</li>
+<li>旧 SVG：<code>assets/*.svg</code> 37 个全删；<code>author-contact.png</code> 保留待定；star-history 与二维码后置。</li>
+</ul>
+
+<div class="foot">
+<p>拍完 8 张放入 <code>D:\dsh-plugin\dsh-prompt\assets\readme\</code> 后，在 issue #27 回一句“已放”即可。参考原文 254 行解码细节见 <code>D:\dsh-plugin\dsh-prompt\research\readme-revamp\findings.md</code>。</p>
+</div>
+</body>
+</html>

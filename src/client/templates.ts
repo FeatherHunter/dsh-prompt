@@ -7,7 +7,7 @@
  */
 
 export type Domain = '思考框架' | '学习' | '工程' | '执行'
-export type Stage = '执行前' | '执行中' | '执行后' | '任意'
+export type Stage = '执行前' | '执行中' | '执行后' // #31：“任意”彻底移除（幽灵值清洗）
 
 export interface PromptTemplate {
   id: string

@@ -40,7 +40,9 @@
     "test:bottom-up": "node scripts/test-bottom-up.cjs",
     "test:issue-23": "node scripts/test-issue-23.cjs",
     "test:issue-34": "node scripts/test-issue-34.cjs",
+    "test:issue-35": "node scripts/test-issue-35.cjs",
     "test:issue-31": "node scripts/test-issue-31.cjs",
+    "test:issue-32": "node scripts/test-issue-32.cjs",
     "test": "npm run test:modal && npm run test:issue-14"
   },
   "dsh": {

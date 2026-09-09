@@ -288,27 +288,58 @@ export function TemplateBrowser(props: BrowserProps): any {
 
   // 正上方对齐 ⚡Prompt 按钮（仅紧凑面板/popover）：fixed + 按钮视口 rect
   // 列表左缘与按钮左缘垂直对齐（left = btn.left）；列表底边在按钮顶边之上 → 整体位于按钮正上方
-  react.useEffect(() => {
+  // #35：绘制前定位 + 未定位前隐藏 + 失败重试。pos 初始 null 时 fallback left:0/bottom:0
+  // 就是屏幕左下角——此前 useEffect 首帧后才 compute，失败即永久卡死（点击开偶发，悬停开正常）。
+  // layout effect 让首帧即正确；按钮查不到/rect 全零视为未找到等下一帧（至多 10 次），
+  // 仍失败则回退到可见的左下附近（保证可用，不静默消失）；设置页无 hover 语义不参与。
+  const useIsomorphicLayout = (react as any).useLayoutEffect || react.useEffect
+  useIsomorphicLayout(() => {
     if (!compact) return
-    const compute = () => {
+    let disposed = false
+    let raf: any = null
+    let timer: any = null
+    let tries = 0
+    const clearPending = () => {
+      try {
+        if (raf !== null && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(raf)
+        if (timer !== null) clearTimeout(timer)
+      } catch (e) { /* ignore */ }
+      raf = null; timer = null
+    }
+    const compute = (): boolean => {
       try {
         const btn = typeof document !== 'undefined' ? document.querySelector('[data-dsh-prompt-entry]') : null
-        if (!btn) return
+        if (!btn) return false
         const br = (btn as HTMLElement).getBoundingClientRect()
+        // 按钮不可见（rect 全零，多为挂载时序/宿主重排中）→ 视为未找到，不提交垃圾位置
+        if (br && br.width === 0 && br.height === 0 && br.left === 0 && br.top === 0) return false
         const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
         const vh = typeof window !== 'undefined' ? window.innerHeight : 800
         const width = 560
         let left = br.left
         if (left < 8) left = 8 // 左越界贴左
         if (left + width > vw - 8) left = Math.max(8, vw - width - 8) // 右越界回挤
-        posState[1]({ left, bottom: vh - br.top + 8 }) // 面板底边 = 按钮顶边上方 8px
-      } catch (e) { /* ignore */ }
+        if (!disposed) posState[1]({ left, bottom: vh - br.top + 8 }) // 面板底边 = 按钮顶边上方 8px
+        return true
+      } catch (e) { return false }
     }
-    compute()
+    const again = () => {
+      raf = null; timer = null
+      if (disposed) return
+      if (compute()) return
+      if (++tries < 10) {
+        if (typeof requestAnimationFrame !== 'undefined') raf = requestAnimationFrame(again)
+        else timer = setTimeout(again, 50)
+      } else if (!disposed) {
+        posState[1]({ left: 8, bottom: 8 }) // 终极回退：可见可点，不静默消失
+      }
+    }
+    again()
+    const onResize = () => { compute() }
     if (typeof window !== 'undefined') {
-      window.addEventListener('resize', compute)
-      return () => window.removeEventListener('resize', compute)
+      window.addEventListener('resize', onResize)
     }
+    return () => { disposed = true; clearPending(); if (typeof window !== 'undefined') window.removeEventListener('resize', onResize) }
   }, [])
 
   // 语言跟随 html[lang]
@@ -388,6 +419,8 @@ export function TemplateBrowser(props: BrowserProps): any {
   const panelStyle: any = compact
     ? {
         position: 'fixed', left: (pos && pos.left) || 0, bottom: (pos && pos.bottom) || 0,
+        // #35：未定位前隐藏——宁可晚一帧出现，也不闪现在屏幕左下角
+        visibility: pos ? 'visible' : 'hidden',
         zIndex: PANEL_Z, width: 560,
         display: 'flex', flexDirection: 'column',
         background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',

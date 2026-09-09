@@ -7,7 +7,7 @@
  * 与 /prompt 共用模板数据/排序基础（架构：allTemplates/bumpUsage/loadLastUsed）。
  */
 import type { PromptTemplate } from './templates'
-import { allTemplates, getTemplate, loadUsage, loadLastUsed, loadPinned, tieBreakOrder } from './store'
+import { allTemplates, getTemplate, loadUsage, loadLastUsed, loadPinned, tieBreakOrder, templateLabels, LABEL_FALLBACK } from './store'
 import { SMART_WORDS } from './words'
 
 export const SMART_THRESHOLD = 2
@@ -35,6 +35,26 @@ export function scoreDraft(draft: string, tpl: PromptTemplate): ScoreResult {
   return { score: strong.length * 2 + weak.length, strong, weak }
 }
 
+/**
+ * 自定义评分（#32）：自选标签命中按强词 +2，名称/正文命中按弱词 +1（子串匹配，忽略大小写）。
+ * 空 / 仅回落“自定义” / 单字标签不参评（0 分，仅 lastUsed 槽可见）。
+ * 名称/正文用自身文本匹配（不用 templateHaystack——haystack 含 labels，会重复计分）。
+ */
+export function scoreCustomLabels(draft: string, tpl: PromptTemplate): ScoreResult {
+  const text = draft.toLowerCase()
+  const labels = templateLabels(tpl)
+    .map((l) => l.trim())
+    .filter((l) => Array.from(l).length >= 2 && l !== LABEL_FALLBACK)
+  if (labels.length === 0) return { score: 0, strong: [], weak: [] }
+  const strong = labels.filter((l) => text.includes(l.toLowerCase()))
+  const weak: string[] = []
+  const name = (tpl.name || '').trim()
+  if (name && text.includes(name.toLowerCase())) weak.push(name)
+  const body = (tpl.body || '').trim()
+  if (body && text.includes(body.toLowerCase())) weak.push(body.slice(0, 12) + '…')
+  return { score: strong.length * 2 + weak.length, strong, weak }
+}
+
 /** 代码块降权：draft 中 ``` 出现奇数次 → 视为处于代码块内 → 抑制出卡 */
 export function insideCodeBlock(draft: string): boolean {
   let n = 0
@@ -48,10 +68,12 @@ export function insideCodeBlock(draft: string): boolean {
   return n % 2 === 1
 }
 
-/** 智能候选：draft → ≤3 条（top-2 评分 + 1 最近使用），不足不凑；自定义无词表，仅经最近使用槽进入
+/** 智能候选：draft → ≤3 条（top-2 评分 + 1 最近使用），不足不凑
  *  #22 决议：候选集不变（评分链、阈值、top-2 + 最近使用均不动），仅显示顺序改为统一 bottom-up——
  *  评分升序（最相关在底部）→ 用量升序 → 同键置顶更贴底 → 预制原始顺序/自定义创建时间；
  *  最近使用槽（score=0）不做特例，自然落到最顶部（Q4=A）。
+ *  #32：自定义经自选标签进入评分（scoreCustomLabels），与预置同池竞争 top-2；
+ *  空/回落/单字标签 0 分，仅 lastUsed 槽可见。
  */
 export function smartCandidates(draft: string): ScoredTemplate[] {
   const text = draft.trim().toLowerCase()
@@ -60,8 +82,7 @@ export function smartCandidates(draft: string): ScoredTemplate[] {
   const usage = loadUsage()
   const scored: ScoredTemplate[] = []
   for (const tpl of allTemplates()) {
-    if (!tpl.builtin) continue
-    const r = scoreDraft(text, tpl)
+    const r = tpl.builtin ? scoreDraft(text, tpl) : scoreCustomLabels(text, tpl)
     if (r.score >= SMART_THRESHOLD) scored.push({ tpl, score: r.score, strongHits: r.strong, weakHits: r.weak })
   }
   scored.sort((a, b) => b.score - a.score || (usage[b.tpl.id] || 0) - (usage[a.tpl.id] || 0))

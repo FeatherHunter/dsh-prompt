@@ -5,7 +5,7 @@
 //  C) 动作词/阶段词跨入口可找（用户故事 5/6）；搜索旧找法不断；排序维持 #22 现状
 //  D) 自定义：最多 3、可选可造、去空去重、超长超数/「任意」阻断+行内提示、全空回落「自定义」
 //  E) 迁移：旧单 tag 为首元、空回落、占位三件套不污染；自定义页签按 builtin（待确认 1 推荐）
-//  F) /prompt 描述行 = 标签串 + 正文前段（42 字截断不变）；智能卡只换展示行，评分链不动
+//  F) /prompt 描述行 = 标签串 + 正文前段（42 字截断不变）；智能卡只换展示行（#32 后自定义可参评）
 const fs = require('node:fs');
 const path = require('node:path');
 let ts;
@@ -199,9 +199,13 @@ async function main() {
   assert(!!saved && JSON.stringify(store.templateLabels(saved)) === JSON.stringify(['复盘', '执行后']), '合法保存标签落盘');
   try { f4.unmount(); } catch (e) {}
 
-  console.log('=== Test #23 G: 智能卡展示行（评分链不动） ===');
+  console.log('=== Test #23 G: 智能卡展示行（#32 后自定义可参评） ===');
   const cands = match.smartCandidates('帮我复盘这次迭代');
-  assert(cands.length > 0 && cands.every((s) => s.tpl.builtin), '评分链不动：仍只出预置');
+  // #32 起自定义经标签分进入召回，不再断言“只出预置”（旧边界）；只断言结构不变
+  assert(cands.length > 0, '有候选');
+  assert(cands.some((s) => s.tpl.id === 'retro'), '预置仍在');
+  assert(cands.every((s, i, a) => i === 0 || a[i - 1].score <= s.score), '展示 bottom-up（分数升序）');
+  assert(cands.filter((s) => s.score > 0).every((s) => s.score >= 2), '阈值 2 保持（0 分仅 lastUsed 槽）');
   const smartSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'client', 'smart.ts'), 'utf8');
   assert(/labelString\(c\.tpl\)/.test(smartSrc), '智能卡行用 labelString');
   assert(/scoreDraft|SMART_THRESHOLD/.test(smartSrc) || /smartCandidates/.test(smartSrc), '评分链引用保留');

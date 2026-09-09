@@ -331,6 +331,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         if (typeof requestAnimationFrame !== 'undefined') raf = requestAnimationFrame(again)
         else timer = setTimeout(again, 50)
       } else if (!disposed) {
+        try { console.warn('[dsh-prompt] panel positioning fallback: entry button not found after retries') } catch (e) { /* ignore */ }
         posState[1]({ left: 8, bottom: 8 }) // 终极回退：可见可点，不静默消失
       }
     }

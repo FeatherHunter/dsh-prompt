@@ -6,11 +6,14 @@
  * 设置页（compact=false）保持原 Top-down。
  * #22 决议（用户 2026-09-09 裁定）：悬浮列表公式（用量升序→同分置顶贴底→pin 序→预制顺序/createdAt）
  * 为统一下底座，智能卡以评分为主键套用同一门公式；设置页（Q2=C）与 /prompt（Q6=A）保留降序为例外。
+ * #23 统一标签：页签/领域行/搜索框的筛选语义统一为标签包含（matchLabel），
+ * 自定义页签仍按 builtin 过滤（不是标签）；行内展示完整标签串（labelString）。
  */
 import type { PromptTemplate } from './templates'
 import { PRESET_TEMPLATES, getPresetById } from './templates'
 import {
-  allTemplates, sortedTemplates, sortedTemplatesBottomUp, displayTag, isPinned, togglePin, canPinMore,
+  allTemplates, sortedTemplates, sortedTemplatesBottomUp, templateLabels, labelString, matchLabel,
+  allKnownLabels, normalizeLabels, validateLabels, isPinned, togglePin, canPinMore,
   addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, templateHaystack, MAX_BODY,
   ensureLoaded, subscribeStore,
 } from './store'
@@ -121,23 +124,51 @@ function TemplateModal(props: any): any {
   const editing = props.kind === 'edit' && !!props.tpl
   const s1 = react.useState(editing ? props.tpl.name : '')
   const name = s1[0]; const setName = s1[1]
-  const s2 = react.useState(editing ? (props.tpl as any).tag || CUSTOM_TAG : CUSTOM_TAG)
-  const tag = s2[0]; const setTag = s2[1]
+  // #23：标签 chips（编辑时取现有标签串）+ 待添加输入框（回车并入 chips）
+  const s2 = react.useState(editing ? templateLabels(props.tpl) : [] as string[])
+  const labels = s2[0]; const setLabels = s2[1]
+  const s2b = react.useState('')
+  const labelInput = s2b[0]; const setLabelInput = s2b[1]
   const s3 = react.useState(editing ? props.tpl.body : '')
   const body = s3[0]; const setBody = s3[1]
-  const errState = react.useState<string | null>(null)
+  const errState = react.useState(null as string | null)
   const err = errState[0]; const setErr = errState[1]
+  const commitInput = () => {
+    const fresh = normalizeLabels(labelInput)
+    if (fresh.length === 0) { setLabelInput(''); return }
+    setLabels(normalizeLabels([...labels, ...fresh]))
+    setLabelInput('')
+  }
   const doOk = () => {
     const nm = name.trim(), bd = body.trim()
     if (!nm) { setErr('nameRequired'); return }
     if (bd.length > MAX_BODY) { setErr('bodyTooLong'); return }
-    props.onOk && props.onOk({ name: nm, tag: tag || CUSTOM_TAG, body: bd })
+    // 输入框残留文本一并计入（不静默丢），统一走校验：违规阻断并行内提示
+    const checked = validateLabels([...labels, ...normalizeLabels(labelInput)])
+    if (!checked.ok) { setErr(checked.error); return }
+    props.onOk && props.onOk({ name: nm, labels: checked.labels, body: bd })
   }
+  const known = allKnownLabels()
+  const chipStyle: any = { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.85em', color: 'var(--dsw-alias-label-primary)', background: 'var(--dsw-alias-bg-layer-3)', border: '1px solid var(--dsw-alias-border-l2)', padding: '1px 4px 1px 9px', borderRadius: 999, whiteSpace: 'nowrap' }
+  const chipXStyle: any = { border: 0, background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', cursor: 'pointer', fontSize: '1em', lineHeight: 1, padding: '0 2px', fontFamily: 'var(--dsw-font-family)' }
   return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
     h('div', { style: modalCardStyle }, [
       h('h3', { style: { fontSize: '1.08em', margin: 0 } }, editing ? props.t('editTitle') : props.t('addTitle')),
       h('input', { style: modalFieldStyle, placeholder: props.t('namePh'), value: name, onChange: (e: any) => setName(e.target.value) }),
-      h('input', { style: modalFieldStyle, placeholder: props.t('tagPh'), value: tag, onChange: (e: any) => setTag(e.target.value) }),
+      h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } }, labels.map((l: string) =>
+        h('span', { key: l, style: chipStyle }, [
+          l,
+          h('button', { style: chipXStyle, title: props.t('removeLabel'), onClick: () => setLabels(labels.filter((x: string) => x !== l)) }, '×'),
+        ]),
+      )),
+      h('input', {
+        style: modalFieldStyle, placeholder: props.t('labelsPh'), value: labelInput,
+        onChange: (e: any) => setLabelInput(e.target.value),
+        onKeyDown: (e: any) => { if (e.key === 'Enter') { e.preventDefault(); commitInput() } },
+        list: 'dsh-prompt-labels',
+      }),
+      h('datalist', { id: 'dsh-prompt-labels' }, known.map((w: string) => h('option', { key: w, value: w }))),
+      h('div', { style: { fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)' } }, props.t('labelsHint')),
       h('textarea', { style: { ...modalFieldStyle, height: 110, resize: 'vertical' }, placeholder: props.t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),
       err ? h('div', { style: { fontSize: '0.92em', color: 'var(--dsw-specific-danger,#e06c75)' } }, props.t(err as keyof typeof STR)) : null,
       h('div', { style: modalBtnsStyle }, [
@@ -229,24 +260,31 @@ export function TemplateBrowser(props: BrowserProps): any {
   const h = react.createElement
   const { compact, inputActions, useInput } = props
 
-  const langState = react.useState<Lang>(getLang())
+  const langState = react.useState(getLang())
   const lang = langState[0]
   const tickState = react.useState(0)
   const setTick = tickState[1]
-  const tabState = react.useState<string>('all')
+  const tabState = react.useState('all')
   const tab = tabState[0]
-  const domainState = react.useState<string>('all')
+  const domainState = react.useState('all')
   const domain = domainState[0]
   const qState = react.useState('')
   const q = qState[0]
-  const modalState = react.useState<ModalState | null>(null)
+  const modalState = react.useState(null as ModalState | null)
   const modal = modalState[0]
-  const posState = react.useState<{ left: number; bottom: number } | null>(null)
+  const posState = react.useState(null as { left: number; bottom: number } | null)
   const pos = posState[0]
-  const rootRef = react.useRef<any>(null)
-  const listRef = react.useRef<any>(null)
-  const highlightState = react.useState<string | null>(null)
+  const rootRef = react.useRef(null as any)
+  const listRef = react.useRef(null as any)
+  const highlightState = react.useState(null as string | null)
   const highlightId = highlightState[0]
+  // #34：搜索框交互状态——聚焦/拼音组词期抑制 hover 自动关窗（#14 家族延续）。
+  // 中文组词语义：compositionstart→end 整段只算一次输入，期间任何杂散 mouseleave
+  //（布局抖动/滚动重命中）都不应 schedulePanelClose(150) 关窗；设置页（compact=false）无 hover 语义，不碰全局门控。
+  const focusState = react.useState(false)
+  const searchFocused = focusState[0]
+  const compState = react.useState(false)
+  const composing = compState[0]
 
   // 正上方对齐 ⚡Prompt 按钮（仅紧凑面板/popover）：fixed + 按钮视口 rect
   // 列表左缘与按钮左缘垂直对齐（left = btn.left）；列表底边在按钮顶边之上 → 整体位于按钮正上方
@@ -284,15 +322,17 @@ export function TemplateBrowser(props: BrowserProps): any {
 
   // #14 回归：紧凑浮层弹窗打开期间抑制 hover 自动关窗（含入口按钮的 schedulePanelClose）
   // - 本地根节点 hover 同步抑制（防御式） + 全局 gate（覆盖入口按钮）
-  // deps 用 !!modal 避免对象身份抖动；onCancel/onOk 中同步清门控以消除 effect 下一帧前的竞态窗口
+  // - #34 扩展：搜索框聚焦/组词期同样抑制——用户正在输入时杂散 leave 不关窗；
+  //   显式关闭（×/插入/toggle 调 setPanelOpen(false)）不受抑制影响，不会粘住。
+  // deps 用 !!modal 避免对象身份抖动；onCancel/onOk/输入框处理器中同步清门控以消除 effect 下一帧前的竞态窗口
   react.useEffect(() => {
     if (!compact) return
-    if (modal) setHoverCloseSuppressed(true)
+    if (modal || searchFocused || composing) setHoverCloseSuppressed(true)
     else setHoverCloseSuppressed(false)
     return () => { setHoverCloseSuppressed(false) }
-  }, [compact, !!modal])
+  }, [compact, !!modal, searchFocused, composing])
 
-  const refresh = () => setTick((n) => n + 1)
+  const refresh = () => setTick((n: number) => n + 1)
   const t = (k: keyof typeof STR) => tr(lang, STR[k])
 
   // #20 直接切换：挂载即拉 host 快照，host 变更经订阅刷新（内存缓存同步写后已 refresh，此处补异步到达）
@@ -303,12 +343,14 @@ export function TemplateBrowser(props: BrowserProps): any {
     return () => { on = false; off() }
   }, [])
 
-  // 列表组装：tab=自定义 → 仅自定义；否则 预制+自定义，按 阶段 → 领域 → 搜索过滤，排序
+  // 列表组装（#23）：tab=自定义 → 仅自定义（按 builtin，不过滤标签，见待确认 1）；
+  // 否则按统一标签包含过滤——阶段页签与领域行是标签子集的快捷方式，底层同一判断；
+  // 搜索框保留全文检索（haystack）兼容。排序不动（#22：悬浮 bottom-up，设置页降序）。
   const customs = allTemplates().filter((x) => !x.builtin)
   const list = allTemplates().filter((x) => {
     if (tab === CUSTOM_TAG) return !x.builtin
-    if (tab !== 'all' && x.stage !== tab) return false
-    if (domain !== 'all' && displayTag(x) !== domain) return false
+    if (tab !== 'all' && !matchLabel(x, tab)) return false
+    if (domain !== 'all' && !matchLabel(x, domain)) return false
     return true
   })
   const ql = q.trim().toLowerCase()
@@ -432,9 +474,9 @@ export function TemplateBrowser(props: BrowserProps): any {
           h(TemplateModal, {
             kind: modal.kind, tpl: modal.t, t,
             onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null) },
-            onOk: (f: { name: string; tag: string; body: string }) => {
+            onOk: (f: { name: string; labels: string[]; body: string }) => {
               if (modal.kind === 'edit' && modal.t) { updateCustom(modal.t.id, f) }
-              else { addCustom(f.name, f.tag, f.body) }
+              else { addCustom(f.name, f.labels, f.body) }
               setHoverCloseSuppressed(false); modalState[1](null)
               refresh()
             },
@@ -484,7 +526,7 @@ export function TemplateBrowser(props: BrowserProps): any {
     const intro = (x.body || '').split('\n')[0].trim()
     // 紧凑（⚡Prompt 浮层）：单行 —— 图钉 + 标题 + 简介 + 操作横排，不再占两行
     if (compact) {
-      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, minWidth: 0 }, 'data-dsh-prompt-id': x.id, onClick: () => handlePick(x), title: t('insertHint') }, [
+      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, minWidth: 0 }, 'data-dsh-prompt-id': x.id, onClick: () => handlePick(x), title: labelString(x) + ' · ' + t('insertHint') }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
           h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : 'none', stroke: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : dim, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, [
             h('path', { d: 'M12 17v5' }),
@@ -493,12 +535,13 @@ export function TemplateBrowser(props: BrowserProps): any {
         ]),
         h('span', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' } }, [
           h('span', { style: { flex: 'none', fontSize: '0.95em', color: base, fontWeight: 600, whiteSpace: 'nowrap' } }, x.name),
-          h('span', { style: { flex: '1 1 auto', minWidth: 0, fontSize: '0.85em', color: muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, intro),
+          h('span', { style: { flex: '0 1 auto', minWidth: 0, fontSize: '0.8em', color: muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, labelString(x)),
+          h('span', { style: { flex: '1 1 auto', minWidth: 0, fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, intro),
         ]),
         h('span', { style: actStyle }, acts),
       ])
     }
-    return h('div', { key: x.id, style: { ...itemStyle, background: itemBg }, 'data-dsh-prompt-id': x.id, onClick: () => handlePick(x), title: t('insertHint') }, [
+    return h('div', { key: x.id, style: { ...itemStyle, background: itemBg }, 'data-dsh-prompt-id': x.id, onClick: () => handlePick(x), title: labelString(x) + ' · ' + t('insertHint') }, [
       h('div', { style: { flex: 'none', paddingTop: 2 } }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
           // 图钉（置顶语义）：置顶=橙色实心，未置顶=描边
@@ -511,7 +554,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } }, [
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } }, [
           h('span', { style: nmStyle }, x.name),
-          h('span', { style: tagStyle }, displayTag(x)),
+          h('span', { style: tagStyle }, labelString(x)),
         ]),
         h('span', { style: subStyle }, (x.body || '').slice(0, 44) + '…'),
       ]),
@@ -526,7 +569,7 @@ export function TemplateBrowser(props: BrowserProps): any {
 
   // 浮层根节点 hover 接管：鼠标进列表 → 取消关窗；离开列表 → 延迟关窗（仅紧凑浮层有 hover 开合语义）
   // #14：弹窗打开时禁止触发关窗（本地防御 + 全局 gate 双保险，输入时微移动/焦点变化不丢弹窗）
-  const rootHover = compact ? { onMouseEnter: () => cancelPanelClose(), onMouseLeave: () => { if (modal) return; schedulePanelClose(150) } } : null
+  const rootHover = compact ? { onMouseEnter: () => cancelPanelClose(), onMouseLeave: () => { if (modal || searchFocused || composing) return; schedulePanelClose(150) } } : null
   return h('div', { ref: rootRef, style: panelStyle, ...rootHover }, [
     compact ? h('div', { style: headStyle }, [
       h('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--dsw-specific-accent,#f0a45c)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, [
@@ -556,7 +599,19 @@ export function TemplateBrowser(props: BrowserProps): any {
     ]),
     tabNodes,
     domainNodes,
-    h('input', { style: searchStyle, placeholder: t('searchPh'), value: q, onChange: (e: any) => qState[1](e.target.value) }),
+    h('input', {
+      style: searchStyle, placeholder: t('searchPh'), value: q, onChange: (e: any) => qState[1](e.target.value),
+      // #34 IME 安全：聚焦即抑制 hover 关窗（含取消已挂起的 150ms 计时，见 setHoverCloseSuppressed），
+      // blur/组词结束同步释放（effect 会再对账一遍）；组词结束补提交一次最终值（部分浏览器 end 不带 onChange）。
+      onFocus: () => { focusState[1](true); if (compact) setHoverCloseSuppressed(true) },
+      onBlur: () => { focusState[1](false); if (compact && !composing && !modal) setHoverCloseSuppressed(false) },
+      onCompositionStart: () => { compState[1](true); if (compact) setHoverCloseSuppressed(true) },
+      onCompositionEnd: (e: any) => {
+        compState[1](false)
+        try { const v = e && e.target && typeof e.target.value === 'string' ? e.target.value : null; if (v !== null) qState[1](v) } catch (err) { /* ignore */ }
+        if (compact && !modal && !searchFocused) setHoverCloseSuppressed(false)
+      },
+    }),
     listNode,
     footer,
     modalNode,

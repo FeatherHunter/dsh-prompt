@@ -1,6 +1,9 @@
 /**
  * dsh-prompt — 模板数据层
  * 24 条预制模板（#6 final.md 定稿，冒号表单式）+ 类型定义。
+ * #23 统一标签：模板统一携带 labels；预置 labels 为领域+阶段+动作机械合并
+ * （#19 R2 附录逐条回填，与派生公式一致，回归脚本逐条锁定）；旧 domain/stage/action
+ * 保留为只读镜像（回滚对照），不再参与筛选与展示。
  */
 
 export type Domain = '思考框架' | '学习' | '工程' | '执行'
@@ -10,15 +13,18 @@ export interface PromptTemplate {
   id: string
   name: string
   nameEn: string
-  domain: Domain
-  stage: Stage
-  action: string[]
+  /** 旧三件套（#23 起废弃：只读镜像，回滚对照；筛选展示一律走 labels） */
+  domain?: Domain
+  stage?: Stage
+  action?: string[]
+  /** 统一标签（#23；旧数据缺失时由 templateLabels() 读时回落） */
+  labels?: string[]
   body: string
   builtin: boolean
 }
 
 export const PRESET_TEMPLATES: PromptTemplate[] = [
-  { id: 'fp', name: '第一性原理拆解', nameEn: 'First Principles', domain: '思考框架', stage: '执行前', action: ['拆解'], body: [
+  { id: 'fp', name: '第一性原理拆解', nameEn: 'First Principles', domain: '思考框架', stage: '执行前', action: ['拆解'], labels: ['思考框架', '执行前', '拆解'], builtin: true, body: [
     '请用第一性原理分析以下主题，按编号结构化输出，结论先行：',
     '1. 这个问题的基本组成单元是什么？',
     '2. 哪些是真正不可改变的真理（而非假设）？',
@@ -27,7 +33,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '5. 基于以上推演给出你的原创见解，并说明它与主流看法的差异。',
     '主题：',
   ].join('\n') },
-  { id: 'socratic', name: '苏格拉底式追问', nameEn: 'Socratic Questioning', domain: '思考框架', stage: '执行前', action: ['检验'], body: [
+  { id: 'socratic', name: '苏格拉底式追问', nameEn: 'Socratic Questioning', domain: '思考框架', stage: '执行前', action: ['检验'], labels: ['思考框架', '执行前', '检验'], builtin: true, body: [
     '请用苏格拉底式追问帮助我思考，按编号结构化输出：',
     '1. 先复述我当前的观点或核心假设；',
     '2. 提出 3 个最有力的质疑；',
@@ -36,7 +42,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '5. 追问结束后，把整个过程浓缩成一个更精准的问题。',
     '主题：',
   ].join('\n') },
-  { id: 'deep', name: '深度多维分析', nameEn: 'Deep Analysis', domain: '思考框架', stage: '执行前', action: ['归因'], body: [
+  { id: 'deep', name: '深度多维分析', nameEn: 'Deep Analysis', domain: '思考框架', stage: '执行前', action: ['归因'], labels: ['思考框架', '执行前', '归因'], builtin: true, body: [
     '请从多个维度深度分析以下主题，按编号结构化输出，结论先行：',
     '1. 本质是什么？',
     '2. 有哪些常见的误解？',
@@ -46,7 +52,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '6. 你最强的那个结论，弱点在哪里？',
     '主题：',
   ].join('\n') },
-  { id: 'adversarial', name: '对抗式审查', nameEn: 'Adversarial Review', domain: '思考框架', stage: '执行前', action: ['检验'], body: [
+  { id: 'adversarial', name: '对抗式审查', nameEn: 'Adversarial Review', domain: '思考框架', stage: '执行前', action: ['检验'], labels: ['思考框架', '执行前', '检验'], builtin: true, body: [
     '请对以下方案/结论做对抗式审查（红队角色），先给一段结论摘要，再按编号展开：',
     '1. 找出其中最强的 5 个假设，逐一论证它们可能如何失效；',
     '2. 构造最可能推翻它的 3 个反例或失败场景；',
@@ -55,7 +61,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '5. 最后给出：在何种条件下你才会认为它是错的——以及何种证据能让你改变立场。',
     '方案 / 结论：',
   ].join('\n') },
-  { id: 'decision', name: '决策博弈分析', nameEn: 'Decision Analysis', domain: '思考框架', stage: '执行前', action: ['决策'], body: [
+  { id: 'decision', name: '决策博弈分析', nameEn: 'Decision Analysis', domain: '思考框架', stage: '执行前', action: ['决策'], labels: ['思考框架', '执行前', '决策'], builtin: true, body: [
     '你是一位冷静的决策分析师。请分析我的处境，按编号结构化输出（你的选择仅作参考，重点是分析过程）：',
     '1. 列出每个选项最坏的结果是什么；',
     '2. 每个选项最好的结果是什么；',
@@ -65,7 +71,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '6. 给出你本人的选择并说明理由；再指出我可能忽略的第三个选项。',
     '我的处境（选项与背景）：',
   ].join('\n') },
-  { id: 'premortem', name: '事前验尸', nameEn: 'Pre-mortem', domain: '思考框架', stage: '执行前', action: ['决策'], body: [
+  { id: 'premortem', name: '事前验尸', nameEn: 'Pre-mortem', domain: '思考框架', stage: '执行前', action: ['决策'], labels: ['思考框架', '执行前', '决策'], builtin: true, body: [
     '假设以下方案/项目已经在一年后彻底失败。请以「事后回溯」的方式写失败分析，按编号结构化输出：',
     '1. 按可能性从高到低列出 8 个失败原因；',
     '2. 对前 3 个原因，给出现在就能做的预防措施；',
@@ -73,7 +79,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '4. 最后说明：这个方案是否从一开始就有致命缺陷。',
     '方案描述：',
   ].join('\n') },
-  { id: 'feynman', name: '费曼技巧', nameEn: 'Feynman Technique', domain: '思考框架', stage: '执行后', action: ['理解'], body: [
+  { id: 'feynman', name: '费曼技巧', nameEn: 'Feynman Technique', domain: '思考框架', stage: '执行后', action: ['理解'], labels: ['思考框架', '执行后', '理解'], builtin: true, body: [
     '请用费曼技巧确认我是否真正理解了以下概念，按编号结构化输出：',
     '1. 用最简单的语言、面向完全不懂的人解释这个概念（禁止术语）；',
     '2. 给出 2 个生动类比和 2 个反例；',
@@ -82,11 +88,11 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '概念：',
     '我的理解（可选）：',
   ].join('\n') },
-  { id: 'fivewhys', name: '五个为什么', nameEn: 'Five Whys', domain: '思考框架', stage: '执行中', action: ['归因'], body: [
+  { id: 'fivewhys', name: '五个为什么', nameEn: 'Five Whys', domain: '思考框架', stage: '执行中', action: ['归因'], labels: ['思考框架', '执行中', '归因'], builtin: true, body: [
     '针对以下问题，请连续追问五个「为什么」，每层基于上一层的事实回答，最后区分根本原因与表层触发因素并给出解决方向：',
     '问题描述：',
   ].join('\n') },
-  { id: 'mece', name: 'MECE 拆解', nameEn: 'MECE Decomposition', domain: '思考框架', stage: '执行前', action: ['拆解'], body: [
+  { id: 'mece', name: 'MECE 拆解', nameEn: 'MECE Decomposition', domain: '思考框架', stage: '执行前', action: ['拆解'], labels: ['思考框架', '执行前', '拆解'], builtin: true, body: [
     '请用 MECE 原则拆解以下问题，按编号结构化输出：',
     '1. 给出 3~6 个相互独立（Mutually Exclusive）的分类维度；',
     '2. 每个维度下列出所有子项，确保完全穷尽（Collectively Exhaustive）；',
@@ -94,14 +100,14 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '4. 给出按重要性排序后的关键子问题清单。',
     '问题：',
   ].join('\n') },
-  { id: 'bias', name: '认知偏差检查', nameEn: 'Cognitive Bias Check', domain: '思考框架', stage: '执行前', action: ['检验'], body: [
+  { id: 'bias', name: '认知偏差检查', nameEn: 'Cognitive Bias Check', domain: '思考框架', stage: '执行前', action: ['检验'], labels: ['思考框架', '执行前', '检验'], builtin: true, body: [
     '请审查以下推理/计划/结论中的认知偏差，按编号结构化输出：',
     '1. 列出可能影响它的偏差（确认偏误、沉没成本、可得性、锚定、乐观/悲观偏差、群体思维等），并指出具体证据；',
     '2. 对每条偏差，给出「如何检验是否真的受影响」的方法；',
     '3. 给出一个反事实检验：如果结论被证明是错的，最可能因为哪条偏差？',
     '推理 / 计划 / 结论：',
   ].join('\n') },
-  { id: 'learnpath', name: '学习路线设计', nameEn: 'Learning Path', domain: '学习', stage: '执行前', action: ['路线'], body: [
+  { id: 'learnpath', name: '学习路线设计', nameEn: 'Learning Path', domain: '学习', stage: '执行前', action: ['路线'], labels: ['学习', '执行前', '路线'], builtin: true, body: [
     '请为以下领域/技能设计一条从零到可实战的学习路线，按编号结构化输出：',
     '1. 按阶段拆分（入门→进阶→实战），每个阶段给出学习目标；',
     '2. 每个阶段推荐 2~3 个核心主题和练习方式；',
@@ -111,7 +117,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '当前水平（可选）：',
     '目标（可选）：',
   ].join('\n') },
-  { id: 'concept', name: '概念澄清', nameEn: 'Concept Clarification', domain: '学习', stage: '执行前', action: ['概念'], body: [
+  { id: 'concept', name: '概念澄清', nameEn: 'Concept Clarification', domain: '学习', stage: '执行前', action: ['概念'], labels: ['学习', '执行前', '概念'], builtin: true, body: [
     '请帮我彻底理解以下概念，按编号结构化输出：',
     '1. 一句话定义 + 一个最小例子；',
     '2. 它与常见相近概念的本质区别（各给一个对比场景）；',
@@ -120,14 +126,14 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '概念：',
     '相近概念（可选，不知道可留空，AI 自行选常见相近概念对比）：',
   ].join('\n') },
-  { id: 'quiz', name: 'AI 反向考验', nameEn: 'AI Quiz', domain: '学习', stage: '执行后', action: ['考验'], body: [
+  { id: 'quiz', name: 'AI 反向考验', nameEn: 'AI Quiz', domain: '学习', stage: '执行后', action: ['考验'], labels: ['学习', '执行后', '考验'], builtin: true, body: [
     '请通过出题检验我是否真正理解了以下主题/交付内容：',
     '1. 设计选择题/判断题/简答题/案例题（由浅入深）；',
     '2. 我作答后指出错误与盲区；',
     '3. 直到回答正确、知识点无盲区后再确认交付。',
     '主题 / 交付内容：',
   ].join('\n') },
-  { id: 'codereview', name: '代码审查', nameEn: 'Code Review', domain: '工程', stage: '执行前', action: ['审查'], body: [
+  { id: 'codereview', name: '代码审查', nameEn: 'Code Review', domain: '工程', stage: '执行前', action: ['审查'], labels: ['工程', '执行前', '审查'], builtin: true, body: [
     '请审查以下代码，先给总体结论，再按严重程度排序输出，每个问题附具体修改建议（含示例代码）：',
     '1. 正确性：潜在 bug、边界条件、并发/异步问题；',
     '2. 安全：注入、鉴权、敏感信息、依赖风险；',
@@ -136,7 +142,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '代码过长时可分段审查，但最终汇总为一页结论。',
     '代码 / 文件 / 技术栈：',
   ].join('\n') },
-  { id: 'testdesign', name: '测试用例设计', nameEn: 'Test Design', domain: '工程', stage: '执行中', action: ['测试'], body: [
+  { id: 'testdesign', name: '测试用例设计', nameEn: 'Test Design', domain: '工程', stage: '执行中', action: ['测试'], labels: ['工程', '执行中', '测试'], builtin: true, body: [
     '请为以下功能设计测试用例，按编号结构化输出：',
     '1. 正常路径用例（含输入/预期输出）；',
     '2. 边界与极端值用例；',
@@ -145,7 +151,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '5. 指出哪些用例最容易漏、以及对应的风险。',
     '功能描述：',
   ].join('\n') },
-  { id: 'refactor', name: '重构方案', nameEn: 'Refactoring Plan', domain: '工程', stage: '执行中', action: ['重构'], body: [
+  { id: 'refactor', name: '重构方案', nameEn: 'Refactoring Plan', domain: '工程', stage: '执行中', action: ['重构'], labels: ['工程', '执行中', '重构'], builtin: true, body: [
     '请为以下代码提出重构方案，按编号结构化输出：',
     '1. 指出当前结构的主要问题（职责、耦合、可测试性）；',
     '2. 给出目标结构（抽象与拆分建议，含示例）；',
@@ -153,7 +159,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '4. 指出哪些重构有风险、需要测试保护。',
     '代码 / 模块：',
   ].join('\n') },
-  { id: 'explain', name: '解释代码', nameEn: 'Explain Code', domain: '工程', stage: '执行中', action: ['解读'], body: [
+  { id: 'explain', name: '解释代码', nameEn: 'Explain Code', domain: '工程', stage: '执行中', action: ['解读'], labels: ['工程', '执行中', '解读'], builtin: true, body: [
     '请解释以下代码，按编号结构化输出：',
     '1. 这段代码做什么（一句话）；',
     '2. 逐段讲解执行流程与关键数据结构；',
@@ -162,7 +168,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '5. 用一句话概括它在我更大的系统里扮演的角色。',
     '代码：',
   ].join('\n') },
-  { id: 'blindspot', name: '盲区检查', nameEn: 'Blind Spot Pass', domain: '执行', stage: '执行前', action: ['启动'], body: [
+  { id: 'blindspot', name: '盲区检查', nameEn: 'Blind Spot Pass', domain: '执行', stage: '执行前', action: ['启动'], labels: ['执行', '执行前', '启动'], builtin: true, body: [
     '在我开始以下任务之前，请帮我做一次盲区检查，按编号结构化输出：',
     '1. 我可能遗漏的关键变量有哪些？',
     '2. 潜在的风险与最容易忽略的影响因素？',
@@ -170,14 +176,14 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '4. 给我一个 3 分钟内可完成的快速检查清单。',
     '我的计划（目标 / 约束）：',
   ].join('\n') },
-  { id: 'snapshot', name: '零丢失快照', nameEn: 'Zero-loss Snapshot', domain: '执行', stage: '执行中', action: ['固化'], body: [
+  { id: 'snapshot', name: '零丢失快照', nameEn: 'Zero-loss Snapshot', domain: '执行', stage: '执行中', action: ['固化'], labels: ['执行', '执行中', '固化'], builtin: true, body: [
     '请执行一次「零丢失快照」：',
     '1. 把我们从会话开始至今的关键信息，按「目的地 / 约束与偏好 / 已确认的决定 / 待决问题 / 雾区（隐约可见但还不清晰）」五类逐条列出——不压缩、不合并，宁可啰嗦不可省略；',
     '2. 每条标注出处（引用我原话）；',
     '3. 单独列一节「可疑遗漏」：凡是我提过但你觉得与主线无关、太模糊或像执行细节而没纳入的，全部摆出并写明理由；',
     '4. 列完后停下等我逐条核对，确认后再落盘。',
   ].join('\n') },
-  { id: 'kickoff', name: '任务启动', nameEn: 'Task Kickoff', domain: '执行', stage: '执行前', action: ['启动'], body: [
+  { id: 'kickoff', name: '任务启动', nameEn: 'Task Kickoff', domain: '执行', stage: '执行前', action: ['启动'], labels: ['执行', '执行前', '启动'], builtin: true, body: [
     '在开始以下任务之前，请先确认起点并澄清细节，按编号结构化输出：',
     '1. 最终目标（要做什么）；',
     '2. 当前进度（目前想到哪一步）；',
@@ -190,7 +196,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '经验水平（新手 / 有经验 / 专家）：',
     '不熟悉的地方（可选）：',
   ].join('\n') },
-  { id: 'prototype', name: '原型验证', nameEn: 'Prototype Validate', domain: '执行', stage: '执行前', action: ['启动'], body: [
+  { id: 'prototype', name: '原型验证', nameEn: 'Prototype Validate', domain: '执行', stage: '执行前', action: ['启动'], labels: ['执行', '执行前', '启动'], builtin: true, body: [
     '请为以下主题/想法做原型验证，每轮输出保持克制（方向概要即可，不要太长）：',
     '1. 给出 2~4 个方向差距很大的候选方案；',
     '2. 每个方向给出最小的验证方式（怎么快速试错）；',
@@ -198,7 +204,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '4. 收敛后给出下一步的执行计划要点。',
     '主题 / 想法：',
   ].join('\n') },
-  { id: 'plan', name: '执行计划', nameEn: 'Execution Plan', domain: '执行', stage: '执行前', action: ['启动'], body: [
+  { id: 'plan', name: '执行计划', nameEn: 'Execution Plan', domain: '执行', stage: '执行前', action: ['启动'], labels: ['执行', '执行前', '启动'], builtin: true, body: [
     '请为以下目标制定执行计划，按编号结构化输出（时间安排是可调整的草案）：',
     '1. 明确步骤（含顺序与依赖）；',
     '2. 时间安排（每步预计时长/里程碑）；',
@@ -208,7 +214,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '目标：',
     '约束（可选）：',
   ].join('\n') },
-  { id: 'deviation', name: '记录偏离', nameEn: 'Deviation Log', domain: '执行', stage: '执行中', action: ['记录'], body: [
+  { id: 'deviation', name: '记录偏离', nameEn: 'Deviation Log', domain: '执行', stage: '执行中', action: ['记录'], labels: ['执行', '执行中', '记录'], builtin: true, body: [
     '请担任我的过程记录员（多轮持续角色）：从现在起，在每次交互后更新一份简洁的偏离记录，按编号结构化：',
     '1. 遇到了什么新的情况？',
     '2. 为什么改变了方案？',
@@ -216,7 +222,7 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
     '4. 对结果有什么影响？',
     '每次只输出「新增/变更」条目，不要重复已记录内容。',
   ].join('\n') },
-  { id: 'retro', name: '过程复盘', nameEn: 'Retrospective', domain: '执行', stage: '执行后', action: ['复盘'], body: [
+  { id: 'retro', name: '过程复盘', nameEn: 'Retrospective', domain: '执行', stage: '执行后', action: ['复盘'], labels: ['执行', '执行后', '复盘'], builtin: true, body: [
     '请帮我复盘刚刚完成的以下任务/项目，按编号结构化输出：',
     '1. 整体步骤回顾（实际 vs 计划的差异）；',
     '2. 使用的资料和工具；',
@@ -227,8 +233,6 @@ export const PRESET_TEMPLATES: PromptTemplate[] = [
   ].join('\n') },
 ]
 
-// 统一补 builtin 标志（预制只读；自定义由 store 管理）
-PRESET_TEMPLATES.forEach((t) => { t.builtin = true })
 
 export function getPresetById(id: string): PromptTemplate | undefined {
   return PRESET_TEMPLATES.find((t) => t.id === id)

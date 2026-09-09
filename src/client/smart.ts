@@ -7,7 +7,7 @@
  */
 import { getReact } from './panel'
 import { smartCandidates, firstFieldCaret, type ScoredTemplate } from './match'
-import { allTemplates, bumpUsage, loadUsage, tieBreakOrder } from './store'
+import { allTemplates, bumpUsage, loadUsage, tieBreakOrder, labelString } from './store'
 import {
   getSmartInput, onSmartInput, isSmartEnabled, setSmartEnabled,
   onSmartEnabled, loadSmartPos, saveSmartPos, suppressCard, isSuppressed, clearSuppression,
@@ -95,13 +95,13 @@ export function SmartCardHost(props: any): any {
   const [enabled, setEnabled] = react.useState(isSmartEnabled())
   const [input, setInput] = react.useState(getSmartInput())
   const [draft, setDraft] = react.useState(readActiveDraft())
-  const [pos, setPos] = react.useState<SmartPos | null>(null)
+  const [pos, setPos] = react.useState(null as SmartPos | null)
   const [dismissed, setDismissed] = react.useState(false)
   const [manualOpen, setManualOpen] = react.useState(false)
   const [cardH, setCardH] = react.useState(0)
-  const posRef = react.useRef<SmartPos | null>(null)
-  const cardRef = react.useRef<any>(null)
-  const rowsRef = react.useRef<ScoredTemplate[]>([])
+  const posRef = react.useRef(null as SmartPos | null)
+  const cardRef = react.useRef(null as any)
+  const rowsRef = react.useRef([] as ScoredTemplate[])
   const dragMovedRef = react.useRef(false)
 
   // 订阅输入桥（仅用于 actions/插入）+ 开关变更（设置页实时同步）
@@ -115,7 +115,7 @@ export function SmartCardHost(props: any): any {
   react.useEffect(() => {
     const timer = setInterval(() => {
       const d = readActiveDraft()
-      setDraft((prev) => (prev === d ? prev : d))
+      setDraft((prev: string) => (prev === d ? prev : d))
     }, 350)
     const onFocus = () => { setDraft(readActiveDraft()) }
     if (typeof document !== 'undefined') document.addEventListener('focusin', onFocus, true)
@@ -252,8 +252,8 @@ export function SmartCardHost(props: any): any {
   }
   const rowNodes = rows.map((c, i) => {
     const common = c.score === 0
-    const domain = (c.tpl as any).domain || (c.tpl as any).tag || ''
-    const tagText = (domain ? domain + ' ' : '') + (common ? '·常用' : '·分' + c.score)
+    // #23：展示行换为完整标签串；评分后缀（·分N/·常用）保留，评分链不动
+    const tagText = labelString(c.tpl) + ' ' + (common ? '·常用' : '·分' + c.score)
     const hits = common ? t('smartCommon') : (c.strongHits.join(' / ') + (c.weakHits.length ? ' · ' + c.weakHits.join(' / ') : ''))
     // #22（Q7=A）：序号按排名而非位置——1=最相关，出现在最底部
     return h('div', { key: c.tpl.id, style: rowStyle, onClick: () => doPick(c), title: t('smartFill') }, [

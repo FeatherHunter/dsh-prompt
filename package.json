@@ -38,6 +38,8 @@
     "test:issue-20-host": "node scripts/test-issue-20-host.cjs",
     "test:issue-21": "node scripts/test-issue-21.cjs",
     "test:bottom-up": "node scripts/test-bottom-up.cjs",
+    "test:issue-23": "node scripts/test-issue-23.cjs",
+    "test:issue-34": "node scripts/test-issue-34.cjs",
     "test": "npm run test:modal && npm run test:issue-14"
   },
   "dsh": {

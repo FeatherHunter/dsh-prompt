@@ -28,12 +28,38 @@ function PanelHost(props: any): any {
   const openState = react.useState(isPanelOpen())
   const open = openState[0]
   react.useEffect(() => { onPanelOpen((v) => openState[1](v)); console.log('[dsh-prompt] PanelHost props:', Object.keys(props), '| useInput?', !!props.useInput, '| inputActions?', !!props.inputActions) }, [])
-  // 智能模式桥接：把当前会话输入发布给 shell.overlay 悬浮卡（每次渲染同步，无变化由 setSmartInput 去重）
+  // 智能模式桥接：把当前会话输入发布给 shell.overlay 悬浮卡。
+  // 注意：useInput 是 hook，只能在组件 render 内调用，不能在 effect/事件回调里以
+  // props.useInput(selector) 形式调用（会抛 Invalid hook call → 草稿读空）。
+  // 这里只用 getState + subscribe 做同步，全程不调用 hook。
   react.useEffect(() => {
-    let st: any = null
-    try { st = props.useInput ? props.useInput((s: any) => s) : null } catch (e) { /* ignore */ }
-    setSmartInput({ sessionId: props.sessionId, draft: (st && st.draft) || '', useInput: props.useInput, actions: props.inputActions })
-  })
+    const readDraft = (): string => {
+      try {
+        const u: any = (props as any).useInput
+        if (u && typeof u.getState === 'function') return (u.getState()?.draft) || ''
+      } catch (e) { /* ignore */ }
+      try {
+        if (typeof document !== 'undefined') {
+          const ae = document.activeElement as HTMLTextAreaElement | null
+          if (ae && ae.tagName === 'TEXTAREA') {
+            try { if (ae.closest && ae.closest('[data-dsh-prompt-modal]')) return '' } catch (e) { /* ignore */ }
+            return ae.value || ''
+          }
+        }
+      } catch (e) { /* ignore */ }
+      return ''
+    }
+    const push = () => {
+      try { setSmartInput({ sessionId: (props as any).sessionId, draft: readDraft(), useInput: (props as any).useInput, actions: (props as any).inputActions }) } catch (e) { /* ignore */ }
+    }
+    push()
+    let unsub: any = null
+    try {
+      const u: any = (props as any).useInput
+      if (u && typeof u.subscribe === 'function') unsub = u.subscribe(push)
+    } catch (e) { /* ignore */ }
+    return () => { try { if (typeof unsub === 'function') unsub() } catch (e) { /* ignore */ } }
+  }, [(props as any).sessionId, (props as any).useInput, (props as any).inputActions])
   // 会话卸载 → 清空输入桥（悬浮卡回到纯点状态）
   react.useEffect(() => {
     const sid = props.sessionId

@@ -41,18 +41,42 @@ interface ModalState {
 
 /** 插入正文到当前草稿（光标处优先，否则末尾；不覆盖；自动聚焦） */
 export function insertBody(useInput: any, inputActions: any, body: string): void {
+  // 草稿以 DOM 真实值为准：事件处理里不能调用 useInput(selector)（hook，只能在 render 内调用，
+  // 在这里调会抛 Invalid hook call → 被 catch 吞掉 → draft 变 '' → setDraft(body) 整框覆盖）。
+  // 顺序：焦点 textarea 真实值 → store getState → DOM 可见 textarea → 空串。
   let draft = ''
-  try { const st = useInput ? useInput((s: any) => s) : null; draft = (st && st.draft) || '' } catch (e) { /* ignore */ }
-  let pos = draft.length
+  let pos = -1
   try {
     if (typeof document !== 'undefined') {
-      const tas = document.querySelectorAll('textarea')
-      for (let i = 0; i < tas.length; i++) {
-        const ta = tas[i] as HTMLTextAreaElement
-        if (ta.value === draft) { pos = typeof ta.selectionStart === 'number' ? ta.selectionStart : draft.length; break }
+      const ae = document.activeElement as HTMLTextAreaElement | null
+      if (ae && ae.tagName === 'TEXTAREA' && !(ae.closest && ae.closest('[data-dsh-prompt-modal]'))) {
+        draft = ae.value || ''
+        pos = typeof ae.selectionStart === 'number' ? ae.selectionStart : draft.length
       }
     }
   } catch (e) { /* ignore */ }
+  if (pos < 0) {
+    try {
+      if (useInput && typeof useInput.getState === 'function') {
+        const st = useInput.getState()
+        draft = (st && st.draft) || ''
+      } else if (useInput) {
+        // 兼容无 getState 的旧桥：最后手段才尝试直接读（失败即忽略，绝不抛）。
+        const st = useInput((s: any) => s)
+        draft = (st && st.draft) || ''
+      }
+    } catch (e) { /* ignore */ }
+    pos = draft.length
+    try {
+      if (typeof document !== 'undefined') {
+        const tas = document.querySelectorAll('textarea')
+        for (let i = 0; i < tas.length; i++) {
+          const ta = tas[i] as HTMLTextAreaElement
+          if (ta.value === draft) { pos = typeof ta.selectionStart === 'number' ? ta.selectionStart : draft.length; break }
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
   const newDraft = draft.slice(0, pos) + body + draft.slice(pos)
   if (inputActions && typeof inputActions.setDraft === 'function') inputActions.setDraft(newDraft)
   setTimeout(() => {

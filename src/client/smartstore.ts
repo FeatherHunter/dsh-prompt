@@ -24,10 +24,15 @@ export function onSmartInput(fn: () => void): () => void {
   return () => { listeners.delete(fn) }
 }
 
-const SMART_KEY = 'dsh.prompt.smart'
+/**
+ * 智能模式开关键。v2：用户 2026-09-10 裁定——智能卡暂按 BUG 处理（输入匹配不自动出卡，见 issue），
+ * 开关**默认关**，且关时连悬浮小点都不出现。旧键 'dsh.prompt.smart' 曾为"历史默认开"的老用户保留
+ * '1'（#23 兼容决定），本票撤销该兼容：只认 v2，老键一律不继承，保证所有人首次启动都是关。
+ */
+const SMART_KEY = 'dsh.prompt.smart.v2'
 const POS_KEY = 'dsh.prompt.smartPos'
 
-/** 智能模式开关：默认关（#23 验收用户要求、暂时——自动弹出历史问题修好前保持关闭；已存 '1' 的用户不受影响） */
+/** 开关：true 仅当用户显式置 '1'；缺键（首次/升键）与 '0' 都是关。关 → 组件不渲染（无小点、无卡片）。 */
 const enabledListeners = new Set<(on: boolean) => void>()
 export function isSmartEnabled(): boolean {
   try {

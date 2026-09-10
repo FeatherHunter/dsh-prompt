@@ -29,26 +29,86 @@ function clampPos(p: SmartPos, w: number, h: number): SmartPos {
   }
 }
 
-/** 读取当前输入框草稿：优先焦点 textarea，其次可见 textarea；无 → 空串 */
-function readActiveDraft(): string {
+/** DOM 草稿探测结果：found=false 表示同类里找不到会话输入框（调用方据此回退输入桥草稿） */
+interface DraftProbe { found: boolean; text: string }
+
+let bridgeNoticeShown = false
+
+/**
+ * 读取会话输入框草稿（DOM 真实值优先——与面板插入同源，见 panel.ts insertBody）：
+ * - 焦点 textarea / 首个可见 textarea → { found: true, text: 真实值（可为空串） }
+ * - 焦点落在面板新增/编辑弹窗内 → { found: true, text: '' }（明确不出卡）
+ * - 找不到任何 textarea（焦点在非 textarea 元素、宿主换成富文本输入等）→ { found: false }
+ */
+function probeDraftFromDom(): DraftProbe {
   try {
-    if (typeof document === 'undefined') return ''
+    if (typeof document === 'undefined') return { found: false, text: '' }
     const ae = document.activeElement as HTMLTextAreaElement | null
     if (ae && ae.tagName === 'TEXTAREA') {
       // 弹窗/表单输入 ≠ 会话草稿：面板新增/编辑弹窗内打字不应触发智能卡
-      try { if (ae.closest && ae.closest('[data-dsh-prompt-modal]')) return '' } catch (e) { /* ignore */ }
-      return ae.value || ''
+      try { if (ae.closest && ae.closest('[data-dsh-prompt-modal]')) return { found: true, text: '' } } catch (e) { /* ignore */ }
+      return { found: true, text: ae.value || '' }
     }
     const tas = document.querySelectorAll('textarea')
     for (let i = 0; i < tas.length; i++) {
       const ta = tas[i] as HTMLTextAreaElement
       if (ta.offsetParent !== null) {
         try { if (ta.closest && ta.closest('[data-dsh-prompt-modal]')) continue } catch (e) { /* ignore */ }
-        return ta.value || ''
+        return { found: true, text: ta.value || '' }
       }
     }
   } catch (e) { /* ignore */ }
-  return ''
+  return { found: false, text: '' }
+}
+
+/**
+ * 当前草稿 = DOM 真实值；DOM 读不到时才回退「输入桥」草稿
+ * （index.ts 用 useInput.getState().draft 发布，见 smartstore.setSmartInput）。
+ * 兜底只在"一个 textarea 都找不到"时生效：焦点在弹窗里（弹窗内编辑）与"输入框确实是空的"
+ * 都走 DOM 判定，语义与加兜底前完全一致。
+ * source 供卡片底部临时诊断行显示（排查"输入不自动出卡"用）。
+ */
+type DraftSource = 'dom' | 'bridge' | 'none'
+function currentDraftInfo(): { text: string; source: DraftSource } {
+  const p = probeDraftFromDom()
+  if (p.found) return { text: p.text, source: 'dom' }
+  try {
+    const d = getSmartInput().draft || ''
+    if (d && !bridgeNoticeShown) {
+      bridgeNoticeShown = true
+      try { console.info('[dsh-prompt] smart: DOM 读不到会话输入框草稿，已改用输入桥草稿（若卡片仍不出卡，请带上本行反馈）') } catch (e) { /* ignore */ }
+    }
+    return { text: d, source: d ? 'bridge' : 'none' }
+  } catch (e) { return { text: '', source: 'none' } }
+}
+
+function currentDraft(): string {
+  return currentDraftInfo().text
+}
+
+/* ── 临时诊断上报（#32 验收："输入不自动出卡"；排查结束后整段删除） ──
+   把客户端现场发到宿主 /_dsh/dsh-prompt/debug → 宿主写 .tmp-verify/client-diag.jsonl 与宿主日志。
+   同值只报一次（JSON 相等即跳过），不影响正常使用。 */
+let lastDiagSent = ''
+function domFacts(): { textareas: number; active: string; modal: boolean } {
+  try {
+    if (typeof document === 'undefined') return { textareas: -1, active: 'no-document', modal: false }
+    return {
+      textareas: document.querySelectorAll('textarea').length,
+      active: (document.activeElement && document.activeElement.tagName) || 'none',
+      modal: !!(document.querySelector && document.querySelector('[data-dsh-prompt-modal]')),
+    }
+  } catch (e) { return { textareas: -1, active: 'error', modal: false } }
+}
+function reportDiag(payload: Record<string, unknown>): void {
+  try {
+    const key = JSON.stringify(payload)
+    if (key === lastDiagSent) return
+    lastDiagSent = key
+    if (typeof fetch === 'undefined') return
+    fetch('/_dsh/dsh-prompt/debug', { method: 'POST', headers: { 'content-type': 'application/json' }, body: key })
+      .then(() => undefined, () => undefined)
+  } catch (e) { /* ignore */ }
 }
 
 /** 光标位置：焦点 textarea（value===draft）的 selectionStart，找不到 → 末尾 */
@@ -64,11 +124,12 @@ function caretInDraft(draft: string): number {
   return draft.length
 }
 
-/** 智能插入：光标处插入模板正文（不覆盖），光标定位到首字段冒号后；用量+1；抑制卡片重现 */
+/** 智能插入：光标处插入模板正文（不覆盖），光标定位到首字段冒号后；用量+1；抑制卡片重现
+ *  草稿源与出卡判定同源（currentDraft）——卡片按哪份草稿出现，就按哪份草稿拼接，绝不覆盖用户已输入内容。 */
 export function smartInsert(body: string, id: string): void {
   const { actions } = getSmartInput()
   if (!actions || typeof actions.setDraft !== 'function') return
-  const draft = readActiveDraft()
+  const draft = currentDraft()
   const caret = caretInDraft(draft)
   const newDraft = draft.slice(0, caret) + body + draft.slice(caret)
   actions.setDraft(newDraft)
@@ -94,7 +155,7 @@ export function SmartCardHost(props: any): any {
 
   const [enabled, setEnabled] = react.useState(isSmartEnabled())
   const [input, setInput] = react.useState(getSmartInput())
-  const [draft, setDraft] = react.useState(readActiveDraft())
+  const [draft, setDraft] = react.useState(() => currentDraft())
   const [pos, setPos] = react.useState(null as SmartPos | null)
   const [dismissed, setDismissed] = react.useState(false)
   const [manualOpen, setManualOpen] = react.useState(false)
@@ -111,15 +172,16 @@ export function SmartCardHost(props: any): any {
     return () => { off1(); off2() }
   }, [])
 
-  // 草稿来源 = 输入框 textarea 真实值（轮询 + focus 事件；与面板插入同源，不依赖 overlay 重渲染）
+  // 草稿来源 = 输入框真实值（轮询 + focus 事件；DOM 读不到时由 currentDraft 回退输入桥草稿）；
+  // 与面板插入同源，不依赖 overlay 重渲染
   react.useEffect(() => {
-    const timer = setInterval(() => {
-      const d = readActiveDraft()
-      setDraft((prev: string) => (prev === d ? prev : d))
-    }, 350)
-    const onFocus = () => { setDraft(readActiveDraft()) }
+    const sync = () => { const d = currentDraft(); setDraft((prev: string) => (prev === d ? prev : d)) }
+    sync()
+    const timer = setInterval(sync, 350)
+    const off = onSmartInput(sync) // 输入桥更新（打字 / 会话切换）也即时同步，兜底路径不必等下一轮轮询
+    const onFocus = () => sync()
     if (typeof document !== 'undefined') document.addEventListener('focusin', onFocus, true)
-    return () => { clearInterval(timer); if (typeof document !== 'undefined') document.removeEventListener('focusin', onFocus, true) }
+    return () => { clearInterval(timer); off(); if (typeof document !== 'undefined') document.removeEventListener('focusin', onFocus, true) }
   }, [])
 
   // 位置：载入记忆（无 → 右下角、输入区上方默认），按圆点尺寸 clamp（圆点可贴近角落）
@@ -141,6 +203,16 @@ export function SmartCardHost(props: any): any {
 
   const suppressed = isSuppressed(draft)
   const candidates: ScoredTemplate[] = !enabled || suppressed ? [] : smartCandidates(draft)
+  // 临时诊断上报（#32 验收排查；随诊断段一起删除）：只在开关打开时报，草稿/来源/自定义条数/候选一次带走
+  if (enabled) {
+    const info = currentDraftInfo()
+    reportDiag({
+      draft: info.text.slice(0, 80), source: info.source, dom: domFacts(),
+      customs: allTemplates().filter((x) => !x.builtin).length,
+      candidates: candidates.map((c) => c.tpl.name),
+      smartRaw: String(isSmartEnabled()),
+    })
+  }
   // 手动展开且无匹配时：中性常用兜底（集合仍取预设前 3、不按用量选集——避免"用过一次就一直冒"；
   // #22：集合不变，仅行内显示顺序套用 bottom-up=用量升序+末键预制顺序）
   const fallbackUsage = loadUsage()
@@ -264,6 +336,15 @@ export function SmartCardHost(props: any): any {
       h('button', { style: fillBtn, title: t('smartFill'), onClick: (e: any) => { e.stopPropagation(); doPick(c) } }, t('smartFill')),
     ])
   })
+  // 临时诊断行（仅手动点开时显示）：排查"输入不自动出卡"——它把三件事一次摊开：
+  // 读到的草稿与来源（dom/bridge/none）、客户端已加载的自定义模板条数、本次评分候选数。
+  const diagInfo = manualOpen ? currentDraftInfo() : null
+  const diagSrcLabel = diagInfo ? (diagInfo.source === 'dom' ? '输入框DOM' : diagInfo.source === 'bridge' ? '输入桥' : '读不到') : ''
+  const customCount = allTemplates().filter((x) => !x.builtin).length
+  const diagRow = diagInfo
+    ? h('div', { style: { borderTop: line, paddingTop: 4, color: dim, fontSize: '0.72em', lineHeight: 1.35, wordBreak: 'break-all' } },
+        '诊断(临时) 草稿=' + JSON.stringify(diagInfo.text).slice(0, 60) + ' 来源=' + diagSrcLabel + ' 自定义=' + customCount + '条 候选=' + candidates.length)
+    : null
   const card = h('div', { key: 'card', ref: cardRef, style: cardStyle }, [
     h('div', { style: headStyle, onPointerDown: startDrag }, [
       h('span', { style: { fontWeight: 600, fontSize: '0.85em' } }, t('smartTitle')),
@@ -277,6 +358,7 @@ export function SmartCardHost(props: any): any {
       }, '×'),
     ]),
     h('div', { style: { maxHeight: 220, overflowY: 'auto', overflowX: 'hidden' } }, rowNodes),
+    diagRow,
   ])
 
   return showCard ? card : dot

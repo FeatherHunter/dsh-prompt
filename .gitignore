@@ -4,5 +4,10 @@ lib/client.js.map
 *.tgz
 *.tsbuildinfo
 .DS_Store
+# . 开头的目录一律忽略，避免干扰（.git/ 不受此影响，.gitignore/.gitattributes 是文件不受 */ 规则影响）
+.*/
+.wayfinder/
+.tmp-*
+.tmp-*/
 scripts/.rt-tmp/
 .tmp-rt2/

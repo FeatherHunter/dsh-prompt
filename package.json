@@ -43,6 +43,7 @@
     "test:issue-35": "node scripts/test-issue-35.cjs",
     "test:issue-31": "node scripts/test-issue-31.cjs",
     "test:issue-32": "node scripts/test-issue-32.cjs",
+    "test:smart-draft": "node scripts/test-smart-draft.cjs",
     "test": "npm run test:modal && npm run test:issue-14"
   },
   "dsh": {

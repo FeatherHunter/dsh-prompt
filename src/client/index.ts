@@ -58,7 +58,14 @@ function PanelHost(props: any): any {
       const u: any = (props as any).useInput
       if (u && typeof u.subscribe === 'function') unsub = u.subscribe(push)
     } catch (e) { /* ignore */ }
-    return () => { try { if (typeof unsub === 'function') unsub() } catch (e) { /* ignore */ } }
+    // 轮询兜底：宿主未提供 subscribe（或 subscribe 不覆盖草稿变更）时，桥也必须保持新鲜——
+    // 悬浮卡在 DOM 读不到草稿时正是靠这份桥草稿出卡（见 smart.ts currentDraftInfo）。
+    // setSmartInput 对同值载荷去重，轮询不会引发额外重渲染。
+    const timer = setInterval(push, 300)
+    return () => {
+      try { if (typeof unsub === 'function') unsub() } catch (e) { /* ignore */ }
+      try { clearInterval(timer) } catch (e) { /* ignore */ }
+    }
   }, [(props as any).sessionId, (props as any).useInput, (props as any).inputActions])
   // 会话卸载 → 清空输入桥（悬浮卡回到纯点状态）
   react.useEffect(() => {

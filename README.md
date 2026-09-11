@@ -35,10 +35,10 @@ npm install -g @deepseek-ai/dsh
 dsh plugin --profile web add dsh-prompt     # 用自启 web 服务（dsh web）
 #     或者
 dsh plugin --profile desktop add dsh-prompt   # 用 DSH Desktop 桌面应用
-# 锁定最新版更稳（当前 0.1.6）：
-dsh plugin --profile web add dsh-prompt@0.1.6 --registry https://registry.npmjs.org
+# 锁定最新版更稳（当前 0.1.7）：
+dsh plugin --profile web add dsh-prompt@0.1.7 --registry https://registry.npmjs.org
 #     或者
-dsh plugin --profile desktop add dsh-prompt@0.1.6 --registry https://registry.npmjs.org
+dsh plugin --profile desktop add dsh-prompt@0.1.7 --registry https://registry.npmjs.org
 ```
 
 <div align="center">

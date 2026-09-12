@@ -19,6 +19,17 @@
 //  (g) **真包集成**：不注入假包，用 node_modules 里的 dsh-plugin-update 真建一次能力并驱动真电话
 //      （见 12)）—— 上一版这里注入的是假包，真包返回形状从未被测覆盖；
 //  (h) 失败不许无声：能力缺席 / 降级 / 依赖加载失败都在日志里留下 update.route.fail（见 10)）。
+//
+// 第二轮整改（复审 REWORK 82/100 × 2）新增/改正的断言：
+//  (i) 能力缺席 / 降级时**不再每请求**落 update.route.fail：连打 30 次，日志行数一行都不许涨
+//      （状态型失败只在建能力时落一次）—— 见 10b。原因：warn 绕过日志开关，面板按 UPD_POLL=1000
+//      轮询时会刷成 15 MiB/天且用户关不掉（复审 V1）。
+//  (j) 桥**只判事件名**，字段原样交给日志能力（真闸门是白名单权威）：清单外的字段要真的走到闸门口、
+//      且 droppedFields 涨 —— 见 11 / 11b（复审 V3：上一版桥先按自己认识的五个键裁掉，漂移零可观测）。
+//  (k) 真包集成不止驱动 status：真 executor 驱动的 update.install.exec 成功 / 失败（exitCode 7）
+//      两条都要在断言里（复审 V3 旁证：这条事件以前只有假包覆盖）—— 见 12。
+//  (l) 真包 manual 的口径随本机 profile 变（空 home ⇒ null），断言改成与环境无关的包不变式
+//      （复审 A 的 R1：上一版断言「必须 dsh plugin 开头」，干净 clone / CI 必红）。
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -74,12 +85,14 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   ok('依赖声明（dsh-plugin-update@0.1.1 + esbuild + test:issue-39 + build:update-host + derive:update-values）');
   // 400 行告警线（地图 #38 grilling 拍板）：生产代码按「文件行数」算。本脚本自己的数字不被人工数骗到
   // （PowerShell 的 Get-Content 在 UTF-8 文件上会少报），所以这里真数一遍，超线的当场点名。
-  // 覆盖面 = **本票自己新增/改动的全部文件**，包括本测试脚本、探针与构建脚本 —— 上一版只列 4 个生产
-  // 文件，于是「任何一次新超线都会露出来」这句自己在说谎（审查 A 缺陷 3、审查 B 第 6 节第 6 条）。
-  // 已裁决不拆的两处（地图 #38 的裁定「碰到超线文件当场报警、本轮不拆」）：
+  // 覆盖面 = **本票改动过的全部代码文件**，包括本测试脚本、探针、构建脚本，以及因事件清单条数变化
+  // 被连带改过的 scripts/test-log.cjs —— 上一版漏了 test-log.cjs 却自称「本票全部文件」，被复审 A/B 点名。
+  // 非代码文件（package.json / event-list.dsh-prompt.json / scripts/build.sh）不进这张表。
+  // 已裁决不拆的三处（地图 #38 的裁定「碰到超线文件当场报警、本轮不拆」）：
   //   - lib/index.js：本票之前就已超线，本轮必须往里加接线；
-  //   - scripts/test-issue-39.cjs：本票新增；沿用仓内既有先例 scripts/test-log.cjs（441 行），
-  //     「拆测试」另开票，不在本票顺手拆（顺手拆会违反上面那条裁定的精神）。
+  //   - scripts/test-issue-39.cjs：本票新增；沿用仓内既有先例 scripts/test-log.cjs（基线 452 行、
+  //     本票连带改后 455 行），「拆测试」另开票，不在本票顺手拆（顺手拆会违反上面那条裁定的精神）；
+  //   - scripts/test-log.cjs：同一先例，本票因清单条数/kind 字面量变化连带改（+3 行），已裁决不拆。
   // 其余文件若超线则点名报「未裁决」，不阻断其余断言。
   const ALERT_LINES = 400;
   const lineCount = (rel) => readSrc(rel).split('\n').length - (readSrc(rel).endsWith('\n') ? 1 : 0);
@@ -93,13 +106,14 @@ const squash = (s) => s.replace(/\s+/g, ' ');
     'scripts/update/probe-ctx-services.mjs',
     'scripts/build.mjs',
     'scripts/test-issue-39.cjs',
+    'scripts/test-log.cjs',
   ];
-  const adjudicated = ['lib/index.js', 'scripts/test-issue-39.cjs'];
+  const adjudicated = ['lib/index.js', 'scripts/test-issue-39.cjs', 'scripts/test-log.cjs'];
   const over = watchFiles.filter((f) => lineCount(f) > ALERT_LINES);
   const undecided = over.filter((f) => !adjudicated.includes(f));
   const counts = watchFiles.map((f) => f + '=' + lineCount(f)).join(' ');
   if (over.length === watchFiles.length) fail('行数统计可疑：本票所有文件全超线，先确认 readSrc 没读错（' + counts + '）');
-  ok('行数告警线（' + ALERT_LINES + '，覆盖本票全部文件）：' + counts +
+  ok('行数告警线（' + ALERT_LINES + '，覆盖本票全部代码文件）：' + counts +
     (over.length ? '  ⚠️ 超线：' + over.join(' ') + '（已裁决不拆：' + over.filter((f) => adjudicated.includes(f)).join(' ') + '）' : '  全部在线的以内') +
     (undecided.length ? '  ⚠️ 未裁决超线：' + undecided.join(' ') : ''));
 
@@ -467,6 +481,9 @@ const squash = (s) => s.replace(/\s+/g, ' ');
     'host.call': gate.filter('host.call', { method: 'prompt.updateStatus', latencyMs: 7, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' }),
     'host.call.fail': gate.filter('host.call.fail', { method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt' }),
     'update.install.exec': gate.filter('update.install.exec', { route: 'cli-process', ok: true, exitCode: 0, durationMs: 12, pluginId: 'dsh-prompt' }),
+    // update.route.fail 这一段是复审 M4 的漏网：上一版只对**假**日志能力断言它，把清单里的这条声明
+    // 撤掉，本脚本照样 PASS（只有 test:log 的条数断言会红 —— 那是别的票的兜底，不是本票的依据）。
+    'update.route.fail': gate.filter('update.route.fail', { route: ROUTES.check, reason: 'check-expired', errorHash: 'deadbeef' }),
   };
   eq(gateVerdict['host.call'].ok, true, 'host.call 已声明 → 可落盘（更新成功轨迹查得到）');
   eq(gateVerdict['host.call'].fields,
@@ -480,11 +497,18 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   eq(gateVerdict['host.call.fail'].fields,
     { method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt' },
     'host.call.fail 落盘字段：pluginId 不再被白名单裁掉');
-  for (const name of ['host.call', 'host.call.fail', 'update.install.exec']) {
+  eq(gateVerdict['update.route.fail'].ok, true, 'update.route.fail 已声明 → 可落盘（路由失败查得到）');
+  eq(gateVerdict['update.route.fail'].fields,
+    { route: ROUTES.check, reason: 'check-expired', errorHash: 'deadbeef' },
+    'update.route.fail 的三个字段一个不丢');
+  for (const name of ['host.call', 'host.call.fail', 'update.install.exec', 'update.route.fail']) {
     if (!gate.isDeclared(name)) fail(name + ' 没在事件清单里声明');
   }
   eq(gate.levelOf('host.call'), 'info', 'host.call 的级别由清单决定（不是由更新包传的 level 决定）');
-  ok('(e) 更新包三条事件在真清单真闸门下都落盘：pluginId / route / exitCode 都查得到');
+  // 级别不是装饰：日志开关默认关，`dsh-log` 的 isEnabled 对 warn/error 恒真 —— install.exec 若是 info，
+  // 「装更新退了几 / 走的哪条路由」在默认配置下就查不到（复审 V2 实测开关 off 时落盘 0 行）。
+  eq(gate.levelOf('update.install.exec'), 'warn', 'update.install.exec 必须是 warn（默认开关下也要留痕）');
+  ok('(e) 更新包四条事件在真清单真闸门下都落盘：pluginId / route / exitCode / reason 都查得到');
 
   /* ── 9) (c) 同源防护没被削弱 ── */
   const denyCases = [
@@ -537,31 +561,44 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   eq(out.status, 200, '能力降级时既有路由照常工作');
   ok('更新能力缺席 / 降级 → 三条路由明确回 update-capability-unavailable，既有路由不受影响');
 
-  /* ── 10b) 失败不许无声（审查 F9）：能力起不来 / 路由失败都要留下日志 ──
+  /* ── 10b) 失败不许无声（审查 F9）、但状态型失败只落一次（复审 V1）──
    * 上一版 `catch { return null }` 把「更新能力没起来」整条吞掉：真机上更新按不动时，
    * 日志里连一行线索都没有。现在三条路各落一条 update.route.fail（真日志能力那本账上看）：
    *   - 产物缺失（import 失败）→ dep-load-fail；
    *   - 能力降级（createUpdateCapability 回 ok:false）→ capability-degraded；
-   *   - 路由失败（能力缺席时每条请求）→ update-capability-unavailable。
+   *   - 路由失败 → 只有**电话真的失败**才落。
+   * 第三条是本轮改的：能力缺席 / 降级是状态型失败，建能力时已经落过，请求级再落只会随面板轮询刷屏
+   * —— warn 绕过日志开关（dsh-log 的 isEnabled 对 warn 恒真），按 UPD_POLL=1000 外推 15 MiB/天，
+   * 用户关掉日志开关也停不住（复审 V1 实测 1.03 行/请求）。这里连打 30 次把它钉住。
    * 顺带钉住 updateRoutes 的 logCap 参数不是死参数（审查 F8）。
    */
   const missingLog = (await import(pathToFileURL(path.join(DIR_MISSING, 'log', 'index.js')).href)).__logEvents;
-  const missingFails = missingLog.filter((e) => e[0] === 'update.route.fail').map((e) => e[1]);
-  const depFail = missingFails.find((f) => f.reason === 'dep-load-fail');
-  if (!depFail) fail('产物缺失（import 失败）没落 update.route.fail，实收 ' + JSON.stringify(missingFails));
+  const missingFails = () => missingLog.filter((e) => e[0] === 'update.route.fail').map((e) => e[1]);
+  const depFail = missingFails().find((f) => f.reason === 'dep-load-fail');
+  if (!depFail) fail('产物缺失（import 失败）没落 update.route.fail，实收 ' + JSON.stringify(missingFails()));
   if (depFail && !/^[0-9a-f]{8}$/.test(String(depFail.errorHash))) fail('dep-load-fail 的 errorHash 应是 8 位指纹，实为 ' + JSON.stringify(depFail));
   eq(depFail && depFail.route, '/_dsh/dsh-prompt/update', 'dep-load-fail 的 route 记更新路由这一族');
-  const routeFail = missingFails.find((f) => f.reason === 'update-capability-unavailable');
-  if (!routeFail) fail('能力缺席时每条更新请求都该落一条 update.route.fail(reason=update-capability-unavailable)，实收 ' + JSON.stringify(missingFails));
-  eq(routeFail && routeFail.route, ROUTES.status, '路由失败的 route 记确切端点（不是端点族）');
-  if (routeFail && !/^[0-9a-f]{8}$/.test(String(routeFail.errorHash))) fail('路由失败的 errorHash 应是 8 位指纹（原文不落盘），实为 ' + JSON.stringify(routeFail));
+  const missingBefore30 = missingLog.length;
+  for (let i = 0; i < 30; i++) {
+    const r = await drive(registeredMissing, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
+    if (r.json?.error?.code !== 'update-capability-unavailable') fail('能力缺席时第 ' + (i + 1) + ' 次请求的回包变了：' + JSON.stringify(r.json));
+  }
+  eq(missingLog.length - missingBefore30, 0, '能力缺席时连打 30 次更新路由：日志一行都不许新增（复审 V1 的 15 MiB/天）');
+  eq(missingFails().filter((f) => f.reason === 'update-capability-unavailable').length, 0,
+    '能力缺席不再落**请求级** update.route.fail（状态型失败按状态落一次，不随请求数线性增长）');
 
   const degradedLog = (await import(pathToFileURL(path.join(DIR_DEGRADED, 'log', 'index.js')).href)).__logEvents;
+  const degradedBefore30 = degradedLog.length;
+  for (let i = 0; i < 30; i++) {
+    const r = await drive(registeredDegraded, ROUTES.check, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
+    if (r.json?.error?.code !== 'update-capability-unavailable') fail('能力降级时第 ' + (i + 1) + ' 次请求的回包变了：' + JSON.stringify(r.json));
+  }
+  eq(degradedLog.length - degradedBefore30, 0, '能力降级时连打 30 次更新路由：日志一行都不许新增（同上）');
   const degradedFails = degradedLog.filter((e) => e[0] === 'update.route.fail').map((e) => e[1]);
   const degraded = degradedFails.find((f) => f.reason === 'capability-degraded');
   if (!degraded) fail('能力降级（createUpdateCapability 回 ok:false）没落 update.route.fail，实收 ' + JSON.stringify(degradedFails));
   eq(degraded && degraded.errorHash, 'a75951d6', 'capability-degraded 的 errorHash = hash("dep-load-fail: simulated")');
-  ok('(f) 能力缺席 / 降级的三条失败路径都落 update.route.fail（reason 只记机器码，原文只留 8 位指纹）');
+  ok('(f) 能力缺席 / 降级的三条失败路径都落 update.route.fail，且**不随请求数增长**（reason 只记机器码，原文只留 8 位指纹）');
 
   /* ── 11) 真产物（lib/update.js）直跑：配置三要素、电话表、日志口、降级 ──
    * 这一段不看源码，直接 import 构建产物、注入**假的包入口**（假包，只用来验宿主半自己的逻辑；
@@ -607,6 +644,13 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   captured.deps.logCtx.fire('info', 'update.install.exec', { route: 'cli-process', ok: true, exitCode: 0, durationMs: 3, pluginId: 'dsh-prompt' });
   eq(fired, [['update.install.exec', { route: 'cli-process', ok: true, exitCode: 0, durationMs: 3, pluginId: 'dsh-prompt' }]],
     '装更新那条事件同样按第二参取事件名');
+  // 字段漂移不许在桥里被无声裁掉（复审 V3）：桥只判事件名，清单外的字段要真的走到日志能力面前 ——
+  // 裁剪与计数归真闸门（下一段的去重计数就是这条的落盘侧证据）。
+  fired.length = 0;
+  captured.deps.logCtx.fire('info', 'host.call',
+    { method: 'prompt.updateStatus', latencyMs: 1, ok: true, kind: 'update-status', pluginId: 'dsh-prompt', extraUnknown: 'drop me?' });
+  eq(fired, [['host.call', { method: 'prompt.updateStatus', latencyMs: 1, ok: true, kind: 'update-status', pluginId: 'dsh-prompt', extraUnknown: 'drop me?' }]],
+    '清单外的字段原样交给日志能力（桥不再做第二道白名单）');
   fired.length = 0;
   captured.deps.logCtx.fire('host.call', { method: 'x' });
   eq(fired.filter((e) => e[0] === 'host.call').length, 0,
@@ -644,6 +688,30 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   eq([brokenReply.ok, brokenReply.error, brokenReply.errorKind], [false, 'update-capability-unavailable', 'unknown-profile'], '降级回包的形状');
   ok('真产物直跑：三要素/六字段/三参日志口/失败落盘/按路由转电话/降级，全部对账');
 
+  /* ── 11b) 桥 → 真闸门：字段漂移必须**可观测**（复审 V3）──
+   * 上一版桥按自己认识的五个键先裁一遍，真闸门根本看不到被丢的字段：`droppedFields` 恒 0，
+   * 上游改字段名 = 静默丢 + 零可观测。现在桥只判事件名、字段原样交给日志能力，于是
+   * 「有字段被裁」这件事在真闸门的计数里看得见 —— 这一段把生产桥接进真清单真闸门，注入一个
+   * 清单外的字段，断言它被裁掉、计数涨 1。
+   */
+  const driftGate = createEventGate(manifest, { pluginId: 'dsh-prompt' });
+  const driftLanded = [];
+  let driftDeps = null;
+  await builtMod.createUpdateCapability({
+    logReady: Promise.resolve({
+      log: (event, fields) => { const r = driftGate.filter(event, fields); if (r.ok) driftLanded.push([event, r.fields]); return r.ok },
+    }),
+    hostUpdate: { createHostUpdate(deps) { driftDeps = deps; return { phoneNames: {}, handlers: {} } } },
+  });
+  const driftBefore = driftGate.stats.droppedFields;
+  driftDeps.logCtx.fire('warn', 'host.call.fail', {
+    method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt', extraUnknown: 'drop me?',
+  });
+  eq(driftLanded.map((e) => e[0]), ['host.call.fail'], '清单外的字段不该让整条事件一起丢掉');
+  eq(Object.keys(driftLanded[0]?.[1] ?? {}).sort(), ['errorHash', 'kind', 'method', 'pluginId'], '真闸门按白名单把清单外的字段裁掉');
+  eq(driftGate.stats.droppedFields - driftBefore, 1, '真闸门 droppedFields 涨 1（字段漂移从此可观测）');
+  ok('(j) 生产桥 + 真闸门：未知字段走到闸门口并被裁掉、droppedFields 涨 1（漂移可观测）');
+
   /* ── 12) 真包集成：不注入假包，直接用 node_modules 里的 dsh-plugin-update ──
    * 上一版的「真产物直跑」注入的是假包（`hostUpdate` 短路了 `await import('dsh-plugin-update')`），
    * 于是真包 `createHostUpdate` 的返回形状从未被这条测试覆盖：字段一改名，真机降级而测试仍全绿
@@ -661,8 +729,17 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   const realStatus = await realCap.runRoute(ROUTES.status, {});
   eq(realStatus.ok, true, '真包 status 电话应成功（实际回包 ' + JSON.stringify(realStatus) + '）');
   eq(Object.keys(realStatus.snapshot ?? {}).sort(), SNAPSHOT_FIELDS.slice().sort(), '真包的六字段快照');
-  eq(typeof realStatus.manual === 'string' && realStatus.manual.startsWith('dsh plugin '), true,
-    '真包给的手工兜底命令是真命令字符串（实际 ' + JSON.stringify(realStatus.manual) + '）');
+  // manual 的口径随本机 profile 走：空 home 下真包回 manual:null + blockedReason:"unknown-profile"，
+  // 那是包的**正确**行为（dist/commands.js:56 的 manualCommand 见到 unknown-profile / source-install 就回 null）。
+  // 上一版这里断言「必须是 dsh plugin 开头的字符串」，干净 clone / CI / 换机器必红（复审 A 的 R1）。
+  // 现在断言的是与环境无关的包不变式：要么 null，要么是 dsh plugin 起的真命令；并钉住
+  // 「unknown-profile ⇒ null」这条因果（空 home 那一支就靠它，实测那一支 manual = null）。
+  if (!(realStatus.manual === null || /^dsh plugin /.test(String(realStatus.manual)))) {
+    fail('真包 manual 只允许两种形状：null（本机认不出 profile）或 dsh plugin 起的命令串，实际 ' + JSON.stringify(realStatus.manual));
+  }
+  if (realStatus.snapshot?.blockedReason === 'unknown-profile' && realStatus.manual !== null) {
+    fail('blockedReason=unknown-profile 时 manual 必须是 null（dist/commands.js:56），实际 ' + JSON.stringify(realStatus.manual));
+  }
   const realCall = realLogged.find((e) => e[0] === 'host.call');
   if (!realCall) {
     fail('真包驱动的电话没把 host.call 事件名交给日志能力（日志口收到的事件名：' + JSON.stringify(realLogged.map((e) => e[0])) + '）');
@@ -671,7 +748,48 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   eq(realCall && [realCall[1].method, realCall[1].kind, realCall[1].ok, realCall[1].pluginId],
     ['prompt.updateStatus', 'update-status', true, 'dsh-prompt'], '真包 host.call 的字段值逐项对账');
   if (realCall && typeof realCall[1].latencyMs !== 'number') fail('真包 host.call 应带数字 latencyMs，实为 ' + JSON.stringify(realCall[1].latencyMs));
-  ok('真包集成：createHostUpdate 真形状下 ok=true、六字段快照齐、manual 为真命令、host.call 带全字段到日志能力');
+  ok('真包集成：createHostUpdate 真形状下 ok=true、六字段快照齐、manual 形状对、host.call 带全字段到日志能力');
+
+  /* ── 12b) 真包那条**安装执行**事件也要被真包驱动（复审 V3 旁证）──
+   * 这一段以前只驱动 status，`update.install.exec` 只被 11) 的假包覆盖 —— 真包那边改 route / exitCode
+   * 字段名时，真机静默丢而测试全绿。这里用真包的 `createUpdateExecutor`（dist/store.js:316）驱动一次
+   * 成功、一次失败（exitCode 7）；接线照 `dist/host.js:110`（`log: emitInstallLog` → `phoneLogCtx.fire`）抄：
+   * `log(level, event, fields)` 三参转给**生产桥**（lib/update.js 里那份 createBridgeLog）。
+   * subprocess 是假的：不真起进程、不装包、不碰网络，也不可能改到本机 profile。
+   */
+  const execLogged = [];
+  let execDeps = null;
+  await builtMod.createUpdateCapability({
+    logReady: Promise.resolve({ log: (event, fields) => { execLogged.push([event, fields]); return true } }),
+    hostUpdate: { createHostUpdate(deps) { execDeps = deps; return { phoneNames: {}, handlers: {} } } },
+  });
+  const realStoreMod = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'store.js')).href);
+  let execExit = 0;
+  const realExec = realStoreMod.createUpdateExecutor({
+    profileName: 'web',
+    environmentKind: 'cli',
+    profileDir: DIR,
+    subprocess: () => ({ spawn: () => ({ done: Promise.resolve({ exitCode: execExit }) }) }),
+    cliEntry: () => __filename,
+    targetPackageName: 'dsh-prompt',
+    registryUrl: 'https://registry.npmjs.org/',
+    pluginId: 'dsh-prompt',
+    log: (level, event, fields) => execDeps.logCtx.fire(level, event, fields),
+  });
+  await realExec({ version: '0.1.8', profileName: 'web' });
+  const execOk = execLogged.filter((e) => e[0] === 'update.install.exec').pop();
+  if (!execOk) fail('真 executor 的安装事件没经生产桥到日志能力（日志口收到的事件名：' + JSON.stringify(execLogged.map((e) => e[0])) + '）');
+  eq(Object.keys(execOk[1]).sort(), ['durationMs', 'exitCode', 'ok', 'pluginId', 'route'], '真包安装事件的字段集合');
+  eq([execOk[1].route, execOk[1].ok, execOk[1].exitCode, execOk[1].pluginId], ['cli-process', true, 0, 'dsh-prompt'], '真包安装成功那次逐项对账');
+  if (typeof execOk[1].durationMs !== 'number') fail('真包安装事件应带数字 durationMs，实为 ' + JSON.stringify(execOk[1].durationMs));
+  execLogged.length = 0;
+  execExit = 7;
+  const execFailCode = await realExec({ version: '0.1.8', profileName: 'web' }).then(() => 'ok', (e) => String(e?.code ?? e?.message ?? e));
+  eq(execFailCode, 'install-failed', '真 executor 失败时应抛 install-failed');
+  const execBad = execLogged.filter((e) => e[0] === 'update.install.exec').pop();
+  if (!execBad) fail('真 executor 失败那次没落 update.install.exec（默认开关下「装更新退了几」就查不到）');
+  eq([execBad[1].route, execBad[1].ok, execBad[1].exitCode, execBad[1].pluginId], ['cli-process', false, 7, 'dsh-prompt'], '真包安装失败那次：exitCode 7 查得到');
+  ok('(k) 真包 executor 驱动的 update.install.exec：成功 / 失败（exitCode 7）两条都经生产桥到日志能力');
 
   console.log('=== Test #39 PASS ===');
   process.exit(0);

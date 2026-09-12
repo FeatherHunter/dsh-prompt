@@ -10,10 +10,21 @@
  * 升级只改 package.json 一处版本号；打死进产物会让两处版本各自漂移（wf 就吃了这个亏）。
  */
 import { build } from 'esbuild'
+import { fileURLToPath } from 'node:url'
+
+// 入口 / 产物 / 工作目录都钉在**本文件所在仓库**上：脚本从哪个 cwd 跑都行，且产物逐字节一致。
+// 上一版写的是 cwd 相对路径（'src/update/host/index.ts' / 'lib/update.js'），在仓根外裸跑直接 exit 1
+// （复审 V6② 实测：在 C:\ 下跑同一条命令挂掉）—— 构建脚本不该要求「先 cd 到仓根」。
+// absWorkingDir 也要给：esbuild 的源码注释路径是按工作目录算的，工作目录一变，产物里那几行
+// `// src/update/host/index.ts` 就会变成绝对路径 —— 那样同一份源码在两个 cwd 下会产出不同字节。
+const ROOT = fileURLToPath(new URL('../../', import.meta.url))
+const entry = fileURLToPath(new URL('../../src/update/host/index.ts', import.meta.url))
+const outfile = fileURLToPath(new URL('../../lib/update.js', import.meta.url))
 
 const result = await build({
-  entryPoints: ['src/update/host/index.ts'],
-  outfile: 'lib/update.js',
+  absWorkingDir: ROOT,
+  entryPoints: [entry],
+  outfile,
   bundle: true,
   format: 'esm',
   platform: 'node',

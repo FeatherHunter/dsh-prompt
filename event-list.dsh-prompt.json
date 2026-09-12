@@ -573,7 +573,7 @@
       ]
     },
     "update.install.exec": {
-      "level": "info",
+      "level": "warn",
       "kind": "resident",
       "fields": [
         "route",
@@ -582,7 +582,7 @@
         "durationMs",
         "pluginId"
       ],
-      "guard": "更新包执行安装那条事件（dist/store.js:273 的三参 log），route 判 cli-process / desktop-service",
+      "guard": "更新包执行安装那条事件（dist/store.js:273 的三参 log），route 判 cli-process / desktop-service。级别是 warn 而不是 info：日志开关默认关，info 级在默认配置下不落盘，于是「装更新失败退了几 / 走的 cli 还是 desktop 路由」在默认配置下查不到（#39 复审 V2 实测：开关 off 时本事件落盘 0 行）。安装是低频事件，成功也值得留痕，故按 warn 走恒写通道",
       "codes": [
         "ENUM"
       ],
@@ -602,7 +602,7 @@
         "reason",
         "errorHash"
       ],
-      "guard": "更新路由这一层的失败：reason 只记机器码（update-capability-unavailable / check-expired / phone-failed / unknown-event / dep-load-fail / capability-degraded / capability-build-fail），错误原文只以 8 位指纹落盘",
+      "guard": "更新路由这一层的失败：reason 只记机器码（check-expired / phone-failed / install-failed 之类电话真失败的码，以及建能力时的 dep-load-fail / capability-degraded / capability-build-fail、事件名漂移的 unknown-event），错误原文只以 8 位指纹落盘。**能力缺席 / 降级这类状态型失败按状态落一次**（建能力时那一条），请求级不再落 —— 否则 warn 绕过日志开关，面板按 UPD_POLL=1000 轮询时会刷成 15 MiB/天（#39 复审 V1）",
       "codes": [
         "ENUM",
         "H_ERR"

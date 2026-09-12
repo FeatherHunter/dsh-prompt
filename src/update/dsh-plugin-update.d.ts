@@ -61,6 +61,14 @@ declare module 'dsh-plugin-update' {
    * （#39 第一版就是这么错的，测试全绿、诊断全丢）。第一个参数只表达级别，本仓不据此分派
    * （级别由仓库根 `event-list.dsh-prompt.json` 决定，不引入第二套级别语义），但仍必须收下，
    * 否则参数位置整体错位。调用是同步的，返回值被忽略。
+   *
+   * **前置事实（#39 复审 V5 实测，供下一轮别踩）**：包侧**不校验**这个口 —— `dist/host.js:185-190,194-199`
+   * 两处 `emit` 把 `fire` 包在 try/catch 里，`logCtx: {}`（没有 fire）与 `fire(){ throw }` 都不抛、回包
+   * 仍然是 `ok:true`，日志口什么都不收到。也就是说：形状写错**没有任何运行时信号**，只能靠本仓自己的
+   * 回归断言兜住。所以改这个口时，必须同时改 `scripts/test-issue-39.cjs` 的 8)/11)/12) 三段
+   * （尤其 12) 段是**真包**驱动的）。另一条同类教训：`update.install.exec` 一度只被假包覆盖
+   * （`dist/store.js:273` 那条 `log()` 路径从未被真包驱动过），真包改 `route`/`exitCode` 字段名时
+   * 真机静默丢而测试全绿；12) 段现在用真 executor 驱动这条事件了，别再退回只用假包。
    */
   export interface UpdateLogCtx {
     fire(level: string, event: string, fields?: Record<string, unknown>): void

@@ -42,11 +42,34 @@ function run(label, command, args, shell = false) {
 
 const npm = (script) => run(script, 'npm', ['run', script], process.platform === 'win32')
 
+/**
+ * 跑宿主半打包并**收下 stderr**：失败提示要按成因分支（复审 V6①）。
+ * 上一版不管什么原因都打印「别在 WSL 的 bash 里跑」，而 step2 完全可能因为跟平台无关的原因失败
+ * （比如 build-host.mjs 被删、源码语法错）—— 那时这条修法是误导。stderr 仍原样转发，不吞原生报错。
+ */
+function runHostPack() {
+  console.log('=== build:update-host (esbuild) ===')
+  const r = spawnSync(process.execPath, ['scripts/update/build-host.mjs'], {
+    cwd: ROOT, stdio: ['inherit', 'inherit', 'pipe'], encoding: 'utf8',
+  })
+  if (r.stderr) process.stderr.write(r.stderr)
+  if (r.error) return { ok: false, err: r.error.message }
+  return { ok: r.status === 0, err: String(r.stderr ?? '') }
+}
+
 if (!npm('build:client')) process.exit(1)
-if (!run('build:update-host (esbuild)', process.execPath, ['scripts/update/build-host.mjs'])) {
-  console.error('当前 node：' + process.platform + '/' + process.arch + '（' + process.execPath + '）')
-  console.error('修法：用与本机 esbuild 同平台的 node 跑同一条命令 —— 在 Windows 的 PowerShell / cmd 里')
-  console.error('跑 npm run build，不要在 WSL 的 bash 里跑（WSL 的 node 用不了 win32 的 esbuild）。')
+const hostStep = runHostPack()
+if (!hostStep.ok) {
+  if (/another platform/i.test(hostStep.err)) {
+    console.error('当前 node：' + process.platform + '/' + process.arch + '（' + process.execPath + '）')
+    console.error('修法：用与本机 esbuild 同平台的 node 跑同一条命令 —— 在 Windows 的 PowerShell / cmd 里')
+    console.error('跑 npm run build，不要在 WSL 的 bash 里跑（WSL 的 node 用不了 win32 的 esbuild）。')
+  } else if (/Cannot find module|MODULE_NOT_FOUND/.test(hostStep.err) && /build-host\.mjs/.test(hostStep.err)) {
+    console.error('修法：scripts/update/build-host.mjs 不在了（被删或改名）—— 它是宿主半的打包入口，先把它找回来。')
+  } else {
+    console.error('修法：看上面 build:update-host 的报错原文 —— 这一步是 `node scripts/update/build-host.mjs`')
+    console.error('（esbuild 打包 src/update/host/index.ts → lib/update.js）。这不是「node 平台选错」，别去换 bash/WSL。')
+  }
   process.exit(1)
 }
 

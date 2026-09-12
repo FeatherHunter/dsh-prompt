@@ -104,15 +104,19 @@ export interface CreateUpdateCapabilityOptions {
  * 更新能力的诊断轨迹全丢而测试全绿（审查爆点 1）。
  *
  * 级别（第一参）不转交：本仓的级别由清单 `event-list.dsh-prompt.json` 按事件名决定，
- * 不引入第二套级别语义。字段按清单里声明的名字逐个取出来交给日志能力 —— 闸门仍是白名单的权威，
- * 这里不绕过它，只是把包真正发的字段摆到它面前。清单没声明的事件（包升版新加）不静默丢：
- * 落一条 `update.route.fail`（reason = unknown-event）。
+ * 不引入第二套级别语义。**字段也原样转交**：白名单的权威是日志能力的闸门（`lib/log/gate.js`），
+ * 这里按名字逐个挑字段等于在闸门前面又立一道白名单 —— 上游字段一改名就在桥里被无声裁掉，
+ * 而闸门的 `droppedFields` 恒 0，字段漂移变成零可观测（#39 复审 V3）。桥只判**事件名**：
+ * 包里那三条走原样转交，其余一律走 unknown-event 自报。
+ * 清单没声明的事件（包升版新加）不静默丢：落一条 `update.route.fail`（reason = unknown-event）。
  *
  * 能力是异步建起来的，这里用一个可变槽兜住；闭包在能力就绪前被调用时直接丢掉那一批
  * （只可能丢启动瞬间的一两条，日志能力缺席时的语义本来就是「不落盘」）。
  */
 function createBridgeLog(logReady: CreateUpdateCapabilityOptions['logReady']): UpdateLogCtx {
   let cap: LogCapability | null = null
+  /** unknown-event 自报只落一次：事件名漂移是**状态**，不是每次调用都会变的事实（同复审 V1 的处置）。 */
+  let unknownReported = false
   if (logReady && typeof logReady.then === 'function') {
     logReady.then(
       (ready) => { cap = ready && typeof ready.log === 'function' ? ready : null },
@@ -126,23 +130,19 @@ function createBridgeLog(logReady: CreateUpdateCapabilityOptions['logReady']): U
         const f = (fields ?? {}) as Record<string, unknown>
         switch (String(event ?? '')) {
           case 'host.call':
-            cap.log('host.call', {
-              method: f.method, latencyMs: f.latencyMs, ok: f.ok, kind: f.kind, pluginId: f.pluginId,
-            })
+            cap.log('host.call', { ...f })
             return
           case 'host.call.fail':
-            cap.log('host.call.fail', {
-              method: f.method, kind: f.kind, errorHash: f.errorHash, pluginId: f.pluginId,
-            })
+            cap.log('host.call.fail', { ...f })
             return
           case 'update.install.exec':
-            cap.log('update.install.exec', {
-              route: f.route, ok: f.ok, exitCode: f.exitCode, durationMs: f.durationMs, pluginId: f.pluginId,
-            })
+            cap.log('update.install.exec', { ...f })
             return
           default:
             // 包升版新加的事件：清单里没有，落盘会被闸门按「未声明事件」丢掉 —— 那就留一条可见的
             // 自报，别让「包的日志契约变了」这件事无声通过（事件名本身不落盘，只落稳定指纹）。
+            if (unknownReported) return
+            unknownReported = true
             cap.log('update.route.fail', {
               route: UPDATE_ROUTE_FAMILY, reason: 'unknown-event', errorHash: hash8(String(event ?? '')),
             })

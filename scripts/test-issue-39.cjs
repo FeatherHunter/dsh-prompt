@@ -435,6 +435,13 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   }
   const declaredResult = readSrc('src/update/dsh-plugin-update.d.ts');
   if (!/error\?:\s*string/.test(declaredResult)) fail('本仓对 UpdatePhoneResult.error 的声明应为 string');
+  // 12b) 段是照 `dist/host.js:110` 那行接线接的（executor 的 `log` = `emitInstallLog` → `phoneLogCtx.fire`）。
+  // 那行一改，真包安装事件就绕开本仓日志口，而 12b) 段自己把 log 传进去，会照样绿 —— 所以在这里钉住它
+  // （复审 V3 的同类盲区：真包的接线只在读代码，没有被断言）。
+  const execWiring = realHostSrc.slice(realHostSrc.indexOf('const defaultRun'), realHostSrc.indexOf('sharedReader = createUpdateReader'));
+  if (!/log:\s*emitInstallLog/.test(execWiring) || !/phoneLogCtx\.fire\(level, event, fields\)/.test(realHostSrc)) {
+    fail('真实更新包不再把 executor 的 log 接到 phoneLogCtx.fire（12b 段的接线前提变了：安装事件会绕开本仓日志口）');
+  }
   ok('包契约对账：loggedPhone 失败回包 { ok:false, error(字符串), errorKind } 与本仓声明一致');
   const realHost = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'host.js')).href);
   if (typeof realHost.createHostUpdate !== 'function') fail('dsh-plugin-update 的 createHostUpdate 应为函数');

@@ -91,6 +91,12 @@ function blockedByTotal(childNumber) {
   return Number(raw)
 }
 
+/** 未关闭的阻塞者条数（GitHub 叫 blocked_by，只数开着的）—— 决定这张票是否在 frontier 上。 */
+function openBlockers(childNumber) {
+  const raw = gh(['api', `repos/${REPO}/issues/${childNumber}`, '--jq', '.issue_dependencies_summary.blocked_by'])
+  return Number(raw)
+}
+
 /** 子票正文首行写 Blocked by 兜底行（原生边不可用时的降级路径）。 */
 function patchFallbackLine(number, bodyFile, blockerNumbers) {
   const original = readFileSync(resolve(ROOT, bodyFile), 'utf8')
@@ -166,8 +172,8 @@ for (const t of manifest.tickets) {
 
 // 5. 面板计数：closed/total 不得为 0/0
 function panelCounts() {
-  const subStates = JSON.parse(gh(['api', `repos/${REPO}/issues/${MAP_NUMBER}/sub_issues`, '--jq', '[.[] | .state]']))
-  return { total: subStates.length, closed: subStates.filter((s) => s === 'closed').length }
+  const rows = JSON.parse(gh(['api', `repos/${REPO}/issues/${MAP_NUMBER}/sub_issues`, '--jq', '[.[] | {n: .number, s: .state}]']))
+  return { total: rows.length, closed: rows.filter((r) => r.s === 'closed').length, rows }
 }
 let panel = panelCounts()
 for (let i = 0; i < 10 && panel.total === 0; i++) {
@@ -176,6 +182,17 @@ for (let i = 0; i < 10 && panel.total === 0; i++) {
 }
 expect('面板 closed/total 的总数不为 0', true, panel.total > 0)
 console.log(`\n面板计数：closed/total = ${panel.closed}/${panel.total}`)
+
+// 6. frontier：未关闭的阻塞者应为 0。这条比「边数」更贴近「能不能开工」——
+//    边数管关系建没建对，这条管现在有没有人挡在前面（阻塞票关掉后边仍在，但票已可开工）。
+const stateOf = new Map(panel.rows.map((r) => [r.n, r.s]))
+console.log('—— frontier ——')
+for (const t of manifest.tickets) {
+  const child = state.issues[t.key]
+  if (stateOf.get(child) === 'closed') continue
+  const expectedOpen = t.blockedBy.filter((k) => stateOf.get(state.issues[k]) !== 'closed').length
+  expectEventually(`#${child} 未关闭的阻塞者数`, expectedOpen, () => openBlockers(child))
+}
 
 // ── 报告 ──────────────────────────────────────────────────────────────────────
 
@@ -192,8 +209,15 @@ save()
 console.log('\n—— 建图结果 ——')
 console.log(`map  #${MAP_NUMBER}  ${manifest.map.title}`)
 for (const t of manifest.tickets) {
-  const blocked = t.blockedBy.length ? `  blocked by ${t.blockedBy.map((k) => `#${state.issues[k]}`).join(' ')}` : '  （无阻塞，frontier）'
-  console.log(`  #${state.issues[t.key]}  ${t.title}${blocked}`)
+  const child = state.issues[t.key]
+  const st = stateOf.get(child)
+  const blocked = t.blockedBy.map((k) => `#${state.issues[k]}`)
+  const openOnes = t.blockedBy.filter((k) => stateOf.get(state.issues[k]) !== 'closed')
+  let mark
+  if (st === 'closed') mark = '已关票'
+  else if (openOnes.length === 0) mark = blocked.length ? '无未关闭阻塞，frontier（阻塞边已随关票解除）' : '无阻塞，frontier'
+  else mark = `blocked by ${openOnes.map((k) => `#${state.issues[k]}`).join(' ')}`
+  console.log(`  #${child}  [${st}]  ${t.title}  ${mark}`)
 }
 
 if (problems.length > 0) {

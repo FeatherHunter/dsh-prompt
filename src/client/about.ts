@@ -5,7 +5,7 @@
  * 顶层显示：气泡经 panel 的 TopPortal 挂到 body —— 设置面板自身会滚动、且带层叠上下文，内联气泡会被裁剪或遮挡。
  * 契约：导出 SettingsHeaderLinks({ lang }) 与 AuthorPlugins({ lang }) 两个组件；气泡、定位、清单常量都是内部实现。
  */
-import { getReact, TopPortal, MODAL_Z } from './panel'
+import { getReact, TopPortal, MODAL_Z, PromptMark } from './panel'
 import { tr, STR, type Lang } from './i18n'
 
 type StrKey = keyof typeof STR
@@ -27,7 +27,11 @@ const MORE_PLUGINS: { slug: string; url: string; descKey: StrKey }[] = [
 /** 气泡层级：高于选择类浮层（PANEL_Z 9999）与设置面板自身，低于弹窗（MODAL_Z 11000）——弹窗打开时永远压住气泡。 */
 const TIP_Z = MODAL_Z - 100
 
-const headerRowStyle: any = { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, padding: '2px 4px 6px' }
+const headerRowStyle: any = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '2px 4px 6px' }
+// #53：头行左侧的插件标志与页面名 —— 名字与设置面板导航项同名（i18n 的 sectionName），标志与模板列表同一个
+const brandStyle: any = { display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }
+const brandNameStyle: any = { fontWeight: 600, fontSize: '0.95em', color: 'var(--dsw-alias-label-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+const headBtnsStyle: any = { display: 'inline-flex', alignItems: 'center', gap: 4, flex: 'none' }
 const iconBtnStyle: any = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7,
   textDecoration: 'none', cursor: 'pointer', lineHeight: 1, border: '1px solid transparent',
@@ -162,17 +166,23 @@ function PluginRow(props: any): any {
   ])
 }
 
-/** 顶部右上角两个图标按钮（取代旧的一行文字链接）。 */
+/** 顶部头行：左边插件标志与页面名，右边两个图标按钮（取代旧的一行文字链接）。 */
 export function SettingsHeaderLinks(props: { lang: Lang }): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
   const t = (k: StrKey) => tr(props.lang, STR[k])
   return h('div', { style: headerRowStyle }, [
-    h(HoverTip, { key: 'star', content: t('starTip') },
-      h(IconLink, { href: REPO_URL, label: t('gitHubRepo'), emoji: '🌟' })),
-    h(HoverTip, { key: 'feedback', content: t('feedbackTip') },
-      h(IconLink, { href: ISSUES_URL, label: t('feedback'), emoji: '💬' })),
+    h('span', { key: 'brand', style: brandStyle }, [
+      h(PromptMark, { key: 'mark', size: 16 }),
+      h('span', { key: 'name', style: brandNameStyle }, t('sectionName')),
+    ]),
+    h('span', { key: 'btns', style: headBtnsStyle }, [
+      h(HoverTip, { key: 'star', content: t('starTip') },
+        h(IconLink, { href: REPO_URL, label: t('gitHubRepo'), emoji: '🌟' })),
+      h(HoverTip, { key: 'feedback', content: t('feedbackTip') },
+        h(IconLink, { href: ISSUES_URL, label: t('feedback'), emoji: '💬' })),
+    ]),
   ])
 }
 

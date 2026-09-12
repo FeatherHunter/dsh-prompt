@@ -26,6 +26,29 @@ export function getReact(): any {
   return null
 }
 
+/**
+ * 插件标志（灯泡）单一定义 —— 模板浏览头行（本文件两条分支）与配置页头行（about.ts）共用。
+ * 放在 panel.ts 而不是新开模块：本仓每个回归脚本都自己列一遍要转译的客户端模块，
+ * 往 panel.ts 这条被普遍加载的路径上新增 import 边会让既有脚本全部找不到模块；
+ * 导出比新模块代价小，且保住「标志只有一份定义」。改标志只改这里。
+ */
+export function PromptMark(props: { size?: number }): any {
+  const react = getReact()
+  if (!react) return null
+  const h = react.createElement
+  const s = (props && props.size) || 15
+  return h('svg', {
+    width: s, height: s, viewBox: '0 0 24 24', fill: 'none',
+    stroke: 'var(--dsw-specific-accent,#f0a45c)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
+    'aria-hidden': 'true', style: { flex: 'none' },
+  }, [
+    h('path', { key: 'a', d: 'M15 14c.2-1 .7-1.7 1.5-2.5C17.5 10.6 18 9.3 18 8a6 6 0 1 0-12 0c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5' }),
+    h('path', { key: 'b', d: 'M9 18h6' }),
+    h('path', { key: 'c', d: 'M10 22h4' }),
+    h('path', { key: 'd', d: 'M18.5 2.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z' }),
+  ])
+}
+
 const STAGE_TABS = ['all', '执行前', '执行中', '执行后'] as const
 const DOMAIN_FILTERS = ['all', '思考框架', '学习', '工程', '执行'] as const
 const CUSTOM_TAG = '自定义'
@@ -618,12 +641,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   const rootHover = compact ? { onMouseEnter: () => cancelPanelClose(), onMouseLeave: () => { if (modal || searchFocused || composing) return; schedulePanelClose(150) } } : null
   return h('div', { ref: rootRef, style: panelStyle, ...rootHover }, [
     compact ? h('div', { style: headStyle }, [
-      h('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--dsw-specific-accent,#f0a45c)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, [
-        h('path', { d: 'M15 14c.2-1 .7-1.7 1.5-2.5C17.5 10.6 18 9.3 18 8a6 6 0 1 0-12 0c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5' }),
-        h('path', { d: 'M9 18h6' }),
-        h('path', { d: 'M10 22h4' }),
-        h('path', { d: 'M18.5 2.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z' }),
-      ]),
+      h(PromptMark, { size: 15 }),
       h('span', { style: titleStyle }, t('panelTitle')),
       h('span', { style: { fontSize: '0.85em', color: dim, marginLeft: 6 } }, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
       h('div', { style: { flex: 1 } }),
@@ -633,12 +651,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('button', { style: closeBtn, title: t('close'), onClick: () => setPanelOpen(false) }, '×'),
       ]),
     ]) : h('div', { style: headStyle }, [
-      h('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--dsw-specific-accent,#f0a45c)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, [
-        h('path', { d: 'M15 14c.2-1 .7-1.7 1.5-2.5C17.5 10.6 18 9.3 18 8a6 6 0 1 0-12 0c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5' }),
-        h('path', { d: 'M9 18h6' }),
-        h('path', { d: 'M10 22h4' }),
-        h('path', { d: 'M18.5 2.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z' }),
-      ]),
+      h(PromptMark, { size: 15 }),
       h('span', { style: titleStyle }, t('panelTitle')),
       h('div', { style: { flex: 1 } }),
       h('button', { style: { ...addBtn, width: 'auto', padding: '0 12px', fontSize: '0.92em' }, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋ ' + t('addShort')),

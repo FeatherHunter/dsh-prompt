@@ -18,6 +18,8 @@ export function tr(lang: Lang, m: I18NMap): string {
 
 export const STR = {
   panelTitle: { zh: 'Prompt', en: 'Prompt' },
+  // #53：本插件在设置面板里的页面名 —— 配置页头行左侧与 settings.section 的 label 共用这一份
+  sectionName: { zh: '提示词模板', en: 'Prompt Templates' },
   entryBtn: { zh: 'Prompt', en: 'Prompt' },
   add: { zh: '新增自定义模板', en: 'Add custom template' },
   addShort: { zh: '新增', en: 'Add' },

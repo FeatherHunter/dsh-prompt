@@ -30,6 +30,7 @@ for (const [outName, srcPath, deps] of MODULES) {
 const React = require('react');
 const TR = require('react-test-renderer');
 const about = require(path.join(DIR, 'about.cjs'));
+const panel = require(path.join(DIR, 'panel.cjs'));
 const settings = require(path.join(DIR, 'settings.cjs'));
 const { tr, STR } = require(path.join(DIR, 'i18n.cjs'));
 
@@ -41,13 +42,15 @@ const MORE = [
   ['dsh-prompt', REPO, 'moreDescPrompt', '24'],
   ['dsh-im-companion', 'https://github.com/FeatherHunter/dsh-im-companion', 'moreDescCompanion', '9'],
 ];
-const I18N_KEYS = ['starTip', 'feedbackTip', 'moreTitle', 'moreDescDeck', 'moreDescPalette', 'moreDescPrompt', 'moreDescCompanion'];
+const I18N_KEYS = ['starTip', 'feedbackTip', 'moreTitle', 'moreDescDeck', 'moreDescPalette', 'moreDescPrompt', 'moreDescCompanion', 'sectionName'];
 
 let failures = 0;
 function ok(cond, msg) { if (!cond) { failures++; console.log('  FAIL: ' + msg) } else { console.log('  ok: ' + msg) } }
 function eq(actual, expected, msg) { ok(actual === expected, msg + '（实际 ' + JSON.stringify(actual) + ' ≠ 期望 ' + JSON.stringify(expected) + '）') }
 
 const txt = (n) => {
+  // 传 TestRenderer 进来也算数（renderer 上没有 children，非得先 toJSON，否则取到空串、断言变成空转）
+  if (n && typeof n.toJSON === 'function') n = n.toJSON();
   const parts = [];
   const walk = (c) => {
     if (c === null || c === undefined || c === false || c === true) return;
@@ -113,7 +116,12 @@ for (const [i, a] of zhLinks.entries()) {
   eq(txt(icon), i === 0 ? '🌟' : '💬', '按钮 ' + i + ' 图标是 emoji');
 }
 const hdrRow = zhHdr.root.findAll((x) => x.type === 'div' && x.props.style && x.props.style.display === 'flex')[0];
-eq(hdrRow.props.style.justifyContent, 'flex-end', '按钮行右对齐（右上角）');
+eq(hdrRow.props.style.justifyContent, 'space-between', '#53：头行两端布局（左标志+名字 / 右两个按钮）');
+const brand = zhHdr.root.findAll((x) => x.type === 'span' && x.props.style && x.props.style.display === 'inline-flex' && txt(x).indexOf(STR.sectionName.zh) >= 0)[0];
+ok(!!brand, '#53：头行左边有插件名字（' + STR.sectionName.zh + '）');
+ok(!!brand && brand.findAll((x) => x.type === 'svg').length === 1, '#53：名字左边是插件标志（一个 svg）');
+eq(brand ? txt(brand) : '', STR.sectionName.zh, '#53：左边只显示页面名，不带别的字');
+eq(hdrRow.findAll((x) => x.type === 'svg').length, 1, '#53：整个头行只有一个标志 svg（没混进别的图形）');
 zhHdr.unmount();
 
 console.log('=== T3: 悬停 / 聚焦气泡（中文界面） ===');
@@ -147,6 +155,9 @@ eq(txt(tips(enHdr)[0]), STR.starTip.en, '🌟 气泡英文');
 fire(enWraps[0], 'onBlur');
 fire(enWraps[1], 'onFocus');
 eq(txt(tips(enHdr)[0]), STR.feedbackTip.en, '💬 气泡英文');
+// #53：头行左边的插件名字也要跟着界面语言走
+eq(txt(enHdr).indexOf(STR.sectionName.en) >= 0, true, '#53：头行左边名字英文（' + STR.sectionName.en + '）');
+eq(txt(enHdr).indexOf(STR.sectionName.zh) < 0, true, '#53：英文界面下不出现中文名字');
 enHdr.unmount();
 
 console.log('=== T5: 底部四行引流区 ===');
@@ -182,6 +193,7 @@ const kids = tree.children;
 // #37 自己的四条保证（两个图标按钮、四行引流区、旧入口下线、末尾是引流区）一条没动。
 eq(kids.length, 8, '设置页顶层八块：按钮行 / 智能开关 / 日志三行 / 存储说明 / 模板列表 / 引流区');
 eq(jsonAnchors(kids[0]).map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '第 1 块是右上角两个按钮（顺序：🌟 仓库、💬 ISSUE）');
+eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 1 块左边有插件名字');
 eq(kids[1].type, 'label', '第 2 块是智能开关');
 eq(kids[1].children.some((c) => c.props && c.props.type === 'checkbox'), true, '智能开关仍是 checkbox');
 eq(txt(kids[2]), STR.logToggle.zh, '第 3 块是日志开关（#51 新增）');
@@ -190,6 +202,12 @@ eq(txt(kids[5]), STR.storageNote.zh, '第 6 块是存储说明（一字不动）
 eq(kids[6].type, 'div', '第 7 块是模板浏览列表');
 eq(!kids[6].props['data-dsh-prompt-more'], true, '第 7 块不是引流区');
 eq(kids[7].props['data-dsh-prompt-more'], '', '第 8 块（页面底部）是引流区');
+// #53 回归：panel.ts 头行两处内联灯泡 SVG 换成 logo.ts 的 promptMark 后，设置页头行必须照旧（标志 + Prompt + 新增）
+const browser = mount(React.createElement(panel.TemplateBrowser, { compact: false }));
+eq(browser.root.findAll((x) => x.type === 'svg').length >= 1, true, '#53：模板列表头行仍有标志 svg');
+eq(txt(browser).indexOf(STR.panelTitle.zh) >= 0, true, '#53：模板列表头行仍有标题 ' + STR.panelTitle.zh);
+eq(txt(browser).indexOf(STR.addShort.zh) >= 0, true, '#53：模板列表头行仍有新增按钮');
+browser.unmount();
 page.unmount();
 
 console.log(failures === 0 ? 'ALL PASS: #37 设置页引流区 + 图标按钮' : 'FAILURES: ' + failures);

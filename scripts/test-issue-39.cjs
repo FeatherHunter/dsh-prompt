@@ -568,6 +568,12 @@ const squash = (s) => s.replace(/\s+/g, ' ');
    * 真包见 12 段 —— 上一版把这一段当成「真产物直跑」的全部，真包返回形状从未被覆盖）。
    */
   const builtMod = await import(pathToFileURL(path.join(ROOT, 'lib', 'update.js')).href);
+  // 结构规则：能力对外导出不超过五个（审查 B 指出上一版是 6 个 —— `UNAVAILABLE` 已收回内部）。
+  const builtExports = Object.keys(builtMod).filter((k) => k !== 'default');
+  if (builtExports.length > 5) {
+    fail('lib/update.js 对外导出 ' + builtExports.length + ' 个名字（本仓约束 ≤ 5）：' + builtExports.join(', '));
+  }
+  ok('lib/update.js 对外导出 ' + builtExports.length + ' 个 ≤ 5（' + builtExports.join(', ') + '）');
   if (builtMod.PLUGIN_ID !== 'dsh-prompt' || builtMod.PHONE_PREFIX !== 'prompt' || builtMod.TARGET_PACKAGE_NAME !== 'dsh-prompt') {
     fail('产物里的三要素应为 dsh-prompt / prompt / dsh-prompt，实为 ' +
       [builtMod.PLUGIN_ID, builtMod.PHONE_PREFIX, builtMod.TARGET_PACKAGE_NAME].join(' / '));

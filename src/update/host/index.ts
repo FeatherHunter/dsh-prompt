@@ -59,8 +59,14 @@ const SNAPSHOT_FIELDS = [
   'job', // 进行中/上次的安装任务
 ]
 
-/** 本能力对外只出四个名字：装配点（createUpdateCapability）、快照字段表、以及两条给审查者的常量。 */
-export { SNAPSHOT_FIELDS, UNAVAILABLE }
+/**
+ * 本能力对外只出**五个**名字（本仓结构规则：对外导出不超过五个）：
+ * `createUpdateCapability`（装配点）、`SNAPSHOT_FIELDS`（快照字段表，回归脚本对账用）、
+ * 以及配置三要素 `PLUGIN_ID` / `PHONE_PREFIX` / `TARGET_PACKAGE_NAME`（测试与审查对账用）。
+ * `UNAVAILABLE` 只在本文件内部当 degraded 回包的错误码，不导出 —— 需要它的人从回包里读。
+ * 回归脚本会把这条上限断言下来（`lib/update.js` 的导出数 ≤ 5）。
+ */
+export { SNAPSHOT_FIELDS }
 
 /** 日志能力的形状（本能力只用到 `log`；`lib/index.js` 传进来的那个实例满足它）。 */
 interface LogCapability {

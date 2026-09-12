@@ -11,6 +11,7 @@ import { setSmartInput } from './smartstore'
 import { ensureLoaded } from './store'
 import { getLang } from './i18n'
 import { isPanelOpen, onPanelOpen } from './state'
+import { startLog } from './log'
 
 type ClientContext = {
   slots: any
@@ -78,6 +79,10 @@ function PanelHost(props: any): any {
 }
 
 export function apply(ctx: ClientContext): void {
+  // 日志能力（#49）：先建日志器（本地开关秒显），再向宿主对账（以宿主为准），最后才写第一条事件。
+  const log = startLog()
+  log.reconcile().catch(() => undefined)
+  log.log('app.boot', { hasReact: !!getReact(), lang: getLang(), entryCount: 5 })
   // #20：client 启动即拉 host 快照（失败 warn + 内存默认，不阻塞装配）
   ctx.effect(() => { ensureLoaded().catch(() => undefined) }, 'dsh-prompt: store load')
   // 入口按钮（input.left；开合状态跟随面板）

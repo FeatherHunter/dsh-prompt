@@ -26,7 +26,8 @@
   },
   "files": [
     "lib",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "event-list.dsh-prompt.json"
   ],
   "scripts": {
     "build": "bash scripts/build.sh",
@@ -46,6 +47,7 @@
     "test:issue-32": "node scripts/test-issue-32.cjs",
     "test:smart-draft": "node scripts/test-smart-draft.cjs",
     "test:host-deps": "node scripts/test-host-deps.cjs",
+    "test:log": "node scripts/test-log.cjs",
     "test": "npm run test:modal && npm run test:issue-14"
   },
   "dsh": {
@@ -72,6 +74,7 @@
   "license": "MIT",
   "dependencies": {
     "@deepseek-ai/dsh-storage-domain": "^0.1.5-rc.2",
+    "dsh-log": "^0.2.1",
     "zod": "^4.5.4"
   }
 }

@@ -1,0 +1,622 @@
+{
+  "version": 1,
+  "pluginId": "dsh-prompt",
+  "counts": {
+    "resident": 22,
+    "ondemand": 8,
+    "selfmon": 5
+  },
+  "events": {
+    "app.boot": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "hasReact",
+        "lang",
+        "entryCount"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "store.snapshot.ok": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "customs",
+        "pinned",
+        "latencyMs"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "store.snapshot.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": [
+        "reason",
+        "latencyMs"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "store.persist.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": [
+        "route",
+        "errorHash"
+      ],
+      "codes": [
+        "ENUM",
+        "H_ERR"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "pick.insert": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "source",
+        "templateKind",
+        "idHash",
+        "draftChars"
+      ],
+      "codes": [
+        "ENUM",
+        "H_ID"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "panel.position.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": [
+        "attempts"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "smart.draft.fallback": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "textareas",
+        "activeKind"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "settings.smart.toggle": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "on"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "settings.log.switch": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "on",
+        "ok",
+        "reason"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "settings.log.export": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "ok",
+        "bytes",
+        "fallback"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "settings.log.export.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": [
+        "reason",
+        "errorHash"
+      ],
+      "codes": [
+        "ENUM",
+        "H_ERR"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "settings.log.clear": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "ok",
+        "removed"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "settings.log.reconcile": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "ok",
+        "on"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "bridge.call.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": [
+        "phone",
+        "kind"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "host.route.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": [
+        "route",
+        "method",
+        "status",
+        "errorHash"
+      ],
+      "codes": [
+        "ENUM",
+        "H_ERR"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "host.store.degraded": {
+      "level": "error",
+      "kind": "resident",
+      "fields": [
+        "reason",
+        "errorHash"
+      ],
+      "codes": [
+        "ENUM",
+        "H_ERR"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "host.bridge.reject": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": [
+        "reason"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "host.log.export": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "ok",
+        "bytes",
+        "fallback",
+        "date"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "host.log.clear": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "ok",
+        "removed",
+        "scope"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "host.log.switch.set": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "enabled"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "host.log.manifest.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": [
+        "reason",
+        "errorHash"
+      ],
+      "codes": [
+        "ENUM",
+        "H_ERR"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "host.start": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "pid",
+        "startedAt",
+        "dir"
+      ],
+      "guard": "日志包内部启动头（包语义冻结）；dir 为包内原文目录，不参与本仓字段白名单过滤",
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "panel.open": {
+      "level": "info",
+      "kind": "ondemand",
+      "fields": [
+        "mode",
+        "rows"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "panel.host.mount": {
+      "level": "debug",
+      "kind": "ondemand",
+      "fields": [
+        "propCount",
+        "hasUseInput",
+        "hasInputActions"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "smart.card.show": {
+      "level": "info",
+      "kind": "ondemand",
+      "fields": [
+        "rows",
+        "source",
+        "draftChars",
+        "manual"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "smart.card.miss": {
+      "level": "debug",
+      "kind": "ondemand",
+      "fields": [
+        "reason",
+        "draftChars"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "smart.probe": {
+      "level": "debug",
+      "kind": "ondemand",
+      "fields": [
+        "source",
+        "textareas",
+        "activeKind",
+        "modal",
+        "customs",
+        "candidates",
+        "draftChars"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "guard": "同值只记一次（客户端按载荷去重）",
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "settings.log.broadcast": {
+      "level": "debug",
+      "kind": "ondemand",
+      "fields": [
+        "on"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "host.log.batch": {
+      "level": "info",
+      "kind": "ondemand",
+      "fields": [
+        "entries",
+        "accepted",
+        "dropped"
+      ],
+      "guard": "每 20 批记一次（宿主侧计数器节流）",
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "host.log.switch.get": {
+      "level": "debug",
+      "kind": "ondemand",
+      "fields": [
+        "enabled"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "host.call.fail": {
+      "level": "warn",
+      "kind": "selfmon",
+      "fields": [
+        "method",
+        "kind",
+        "errorHash"
+      ],
+      "guard": "日志包内部自监控（包语义冻结）",
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "log.persist.fail": {
+      "level": "warn",
+      "kind": "selfmon",
+      "fields": [
+        "op",
+        "reason",
+        "dirHash"
+      ],
+      "guard": "日志包内部自监控（包语义冻结）",
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "log.export.fail": {
+      "level": "warn",
+      "kind": "selfmon",
+      "fields": [
+        "op",
+        "reason",
+        "errorHash"
+      ],
+      "guard": "日志包内部自监控（包语义冻结）",
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "log.forward.summary": {
+      "level": "warn",
+      "kind": "selfmon",
+      "fields": [
+        "droppedDelta",
+        "totalDropped",
+        "reason",
+        "windowMs"
+      ],
+      "guard": "日志包内部自监控（包语义冻结）",
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "log.switch.watchdog": {
+      "level": "warn",
+      "kind": "selfmon",
+      "fields": [
+        "op",
+        "timeoutMs",
+        "stage"
+      ],
+      "guard": "日志包内部自监控（包语义冻结）",
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    }
+  }
+}

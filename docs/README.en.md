@@ -154,6 +154,15 @@ Removing the plugin removes the data.
 
 </div>
 
+**Local diagnostic log (off by default, written to your own machine only)**
+
+When you are troubleshooting, the plugin can write a structured log to `<DSH home>/logs/dsh-prompt/YYYY-MM-DD.log` (on Windows: `C:\Users\<you>\.dsh\logs\dsh-prompt\`). The switch lives in **Settings → Plugins → Prompt Templates** and is off by default: with it off only errors and warnings are recorded; turning it on adds info and debug. The host is authoritative, so refreshing the page does not change the value.
+
+- **Template names and prompt bodies are never recorded.** A line carries the event name, its level, counts, booleans, durations and short irreversible hashes only; a template is identified by an 8-character hash. The field whitelist lives in `event-list.dsh-prompt.json`, and both the client and the host drop anything outside it before it can reach the file.
+- **Nothing is ever reported automatically.** Logs stay on your disk; they leave the plugin only when you click "导出日志" (downloads a file) or "复制正文" (copies to the clipboard).
+- **No automatic cleanup**: one file per day, no rotation, no deletion. The "清空日志" button deletes every log file (two-step confirmation).
+- A failing log pipeline never breaks the plugin: an unwritable directory degrades to the system temp directory, and a second failure stops writing entirely with a single warning on stderr.
+
 <h2 align="center"><sub>FAQ</sub><br>FAQ</h2>
 
 <details open>

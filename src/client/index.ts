@@ -11,7 +11,16 @@ import { setSmartInput } from './smartstore'
 import { ensureLoaded } from './store'
 import { getLang } from './i18n'
 import { isPanelOpen, onPanelOpen } from './state'
-import { startLog } from './log'
+import { startLog, getLog } from './log'
+
+/** 记一条调试级事件（先问开关再组装字段：关着开关时连字符串都不拼，包内兜底拦不住调用前的求值）。 */
+function logDebug(event: string, fields?: Record<string, unknown>): void {
+  try {
+    const log = getLog()
+    if (!log.isEnabled(event)) return
+    log.log(event, fields)
+  } catch (e) { /* 日志失败不许影响装配 */ }
+}
 
 type ClientContext = {
   slots: any
@@ -28,7 +37,15 @@ function PanelHost(props: any): any {
   const h = react.createElement
   const openState = react.useState(isPanelOpen())
   const open = openState[0]
-  react.useEffect(() => { onPanelOpen((v) => openState[1](v)); console.log('[dsh-prompt] PanelHost props:', Object.keys(props), '| useInput?', !!props.useInput, '| inputActions?', !!props.inputActions) }, [])
+  react.useEffect(() => {
+    onPanelOpen((v) => openState[1](v))
+    // 面板宿主挂载现场（#49 起走日志能力，debug 级）：只记 props 数量与能力有无，不记 props 内容。
+    logDebug('panel.host.mount', {
+      propCount: Object.keys(props || {}).length,
+      hasUseInput: !!(props as any).useInput,
+      hasInputActions: !!(props as any).inputActions,
+    })
+  }, [])
   // 智能模式桥接：把当前会话输入发布给 shell.overlay 悬浮卡。
   // 注意：useInput 是 hook，只能在组件 render 内调用，不能在 effect/事件回调里以
   // props.useInput(selector) 形式调用（会抛 Invalid hook call → 草稿读空）。

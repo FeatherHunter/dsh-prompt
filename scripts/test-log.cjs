@@ -249,6 +249,86 @@ async function drain(cap, home, expectEvent) {
   assert(!!inlined, '客户端 bundle 里找得到内联的事件清单');
   eq(inlined && JSON.stringify(inlined) === JSON.stringify(manifest), true, '客户端内联的清单与仓库清单逐字段一致（同一份表）');
 
+  /* ── 11) 全仓不再有第二个出口 + 调用点与清单逐条对得上 ── */
+  const sourceFiles = [];
+  for (const dir of [path.join(ROOT, 'src'), path.join(ROOT, 'lib')]) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true, recursive: true })) {
+      if (!entry.isFile()) continue;
+      if (!/\.(ts|js)$/.test(entry.name)) continue;
+      if (entry.name === 'client.js' || entry.name.endsWith('.d.ts')) continue; // 构建产物在下面单独查
+      sourceFiles.push(path.join(entry.parentPath || entry.path, entry.name));
+    }
+  }
+  const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/([^:])\/\/.*$/gm, '$1');
+  const consoleHits = [];
+  for (const file of sourceFiles) {
+    const text = fs.readFileSync(file, 'utf8');
+    for (const m of text.matchAll(/console\.(?:log|warn|error|info|debug)/g)) {
+      consoleHits.push(path.relative(ROOT, file) + ':' + m.index);
+    }
+  }
+  assert(consoleHits.length === 0, `源码里 console.* 已清零（残留：${consoleHits.join(', ') || '无'}）`);
+  const liveCode = sourceFiles.map((f) => stripComments(fs.readFileSync(f, 'utf8'))).join('\n');
+  assert(!/reportDiag\s*\(|client-diag\.jsonl'/.test(liveCode), '临时诊断上报（reportDiag / client-diag.jsonl）已删除');
+  assert(fs.readFileSync(path.join(ROOT, 'lib', 'index.js'), 'utf8').includes('removed-endpoint'), '宿主 /_dsh/dsh-prompt/debug 已改为 404（不再是诊断落盘分支）');
+
+  const PACKAGE_INTERNAL = ['host.start', 'host.call.fail', 'log.persist.fail', 'log.export.fail', 'log.forward.summary', 'log.switch.watchdog'];
+  /** 已声明但尚未接调用点的事件：只在票与票之间短暂存在，接上就删（见对应票）。 */
+  const PENDING_CALL_SITES = ['settings.log.switch']; // #51 配置页日志开关会打这条
+  const CALL_RE = /\b(?:log\w*|\w*Log)(?:\?\.)?\(\s*['"]([a-zA-Z0-9._]+)['"]\s*,\s*\{([^}]*)\}/g;
+  const seen = new Map(); // 事件名 → [字段名]
+  const scanTargets = [...sourceFiles, path.join(ROOT, 'lib', 'client.js')];
+  for (const file of scanTargets) {
+    const text = fs.readFileSync(file, 'utf8');
+    for (const m of text.matchAll(CALL_RE)) {
+      const fields = [...m[2].matchAll(/(?:^|,)\s*([A-Za-z_$][\w$]*)\s*:/g)].map((x) => x[1]);
+      const prior = seen.get(m[1]) || [];
+      seen.set(m[1], [...new Set([...prior, ...fields])]);
+    }
+  }
+  seen.set('host.log.manifest.fail', ['reason', 'errorHash']); // 常量名调用，静态扫不到实参，按其硬编码字段计
+
+  const unknownEvents = [...seen.keys()].filter((n) => !parsed.events[n]);
+  assert(unknownEvents.length === 0, `调用点用的都是清单里声明的事件（未声明：${unknownEvents.join(', ') || '无'}）`);
+  let fieldViolations = 0;
+  for (const [event, fields] of seen) {
+    if (!parsed.events[event]) continue;
+    const res = dshLogHost.checkEventFields(parsed, event, fields);
+    if (!res.ok) {
+      fieldViolations += 1;
+      fail(`调用点字段超出白名单：${event} → ${res.unknownFields.join(', ')}`);
+    }
+  }
+  assert(fieldViolations === 0, `每个调用点的字段都在白名单内（${seen.size} 个事件有调用点）`);
+  const unused = names.filter((n) => !seen.has(n) && !PACKAGE_INTERNAL.includes(n) && !PENDING_CALL_SITES.includes(n));
+  assert(unused.length === 0, `清单里没有"声明了却没人打"的事件（${unused.join(', ') || '无'}）`);
+
+  /* ── 12) 客户端半端到端：用 ModuleLoader 壳加载构建产物，走一遍 apply() ── */
+  let captured = null;
+  const prevWindow = globalThis.window;
+  globalThis.window = { __ModuleLoader__: { load(def) { captured = def; } } };
+  globalThis.localStorage = { _v: {}, getItem(k) { return this._v[k] ?? null; }, setItem(k, v) { this._v[k] = String(v); } };
+  globalThis.fetch = async () => ({ ok: false, status: 503, json: async () => ({ ok: false }) });
+  require(path.join(ROOT, 'lib', 'client.js'));
+  assert(!!captured && captured.id === 'dsh-prompt', '构建产物经 ModuleLoader 壳可加载（id = dsh-prompt）');
+  const clientMod = captured.factory((name) => {
+    if (name === 'react') return require('react');
+    throw new Error('unexpected require: ' + name);
+  });
+  assert(typeof clientMod.apply === 'function', '客户端工厂导出 apply()');
+  const effects = [];
+  clientMod.apply({ slots: { inject: () => undefined, register: () => undefined }, effect: (fn) => { effects.push(fn); return () => undefined; }, inputTriggers: { registerSource: () => undefined } });
+  const slot = globalThis.__dshPromptLog;
+  assert(!!slot, 'apply() 把日志能力装进 globalThis.__dshPromptLog（调用点从这里取）');
+  slot.log('app.boot', { hasReact: true, lang: 'zh', entryCount: 5 });
+  slot.log('app.boot', { hasReact: true, lang: 'zh', entryCount: 5, name: '模板名', body: '正文' });
+  slot.log('not.declared.event', { x: 1 });
+  const cst = slot.status();
+  eq(cst.droppedFields, 2, '客户端闸门丢掉未声明字段（模板名与正文没进队列）');
+  eq(cst.undeclared, 1, '客户端闸门丢掉未声明事件');
+  eq(cst.manifestOk, true, '客户端清单可用（构建期内联，形状自检通过）');
+  globalThis.window = prevWindow;
+
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* 清理失败不影响结论 */ }
   console.log(failures === 0 ? '=== Test log PASS ===' : `=== Test log FAIL（${failures} 项）===`);
   process.exit(failures === 0 ? 0 : 1);

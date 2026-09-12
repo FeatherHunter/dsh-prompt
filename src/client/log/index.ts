@@ -17,6 +17,7 @@
 import manifest from '../../../event-list.dsh-prompt.json'
 import { createClientLog } from 'dsh-log/client'
 import type { ClientLog, ClientLogDeps } from 'dsh-log/client'
+import { createEventGate, hash8 } from '../../../lib/log/gate.js'
 
 /** 事件名联合类型：直接来自清单，写错事件名在编译期就报错。 */
 export type LogEvent = keyof typeof manifest.events
@@ -25,20 +26,6 @@ export type LogEvent = keyof typeof manifest.events
 export const LOG_EVENTS: readonly string[] = Object.keys(manifest.events)
 
 const ENDPOINT_DEFAULT = '/_dsh/dsh-prompt/log'
-const MAX_EVENT_BYTES = 1024
-const MAX_FIELD_CHARS = 32
-const HASH_RE = /^[0-9a-f]{8}$/
-const MANIFEST_FAIL_EVENT = 'host.log.manifest.fail'
-const MANIFEST_FAIL_FIELDS = ['reason', 'errorHash']
-
-/** 与宿主半同一张具名规则表（命中只记规则名不记原文）；两侧各一份，回归脚本用同一批样本交叉验证。 */
-const RULE_TABLE: Array<[string, RegExp]> = [
-  ['R_TOKEN', /(ghp_|gho_|github_pat_|bearer\s|sk-)[A-Za-z0-9_-]{8,}/i],
-  ['R_WIN_ABS', /(^|[^A-Za-z0-9])[A-Za-z]:[\\/]/],
-  ['R_HOME_PATH', /(users|home)[\\/][^\\/\s]+/i],
-  ['R_URL', /https?:\/\//i],
-  ['R_EMAIL', /[\w.+-]+@[\w-]+\.[A-Za-z]{2,}/],
-]
 
 export interface LogStatus {
   dropped: number
@@ -76,123 +63,6 @@ export interface LogFacade {
   raw(): ClientLog
 }
 
-interface ManifestEntry {
-  level: string
-  kind: string
-  fields: string[]
-  rules?: string[]
-}
-
-interface GateStats {
-  undeclared: number
-  droppedFields: number
-  oversize: number
-  scrubbed: number
-}
-
-/** 清单自检（形状规则与宿主半一致；构建期内联意味着它通常恒过，留着是为了坏构建能被看见）。 */
-function manifestOk(): boolean {
-  try {
-    const value: any = manifest
-    if (!value || value.version !== 1 || value.pluginId !== 'dsh-prompt') return false
-    if (!value.events || typeof value.events !== 'object') return false
-    return Object.values(value.events).every((entry: any) => entry && Array.isArray(entry.fields))
-  } catch (e) {
-    return false
-  }
-}
-
-function hash8(value: unknown): string {
-  try {
-    const text = String(value ?? '')
-    let h = 5381
-    for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) >>> 0
-    return ('0000000' + h.toString(16)).slice(-8)
-  } catch (e) {
-    return '00000000'
-  }
-}
-
-/** 字段闸门（与宿主半同一套规则）：未声明事件整条丢、未声明字段丢字段、超 1KB 整条丢、清单坏则失败关闭。 */
-function createGate(stats: GateStats) {
-  const table = new Map<string, ManifestEntry>()
-  const usable = manifestOk()
-  if (usable) {
-    for (const [name, entry] of Object.entries((manifest as any).events as Record<string, ManifestEntry>)) {
-      table.set(name, entry)
-    }
-  }
-
-  function coerce(field: string, value: unknown): { skip?: boolean; value?: unknown } {
-    if (value === undefined || value === null) return { skip: true }
-    if (/Hash$/.test(field)) {
-      const text = String(value)
-      return { value: HASH_RE.test(text) ? text : hash8(text) }
-    }
-    if (typeof value === 'boolean') return { value }
-    if (typeof value === 'number') {
-      if (!Number.isFinite(value)) return { skip: true }
-      return { value: Number.isInteger(value) ? value : Math.round(value) }
-    }
-    let text = String(value)
-    // 规则网无条件生效（清单里的 rules 是书面声明，不当作开关）：第二道网一旦要逐条声明就会烂掉。
-    for (const [ruleName, re] of RULE_TABLE) {
-      if (re.test(text)) {
-        text = ruleName
-        stats.scrubbed += 1
-        break
-      }
-    }
-    return { value: text.length > MAX_FIELD_CHARS ? text.slice(0, MAX_FIELD_CHARS) : text }
-  }
-
-  return {
-    usable,
-    levels: (() => {
-      const levels: Record<string, string> = {}
-      for (const [name, entry] of table) levels[name] = entry.level
-      return levels
-    })(),
-    filter(event: string, fields?: Record<string, unknown>): { ok: boolean; level: string; fields: Record<string, unknown> } {
-      const name = String(event || '')
-      const entry = table.get(name)
-      const isManifestFail = name === MANIFEST_FAIL_EVENT
-      if (!entry && !isManifestFail) {
-        // 清单可用：未声明事件整条丢弃；清单不可用：失败关闭只丢字段，事件名与级别保留（级别按 info 走开关闸门）。
-        if (table.size > 0) {
-          stats.undeclared += 1
-          return { ok: false, level: 'info', fields: {} }
-        }
-        stats.undeclared += 1
-        return { ok: true, level: 'info', fields: {} }
-      }
-      const declared = entry ? entry.fields : MANIFEST_FAIL_FIELDS
-      const level = entry ? entry.level : 'warn'
-      const input = fields && typeof fields === 'object' ? fields : {}
-      const safe: Record<string, unknown> = {}
-      for (const [key, value] of Object.entries(input)) {
-        if (declared.indexOf(key) < 0) {
-          stats.droppedFields += 1
-          continue
-        }
-        const out = coerce(key, value)
-        if (!out.skip) safe[key] = out.value
-      }
-      let line = ''
-      try {
-        line = JSON.stringify({ ts: 0, level, event: name, fields: safe })
-      } catch (e) {
-        return { ok: false, level, fields: {} }
-      }
-      if (line.length > MAX_EVENT_BYTES) {
-        stats.oversize += 1
-        return { ok: false, level, fields: {} }
-      }
-      return { ok: true, level, fields: safe }
-    },
-  }
-}
-
 export interface StartLogDeps {
   /** 桥的落点，默认 `/_dsh/dsh-prompt/log`。 */
   endpoint?: string
@@ -218,8 +88,7 @@ function notify(): void {
 /** 建日志能力并登记为当前实例（热重载重跑 apply 时以最后一次为准）。 */
 export function startLog(deps: StartLogDeps = {}): LogFacade {
   const endpoint = deps.endpoint ?? ENDPOINT_DEFAULT
-  const stats: GateStats = { undeclared: 0, droppedFields: 0, oversize: 0, scrubbed: 0 }
-  const gate = createGate(stats)
+  const gate = createEventGate(manifest)
 
   // 跨标签页：开关变化广播给同源其它标签页，收到的一方重读本地值并通知订阅者。
   let channel: any = null
@@ -284,20 +153,20 @@ export function startLog(deps: StartLogDeps = {}): LogFacade {
       }
     },
     isEnabled(event) {
-      if (gate.usable && !gate.levels[String(event)]) return false
+      if (gate.manifestOk && !gate.isDeclared(String(event))) return false
       try {
-        return clientLog.isEnabled(gate.levels[String(event)] ?? 'info')
+        return clientLog.isEnabled(gate.levelOf(String(event)) ?? 'info')
       } catch (e) {
         return false
       }
     },
     status: () => ({
       dropped: clientLog.getDroppedCount(),
-      undeclared: stats.undeclared,
-      droppedFields: stats.droppedFields,
-      oversize: stats.oversize,
-      scrubbed: stats.scrubbed,
-      manifestOk: gate.usable,
+      undeclared: gate.stats.undeclared,
+      droppedFields: gate.stats.droppedFields,
+      oversize: gate.stats.oversize,
+      scrubbed: gate.stats.scrubbed,
+      manifestOk: gate.manifestOk,
     }),
     getSwitch: () => ({ enabled: clientLog.logSwitch.enabled, sampleRate: clientLog.logSwitch.sampleRate }),
     async setSwitch(enabled) {
@@ -361,6 +230,12 @@ export function startLog(deps: StartLogDeps = {}): LogFacade {
   }
 
   current = facade
+  // 装进槽：调用点（store / panel / smart / settings）从 globalThis 读它，而不是各自 import 本模块。
+  // 为什么走槽：本仓既有回归脚本把客户端模块逐个转译后单独 require，单文件 bundle 里也没有模块内 require，
+  // 槽是两边都能用的唯一机制；出口仍然只有 facade.log 一个。热重载重跑 startLog 时以后一个为准。
+  try {
+    ;(globalThis as any).__dshPromptLog = facade
+  } catch (e) { /* ignore */ }
   return facade
 }
 

@@ -6,13 +6,14 @@
  * - Host：同源 HTTP 桥 /_dsh/dsh-prompt/*（lib/index.js，storages/dsh_prompt.json）。
  *   智能开关与悬浮卡位置仍在 localStorage（纯本机 UI 偏好，无跨端意义，不进 domain）。
  * - 同步 API 保持（panel/trigger/match/smart 零改调用方）：读走内存缓存，
- *   写先更新缓存再 fire-and-forget 落 host；失败仅 console.warn（fail-soft，
- *   抄 projcache/vision-router warn-only，不静默丢也不崩 UI）。
+ *   写先更新缓存再 fire-and-forget 落 host；失败记 store.persist.fail 事件（fail-soft，
+ *   不静默丢也不崩 UI；#49 起不再往 console 写）。
  * - #23 统一标签：模板统一携带 labels；templateLabels()/labelString()/matchLabel()
  *   是筛选与展示的唯一收敛点（三处共用，不另起新缝）。
  */
 import type { PromptTemplate } from './templates'
 import { PRESET_TEMPLATES, getPresetById } from './templates'
+
 
 const MAX_PIN = 5
 const MAX_BODY = 1000
@@ -88,11 +89,20 @@ async function fetchJSON(url: string, init?: RequestInit): Promise<any | null> {
   }
 }
 
-/** 拉取 host 快照并装入缓存（失败 → 保持内存默认 + warn，不读旧 localStorage）。 */
+/** 路由名（日志里只记这个枚举，不记 URL 原文；与事件清单的 route 取值一一对应）。 */
+const ROUTE_NAMES: Record<string, string> = {
+  [PUT_URL]: 'customs.put',
+  [DELETE_URL]: 'customs.delete',
+  [BUMP_URL]: 'usage.bump',
+  [PINNED_URL]: 'pinned.set',
+}
+
+/** 拉取 host 快照并装入缓存（失败 → 保持内存默认 + 记事件，不读旧 localStorage）。 */
 export function ensureLoaded(): Promise<void> {
   if (storeLoaded) return Promise.resolve()
   if (loadPromise) return loadPromise
   loadPromise = (async () => {
+    const startedAt = Date.now()
     const data = await fetchJSON(STORE_URL)
     if (data && data.ok && data.value) {
       const v = data.value as Partial<StoreSnapshot>
@@ -100,8 +110,12 @@ export function ensureLoaded(): Promise<void> {
       if (v.usage && typeof v.usage === 'object') cache.usage = v.usage as Record<string, number>
       if (Array.isArray(v.pinned)) cache.pinned = (v.pinned as unknown[]).filter((x): x is string => typeof x === 'string')
       cache.lastUsed = typeof v.lastUsed === 'string' ? v.lastUsed : null
+      logEvent('store.snapshot.ok', { customs: cache.customs.length, pinned: cache.pinned.length, latencyMs: Date.now() - startedAt })
     } else {
-      try { console.warn('[dsh-prompt] store snapshot unavailable, using memory defaults') } catch (e) { /* ignore */ }
+      logEvent('store.snapshot.fail', {
+        reason: typeof fetch === 'undefined' ? 'no-fetch' : 'http-or-json-fail',
+        latencyMs: Date.now() - startedAt,
+      })
     }
     storeLoaded = true
     notifyStore()
@@ -119,7 +133,7 @@ function toHostShape(t: CustomTemplate): object {
   return { ...rest, labels: templateLabels(t as PromptTemplate) }
 }
 
-/** fire-and-forget 落盘（失败 warn，不回滚内存、不抛给 UI）。 */
+/** fire-and-forget 落盘（失败记事件，不回滚内存、不抛给 UI）。 */
 function persist(url: string, body: unknown): void {
   try {
     if (typeof fetch === 'undefined') return
@@ -129,7 +143,12 @@ function persist(url: string, body: unknown): void {
       body: JSON.stringify(body),
     }).then(
       () => undefined,
-      (e) => { try { console.warn('[dsh-prompt] persist failed', url, String(e && (e as Error).message || e)) } catch (err) { /* ignore */ } },
+      (e) => {
+        logEvent('store.persist.fail', {
+          route: ROUTE_NAMES[url] ?? 'unknown',
+          errorHash: String(e && (e as Error).message || e),
+        })
+      },
     )
   } catch (e) { /* ignore */ }
 }
@@ -398,3 +417,14 @@ export function copyPresetToCustom(id: string): CustomTemplate | null {
 }
 
 export { MAX_BODY }
+
+/** 记一条日志事件。出口只有一个：日志能力装进 globalThis.__dshPromptLog 的那个实例。
+ *  走槽而不是 import 的原因：本仓既有回归脚本会把客户端模块逐个转译后单独 require
+ *  （scripts/.rt-tmp/*.cjs），而单文件 bundle 里也没有可用的模块内 require——槽是两边都能用的唯一机制。
+ *  能力缺席时是空操作，绝不因为记日志失败而影响功能。 */
+function logEvent(event: string, fields?: Record<string, unknown>): void {
+  try {
+    const log = (globalThis as any).__dshPromptLog
+    if (log && typeof log.log === 'function') log.log(event, fields)
+  } catch (e) { /* ignore */ }
+}

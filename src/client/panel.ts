@@ -20,7 +20,6 @@ import {
 import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './state'
 import { getLang, tr, STR, type Lang } from './i18n'
 import { setSmartInput } from './smartstore'
-
 export function getReact(): any {
   if (typeof require === 'function') { try { return require('react') } catch (e) { /* ignore */ } }
   if (typeof globalThis !== 'undefined' && (globalThis as any).React) return (globalThis as any).React
@@ -42,8 +41,8 @@ interface ModalState {
   t?: PromptTemplate
 }
 
-/** 插入正文到当前草稿（光标处优先，否则末尾；不覆盖；自动聚焦） */
-export function insertBody(useInput: any, inputActions: any, body: string): void {
+/** 插入正文到当前草稿（光标处优先，否则末尾；不覆盖；自动聚焦）。返回插入前的草稿长度，供调用点记日志。 */
+export function insertBody(useInput: any, inputActions: any, body: string): number {
   // 草稿以 DOM 真实值为准：事件处理里不能调用 useInput(selector)（hook，只能在 render 内调用，
   // 在这里调会抛 Invalid hook call → 被 catch 吞掉 → draft 变 '' → setDraft(body) 整框覆盖）。
   // 顺序：焦点 textarea 真实值 → store getState → DOM 可见 textarea → 空串。
@@ -93,11 +92,18 @@ export function insertBody(useInput: any, inputActions: any, body: string): void
       }
     } catch (e) { /* ignore */ }
   }, 0)
+  return draft.length
 }
 
-/** 点击模板：插入 + 用量 +1 + 面板关闭 */
+/** 点击模板：插入 + 用量 +1 + 面板关闭（并记一条插入事件：只记种类与散列，不记模板名与正文）。 */
 export function onPick(t: PromptTemplate, useInput: any, inputActions: any): void {
-  insertBody(useInput, inputActions, t.body)
+  const draftChars = insertBody(useInput, inputActions, t.body)
+  logEvent('pick.insert', {
+    source: 'panel',
+    templateKind: t.builtin ? 'preset' : 'custom',
+    idHash: t.id,
+    draftChars,
+  })
   bumpUsage(t.id)
   setPanelOpen(false)
 }
@@ -286,6 +292,11 @@ export function TemplateBrowser(props: BrowserProps): any {
   const compState = react.useState(false)
   const composing = compState[0]
 
+  // 面板打开事件（#49）：只记形态与条数，不记模板名与搜索词。
+  react.useEffect(() => {
+    logEvent('panel.open', { mode: compact ? 'compact' : 'full', rows: allTemplates().length })
+  }, [])
+
   // 正上方对齐 ⚡Prompt 按钮（仅紧凑面板/popover）：fixed + 按钮视口 rect
   // 列表左缘与按钮左缘垂直对齐（left = btn.left）；列表底边在按钮顶边之上 → 整体位于按钮正上方
   // #35：绘制前定位 + 未定位前隐藏 + 失败重试。pos 初始 null 时 fallback left:0/bottom:0
@@ -331,7 +342,8 @@ export function TemplateBrowser(props: BrowserProps): any {
         if (typeof requestAnimationFrame !== 'undefined') raf = requestAnimationFrame(again)
         else timer = setTimeout(again, 50)
       } else if (!disposed) {
-        try { console.warn('[dsh-prompt] panel positioning fallback: entry button not found after retries') } catch (e) { /* ignore */ }
+        // 定位回退（#49 起走统一日志能力）：记事件与重试次数，不记坐标与页面内容。
+        logEvent('panel.position.fail', { attempts: tries })
         posState[1]({ left: 8, bottom: 8 }) // 终极回退：可见可点，不静默消失
       }
     }
@@ -659,3 +671,14 @@ function emitGoSettings(): void { if (goSettingsHandler) goSettingsHandler() }
 
 export function getPresetList(): PromptTemplate[] { return PRESET_TEMPLATES }
 export function getPreset(id: string): PromptTemplate | undefined { return getPresetById(id) }
+
+/** 记一条日志事件。出口只有一个：日志能力装进 globalThis.__dshPromptLog 的那个实例。
+ *  走槽而不是 import 的原因：本仓既有回归脚本会把客户端模块逐个转译后单独 require
+ *  （scripts/.rt-tmp/*.cjs），而单文件 bundle 里也没有可用的模块内 require——槽是两边都能用的唯一机制。
+ *  能力缺席时是空操作，绝不因为记日志失败而影响功能。 */
+function logEvent(event: string, fields?: Record<string, unknown>): void {
+  try {
+    const log = (globalThis as any).__dshPromptLog
+    if (log && typeof log.log === 'function') log.log(event, fields)
+  } catch (e) { /* ignore */ }
+}

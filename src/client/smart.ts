@@ -14,7 +14,6 @@ import {
   type SmartPos,
 } from './smartstore'
 import { getLang, tr, STR } from './i18n'
-
 const DOT_SIZE = 12 // 还原原设计：12px 次级色低调圆点（原型 GlobalDot 样式）
 const CARD_W = 280 // 内容宽度收窄
 const CARD_H_EST = 150 // 卡片高度估算（首次渲染未测量时用；测量后精确锚定）
@@ -76,7 +75,8 @@ function currentDraftInfo(): { text: string; source: DraftSource } {
     const d = getSmartInput().draft || ''
     if (d && !bridgeNoticeShown) {
       bridgeNoticeShown = true
-      try { console.info('[dsh-prompt] smart: DOM 读不到会话输入框草稿，已改用输入桥草稿（若卡片仍不出卡，请带上本行反馈）') } catch (e) { /* ignore */ }
+      const facts = domFacts()
+      logEvent('smart.draft.fallback', { textareas: facts.textareas, activeKind: facts.active })
     }
     return { text: d, source: d ? 'bridge' : 'none' }
   } catch (e) { return { text: '', source: 'none' } }
@@ -86,10 +86,10 @@ function currentDraft(): string {
   return currentDraftInfo().text
 }
 
-/* ── 临时诊断上报（#32 验收："输入不自动出卡"；排查结束后整段删除） ──
-   把客户端现场发到宿主 /_dsh/dsh-prompt/debug → 宿主写 .tmp-verify/client-diag.jsonl 与宿主日志。
-   同值只报一次（JSON 相等即跳过），不影响正常使用。 */
-let lastDiagSent = ''
+/* ── 诊断打点（#49 起走统一日志能力） ──
+   以前是把草稿前 80 字发到宿主 /_dsh/dsh-prompt/debug 落到磁盘文件（"输入不自动出卡"排查用）——
+   那既把用户草稿写进了磁盘、又是第二套日志出口。现在等价信息改由 smart.probe / smart.card.* 承担：
+   只记 DOM 现场计数与草稿长度，不记草稿正文，且受日志开关与事件清单管。 */
 function domFacts(): { textareas: number; active: string; modal: boolean } {
   try {
     if (typeof document === 'undefined') return { textareas: -1, active: 'no-document', modal: false }
@@ -100,14 +100,24 @@ function domFacts(): { textareas: number; active: string; modal: boolean } {
     }
   } catch (e) { return { textareas: -1, active: 'error', modal: false } }
 }
-function reportDiag(payload: Record<string, unknown>): void {
+
+let lastProbeKey = ''
+/** 现场快照只记一次（同值去重）：草稿长度变了才算新现场，避免每次轮询刷一行。 */
+function probeOnce(source: DraftSource, draftChars: number, candidates: number): void {
   try {
-    const key = JSON.stringify(payload)
-    if (key === lastDiagSent) return
-    lastDiagSent = key
-    if (typeof fetch === 'undefined') return
-    fetch('/_dsh/dsh-prompt/debug', { method: 'POST', headers: { 'content-type': 'application/json' }, body: key })
-      .then(() => undefined, () => undefined)
+    const facts = domFacts()
+    const key = [source, facts.textareas, facts.active, facts.modal, candidates, draftChars].join('|')
+    if (key === lastProbeKey) return
+    lastProbeKey = key
+    logEvent('smart.probe', {
+      source,
+      textareas: facts.textareas,
+      activeKind: facts.active,
+      modal: facts.modal,
+      customs: allTemplates().filter((x) => !x.builtin).length,
+      candidates,
+      draftChars,
+    })
   } catch (e) { /* ignore */ }
 }
 
@@ -145,6 +155,12 @@ export function smartInsert(body: string, id: string): void {
     } catch (e) { /* ignore */ }
   }, 0)
   bumpUsage(id)
+  logEvent('pick.insert', {
+    source: 'smart',
+    templateKind: allTemplates().find((x) => x.id === id)?.builtin ? 'preset' : 'custom',
+    idHash: id,
+    draftChars: draft.length,
+  })
   suppressCard(newDraft)
 }
 
@@ -203,15 +219,10 @@ export function SmartCardHost(props: any): any {
 
   const suppressed = isSuppressed(draft)
   const candidates: ScoredTemplate[] = !enabled || suppressed ? [] : smartCandidates(draft)
-  // 临时诊断上报（#32 验收排查；随诊断段一起删除）：只在开关打开时报，草稿/来源/自定义条数/候选一次带走
+  // 诊断打点（#49 起走日志能力）：现场只记计数与草稿长度，不记草稿正文；受开关与清单约束。
   if (enabled) {
     const info = currentDraftInfo()
-    reportDiag({
-      draft: info.text.slice(0, 80), source: info.source, dom: domFacts(),
-      customs: allTemplates().filter((x) => !x.builtin).length,
-      candidates: candidates.map((c) => c.tpl.name),
-      smartRaw: String(isSmartEnabled()),
-    })
+    probeOnce(info.source, info.text.length, candidates.length)
   }
   // 手动展开且无匹配时：中性常用兜底（集合仍取预设前 3、不按用量选集——避免"用过一次就一直冒"；
   // #22：集合不变，仅行内显示顺序套用 bottom-up=用量升序+末键预制顺序）
@@ -222,6 +233,21 @@ export function SmartCardHost(props: any): any {
   const rows: ScoredTemplate[] = candidates.length > 0 ? candidates : (manualOpen ? fallbackRows : [])
   rowsRef.current = rows
   const showCard = rows.length > 0 && !dismissed
+
+  // 出卡与否（#49）：只在智能开关打开时才会走到这里；reason 是机器码，不带模板名与草稿正文。
+  react.useEffect(() => {
+    if (showCard) {
+      logEvent('smart.card.show', {
+        rows: rows.length,
+        source: currentDraftInfo().source,
+        draftChars: draft.length,
+        manual: manualOpen,
+      })
+      return
+    }
+    const reason = suppressed ? 'suppressed' : dismissed ? 'dismissed' : !draft ? 'empty-draft' : 'no-match'
+    logEvent('smart.card.miss', { reason, draftChars: draft.length })
+  }, [showCard, rows.length, draft, dismissed, manualOpen, suppressed])
 
   // 测量卡片真实高度（布局后回调）：保证卡与圆点贴合，不因估算偏差悬空（hooks 顺序：在 early return 之前）
   react.useEffect(() => {
@@ -362,4 +388,15 @@ export function SmartCardHost(props: any): any {
   ])
 
   return showCard ? card : dot
+}
+
+/** 记一条日志事件。出口只有一个：日志能力装进 globalThis.__dshPromptLog 的那个实例。
+ *  走槽而不是 import 的原因：本仓既有回归脚本会把客户端模块逐个转译后单独 require
+ *  （scripts/.rt-tmp/*.cjs），而单文件 bundle 里也没有可用的模块内 require——槽是两边都能用的唯一机制。
+ *  能力缺席时是空操作，绝不因为记日志失败而影响功能。 */
+function logEvent(event: string, fields?: Record<string, unknown>): void {
+  try {
+    const log = (globalThis as any).__dshPromptLog
+    if (log && typeof log.log === 'function') log.log(event, fields)
+  } catch (e) { /* ignore */ }
 }

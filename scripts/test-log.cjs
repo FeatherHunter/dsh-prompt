@@ -274,7 +274,7 @@ async function drain(cap, home, expectEvent) {
 
   const PACKAGE_INTERNAL = ['host.start', 'host.call.fail', 'log.persist.fail', 'log.export.fail', 'log.forward.summary', 'log.switch.watchdog'];
   /** 已声明但尚未接调用点的事件：只在票与票之间短暂存在，接上就删（见对应票）。 */
-  const PENDING_CALL_SITES = ['settings.log.switch']; // #51 配置页日志开关会打这条
+  const PENDING_CALL_SITES = []; // 配置页三入口（#51）已接上，此清单为空
   const CALL_RE = /\b(?:log\w*|\w*Log)(?:\?\.)?\(\s*['"]([a-zA-Z0-9._]+)['"]\s*,\s*\{([^}]*)\}/g;
   const seen = new Map(); // 事件名 → [字段名]
   const scanTargets = [...sourceFiles, path.join(ROOT, 'lib', 'client.js')];
@@ -327,6 +327,31 @@ async function drain(cap, home, expectEvent) {
   eq(cst.droppedFields, 2, '客户端闸门丢掉未声明字段（模板名与正文没进队列）');
   eq(cst.undeclared, 1, '客户端闸门丢掉未声明事件');
   eq(cst.manifestOk, true, '客户端清单可用（构建期内联，形状自检通过）');
+
+  // 三个入口的客户端半（#51）：开关 / 导出 / 清空 各发一次电话，回参能透到调用方。
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    calls.push(body);
+    const value = body.name.endsWith('.logExport') ? { ok: true, fileName: '2026-09-12.log', bytes: 12, fallback: true, text: '{"event":"a"}\n' }
+      : body.name.endsWith('.logClear') ? { ok: true, removed: 3 }
+        : body.name.endsWith('.logSetSwitch') ? { ok: true, enabled: true }
+          : body.name.endsWith('.logGetSwitch') ? { ok: true, enabled: false, sampleRate: 1 }
+            : { ok: true };
+    return { ok: true, status: 200, json: async () => ({ ok: true, value }) };
+  };
+  const sw = await slot.setSwitch(true);
+  eq(sw.ok && sw.enabled, true, '开关入口：写入成功并回 enabled');
+  const ex = await slot.exportLog();
+  eq(ex.ok && ex.bytes === 12 && ex.text.indexOf('event') >= 0, true, '导出入口：拿到正文与长度');
+  const cl = await slot.clearLog('all');
+  eq(cl.ok && cl.removed === 3, true, '清空入口：回报删掉几个文件');
+  eq(calls.map((c) => c.name).join(' , '), 'dsh-prompt.logSetSwitch , dsh-prompt.logExport , dsh-prompt.logClear', '三个入口都经同一条日志桥、用本插件的电话名');
+  const swFail = await (async () => {
+    globalThis.fetch = async () => { throw new Error('host-down'); };
+    return slot.setSwitch(false);
+  })();
+  eq(swFail.ok, false, '开关写失败回 ok:false（界面据此保持旧值并提示）');
   globalThis.window = prevWindow;
 
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* 清理失败不影响结论 */ }

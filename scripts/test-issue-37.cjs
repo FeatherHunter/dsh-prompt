@@ -178,14 +178,18 @@ eq(anchors(page).filter((a) => /\/issues\/new$/.test(a.props.href)).length, 0, '
 eq(txt(page).indexOf('⛭') < 0, true, '旧的 ⛭ GitHub 仓库文字链接已下线（同一入口不留两处）');
 const tree = page.toJSON();
 const kids = tree.children;
-eq(kids.length, 5, '设置页顶层五块：按钮行 / 智能开关 / 存储说明 / 模板列表 / 引流区');
+// 地图 #45 / #51 在智能开关与存储说明之间插入了日志块（开关行 + 提示行 + 三个按钮行），故顶层从五块变八块；
+// #37 自己的四条保证（两个图标按钮、四行引流区、旧入口下线、末尾是引流区）一条没动。
+eq(kids.length, 8, '设置页顶层八块：按钮行 / 智能开关 / 日志三行 / 存储说明 / 模板列表 / 引流区');
 eq(jsonAnchors(kids[0]).map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '第 1 块是右上角两个按钮（顺序：🌟 仓库、💬 ISSUE）');
 eq(kids[1].type, 'label', '第 2 块是智能开关');
 eq(kids[1].children.some((c) => c.props && c.props.type === 'checkbox'), true, '智能开关仍是 checkbox');
-eq(txt(kids[2]), STR.storageNote.zh, '第 3 块是存储说明（一字不动）');
-eq(kids[3].type, 'div', '第 4 块是模板浏览列表');
-eq(!kids[3].props['data-dsh-prompt-more'], true, '第 4 块不是引流区');
-eq(kids[4].props['data-dsh-prompt-more'], '', '第 5 块（页面底部）是引流区');
+eq(txt(kids[2]), STR.logToggle.zh, '第 3 块是日志开关（#51 新增）');
+eq(txt(kids[4]).indexOf(STR.logExport.zh) >= 0, true, '第 5 块是日志三入口按钮行（导出 / 复制 / 清空）');
+eq(txt(kids[5]), STR.storageNote.zh, '第 6 块是存储说明（一字不动）');
+eq(kids[6].type, 'div', '第 7 块是模板浏览列表');
+eq(!kids[6].props['data-dsh-prompt-more'], true, '第 7 块不是引流区');
+eq(kids[7].props['data-dsh-prompt-more'], '', '第 8 块（页面底部）是引流区');
 page.unmount();
 
 console.log(failures === 0 ? 'ALL PASS: #37 设置页引流区 + 图标按钮' : 'FAILURES: ' + failures);

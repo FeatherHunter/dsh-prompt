@@ -79,10 +79,11 @@ async function drain(cap, home, expectEvent) {
   ok('parseEventListManifest 通过（形状合规）');
   assert(dshLogHost.checkEventCounts(parsed).ok, 'checkEventCounts 通过（自报 counts 与实际条数逐项一致）');
   const names = Object.keys(parsed.events);
-  assert(names.length === 36, `事件条数 36 → 实际 ${names.length}`);
+  assert(names.length === 39, `事件条数 39 → 实际 ${names.length}`);
   const actualKinds = { resident: 0, ondemand: 0, selfmon: 0 };
   for (const n of names) actualKinds[parsed.events[n].kind] += 1;
-  eq(actualKinds, { resident: 23, ondemand: 8, selfmon: 5 }, '三类 kind 计数');
+  // #39 整改加了三条更新能力的宿主侧事件：host.call、update.install.exec、update.route.fail（都属 resident）。
+  eq(actualKinds, { resident: 26, ondemand: 8, selfmon: 5 }, '三类 kind 计数');
 
   let fieldBad = 0;
   for (const n of names) if (!dshLogHost.checkEventFields(parsed, n, parsed.events[n].fields).ok) fieldBad += 1;
@@ -287,6 +288,8 @@ async function drain(cap, home, expectEvent) {
   const PACKAGE_INTERNAL = ['host.start', 'host.call.fail', 'log.persist.fail', 'log.export.fail', 'log.forward.summary', 'log.switch.watchdog'];
   /** 已声明但尚未接调用点的事件：只在票与票之间短暂存在，接上就删（见对应票）。 */
   const PENDING_CALL_SITES = []; // 配置页三入口（#51）已接上，此清单为空
+  // #39 整改新加的三条更新事件（host.call / update.install.exec / update.route.fail）都住在
+  // src/update/host/index.ts 与 lib/index.js 里，调用点用字面量事件名（下面这条扫描能看见）。
   const CALL_RE = /\b(?:log\w*|\w*Log)(?:\?\.)?\(\s*['"]([a-zA-Z0-9._]+)['"]\s*,\s*\{([^}]*)\}/g;
   const seen = new Map(); // 事件名 → [字段名]
   const scanTargets = [...sourceFiles, path.join(ROOT, 'lib', 'client.js')];

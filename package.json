@@ -30,8 +30,7 @@
     "event-list.dsh-prompt.json"
   ],
   "scripts": {
-    "build": "bash scripts/build.sh",
-    "build:pwsh": "pwsh -File scripts/build.ps1",
+    "build": "node scripts/build.mjs",
     "build:client": "tsdown",
     "build:update-host": "node scripts/update/build-host.mjs",
     "derive:update-values": "node node_modules/dsh-plugin-update/derive-client-values.mjs --prefix prompt --out src/update/gen/updateClient.derived.js",

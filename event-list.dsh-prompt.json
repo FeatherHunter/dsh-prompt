@@ -2,7 +2,7 @@
   "version": 1,
   "pluginId": "dsh-prompt",
   "counts": {
-    "resident": 23,
+    "resident": 26,
     "ondemand": 8,
     "selfmon": 5
   },
@@ -532,15 +532,81 @@
         "R_EMAIL"
       ]
     },
+    "host.call": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "method",
+        "latencyMs",
+        "ok",
+        "kind",
+        "pluginId"
+      ],
+      "guard": "更新包的成功轨迹（dist/host.js:203 的三参 emit，本仓宿主半按真实签名转交）。不声明就等于整条被闸门丢掉 —— 装更新成功那次调用会查不到",
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
     "host.call.fail": {
       "level": "warn",
       "kind": "selfmon",
       "fields": [
         "method",
         "kind",
+        "errorHash",
+        "pluginId"
+      ],
+      "guard": "电话调用失败：日志包内部自监控（包语义冻结）与更新包 dist/host.js:207 共用同一形状；pluginId 由更新包与本仓宿主半填，日志包不填",
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "update.install.exec": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "route",
+        "ok",
+        "exitCode",
+        "durationMs",
+        "pluginId"
+      ],
+      "guard": "更新包执行安装那条事件（dist/store.js:273 的三参 log），route 判 cli-process / desktop-service",
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "update.route.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": [
+        "route",
+        "reason",
         "errorHash"
       ],
-      "guard": "日志包内部自监控（包语义冻结）",
+      "guard": "更新路由这一层的失败：reason 只记机器码（update-capability-unavailable / check-expired / phone-failed / unknown-event / dep-load-fail / capability-degraded / capability-build-fail），错误原文只以 8 位指纹落盘",
+      "codes": [
+        "ENUM",
+        "H_ERR"
+      ],
       "rules": [
         "R_TOKEN",
         "R_WIN_ABS",

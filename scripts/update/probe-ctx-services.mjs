@@ -18,7 +18,10 @@
  *
  * 注意：这条探针验的是「web profile 组合」（本插件当前唯一的运行环境），不是真机 DSH Desktop。
  * 桌面宿主（dsh-plugin-desktop 提供的 desktopProfiles）在 web profile 里本来就不存在 ——
- * 这正是本探针要坐实的那一点。
+ * 这正是本探针要坐实的那一点。**结论的适用范围只有 web profile**：真机 DSH Desktop 的
+ * `resources/app.asar` 里有两处 `ctx.inject(['desktopProfiles','desktopPnpm'], …)`，即 Desktop
+ * 确实提供 desktopProfiles；那边 detectEnvironmentKind() 会判 desktop、走桌面服务路由，
+ * Desktop 侧本探针没实测（见 map #38 的 Not yet specified），不许把这里的读数外推过去。
  */
 import { spawn } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
@@ -148,10 +151,19 @@ if (!rows || !done) {
 }
 console.log('[probe] 上下文实测结果：')
 console.log(JSON.stringify(rows, null, 2))
+/**
+ * 结论（**只对本次探针验过的 web profile 组合成立，不可外推**）：web profile 组合里
+ * desktopProfiles / desktopPnpm 取不到 → 更新包的环境判定为 cli → 自动安装走子进程（cli）路由，
+ * 因此依赖 ctx.get('subprocess') 有值（本机成立）。
+ * 真机 DSH Desktop 不适用这一句：Desktop 提供 desktopProfiles（app.asar 里两处 inject），
+ * 那条 desktop-service 路由本探针没验（map #38 的 Not yet specified 记着这一条）。
+ */
 const apply = rows[0].get
-console.log('[probe] 结论：desktopProfiles = ' + apply.desktopProfiles +
+console.log('[probe] 结论（仅 web profile 组合）：desktopProfiles = ' + apply.desktopProfiles +
   ' → 环境判定 ' + (apply.desktopProfiles === 'undefined' ? 'cli' : 'desktop') +
   '；自动安装走 ' + (apply.desktopProfiles === 'undefined' ? '子进程（cli）' : '桌面服务') + ' 路由')
+console.log('[probe] 不可外推到真机 DSH Desktop：Desktop 确实提供 desktopProfiles，' +
+  '那边走 desktop-service 路由，本探针未实测、禁止据此下通用结论')
 if (apply.desktopProfiles === 'undefined' && apply.subprocess === 'undefined') {
   console.log('[probe] 警告：两条安装路由都取不到服务，自动安装一定走手工兜底命令（见包 README 第 9 节）')
 }

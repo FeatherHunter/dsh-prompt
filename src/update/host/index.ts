@@ -38,6 +38,14 @@ export const TARGET_PACKAGE_NAME = 'dsh-prompt'
 const UNAVAILABLE = 'update-capability-unavailable'
 
 /**
+ * 三条更新路由共同的路径前缀（`/_dsh/dsh-prompt/update`）。从 `../bridge.js` 的常量派生，
+ * 不写路径字面量 —— 宿主半的路径只有 bridge 一处来源（回归脚本会拦字面量）。
+ * 用途仅一个：日志里标「这条失败属于更新路由这一族」（见 createBridgeLog 的 default 分支与
+ * createUpdateCapability 里那条 capability-degraded 自报）。
+ */
+const UPDATE_ROUTE_FAMILY = UPDATE_STATUS_PATH.slice(0, UPDATE_STATUS_PATH.lastIndexOf('/'))
+
+/**
  * 包 README 第 8 节钉死的快照形状（六字段）。这里只用来对账，**不参与装配**：
  * 快照本体一律由更新包给，本插件不重算、不裁剪、不补字段。
  * 逐字段为什么记在备注里，审查者照这张表核 README。
@@ -81,11 +89,21 @@ export interface CreateUpdateCapabilityOptions {
 
 /**
  * 日志适配器：更新包在宿主侧报三条事件（`host.call` / `host.call.fail` / `update.install.exec`），
- * 统一转给日志能力（更新包只吃 `fire` 这一个方法，事件名与字段原样转交）。
+ * 统一转给本仓日志能力。
+ *
+ * **签名按上游 `dist/` 的真实调用点抄，不按 README 的示例文字抄**：`dist/host.js:187,196` 发的是
+ * `phoneLogCtx.fire(level, event, fields)`，`dist/store.js:273` 发的是 `log(level, event, fields)`
+ * —— 都是三参，事件名在第二个位置。#39 第一版写成两参 `fire(event, fields)`，于是 `"info"` 被当成
+ * 事件名、真事件名降级成字段对象、字段对象整条丢掉，再被事件闸门按「未声明事件」静默丢弃 ——
+ * 更新能力的诊断轨迹全丢而测试全绿（审查爆点 1）。
+ *
+ * 级别（第一参）不转交：本仓的级别由清单 `event-list.dsh-prompt.json` 按事件名决定，
+ * 不引入第二套级别语义。字段按清单里声明的名字逐个取出来交给日志能力 —— 闸门仍是白名单的权威，
+ * 这里不绕过它，只是把包真正发的字段摆到它面前。清单没声明的事件（包升版新加）不静默丢：
+ * 落一条 `update.route.fail`（reason = unknown-event）。
  *
  * 能力是异步建起来的，这里用一个可变槽兜住；闭包在能力就绪前被调用时直接丢掉那一批
  * （只可能丢启动瞬间的一两条，日志能力缺席时的语义本来就是「不落盘」）。
- * 字段闸门由日志能力负责 —— 清单里没声明的事件会被它丢弃，这是设计如此，不在这里绕过。
  */
 function createBridgeLog(logReady: CreateUpdateCapabilityOptions['logReady']): UpdateLogCtx {
   let cap: LogCapability | null = null
@@ -96,12 +114,47 @@ function createBridgeLog(logReady: CreateUpdateCapabilityOptions['logReady']): U
     )
   }
   return {
-    fire(event: string, fields?: Record<string, unknown>): void {
+    fire(level: string, event: string, fields?: Record<string, unknown>): void {
       try {
-        if (cap) cap.log(String(event ?? ''), fields)
+        if (!cap) return
+        const f = (fields ?? {}) as Record<string, unknown>
+        switch (String(event ?? '')) {
+          case 'host.call':
+            cap.log('host.call', {
+              method: f.method, latencyMs: f.latencyMs, ok: f.ok, kind: f.kind, pluginId: f.pluginId,
+            })
+            return
+          case 'host.call.fail':
+            cap.log('host.call.fail', {
+              method: f.method, kind: f.kind, errorHash: f.errorHash, pluginId: f.pluginId,
+            })
+            return
+          case 'update.install.exec':
+            cap.log('update.install.exec', {
+              route: f.route, ok: f.ok, exitCode: f.exitCode, durationMs: f.durationMs, pluginId: f.pluginId,
+            })
+            return
+          default:
+            // 包升版新加的事件：清单里没有，落盘会被闸门按「未声明事件」丢掉 —— 那就留一条可见的
+            // 自报，别让「包的日志契约变了」这件事无声通过（事件名本身不落盘，只落稳定指纹）。
+            cap.log('update.route.fail', {
+              route: UPDATE_ROUTE_FAMILY, reason: 'unknown-event', errorHash: hash8(String(event ?? '')),
+            })
+        }
       } catch (e) { /* 记日志失败不许影响安装 */ }
     },
   }
+}
+
+/**
+ * 8 位错误指纹（djb2，与 `lib/log/gate.js` 的 `hash8`、`lib/index.js` 的 `hashText` 同形）。
+ * 这里自备一份：宿主半不反向依赖日志能力的内部模块（那会把闸门代码一并打进 `lib/update.js`）。
+ */
+function hash8(value: unknown): string {
+  const text = String(value ?? '')
+  let h = 5381
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) >>> 0
+  return ('0000000' + h.toString(16)).slice(-8)
 }
 
 /**
@@ -118,9 +171,11 @@ export async function createUpdateCapability(
     return degradedCapability(`dep-load-fail: ${mod.message}`, options.onFallback)
   }
   let update: HostUpdate
+  /** 更新包的日志口（同一个实例既交给包，也留给本文件自己报故障 —— 见 runRoute 的 catch）。 */
+  const bridgeLog = createBridgeLog(options.logReady)
   try {
     update = mod.createHostUpdate(
-      { ctx: options.ctx ?? null, logCtx: createBridgeLog(options.logReady) },
+      { ctx: options.ctx ?? null, logCtx: bridgeLog },
       {
         pluginId: PLUGIN_ID,
         prefix: PHONE_PREFIX,
@@ -146,6 +201,18 @@ export async function createUpdateCapability(
     [UPDATE_INSTALL_PATH]: phones.install,
   }
 
+  /**
+   * 电话调用失败的落盘口（审查 F9）：形状就是更新包自己那条失败事件
+   * （`dist/host.js:207` 的 `{ method, kind, errorHash, pluginId }`），字段都在清单白名单里，
+   * 所以按包 README 第 10 节「按 pluginId 过滤 host.call.fail」能查到。
+   * 错误原文只以 8 位指纹落盘，不记原文。
+   */
+  function logPhoneFail(method: string, kind: string, message: string): void {
+    bridgeLog.fire('warn', 'host.call.fail', {
+      method, kind, errorHash: hash8(message), pluginId: PLUGIN_ID,
+    })
+  }
+
   return {
     ok: true,
     phoneNames: { ...phoneNames } as Record<string, string>,
@@ -158,11 +225,18 @@ export async function createUpdateCapability(
      */
     async runRoute(path: string, args?: Record<string, unknown>): Promise<UpdatePhoneResult> {
       const phone = routes[path]
-      if (phone === undefined) return failed('unknown-phone', `no update phone for ${path}`)
+      if (phone === undefined) {
+        logPhoneFail(path, 'unknown-phone', `no update phone for ${path}`)
+        return failed('unknown-phone', `no update phone for ${path}`)
+      }
       try {
         return await update.handlers[phone](args ?? {})
       } catch (e) {
-        return failed('phone-failed', String((e as Error)?.message || e))
+        const message = String((e as Error)?.message || e)
+        // 电话表里没有这个电话，或包的封装在它自己的 try 之外抛了（例如 handlers 的键改名）——
+        // 这条以前是静默的：路由只回 phone-failed，日志里什么都没有（审查 F9）。
+        logPhoneFail(String(phone), 'phone-failed', message)
+        return failed('phone-failed', message)
       }
     },
   }

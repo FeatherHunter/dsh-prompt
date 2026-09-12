@@ -3,14 +3,13 @@
     "target": "ES2023",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "resolveJsonModule": true,
-    "lib": ["ES2023", "DOM"],
+    "lib": ["ES2023"],
     "strict": true,
     "types": ["node"],
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true
   },
-  "include": ["src"],
-  "exclude": ["src/update/host"]
+  "include": ["src/update"]
 }

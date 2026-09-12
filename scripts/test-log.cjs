@@ -237,6 +237,14 @@ async function drain(cap, home, expectEvent) {
   eq(unknown.ok, false, '未知电话回 ok:false');
   const exported = await cap2.runPhone(cap2.phoneNames.logExport, {});
   assert(exported.ok && typeof exported.value.text === 'string' && exported.value.text.includes('store.snapshot.fail'), 'logExport 能拿到当天日志原文');
+  // 「复制路径」按钮靠这两个字段：路径由宿主用 node:path 拼（Windows 反斜杠 / macOS 与 Linux 正斜杠），
+  // 客户端只负责复制，不在浏览器里拼路径——这里机器校验它确实是绝对路径且用本平台分隔符。
+  const exp = exported.value;
+  assert(typeof exp.path === 'string' && /\.log$/.test(exp.path), `导出回参带日志文件绝对路径（${exp.path}）`);
+  assert(path.isAbsolute(exp.path), '文件路径是绝对路径（macOS/Linux 以 / 起头、Windows 带盘符）');
+  assert(exp.path === path.join(path.dirname(exp.path), path.basename(exp.path)), '路径用本平台的分隔符（node:path 拼出来的，不是手拼斜杠）');
+  assert(typeof exp.dir === 'string' && path.isAbsolute(exp.dir), '导出回参同时带目录（绝对路径）');
+  assert(exp.path.startsWith(exp.dir) && exp.path.length > exp.dir.length, '文件路径落在报告的目录之下');
   const cleared = await cap2.runPhone(cap2.phoneNames.logClear, { date: 'all' });
   assert(cleared.ok && cleared.value.removed >= 1, `logClear 报出删除文件数（实际 ${cleared.value.removed}）`);
 
@@ -317,7 +325,7 @@ async function drain(cap, home, expectEvent) {
     if (!/\/_dsh\/dsh-prompt\/log$/.test(String(url))) return { ok: false, status: 503, json: async () => ({ ok: false }) };
     const body = JSON.parse(init.body);
     calls.push(body);
-    const value = body.name.endsWith('.logExport') ? { ok: true, fileName: '2026-09-12.log', bytes: 12, fallback: true, text: '{"event":"a"}\n' }
+    const value = body.name.endsWith('.logExport') ? { ok: true, fileName: '2026-09-12.log', bytes: 12, fallback: true, text: '{"event":"a"}\n', dir: 'C:\\Users\\x\\.dsh\\logs\\dsh-prompt', path: 'C:\\Users\\x\\.dsh\\logs\\dsh-prompt\\2026-09-12.log' }
       : body.name.endsWith('.logClear') ? { ok: true, removed: 3 }
         : body.name.endsWith('.logSetSwitch') ? { ok: true, enabled: true }
           : body.name.endsWith('.logGetSwitch') ? { ok: true, enabled: false, sampleRate: 1 }
@@ -350,6 +358,7 @@ async function drain(cap, home, expectEvent) {
   eq(sw.ok && sw.enabled, true, '开关入口：写入成功并回 enabled');
   const ex = await slot.exportLog();
   eq(ex.ok && ex.bytes === 12 && ex.text.indexOf('event') >= 0, true, '导出入口：拿到正文与长度');
+  eq(typeof ex.path === 'string' && /[\\/]2026-09-12\.log$/.test(ex.path), true, '导出入口：把宿主给的绝对文件路径透给调用方（「复制路径」用它）');
   const cl = await slot.clearLog('all');
   eq(cl.ok && cl.removed === 3, true, '清空入口：回报删掉几个文件');
   const entryCalls = calls.filter((c) => /logSetSwitch|logExport|logClear$/.test(c.name)).map((c) => c.name);

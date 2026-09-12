@@ -220,14 +220,23 @@ export function SettingsPage(props: any): any {
     )
   }
 
-  const onCopy = async (): Promise<void> => {
+  const onCopyPath = async (): Promise<void> => {
     const cap = logCap()
     if (!cap) { noteState[1](t('logUnavailable')); return }
     noteState[1](t('logWorking'))
+    // 路径只能问宿主：只有宿主知道 $DSH_HOME / ~ / 降级后的临时目录。
+    // 回参里的 path 是宿主用 node:path 拼出来的绝对路径——Windows 反斜杠、macOS 与 Linux 正斜杠，
+    // 各平台拿到的就是本机原生写法（本仓不在浏览器里拼路径，也不假定分隔符）。
     const res = await cap.exportLog()
     if (!res.ok) { noteState[1](t('logExportFail') + reasonText(res.reason)); return }
-    const ok = await copyText(res.text ?? '')
-    noteState[1](ok ? t('logCopied') + '（' + (res.bytes ?? 0) + ' ' + t('logBytes') + '）' : t('logCopyFail'))
+    let target = String(res.path || '').trim()
+    if (!target && res.dir) {
+      const sep = String(res.dir).indexOf('\\') >= 0 ? '\\' : '/'
+      target = String(res.dir).replace(/[\\/]+$/, '') + sep + String(res.fileName || '')
+    }
+    if (!target) { noteState[1](t('logPathFail')); return }
+    const ok = await copyText(target)
+    noteState[1](ok ? t('logPathCopied') + ' ' + target : t('logPathFail'))
   }
 
   const onClear = async (): Promise<void> => {
@@ -266,7 +275,7 @@ export function SettingsPage(props: any): any {
     }, t('logWhere')),
     h('div', { key: 'log-actions', style: { display: 'flex', gap: 8, paddingBottom: 2 } }, [
       h(Btn, { key: 'export', onClick: () => { onExport().catch(() => undefined) } }, t('logExport')),
-      h(Btn, { key: 'copy', tone: 'ghost', onClick: () => { onCopy().catch(() => undefined) } }, t('logCopy')),
+      h(Btn, { key: 'copy', tone: 'ghost', onClick: () => { onCopyPath().catch(() => undefined) } }, t('logCopyPath')),
     ]),
     h('div', {
       key: 'log-danger',

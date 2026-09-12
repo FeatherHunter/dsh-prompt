@@ -208,7 +208,7 @@ export function getReactDom(): any {
  * 无 DOM（单测）或无 react-dom 时回退为内联渲染，保持 #14 回归覆盖。
  * 模块级稳定组件：与 TemplateModal 同理，避免父级重渲染时卸载重置。
  */
-function TopPortal(props: any): any {
+export function TopPortal(props: any): any {
   const react = getReact()
   if (!react) return null
   const reactDom = getReactDom()

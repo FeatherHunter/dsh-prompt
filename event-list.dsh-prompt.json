@@ -2,7 +2,7 @@
   "version": 1,
   "pluginId": "dsh-prompt",
   "counts": {
-    "resident": 22,
+    "resident": 23,
     "ondemand": 8,
     "selfmon": 5
   },
@@ -610,6 +610,24 @@
         "stage"
       ],
       "guard": "日志包内部自监控（包语义冻结）",
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "host.batch.refuse": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": [
+        "entries",
+        "refused"
+      ],
+      "codes": [
+        "ENUM"
+      ],
       "rules": [
         "R_TOKEN",
         "R_WIN_ABS",

@@ -79,10 +79,10 @@ async function drain(cap, home, expectEvent) {
   ok('parseEventListManifest 通过（形状合规）');
   assert(dshLogHost.checkEventCounts(parsed).ok, 'checkEventCounts 通过（自报 counts 与实际条数逐项一致）');
   const names = Object.keys(parsed.events);
-  assert(names.length === 35, `事件条数 35 → 实际 ${names.length}`);
+  assert(names.length === 36, `事件条数 36 → 实际 ${names.length}`);
   const actualKinds = { resident: 0, ondemand: 0, selfmon: 0 };
   for (const n of names) actualKinds[parsed.events[n].kind] += 1;
-  eq(actualKinds, { resident: 22, ondemand: 8, selfmon: 5 }, '三类 kind 计数');
+  eq(actualKinds, { resident: 23, ondemand: 8, selfmon: 5 }, '三类 kind 计数');
 
   let fieldBad = 0;
   for (const n of names) if (!dshLogHost.checkEventFields(parsed, n, parsed.events[n].fields).ok) fieldBad += 1;
@@ -369,6 +369,66 @@ async function drain(cap, home, expectEvent) {
     fail('dsh-log/host 不可解析：' + e.message);
   }
   assert((pkg.files || []).includes('event-list.dsh-prompt.json'), '事件清单在 package.json 的 files 白名单里（随包发布）');
+
+  /* ── 14) 宿主路由端到端：真实 lib/index.js 的 apply() + 假 ctx，打一次日志电话 ── */
+  const homeRoute = path.join(TMP, 'home-route');
+  process.env.DSH_HOME = homeRoute;
+  const hostMod = await import(pathToFileURL(path.join(ROOT, 'lib', 'index.js')).href);
+  let capturedRoute = null;
+  const fakeCtx = {
+    storageDomain: {
+      open: async () => ({
+        table: () => ({ keys: () => [], get: () => undefined, put: async () => undefined, delete: async () => undefined }),
+        global: { get: () => ({ lastUsed: null }), set: async () => undefined },
+      }),
+    },
+    effect: (fn) => { const d = fn(); return () => { try { d && d() } catch (e) { /* ignore */ } }; },
+    webServer: { register: (route) => { capturedRoute = route; return () => undefined; } },
+  };
+  hostMod.apply(fakeCtx);
+  assert(!!capturedRoute && capturedRoute.kind === 'prefix', 'apply() 注册了 HTTP 桥路由（prefix）');
+  const callRoute = async (pathname, method, payload) => {
+    const chunks = payload === undefined ? [] : [Buffer.from(JSON.stringify(payload), 'utf8')];
+    const req = {
+      url: pathname,
+      method,
+      headers: { host: '127.0.0.1:43120' },
+      async *[Symbol.asyncIterator]() { for (const c of chunks) yield c; },
+    };
+    let status = 0; let body = '';
+    const res = {
+      statusCode: 200,
+      writeHead(code) { status = code; return this; },
+      end(text) { body = String(text ?? ''); },
+    };
+    await capturedRoute.handler(req, res);
+    return { status, body: body ? JSON.parse(body) : null };
+  };
+  const swRes = await callRoute('/_dsh/dsh-prompt/log', 'POST', { name: 'dsh-prompt.logSetSwitch', args: { enabled: true, sampleRate: 1 } });
+  eq(swRes.status, 200, '宿主日志路由存活（不是 404）');
+  eq(swRes.body && swRes.body.ok, true, '电话经桥调用成功');
+  eq(swRes.body && swRes.body.value && swRes.body.value.enabled, true, '回参透传（开关已置 true）');
+  // 电话名不存在时回明确失败结构（不是静默）
+  const badRes = await callRoute('/_dsh/dsh-prompt/log', 'POST', { name: 'dsh-prompt.nope', args: {} });
+  eq(badRes.body && badRes.body.ok, false, '未知电话回 ok:false');
+  eq(badRes.body && badRes.body.error && badRes.body.error.code, 'unknown-phone', '未知电话的原因码是 unknown-phone');
+  // 客户端经同一路由上报一批日志 → 宿主写盘 → 文件里有那条事件
+  const batchRes = await callRoute('/_dsh/dsh-prompt/log', 'POST', {
+    name: 'dsh-prompt.logBatch',
+    args: { entries: [{ level: 'warn', event: 'panel.position.fail', fields: { attempts: 3, name: '不该出现' } }], droppedCount: 0 },
+  });
+  eq(batchRes.body && batchRes.body.ok, true, '日志批上报成功');
+  const routeFile = logFileOf(homeRoute);
+  const t1 = Date.now();
+  while (Date.now() - t1 < 3000) {
+    if (fs.existsSync(routeFile) && fs.readFileSync(routeFile, 'utf8').includes('panel.position.fail')) break;
+    await sleep(50);
+  }
+  assert(fs.existsSync(routeFile) && fs.readFileSync(routeFile, 'utf8').includes('panel.position.fail'), '经路由上报的事件真的落到 <home>/logs/dsh-prompt/');
+  assert(fs.existsSync(routeFile) && !fs.readFileSync(routeFile, 'utf8').includes('不该出现'), '落盘前宿主侧闸门也拦住了未声明字段');
+  const storeRes = await callRoute('/_dsh/dsh-prompt/store', 'GET');
+  assert(storeRes.status === 200 && storeRes.body && storeRes.body.ok === true, '业务路由未受影响（GET /store 仍 200）');
+  delete process.env.DSH_HOME;
 
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* 清理失败不影响结论 */ }
   console.log(failures === 0 ? '=== Test log PASS ===' : `=== Test log FAIL（${failures} 项）===`);

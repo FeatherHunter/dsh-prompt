@@ -104,11 +104,16 @@ export interface CreateUpdateCapabilityOptions {
  * 更新能力的诊断轨迹全丢而测试全绿（审查爆点 1）。
  *
  * 级别（第一参）不转交：本仓的级别由清单 `event-list.dsh-prompt.json` 按事件名决定，
- * 不引入第二套级别语义。**字段也原样转交**：白名单的权威是日志能力的闸门（`lib/log/gate.js`），
- * 这里按名字逐个挑字段等于在闸门前面又立一道白名单 —— 上游字段一改名就在桥里被无声裁掉，
- * 而闸门的 `droppedFields` 恒 0，字段漂移变成零可观测（#39 复审 V3）。桥只判**事件名**：
- * 包里那三条走原样转交，其余一律走 unknown-event 自报。
+ * 不引入第二套级别语义。**字段名也不做第二道白名单**：白名单的权威是日志能力的闸门
+ * （`lib/log/gate.js`），这里按名字逐个挑字段等于在闸门前面又立一道白名单 —— 上游字段一改名就在
+ * 桥里被无声裁掉，而闸门的 `droppedFields` 恒 0，字段漂移变成零可观测（#39 复审 V3）。桥只判
+ * **事件名**：包里那三条走原样转交（字段名一个不动），其余一律走 unknown-event 自报。
  * 清单没声明的事件（包升版新加）不静默丢：落一条 `update.route.fail`（reason = unknown-event）。
+ *
+ * #39 三轮整改在这条链上加了两层（都在**值**这一侧，不动字段名的权威）：
+ * - **值域安全网**（H1，一票否决项）：见 `SAFE_VALUE_RE` / `safeFields` —— 白名单只说「这个字段能进」，
+ *   说不了「这个值能进」，于是正文/模板名只要不是闸门那五种具名形状就逐字落盘（复审 D 实测）。
+ * - **持续失败按状态落一次**（H2）：见 `noteFail` / `clearFails`。
  *
  * 能力是异步建起来的，这里用一个可变槽兜住；闭包在能力就绪前被调用时直接丢掉那一批
  * （只可能丢启动瞬间的一两条，日志能力缺席时的语义本来就是「不落盘」）。
@@ -117,11 +122,25 @@ function createBridgeLog(logReady: CreateUpdateCapabilityOptions['logReady']): U
   let cap: LogCapability | null = null
   /** unknown-event 自报只落一次：事件名漂移是**状态**，不是每次调用都会变的事实（同复审 V1 的处置）。 */
   let unknownReported = false
+  /** 已落过盘的电话失败状态（键见 failKeyOf）：持续失败不再每请求刷一行。 */
+  const failedStates = new Set<string>()
   if (logReady && typeof logReady.then === 'function') {
     logReady.then(
       (ready) => { cap = ready && typeof ready.log === 'function' ? ready : null },
       () => { cap = null },
     )
+  }
+  /** true = 这个状态第一次出现，该落盘；false = 同一状态已经落过（抑制，不落）。 */
+  function noteFail(method: string, kind: string): boolean {
+    const key = failKeyOf(method, kind)
+    if (failedStates.has(key)) return false
+    failedStates.add(key)
+    return true
+  }
+  /** 这个电话成功了：清掉它的失败账 —— 恢复之后再失败是**新状态**，必须重新落一条（不是只报一次）。 */
+  function clearFails(method: string): void {
+    const prefix = failKeyOf(method, '')
+    for (const key of failedStates) if (key.startsWith(prefix)) failedStates.delete(key)
   }
   return {
     fire(level: string, event: string, fields?: Record<string, unknown>): void {
@@ -129,15 +148,30 @@ function createBridgeLog(logReady: CreateUpdateCapabilityOptions['logReady']): U
         if (!cap) return
         const f = (fields ?? {}) as Record<string, unknown>
         switch (String(event ?? '')) {
-          case 'host.call':
-            cap.log('host.call', { ...f })
+          case 'host.call': {
+            const safe = safeFields(f)
+            // 成功轨迹 = 这个电话已经恢复：清掉它的失败账（下一次失败会重新落一条）。
+            if (safe.ok === true) clearFails(String(safe.method ?? ''))
+            // 写作 `{ ...safe }` 而不是直接传 `safe`：本仓 `test:log` 的调用点扫描按「事件名后跟一个字面量
+            // 对象」认调用点（CALL_RE），少了那对大括号，这个事件会被读成「声明了却没人打」（实测变红）。
+            // 展开写法与整改前的 `{ ...f }` 同形，扫描面不变。
+            cap.log('host.call', { ...safe })
             return
-          case 'host.call.fail':
-            cap.log('host.call.fail', { ...f })
+          }
+          case 'host.call.fail': {
+            const safe = safeFields(f)
+            if (!noteFail(String(safe.method ?? ''), String(safe.kind ?? ''))) return
+            cap.log('host.call.fail', { ...safe })
             return
-          case 'update.install.exec':
-            cap.log('update.install.exec', { ...f })
+          }
+          case 'update.install.exec': {
+            // route 是 `cli-process` / `desktop-service`**或 `"none"`**：`"none"` 表示「没有安装配方」
+            // （包 `dist/store.js:333` 的 catch 用 `error?.exitCode ?? exitCode`，配方为空时是 undefined）
+            // —— 这条路径**没有 `exitCode` 键**，也不是一条真路由，排障时别读成一次真实执行（复审 D A3）。
+            const safe = safeFields(f)
+            cap.log('update.install.exec', { ...safe })
             return
+          }
           default:
             // 包升版新加的事件：清单里没有，落盘会被闸门按「未声明事件」丢掉 —— 那就留一条可见的
             // 自报，别让「包的日志契约变了」这件事无声通过（事件名本身不落盘，只落稳定指纹）。
@@ -150,6 +184,63 @@ function createBridgeLog(logReady: CreateUpdateCapabilityOptions['logReady']): U
       } catch (e) { /* 记日志失败不许影响安装 */ }
     },
   }
+}
+
+/**
+ * 值域安全网（#39 三轮整改 H1，一票否决项）：字段**名**的权威在真闸门，这一层只回答
+ * 「这个**值**能不能安全落盘」。验收口径就是这两句：正文（含 CJK / 空格 / 标点）必然被挡；
+ * `prompt.updateStatus` / `update-status` / `cli-process` / `dsh-prompt` / `/_dsh/dsh-prompt/update` /
+ * 八位指纹这类真实取值**逐字不受影响**。
+ *
+ * 为什么必须有这一层：白名单只回答「这个字段能不能进」，闸门那五条具名规则只管 token / Windows 绝对
+ * 路径 / 家目录 / URL / 邮箱这五种形状，`method` / `kind` / `route` / `reason` 在闸门里都是**自由字符串**
+ * （清单里的 `codes:["ENUM"]` 只是文档，运行时不执行）—— 于是「提示词正文与模板名绝不进日志」
+ * 只剩「调用点恰好都塞字面量」这层人为约定，复审 D 把 47 字符正文与模板名逐字写进了真日志文件。
+ *
+ * 做法是按**字符形状**统一兜底，不是再抄一份字段名白名单：每个值都过一遍安全字符集，不匹配就换成
+ * 8 位指纹。数值 / 布尔原样；`undefined` / `null` 原样（闸门对这两者就是跳过）；数组与对象一律指纹化。
+ * 残余（如实写进 resolution §7）：纯英文标识符形状的长串仍会通过 —— 这条网管的是**内容形状**，
+ * 不是内容语义；语义那一层仍是「调用点别塞正文」这个约定。
+ */
+const SAFE_VALUE_RE = /^[A-Za-z0-9._:\/-]{0,64}$/
+
+/** 非字符串值转成可散列的文本（对象/数组不走 `String()`：`[object Object]` 把内容与形状一起丢掉）。 */
+function toText(value: unknown): string {
+  try {
+    const json = JSON.stringify(value)
+    return typeof json === 'string' ? json : String(value)
+  } catch (e) {
+    return String(value)
+  }
+}
+
+/** 单值过安全网：匹配安全字符集就原样，否则换成 8 位指纹。 */
+function safeValue(value: unknown): unknown {
+  if (value === undefined || value === null) return value
+  if (typeof value === 'number' || typeof value === 'boolean') return value
+  const text = typeof value === 'string' ? value : toText(value)
+  return SAFE_VALUE_RE.test(text) ? text : hash8(text)
+}
+
+/** 整张字段表过安全网：**键一个不动** —— 清单外的字段照旧走到闸门口被裁 + 计数（G4 的可观测性不许丢）。 */
+function safeFields(fields: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...fields }
+  for (const key of Object.keys(out)) out[key] = safeValue(out[key])
+  return out
+}
+
+/**
+ * 持续失败的落盘抑制（#39 三轮整改 H2）：同一 `(method, kind)` 只在**状态首次出现**时落一条。
+ * 为什么不能每请求落：`warn` 绕过日志开关（`dsh-log` 的 `isEnabled` 对 warn 恒真），真机上「电话持续
+ * 失败」（断网 / `check-expired` / registry 抽风）配上面板 `UPD_POLL = 1000ms` 就是每秒 2 行恒写、
+ * 用户关不掉 —— 复审 D 实测 62 次请求 **124 行 / 20402 B** ⇒ 54.2 MiB/天，是二轮修掉的「能力缺席」
+ * 那支的 3.6 倍。处置与 `unknown-event` 自报一致：状态型事实落一次。两条纪律：
+ * ① 首条必须落（真实故障不许因为去重而看不见）；② 该电话成功一次即清账（见 clearFails）。
+ * 键里不放 errorHash：错误原文的指纹可能每次都不同（超时里带毫秒、消息里带临时路径），放进去
+ * 等于没去重。
+ */
+function failKeyOf(method: string, kind: string): string {
+  return method + '\u0000' + kind
 }
 
 /**

@@ -304,11 +304,22 @@ async function drain(cap, home, expectEvent) {
   assert(unused.length === 0, `清单里没有"声明了却没人打"的事件（${unused.join(', ') || '无'}）`);
 
   /* ── 12) 客户端半端到端：用 ModuleLoader 壳加载构建产物，走一遍 apply() ── */
-  let captured = null;
+  const calls = [];
   const prevWindow = globalThis.window;
   globalThis.window = { __ModuleLoader__: { load(def) { captured = def; } } };
   globalThis.localStorage = { _v: {}, getItem(k) { return this._v[k] ?? null; }, setItem(k, v) { this._v[k] = String(v); } };
-  globalThis.fetch = async () => ({ ok: false, status: 503, json: async () => ({ ok: false }) });
+  // 记录型 fetch：日志路由按电话回结果，业务路由（store 快照）回失败（本票不关心它）。
+  globalThis.fetch = async (url, init) => {
+    if (!/\/_dsh\/dsh-prompt\/log$/.test(String(url))) return { ok: false, status: 503, json: async () => ({ ok: false }) };
+    const body = JSON.parse(init.body);
+    calls.push(body);
+    const value = body.name.endsWith('.logExport') ? { ok: true, fileName: '2026-09-12.log', bytes: 12, fallback: true, text: '{"event":"a"}\n' }
+      : body.name.endsWith('.logClear') ? { ok: true, removed: 3 }
+        : body.name.endsWith('.logSetSwitch') ? { ok: true, enabled: true }
+          : body.name.endsWith('.logGetSwitch') ? { ok: true, enabled: false, sampleRate: 1 }
+            : { ok: true };
+    return { ok: true, status: 200, json: async () => ({ ok: true, value }) };
+  };
   require(path.join(ROOT, 'lib', 'client.js'));
   assert(!!captured && captured.id === 'dsh-prompt', '构建产物经 ModuleLoader 壳可加载（id = dsh-prompt）');
   const clientMod = captured.factory((name) => {
@@ -318,6 +329,8 @@ async function drain(cap, home, expectEvent) {
   assert(typeof clientMod.apply === 'function', '客户端工厂导出 apply()');
   const effects = [];
   clientMod.apply({ slots: { inject: () => undefined, register: () => undefined }, effect: (fn) => { effects.push(fn); return () => undefined; }, inputTriggers: { registerSource: () => undefined } });
+  await sleep(80); // 让 apply() 里的启动对账落地
+  assert(calls.some((c) => c.name === 'dsh-prompt.logGetSwitch'), '客户端启动即向宿主对账（apply 里发了 logGetSwitch）');
   const slot = globalThis.__dshPromptLog;
   assert(!!slot, 'apply() 把日志能力装进 globalThis.__dshPromptLog（调用点从这里取）');
   slot.log('app.boot', { hasReact: true, lang: 'zh', entryCount: 5 });
@@ -329,30 +342,33 @@ async function drain(cap, home, expectEvent) {
   eq(cst.manifestOk, true, '客户端清单可用（构建期内联，形状自检通过）');
 
   // 三个入口的客户端半（#51）：开关 / 导出 / 清空 各发一次电话，回参能透到调用方。
-  const calls = [];
-  globalThis.fetch = async (url, init) => {
-    const body = JSON.parse(init.body);
-    calls.push(body);
-    const value = body.name.endsWith('.logExport') ? { ok: true, fileName: '2026-09-12.log', bytes: 12, fallback: true, text: '{"event":"a"}\n' }
-      : body.name.endsWith('.logClear') ? { ok: true, removed: 3 }
-        : body.name.endsWith('.logSetSwitch') ? { ok: true, enabled: true }
-          : body.name.endsWith('.logGetSwitch') ? { ok: true, enabled: false, sampleRate: 1 }
-            : { ok: true };
-    return { ok: true, status: 200, json: async () => ({ ok: true, value }) };
-  };
   const sw = await slot.setSwitch(true);
   eq(sw.ok && sw.enabled, true, '开关入口：写入成功并回 enabled');
   const ex = await slot.exportLog();
   eq(ex.ok && ex.bytes === 12 && ex.text.indexOf('event') >= 0, true, '导出入口：拿到正文与长度');
   const cl = await slot.clearLog('all');
   eq(cl.ok && cl.removed === 3, true, '清空入口：回报删掉几个文件');
-  eq(calls.map((c) => c.name).join(' , '), 'dsh-prompt.logSetSwitch , dsh-prompt.logExport , dsh-prompt.logClear', '三个入口都经同一条日志桥、用本插件的电话名');
+  const entryCalls = calls.filter((c) => /logSetSwitch|logExport|logClear$/.test(c.name)).map((c) => c.name);
+  eq(entryCalls.join(' , '), 'dsh-prompt.logSetSwitch , dsh-prompt.logExport , dsh-prompt.logClear', '三个入口都经同一条日志桥、用本插件的电话名');
   const swFail = await (async () => {
     globalThis.fetch = async () => { throw new Error('host-down'); };
     return slot.setSwitch(false);
   })();
   eq(swFail.ok, false, '开关写失败回 ok:false（界面据此保持旧值并提示）');
   globalThis.window = prevWindow;
+
+  /* ── 13) 发布接线：依赖声明、清单随包、启动对账 ── */
+  const pkg = readJson(path.join(ROOT, 'package.json'));
+  const hostLogSrc = fs.readFileSync(path.join(ROOT, 'lib', 'log', 'index.js'), 'utf8');
+  assert(/import\(\s*['"]dsh-log\/host['"]\s*\)/.test(hostLogSrc), 'lib/log 里确实动态 import dsh-log/host');
+  assert(!!(pkg.dependencies && pkg.dependencies['dsh-log']), `dsh-log 在 dependencies 里（${pkg.dependencies && pkg.dependencies['dsh-log']}）；否则宿主侧会静默退化成无日志`);
+  try {
+    require.resolve('dsh-log/host', { paths: [ROOT] });
+    ok('dsh-log/host 本地可解析');
+  } catch (e) {
+    fail('dsh-log/host 不可解析：' + e.message);
+  }
+  assert((pkg.files || []).includes('event-list.dsh-prompt.json'), '事件清单在 package.json 的 files 白名单里（随包发布）');
 
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* 清理失败不影响结论 */ }
   console.log(failures === 0 ? '=== Test log PASS ===' : `=== Test log FAIL（${failures} 项）===`);

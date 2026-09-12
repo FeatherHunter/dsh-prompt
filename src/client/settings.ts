@@ -1,12 +1,12 @@
 /**
- * dsh-prompt — 设置页模板管理（settings.plugins.tab）+ 智能模式开关 + 日志（开关 / 导出 / 清空）
+ * dsh-prompt — 设置页（模板管理 + 智能开关 + 日志三入口）
  *
- * 日志三入口（地图 #45 子票 #51）的口径：
- * - 开关：读本地秒显（键 dsws.debug）+ 写宿主（setLogSwitch）+ 启动对账（能力里已做）。写失败**保持旧值**并提示，
- *   不回退为开启；界面文案写明「错误与告警始终记录」，因为关开关只停 info 与 debug 两级。
- * - 导出：调 logExport 拿当天日志原文，优先存成文件（Blob 下载），另给一个「复制正文」按钮供直接粘贴反馈。
- *   成功与失败都给明确反馈；失败按返回的原因码给中英双语文案。
- * - 清空：调 logClear 删掉既有日志文件并回报删掉几个；两步确认，避免误删掉正在排查的证据。
+ * 版式规则（#51 落地、#52 按"一致性优先"重修）：这一页寄居在 DSH 的设置对话框里，
+ * 只继承宿主的设计语言（--dsw-* 变量），不发明第二套视觉。页面由两个原语搭出来，
+ * 避免"每块各写各的 div"导致多条左边缘与散装间距：
+ *   SettingRow   一行：标签 + 右侧控件，说明文字缩进到标签列
+ *   SettingGroup 一组：有边框的卡片 + 组标题，组内间距统一（4/8/12/16/24 这个比例）
+ * 不可逆操作（清空日志）不与常规操作平权：单独一行、默认低调、hover 才显示危险色，并两步确认。
  */
 import { getReact, TemplateBrowser } from './panel'
 import { SettingsHeaderLinks, AuthorPlugins } from './about'
@@ -21,6 +21,93 @@ function logCap(): any {
   } catch (e) {
     return null
   }
+}
+
+const TOK = {
+  labelPrimary: 'var(--dsw-alias-label-primary)',
+  labelSecondary: 'var(--dsw-alias-label-secondary)',
+  labelTertiary: 'var(--dsw-alias-label-tertiary)',
+  bgLayer: 'var(--dsw-alias-bg-layer-3)',
+  bgHover: 'var(--dsw-alias-bg-layer-2,rgba(255,255,255,.06))',
+  border: 'var(--dsw-alias-border-l1)',
+  accent: 'var(--dsw-specific-accent,#f0a45c)',
+  danger: 'var(--dsw-specific-danger,#e06c75)',
+  font: 'var(--dsw-font-family)',
+}
+
+/** 一行：标签在左、控件在右，说明缩进到标签列（整页同一条左轨）。 */
+function SettingRow(props: any): any {
+  const react = getReact()
+  if (!react) return null
+  const h = react.createElement
+  const kids: any[] = [
+    h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 } }, [
+      h('span', { key: 'label', style: { fontFamily: TOK.font, fontSize: 13, color: TOK.labelPrimary } }, props.label),
+      props.control ? h('span', { key: 'control', style: { display: 'inline-flex', alignItems: 'center' } }, props.control) : null,
+    ]),
+  ]
+  if (props.description) {
+    kids.push(h('div', { key: 'desc', style: { fontFamily: TOK.font, fontSize: 12, lineHeight: 1.65, color: TOK.labelTertiary, maxWidth: 520 } }, props.description))
+  }
+  return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 0' } }, kids)
+}
+
+/** 一组：卡片 + 组标题，组内元素由调用方给，间距由这里统一。 */
+function SettingGroup(props: any): any {
+  const react = getReact()
+  if (!react) return null
+  const h = react.createElement
+  return h('section', {
+    style: {
+      border: '1px solid ' + TOK.border, borderRadius: 12, padding: '2px 14px 12px', margin: '14px 0 4px',
+      display: 'flex', flexDirection: 'column', fontFamily: TOK.font,
+    },
+  }, [
+    props.title ? h('div', {
+      key: 'title',
+      style: { fontSize: 12, fontWeight: 600, color: TOK.labelSecondary, padding: '12px 0 0', letterSpacing: 0.2 },
+    }, props.title) : null,
+    ...(props.children || []),
+  ])
+}
+
+/** 按钮：三种权重（常规 / 次级 / 危险）。内联样式没有 hover，用一个极小的悬停态实现。 */
+function Btn(props: any): any {
+  const react = getReact()
+  if (!react) return null
+  const h = react.createElement
+  const tone = props.tone || 'normal'
+  const hoverState = react.useState(false)
+  const hover = hoverState[0]
+  const base: any = {
+    fontFamily: TOK.font, fontSize: 12.5, padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
+    transition: 'background-color .12s ease, color .12s ease, border-color .12s ease',
+  }
+  const style = tone === 'ghost'
+    ? { ...base, border: '1px solid transparent', background: hover ? TOK.bgLayer : 'transparent', color: hover ? TOK.labelPrimary : TOK.labelSecondary }
+    : tone === 'danger'
+      ? { ...base, border: '1px solid ' + (hover ? TOK.danger : TOK.border), background: 'transparent', color: hover ? TOK.danger : TOK.labelSecondary }
+      : { ...base, border: '1px solid ' + TOK.border, background: hover ? TOK.bgHover : TOK.bgLayer, color: TOK.labelPrimary }
+  return h('button', {
+    type: 'button',
+    style,
+    onMouseEnter: () => hoverState[1](true),
+    onMouseLeave: () => hoverState[1](false),
+    onClick: props.onClick,
+  }, props.children)
+}
+
+/** 复选框：宿主风格的圆角小方框（accent-color 跟随主题），不再是自己画一个控件。 */
+function Check(props: any): any {
+  const react = getReact()
+  if (!react) return null
+  return react.createElement('input', {
+    type: 'checkbox',
+    checked: props.checked,
+    disabled: props.disabled,
+    style: { width: 16, height: 16, accentColor: TOK.accent, cursor: props.disabled ? 'not-allowed' : 'pointer', margin: 0 },
+    onChange: props.onChange,
+  })
 }
 
 /** 下载文本为文件。返回是否成功（失败时调用方改走复制路径）。 */
@@ -82,18 +169,7 @@ export function SettingsPage(props: any): any {
   const confirming = confirmState[0]
   const lang = getLang()
   const t = (k: keyof typeof STR) => tr(lang, STR[k])
-  const row: any = {
-    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px',
-    fontFamily: 'var(--dsw-font-family)', fontSize: 12.5, color: 'var(--dsw-alias-label-primary)',
-  }
-  const hint: any = {
-    padding: '0 4px 8px', fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)', fontFamily: 'var(--dsw-font-family)',
-  }
-  const btn: any = {
-    padding: '5px 12px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l1)', cursor: 'pointer',
-    background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-alias-label-primary)',
-    fontFamily: 'var(--dsw-font-family)', fontSize: 12.5,
-  }
+
   const reasonText = (code?: string): string => {
     const key = code === 'host-unavailable' || code === 'host-unreachable' ? 'logReasonHost'
       : code === 'host-rejected' ? 'logReasonRejected'
@@ -114,10 +190,7 @@ export function SettingsPage(props: any): any {
 
   const onToggleLog = async (next: boolean): Promise<void> => {
     const cap = logCap()
-    if (!cap) {
-      noteState[1](t('logUnavailable'))
-      return
-    }
+    if (!cap) { noteState[1](t('logUnavailable')); return }
     const res = await cap.setSwitch(next)
     logEvent('settings.log.switch', { on: !!res.enabled, ok: !!res.ok, reason: res.error ?? '' })
     if (!res.ok) {
@@ -132,21 +205,12 @@ export function SettingsPage(props: any): any {
 
   const onExport = async (): Promise<void> => {
     const cap = logCap()
-    if (!cap) {
-      noteState[1](t('logUnavailable'))
-      return
-    }
+    if (!cap) { noteState[1](t('logUnavailable')); return }
     noteState[1](t('logWorking'))
     const res = await cap.exportLog()
-    if (!res.ok) {
-      noteState[1](t('logExportFail') + reasonText(res.reason))
-      return
-    }
+    if (!res.ok) { noteState[1](t('logExportFail') + reasonText(res.reason)); return }
     const text: string = res.text ?? ''
-    if (!text) {
-      noteState[1](t('logExportEmpty'))
-      return
-    }
+    if (!text) { noteState[1](t('logExportEmpty')); return }
     const name: string = res.fileName || 'dsh-prompt.log'
     const saved = downloadText(text, name)
     const where = res.path || res.dir || ''
@@ -158,31 +222,18 @@ export function SettingsPage(props: any): any {
 
   const onCopy = async (): Promise<void> => {
     const cap = logCap()
-    if (!cap) {
-      noteState[1](t('logUnavailable'))
-      return
-    }
+    if (!cap) { noteState[1](t('logUnavailable')); return }
     noteState[1](t('logWorking'))
     const res = await cap.exportLog()
-    if (!res.ok) {
-      noteState[1](t('logExportFail') + reasonText(res.reason))
-      return
-    }
+    if (!res.ok) { noteState[1](t('logExportFail') + reasonText(res.reason)); return }
     const ok = await copyText(res.text ?? '')
     noteState[1](ok ? t('logCopied') + '（' + (res.bytes ?? 0) + ' ' + t('logBytes') + '）' : t('logCopyFail'))
   }
 
   const onClear = async (): Promise<void> => {
     const cap = logCap()
-    if (!cap) {
-      noteState[1](t('logUnavailable'))
-      return
-    }
-    if (!confirming) {
-      confirmState[1](true)
-      noteState[1](t('logClearAsk'))
-      return
-    }
+    if (!cap) { noteState[1](t('logUnavailable')); return }
+    if (!confirming) { confirmState[1](true); noteState[1](t('logClearAsk')); return }
     confirmState[1](false)
     const res = await cap.clearLog('all')
     noteState[1](res.ok ? t('logClearOk') + ' ' + res.removed + ' ' + t('logFiles') : t('logClearFail'))
@@ -197,39 +248,53 @@ export function SettingsPage(props: any): any {
     }
   })()
 
-  const logRows: any[] = [
-    h('label', { key: 'log-toggle', style: row, title: t('logToggleHint') }, [
-      h('input', {
-        type: 'checkbox',
-        checked: logOn,
-        disabled: !log,
-        onChange: (e: any) => { onToggleLog(!!e.target.checked).catch(() => undefined) },
-      }),
-      h('span', null, t('logToggle')),
+  const noteStyle: any = { fontFamily: TOK.font, fontSize: 12, lineHeight: 1.65, color: TOK.labelTertiary, paddingTop: 8 }
+
+  const logGroup = h(SettingGroup, { key: 'log', title: t('logGroup') }, [
+    h(SettingRow, {
+      key: 'log-switch',
+      label: t('logToggle'),
+      description: t('logToggleHint'),
+      control: h(Check, { checked: logOn, disabled: !log, onChange: (e: any) => { onToggleLog(!!e.target.checked).catch(() => undefined) } }),
+    }),
+    h('div', {
+      key: 'log-where',
+      style: {
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 11.5,
+        color: TOK.labelTertiary, padding: '0 0 10px', wordBreak: 'break-all', userSelect: 'text',
+      },
+    }, t('logWhere')),
+    h('div', { key: 'log-actions', style: { display: 'flex', gap: 8, paddingBottom: 2 } }, [
+      h(Btn, { key: 'export', onClick: () => { onExport().catch(() => undefined) } }, t('logExport')),
+      h(Btn, { key: 'copy', tone: 'ghost', onClick: () => { onCopy().catch(() => undefined) } }, t('logCopy')),
     ]),
-    h('div', { key: 'log-hint', style: hint }, t('logToggleHint')),
-    h('div', { key: 'log-actions', style: { ...row, gap: 8 } }, [
-      h('button', { type: 'button', style: btn, onClick: () => { onExport().catch(() => undefined) } }, t('logExport')),
-      h('button', { type: 'button', style: btn, onClick: () => { onCopy().catch(() => undefined) } }, t('logCopy')),
-      h('button', { type: 'button', style: btn, onClick: () => { onClear().catch(() => undefined) } }, confirming ? t('logClearConfirm') : t('logClear')),
+    h('div', {
+      key: 'log-danger',
+      style: { display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, paddingTop: 10, borderTop: '1px solid ' + TOK.border },
+    }, [
+      h(Btn, { key: 'clear', tone: 'danger', onClick: () => { onClear().catch(() => undefined) } }, confirming ? t('logClearConfirm') : t('logClear')),
+      dropped > 0
+        ? h('span', { key: 'dropped', style: { fontFamily: TOK.font, fontSize: 11.5, color: TOK.labelTertiary } }, t('logDropped') + ' ' + dropped)
+        : null,
     ]),
-  ]
-  if (note) logRows.push(h('div', { key: 'log-note', style: hint }, note))
-  if (dropped > 0) logRows.push(h('div', { key: 'log-dropped', style: hint }, t('logDropped') + ' ' + dropped))
+  ])
+  if (note) logGroup.props.children.push(h('div', { key: 'log-note', style: noteStyle }, note))
 
   // #37：旧的一行文字链接（⛭ GitHub 仓库 / ⚠ 反馈故障）已由顶部右上角两个图标按钮取代，不再保留第二处入口。
   return h('div', { style: { padding: 4, display: 'flex', flexDirection: 'column' } }, [
     h(SettingsHeaderLinks, { key: 'links', lang }),
-    h('label', { style: row, title: t('smartToggleHint') }, [
-      h('input', {
-        type: 'checkbox', checked: smartOn,
-        onChange: (e: any) => { const on = e.target.checked; smartState[1](on); setSmartEnabled(on); logEvent('settings.smart.toggle', { on }) },
+    h(SettingGroup, { key: 'smart', title: t('smartGroup') }, [
+      h(SettingRow, {
+        key: 'smart-row',
+        label: t('smartToggle'),
+        description: t('smartToggleHint'),
+        control: h(Check, { checked: smartOn, onChange: (e: any) => { const on = e.target.checked; smartState[1](on); setSmartEnabled(on); logEvent('settings.smart.toggle', { on }) } }),
       }),
-      h('span', null, t('smartToggle')),
     ]),
-    ...logRows,
-    h('div', { key: 'storage', style: hint }, t('storageNote')),
-    h(TemplateBrowser, { compact: false }),
+    logGroup,
+    h(TemplateBrowser, { key: 'list', compact: false }),
+    // 存储说明讲的是"模板存在哪"，所以它跟着模板区走（不再与日志说明贴在一起形成两段灰字连读）。
+    h('div', { key: 'storage', style: noteStyle }, t('storageNote')),
     h(AuthorPlugins, { key: 'more', lang }),
   ])
 }

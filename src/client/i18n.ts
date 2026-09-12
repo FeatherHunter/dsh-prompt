@@ -81,8 +81,11 @@ export const STR = {
   moreDescCompanion: { zh: '聊天机器人的伴侣插件：扫码或填凭据就把飞书、微信等 9 路聊天接进来', en: 'Companion plugin for chat bots: bring in 9 chat channels such as Feishu and WeChat by scanning a code or filling in credentials' },
   storageNote: { zh: '自定义模板与使用次数保存在 DSH 缓存目录（卸载重装保留）；历史 localStorage 数据不再读取。', en: 'Custom templates and usage live in the DSH cache dir (kept across reinstall); legacy localStorage data is no longer read.' },
   // 地图 #45 / #51：配置页的日志开关 + 导出 + 清空三个入口（文案写明「错误与告警始终记录」）
-  logToggle: { zh: '调试日志（默认关）', en: 'Debug log (off by default)' },
-  logToggleHint: { zh: '关只停信息与调试两级，错误与告警始终记录。开关以宿主为准，刷新后仍读宿主那份；日志落在 <DSH 家目录>/logs/dsh-prompt/。', en: 'Off stops only info and debug; errors and warnings are always recorded. The host is authoritative and the value survives a refresh; logs land in <DSH home>/logs/dsh-prompt/.' },
+  logToggle: { zh: '调试日志', en: 'Debug log' },
+  logToggleHint: { zh: '默认关。关只停信息与调试两级，错误与告警始终记录；开关以宿主为准，刷新后仍读宿主那份。', en: 'Off by default. Off stops only info and debug, while errors and warnings are always recorded; the host is authoritative and the value survives a refresh.' },
+  logGroup: { zh: '诊断日志', en: 'Diagnostics' },
+  logWhere: { zh: '落点：~/.dsh/logs/dsh-prompt/', en: 'Location: ~/.dsh/logs/dsh-prompt/' },
+  smartGroup: { zh: '智能推荐', en: 'Smart suggestions' },
   logExport: { zh: '导出日志', en: 'Export log' },
   logCopy: { zh: '复制正文', en: 'Copy text' },
   logClear: { zh: '清空日志', en: 'Clear log' },

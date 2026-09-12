@@ -218,7 +218,11 @@ async function drain(cap, home, expectEvent) {
   });
   assert(cap4.sink.isDegraded() === true, '主目录写不进 → 标记为降级');
   cap4.log('store.snapshot.fail', { reason: 'http-fail', latencyMs: 2 });
-  const fbFile = path.join(fallbackDir, 'dsh-prompt', new Date().toISOString().slice(0, 10) + '.log');
+  // 文件名按**本地日期**（包内 formatDailyFileName 用本地 getFullYear/getMonth/getDate）；
+  // 早先这里用了 UTC 日期，跨零点时会假红——本地与 UTC 不是同一个日子。
+  const nowLocal = new Date();
+  const dailyName = nowLocal.getFullYear() + '-' + String(nowLocal.getMonth() + 1).padStart(2, '0') + '-' + String(nowLocal.getDate()).padStart(2, '0') + '.log';
+  const fbFile = path.join(fallbackDir, 'dsh-prompt', dailyName);
   const t0 = Date.now();
   while (Date.now() - t0 < 3000) {
     await cap4.store.flushNow().catch(() => undefined);

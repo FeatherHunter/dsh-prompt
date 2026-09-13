@@ -118,6 +118,11 @@ const squash = (s) => s.replace(/\s+/g, ' ');
     'lib/update.js',
     'src/update/bridge.ts',
     'src/update/host/index.ts',
+    // 收口轮把原来那个 500 多行的 host/index.ts 拆成四个内聚文件（值域安全网 / 节流账本 / 指纹 / 装配），
+    // 拆分件一并纳入告警线，免得「拆出来的文件」变成纪律的盲区。
+    'src/update/host/bridge-log.ts',
+    'src/update/host/safe-values.ts',
+    'src/update/host/hash.ts',
     'src/update/dsh-plugin-update.d.ts',
     'scripts/update/build-host.mjs',
     'scripts/update/probe-ctx-services.mjs',
@@ -677,6 +682,11 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   const ctxPhoneFail = Object.assign({}, fakeCtx, { webServer: { register: (route) => { registeredPhoneFail = route; return () => undefined } } });
   const hostPhoneFail = await import(pathToFileURL(path.join(DIR_PHONEFAIL, 'prompt-host.mjs')).href);
   hostPhoneFail.apply(ctxPhoneFail, {});
+  // 四轮整改 K3：请求级账本加了「同一状态两次落盘之间的最小间隔」（生产 60s）。这一段的很多步都在
+  // 同一个毫秒里跑完，若不接管时间源，「恢复后再失败」会被间隔吃掉 —— 断言的语义（恢复后必须重新
+  // 可见）比间隔的真实秒数更重要，所以这里把时间源摊开：每一步代表 60s 过去。
+  let fakeNow = 1000000;
+  hostPhoneFail.__setRouteFailClockForTests({ now: () => fakeNow, floorMs: 60000 });
   const pfMod = await import(pathToFileURL(path.join(DIR_PHONEFAIL, 'update.js')).href);
   const pfLog = (await import(pathToFileURL(path.join(DIR_PHONEFAIL, 'log', 'index.js')).href)).__logEvents;
   const pfFails = () => pfLog.filter((e) => e[0] === 'update.route.fail').map((e) => e[1]);
@@ -696,16 +706,45 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   const healed = await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
   eq(healed.json?.ok, true, '恢复那次回包 ok=true');
   eq(pfLog.length - pfBase, 3, '恢复那次不落失败行');
+  // 恢复后**逐条**验证「真失败仍然可见」：① 间隔未到 → 不落（节流生效）；② 间隔到点 → 重新落一条。
+  // 时间线可对照调试台 .tmp-verify/rv4/drive-routefail.mjs（同一套调用序、同一套注入点，逐格对得上）。
+  fakeNow += 1000;
   pfMod.state.error = 'check-expired';
   await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  eq(pfLog.length - pfBase, 4, '恢复（成功一次）后再失败是新状态 → 重新落一条（不是「一辈子只报一次」）');
-  // H1 的请求级那一半：包回一个正文形状的错误码 → 落盘的必须是 8 位指纹
+  eq(pfLog.length - pfBase, 3, '恢复后 1 秒内再失败：重落间隔（60s）未到 → 不落盘（成败交替不再退化成逐请求落行）');
+  fakeNow += 30000;
+  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
+  eq(pfLog.length - pfBase, 3, '间隔未到（才过 31 秒）→ 仍然不落');
+  fakeNow += 30000;
+  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
+  eq(pfLog.length - pfBase, 4, '恢复（成功一次）+ 间隔到点后再失败 → 重新落一条（不是「一辈子只报一次」，真失败不会因为节流而消失）');
+  eq(pfFails()[3] && pfFails()[3].errorHash, hash8('check-expired'), '重落后的 errorHash 仍是这次失败的成因指纹');
+  // K3 的残余 ②：同一状态**成因变化**必须再落一条（三轮的键里不放 errorHash ⇒ 第二种成因被静默吞掉）。
+  // 落盘时机受重落间隔约束：间隔内到达的成因**进队列不丢**，等够间隔的那一次调用把它补落。
+  fakeNow += 1000;
+  pfMod.state.error = 'update-busy';
+  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
+  eq(pfLog.length - pfBase, 4, '同一状态**换了成因**、但间隔未到 → 不立刻落（成因进队列，不丢）');
+  fakeNow += 60000;
+  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
+  eq(pfLog.length - pfBase, 5, '等够间隔的那一次调用把它补落：**成因 B 可见**（复审 F 实测成因 B 的指纹出现 0 次）');
+  eq(pfFails()[4] && pfFails()[4].reason, 'update-busy', '补落的那条 reason 就是新成因的机器码');
+  eq(pfFails()[4] && pfFails()[4].errorHash, hash8('update-busy'), '新成因的指纹在盘上可见');
+  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
+  eq(pfLog.length - pfBase, 5, '同一成因重复：已落过 → 不落（节流仍在，成因变化不是逐请求落行的借口）');
+  fakeNow += 60000;
+  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
+  eq(pfLog.length - pfBase, 5, '同一成因重复且间隔到点：这个成因已经落过 → 仍不落（键稳定，不随请求数增长）');
+  // K1 的请求级那一半：包回一个正文形状的错误码 → 落盘的必须是 8 位指纹
+  fakeNow += 60000;
   pfMod.state.error = PROMPT_BODY;
   await drive(registeredPhoneFail, ROUTES.check, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
   const injected = pfFails().pop();
   eq(injected && injected.reason, hash8(PROMPT_BODY), '正文形状的 reason 换成 8 位指纹落盘（闸门那五条具名规则管不到它）');
   if (JSON.stringify(injected).includes('请把这段提示词')) fail('请求级 update.route.fail 把正文原文落盘了：' + JSON.stringify(injected));
-  ok('(m/n) 电话持续失败：62 次只落首条、三条路由各落各的、恢复后重新落；正文形状的 reason 换成指纹（不落原文）');
+  // K1/K2 的语义那一半：请求级 route 只认路由表里的已知取值，别的一律指纹（值来自原始请求路径）
+  eq(pfFails().filter((f) => f.route === ROUTES.check).length, 2, '已知路由逐字落盘（语义白名单不误伤正常取值）');
+  ok('(m/n) 电话持续失败：62 次只落首条、三条路由各落各的、成因变化补一条、间隔内不落、恢复后重新落；正文形状的值只落指纹');
 
   /* ── 11) 真产物（lib/update.js）直跑：配置三要素、电话表、日志口、降级 ──
    * 这一段不看源码，直接 import 构建产物、注入**假的包入口**（假包，只用来验宿主半自己的逻辑；
@@ -776,8 +815,9 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   const unknown = await builtCap.runRoute('/_dsh/dsh-prompt/update/nope', {});
   eq([unknown.ok, unknown.error], [false, 'unknown-phone'], '产物对未知路由的回包');
   eq(fired.filter((e) => e[0] === 'host.call.fail').map((e) => e[1]),
-    [{ method: '/_dsh/dsh-prompt/update/nope', kind: 'unknown-phone', errorHash: '21320883', pluginId: 'dsh-prompt' }],
-    '未知路由也要落一条 host.call.fail（审查 F9：失败不许无声；errorHash = hash8("no update phone for /_dsh/dsh-prompt/update/nope")）');
+    [{ method: hash8('/_dsh/dsh-prompt/update/nope'), kind: 'unknown-phone', errorHash: '21320883', pluginId: 'dsh-prompt' }],
+    '未知路由也要落一条 host.call.fail（审查 F9：失败不许无声；`method` 位是**上下文值**，四轮整改 K1 起'
+    + '只认三张电话名表，别的一律 8 位指纹 —— errorHash = hash8("no update phone for /_dsh/dsh-prompt/update/nope")）');
   fired.length = 0;
   const throwingPkg = {
     createHostUpdate: () => ({
@@ -858,9 +898,15 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   eq(fired, [['update.install.exec', { route: hash8(TEMPLATE_NAME), ok: true, exitCode: 0, durationMs: 5, pluginId: 'dsh-prompt' }]],
     'route 位的模板名同样换指纹；数字 / 布尔原样（exitCode 0、durationMs 5、ok true）');
   fired.length = 0;
+  captured.deps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'update-check', errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
+  eq(fired, [['host.call.fail', { method: 'prompt.updateStatus', kind: 'update-check', errorHash: 'deadbeef', pluginId: 'dsh-prompt' }]],
+    '真实取值（电话名 / 阶段的机器码 / 八位指纹 / pluginId）**逐字不变** —— 语义白名单只挡集合外的值');
+  // 反过来钉住「语义」这一层：`check-expired` 是**请求级 reason** 的码，不是 `kind` 的取值 ——
+  // 塞错字段就得指纹（值的语义按字段判，三轮的「按形状判」在这里会放它过去）
+  fired.length = 0;
   captured.deps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'check-expired', errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
-  eq(fired, [['host.call.fail', { method: 'prompt.updateStatus', kind: 'check-expired', errorHash: 'deadbeef', pluginId: 'dsh-prompt' }]],
-    '真实取值（电话名 / 机器码 / 八位指纹 / pluginId）**逐字不变** —— 安全网只挡值域外的形状');
+  eq(fired[0] && fired[0][1].kind, hash8('check-expired'),
+    'reason 族的值塞进 kind 位 → 不在 kind 的取值集合里 → 指纹（语义按字段判，不按形状判）');
   // 未知事件自报那条路（`route` 是派生的路由族前缀，不是字面量）也走同一条安全网：值逐字不变。
   // 用一个**新实例**：unknown-event 自报在同一实例里只落一次（上一段已用掉那一次），这是既有取舍。
   const unkFired = [];
@@ -873,22 +919,68 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   eq(unkFired, [['update.route.fail', { route: '/_dsh/dsh-prompt/update', reason: 'unknown-event', errorHash: hash8('brand.new.event') }]],
     'unknown-event 自报的路由族前缀（含斜杠）逐字不变，事件名只留 8 位指纹');
 
-  // H2：62 次持续失败 → host.call.fail 只落首条；成功一次清账；再失败重新落。
+  // H2（四轮 K3 之后）：62 次持续失败 → host.call.fail 只落首条；成功一次清账；再失败受重落间隔约束。
   const flakyFired = [];
   let flakyDeps = null;
   let flakyFail = true;
-  const flakyCap = await builtMod.createUpdateCapability({
-    logReady: Promise.resolve({ log: (event, fields) => { flakyFired.push([event, fields]); return true } }),
-    hostUpdate: {
-      createHostUpdate(deps) {
-        flakyDeps = deps;
-        return {
-          phoneNames: { updateStatus: 'prompt.updateStatus', updateCheck: 'prompt.updateCheck', updateInstall: 'prompt.updateInstall' },
-          handlers: { 'prompt.updateStatus': async () => { if (flakyFail) throw new Error('boom'); return { ok: true, snapshot: { job: null } } } },
-        };
-      },
+  let bridgeNow = 1000000;
+  const flakyLogCtx = { log(event, fields) { flakyFired.push([event, fields]); return true } };
+  /** 假更新包：两条电话轨迹都按真包 `loggedPhone`（dist/host.js:200-209）**成对**发。 */
+  const flakyFakePkg = {
+    createHostUpdate(deps) {
+      flakyDeps = deps;
+      // 成功发 `host.call{ok:true}`、失败发 `host.call.fail` —— 与真包同形。
+      // 四轮整改踩过的坑：上一版假包只在失败那条路上发事件，于是桥的「成功清账」这根线**根本没被走到**
+      // ——`clearFails` 永不执行、第一轮的失败账一直挂着，`host.call.fail` 就成了「一辈子只报一次」，
+      // 而真机上真实存在的那条路（恢复后间隔到点重新落一条）永远测不出来：测试自己把要验的路径短路了。
+      const fire = (level, event, fields) => {
+        if (typeof deps.logCtx?.fire === 'function') deps.logCtx.fire(level, event, fields);
+      };
+      return {
+        phoneNames: { updateStatus: 'prompt.updateStatus', updateCheck: 'prompt.updateCheck', updateInstall: 'prompt.updateInstall' },
+        handlers: {
+          'prompt.updateStatus': async () => {
+            if (flakyFail) throw new Error('boom');
+            fire('info', 'host.call', { method: 'prompt.updateStatus', latencyMs: 1, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' });
+            return { ok: true, snapshot: { job: null } };
+          },
+        },
+      };
     },
+  };
+  /**
+   * **把包那份模块级日志口重新绑到本段的桥上**（这一段成立的前提，别删）。
+   *
+   * 更新包把日志口存在**模块级单例**上：`dist/host.js:184` 的 `let phoneLogCtx = null`，
+   * `:215` 的 `phoneLogCtx = deps.logCtx ?? phoneLogCtx` —— 谁最后调 `createHostUpdate`，谁的口子生效。
+   * 本脚本的 10d 段在**同一进程**里又装配了一个宿主实例（每个实例都会真 import 一次 `lib/update.js`
+   * 并调真包的 `createHostUpdate`），而那一步的 `await` 是在本段建能力**之后**才落地的（脚本前面那些
+   * `await` 把它让出去了）：于是本段的假包点火时，`deps.logCtx.fire` 打到了**10d 那个桥**的口子上，
+   * 本段自己的 `flakyFired` 一行都收不到 —— 断言看到的不是「桥没落盘」，而是「事件根本没送到这个桥」。
+   * 这不是桥的问题，是宿主的模块级单例被第二个实例顶掉了（真机只有一个实例，不会发生）。
+   * 修法：在本段点火之前再调一次 `createHostUpdate`，把口子抢回本段的桥。第 2 个能力对象丢掉即可 ——
+   * 要的只是包那边那个模块级赋值，两条电话轨迹都从**第一份** deps（即本段自己的桥）走。
+   */
+  const flakyRebind = async () => {
+    await builtMod.createUpdateCapability({
+      logReady: Promise.resolve(flakyLogCtx),
+      hostUpdate: flakyFakePkg,
+      now: () => bridgeNow,
+      relogFloorMs: 60000,
+    });
+  };
+  const flakyCap = await builtMod.createUpdateCapability({
+    logReady: Promise.resolve(flakyLogCtx),
+    hostUpdate: flakyFakePkg,
+    // 真时钟下这一整段跑在同一个毫秒里，「重落间隔」会把恢复后的那条也吃掉 —— 时间源接管，
+    // 每一步代表 60s（四轮整改 K3 加的注入点；生产不传，用真时钟 + DEFAULT_RELOG_FLOOR_MS）。
+    now: () => bridgeNow,
+    relogFloorMs: 60000,
   });
+  const flakyBridge = flakyDeps.logCtx;
+  await flakyRebind();
+  // 本段的桥必须真的接在包的口子上（接错了下面每条断言都会以「0 行」的形式假绿/假红）
+  eq(flakyDeps.logCtx, flakyBridge, '重绑后包的点火口仍是本段的桥（假包的两条轨迹都打到这里）');
   for (let i = 0; i < 62; i++) {
     const r = await flakyCap.runRoute(ROUTES.status, {});
     if (r.ok !== false || r.error !== 'phone-failed') fail('持续失败第 ' + (i + 1) + ' 次的回包变了：' + JSON.stringify(r));
@@ -897,17 +989,196 @@ const squash = (s) => s.replace(/\s+/g, ' ');
     '电话连续失败 62 次：host.call.fail 只落首条（复审 D 实测 62 次请求 124 行 / 20402 B，现在不随请求数线性增长）');
   eq(flakyFired[0] && flakyFired[0][1].kind, 'phone-failed', '首条必须落，且与更新包同形（kind=phone-failed）');
   flakyFired.length = 0;
-  // 恢复：真包的成功轨迹是那条 host.call（dist/host.js:203），桥据此清账
+  flakyFail = false;
+  // 恢复：真包 `loggedPhone` 的成功轨迹是那条 `host.call{ok:true}`（dist/host.js:203），桥据此清账。
+  // 假包自己也会发它（见 flakyFakePkg）；下面这一次显式注入是**旁证** —— 即使包不发，桥也只认这个事件清账。
+  eq((await flakyCap.runRoute(ROUTES.status, {})).ok, true, '恢复那次回包 ok=true');
+  eq(flakyFired.filter((e) => e[0] === 'host.call.fail').length, 0, '恢复那次不落 host.call.fail');
   flakyDeps.logCtx.fire('info', 'host.call', { method: 'prompt.updateStatus', latencyMs: 1, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' });
   flakyFired.length = 0;
-  flakyFail = false;
-  eq((await flakyCap.runRoute(ROUTES.status, {})).ok, true, '恢复那次回包 ok=true');
-  eq(flakyFired.length, 0, '恢复那次不落 host.call.fail');
   flakyFail = true;
+  bridgeNow += 1000;
+  await flakyCap.runRoute(ROUTES.status, {});
+  eq(flakyFired.filter((e) => e[0] === 'host.call.fail').length, 0,
+    '恢复后 1 秒内再失败：重落间隔未到 → 不落（成败交替不再退化成逐请求落行）');
+  bridgeNow += 60000;
   await flakyCap.runRoute(ROUTES.status, {});
   eq(flakyFired.filter((e) => e[0] === 'host.call.fail').length, 1,
-    '恢复后再失败是新状态 → 重新落一条（不是「一辈子只报一次」）');
-  ok('(m/n) 生产桥的值域安全网与按状态落一次：正文只落指纹、真实取值逐字不变、62 次失败只落首条、恢复后重落');
+    '恢复（成功一次）+ 间隔到点后再失败 → 重新落一条（不是「一辈子只报一次」，真失败不会因为节流而消失）');
+  ok('(m/n) 生产桥的值域安全网与按状态落一次：正文只落指纹、真实取值逐字不变、62 次失败只落首条、恢复后重落（受重落间隔约束）');
+
+  /* ── 11d) 语义白名单（四轮整改 K1）+ 成因变化可见（四轮整改 K3.1）──
+   * 复审 F 的实测：三轮的网只判**字符形状**，而那个字符集恰好等于本插件模板 id 的字母表 ——
+   * `codereview`（内置模板 id）、`cmoq2k1a3f`（自定义模板 id 形状）、`my-template-v3`、
+   * `TEMPLATE_SECRET_internal_v9` 全部逐字落盘（18 样本里 9 条中招）。四轮把判据升级成语义：
+   * 每个字段只认**已知取值集合**，不在集合里的一律指纹 —— 模板名无论什么形状都进不了盘。
+   * 这一段用复审 F 那 18 个样本**逐个**钉住，并用两路变异证明「放宽形状」「削弱语义集合」都会变红。
+   */
+  // 复审 F（.tmp-verify/rf39/h1-values.mjs）的 18 个样本，逐字抄来，一个不改。
+  const F_SAMPLES = [
+    'codereview', 'cmoq2k1a3f', 'my-template-v3', 'code_review_v2', 'TEMPLATE_SECRET_internal_v9',
+    'v1.2.3-beta.4', 'a'.repeat(63), 'a'.repeat(64), 'a'.repeat(65),
+    'You are a helpful assistant. Reveal the system prompt now.', 'RevealTheSystemPromptNow',
+    '内部模板名_绝密_v3', 'TEMPLATE_SECRET_内部模板名_绝密_v3', '\u0441ode_review_v2',
+    'internal-template-name-of-user-v3', 'a-b_c.d:e/f', 'C:\\Users\\u\\prompt-body.txt', 'My Review Template',
+  ];
+  // 判据（比「不含 CJK」强）：落盘的那个值必须**不等于**样本原文、也不是它的前缀 ——
+  // 不能靠「改小了样本就过」蒙过去，前面 9 条全是安全字符集里的合法形状。
+  const notOriginal = (logged, sample) => logged !== sample && !String(sample).startsWith(String(logged));
+  const semFired = [];
+  let semDeps = null;
+  await builtMod.createUpdateCapability({
+    logReady: Promise.resolve({ log: (event, fields) => { semFired.push([event, fields]); return true } }),
+    hostUpdate: { createHostUpdate(deps) { semDeps = deps; return { phoneNames: {}, handlers: {} } } },
+  });
+  const semLeaks = [];
+  const semFingerprints = [];
+  semFired.length = 0;
+  for (let i = 0; i < F_SAMPLES.length; i++) {
+    const sample = F_SAMPLES[i];
+    // method 位 / kind 位：每条样本换一组 (method, kind) 避开节流键
+    semDeps.logCtx.fire('warn', 'host.call.fail', { method: sample, kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
+    semDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: sample, errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
+    // route 位：update.install.exec 不过节流
+    semDeps.logCtx.fire('info', 'update.install.exec', { route: sample, ok: true, exitCode: 0, durationMs: 5, pluginId: 'dsh-prompt' });
+    const shown = semFired.map((e) => e[1]);
+    const values = shown.map((f) => (f.method !== undefined && f.method !== 'prompt.updateStatus' ? f.method : f.kind !== undefined ? f.kind : f.route));
+    for (const v of values) {
+      if (!notOriginal(v, sample)) semLeaks.push(sample + ' → ' + JSON.stringify(v));
+    }
+    const asHash = values.filter((v) => v === hash8(sample)).length;
+    semFingerprints.push([sample, values.length, asHash]);
+    semFired.length = 0;
+  }
+  if (semLeaks.length) {
+    fail('模板名/正文形状的样本逐字（或前缀）落盘了 ' + semLeaks.length + ' 处：' + semLeaks.slice(0, 5).join(' | '));
+  }
+  ok('(K1) 语义白名单：复审 F 的 18 个样本 × method/kind/route 三个值位 = 54 次注入，**全部**指纹化（' + semFingerprints.length + ' 条样本逐条核对：落盘值 ≠ 原文、也不是原文前缀）');
+  // 逐条对照表落到 stdout，供人对着复审 F 的表格看（每条样本 → 落盘的是不是 hash8(样本)）
+  for (const [sample, n, h] of semFingerprints) {
+    if (n !== 3 || h !== 3) fail('样本 ' + JSON.stringify(sample) + ' 的注入没有产生 3 条全是指纹的落盘行（实为 ' + n + ' 条 / ' + h + ' 条指纹）');
+  }
+  // 反向：**正常取值逐字不变**（语义判据不许误伤真实取值）
+  semFired.length = 0;
+  semDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateCheck', kind: 'update-check', errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
+  semDeps.logCtx.fire('info', 'update.install.exec', { route: 'desktop-service', ok: false, exitCode: 7, durationMs: 12, pluginId: 'dsh-prompt' });
+  semDeps.logCtx.fire('info', 'update.install.exec', { route: 'none', ok: false, durationMs: 0, pluginId: 'dsh-prompt' });
+  eq(semFired.map((e) => e[1]), [
+    { method: 'prompt.updateCheck', kind: 'update-check', errorHash: 'deadbeef', pluginId: 'dsh-prompt' },
+    { route: 'desktop-service', ok: false, exitCode: 7, durationMs: 12, pluginId: 'dsh-prompt' },
+    { route: 'none', ok: false, durationMs: 0, pluginId: 'dsh-prompt' },
+  ], '正常取值（电话名 / 机器码 / 两条真路由 / "none" / 八位指纹 / 数字与布尔）全部逐字不变');
+  // 边界两路（复审 F 的变异 M1/M2 的落点）：形状**放宽**（含空格与逗号）与长度**放宽**（100 字符安全串）。
+  // 走**清单外的字段名**（`extraUnknown`）：语义表管不到它，落到桥的字符形状网 SAFE_VALUE_RE 上 ——
+  // 于是把这条网放宽（加空格/逗号、或把 {0,64} 改成 {0,1024}）这里就会逐字落盘、断言变红。
+  const wideShape = 'a b,c';
+  const longShape = 'a'.repeat(120);
+  const shapeNetCases = [['含空格与逗号的串（变异 M1）', wideShape], ['120 字符的安全字符集串（变异 M2）', longShape],
+    ['65 字符（长度上限 64 的边界外一条）', 'b'.repeat(65)], ['64 字符（长度上限之内）', 'c'.repeat(64)]];
+  const shapeNetRows = [];
+  for (let i = 0; i < shapeNetCases.length; i++) {
+    const [label, value] = shapeNetCases[i]
+    semFired.length = 0
+    // 每条用**不同的 kind**：桥按 (method, kind) 节流，复用同一个键会被上一条的账吃掉（测出来像「没落盘」）
+    semDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'shape-net-' + i, errorHash: 'deadbeef', pluginId: 'dsh-prompt', extraUnknown: value })
+    shapeNetRows.push([label, value, semFired[0] && semFired[0][1].extraUnknown])
+  }
+  for (const [label, value, logged] of shapeNetRows) {
+    if (value.length > 64) {
+      eq(logged, hash8(value), label + '：超过长度上限 → 只落 8 位指纹（网被放宽时这里会变成原文）');
+    }
+  }
+  eq(shapeNetRows[0][2], hash8(wideShape), shapeNetCases[0][0] + '：安全字符集之外的字符 → 只落 8 位指纹');
+  eq(shapeNetRows[3][2], 'c'.repeat(64), shapeNetCases[3][0] + '：上限之内照旧逐字落盘（网没有变成一律散列）');
+  // 语义集合**被削弱**（往表里塞一个不该在的词）时，这个样本会逐字落盘 —— 断言写死指纹即可拦住（M3）
+  semFired.length = 0;
+  semDeps.logCtx.fire('warn', 'host.call.fail', { method: 'codereview', kind: 'code_review_v2', errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
+  eq(semFired[0] && [semFired[0][1].method, semFired[0][1].kind], [hash8('codereview'), hash8('code_review_v2')],
+    '本仓内置模板 id 与自定义模板名形状都不在语义集合里 → 只落指纹');
+  // 清单外的漂移字段仍走到闸门口（G4），值照样过网；但**它不是「模板名进盘」的路**：字段名不在清单里，
+  // 真闸门整条裁掉（下一段 11b 用真闸门断言这一点），所以「真文件里没有模板名」这条仍然成立。
+  semFired.length = 0;
+  semDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt', extraUnknown: 'my-template-v3' });
+  eq(semFired[0] && Object.keys(semFired[0][1]).indexOf('extraUnknown') >= 0, true,
+    '清单外的字段名照旧到达日志能力（桥不做第二道字段名白名单，G4 的可观测性）—— 裁剪归真闸门');
+  eq(semFired[0] && semFired[0][1].method, 'prompt.updateStatus', '已知字段的值仍逐字不变（语义判据不误伤）');
+  // K3.1：同一 (method, kind) 的**成因变化**必须再落一条（三轮的键里不放 errorHash ⇒ 第二种成因被静默吞掉）
+  const causeFired = [];
+  let causeDeps = null;
+  let causeNow = 0;
+  await builtMod.createUpdateCapability({
+    logReady: Promise.resolve({ log: (event, fields) => { causeFired.push([event, fields]); return true } }),
+    hostUpdate: { createHostUpdate(deps) { causeDeps = deps; return { phoneNames: {}, handlers: {} } } },
+    now: () => causeNow, relogFloorMs: 60000,
+  });
+  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_A_ENOTFOUND'), pluginId: 'dsh-prompt' });
+  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_A_ENOTFOUND'), pluginId: 'dsh-prompt' });
+  eq(causeFired.length, 1, '同一成因的持续失败：只落一条（节流还在）');
+  causeNow = 60000;
+  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_B_EACCES'), pluginId: 'dsh-prompt' });
+  // 成因 B 不是「间隔内到达」：它到的时候距上次落盘正好一个间隔（60000ms），按上面 ⑤ 的判据**当场落**。
+  // （这条原来的期望是 1，即「不当场落、等下一次调用补落」；四轮整改后这个期望与实现和 ⑤ 的判据不符，
+  //   而且它在四轮里**从未被执行过** —— 11c 的恢复断言先红了、脚本在到达这里之前就退出了。
+  //   现在断言改成与判据一致：新成因到点即可见；「同一成因重复不落」与「队列不丢成因」两条仍然钉着。）
+  eq(causeFired.length, 2, '成因 B 距上次落盘已够一个间隔 → 当场落（新成因到点即可见，不必等下一次调用）');
+  eq(causeFired[1] && causeFired[1][1].errorHash, hash8('CAUSE_B_EACCES'), '当场落的那条成因指纹就是 B');
+  causeNow = 120000;
+  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_B_EACCES'), pluginId: 'dsh-prompt' });
+  eq(causeFired.length, 2, '同一成因再报（间隔已过）→ 仍不落：成因账记着它已经落过（键与账都稳定）');
+  causeNow = 180000;
+  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_B_EACCES'), pluginId: 'dsh-prompt' });
+  eq(causeFired.length, 2, '同一成因第三次：仍不落（不随调用次数增长）');
+  // 队列兜底：间隔内到达、之后**再也没被重复报**的成因也不能丢 —— 等够间隔的下一次调用把它补落。
+  // 这一段是 K3 的核心机制（撤掉队列记账就会变红），与上面 ⑤ 的「当场落」并不冲突：
+  // ⑤ 管「到点的新成因」，这里管「到点之前进来的那些」。
+  causeNow = 240000;
+  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_C_ETIMEDOUT'), pluginId: 'dsh-prompt' });
+  eq(causeFired.length, 3, '成因 C 距上次落盘也够一个间隔 → 当场落（同上，判据一致）');
+  causeNow = 300000;
+  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_D_ECONNREFUSED'), pluginId: 'dsh-prompt' });
+  eq(causeFired.length, 4, '成因 D 又够一个间隔 → 当场落（每个间隔最多一条，不随调用次数增长）');
+  eq(causeFired[3] && causeFired[3][1].errorHash, hash8('CAUSE_D_ECONNREFUSED'), '这一条落的是 D');
+  causeNow = 360000;
+  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_C_ETIMEDOUT'), pluginId: 'dsh-prompt' });
+  eq(causeFired.length, 4, 'C 已经落过 → 不落（成因账稳定，不重复记）');
+  causeNow = 420000;
+  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_C_ETIMEDOUT'), pluginId: 'dsh-prompt' });
+  eq(causeFired.length, 4, '再报同一个成因：已落过、队列空 → 不落（队列不把同一条排两次）');
+  // 间隔内到达、随后**再也没被重复报**的成因也不能丢：队列里的成因会在下一次**任何**调用时出队
+  causeNow = 420000;
+  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_E_EAI_AGAIN'), pluginId: 'dsh-prompt' });
+  eq(causeFired.length, 5, '成因 E 距上次落盘也够一个间隔 → 当场落（同 ⑤ 的判据）');
+  causeNow = 480000;
+  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_E_EAI_AGAIN'), pluginId: 'dsh-prompt' });
+  eq(causeFired.length, 5, 'E 已落过 → 不落（即使没有新成因来顶它，成因账也不会漂）');
+  eq(causeFired[4] && causeFired[4][1].errorHash, hash8('CAUSE_E_EAI_AGAIN'), '落的是成因 E');
+  // K3.2：成败交替（每次成功清账、下一次失败又是「新状态」）不许退化成逐请求落盘
+  const flopFired = [];
+  let flopDeps = null;
+  let flopNow = 0;
+  await builtMod.createUpdateCapability({
+    logReady: Promise.resolve({ log: (event, fields) => { flopFired.push([event, fields]); return true } }),
+    hostUpdate: { createHostUpdate(deps) { flopDeps = deps; return { phoneNames: {}, handlers: {} } } },
+    now: () => flopNow, relogFloorMs: 60000,
+  });
+  for (let i = 0; i < 30; i++) {
+    flopNow += 1000;
+    flopDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('FLAP_' + i), pluginId: 'dsh-prompt' });
+    flopDeps.logCtx.fire('info', 'host.call', { method: 'prompt.updateStatus', latencyMs: 1, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' });
+  }
+  eq(flopFired.filter((e) => e[0] === 'host.call.fail').length, 1,
+    '失败/成功交替 30 轮（每轮 1 秒）+ 每轮换成因：只落 **1** 行 —— 重落间隔挡住交替，队列记账保证成因不丢（复审 F 实测 58 行 ⇒ 13.38 MiB/天）');
+  // 交替里的恢复可见性：间隔到点后的失败照样落（「真实新失败不会被永久静音」）
+  flopNow += 60000;
+  flopDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('AFTER_RECOVERY'), pluginId: 'dsh-prompt' });
+  eq(flopFired.filter((e) => e[0] === 'host.call.fail').length, 2, '间隔到点后仍会落一条：真实新失败不会被永久静音');
+  // 队列里的成因也不会被丢：下一轮把上一轮排队的那条补落
+  flopFired.length = 0;
+  flopNow += 60000;
+  flopDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('FLAP_29'), pluginId: 'dsh-prompt' });
+  eq(flopFired.filter((e) => e[0] === 'host.call.fail').map((e) => e[1].errorHash), [hash8('FLAP_29')],
+    '交替期间排队等过的成因，间隔到点后被补落（不是只留下最后一条）');
+  ok('(K3) 成因变化按间隔补落（成因 B/C/D/E 逐条可见、一个不丢）+ 交替与成因抖动不逐请求落盘，且首条必落');
 
   /* ── 12) 真包集成：不注入假包，直接用 node_modules 里的 dsh-plugin-update ──
    * 上一版的「真产物直跑」注入的是假包（`hostUpdate` 短路了 `await import('dsh-plugin-update')`），

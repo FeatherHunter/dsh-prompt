@@ -52,6 +52,7 @@
     "test:host-deps": "node scripts/test-host-deps.cjs",
     "test:log": "node scripts/test-log.cjs",
     "test:issue-39": "node scripts/test-issue-39.cjs",
+    "test:issue-40": "node scripts/test-issue-40.cjs",
     "test:issue-42": "node scripts/test-issue-42.cjs",
     "test": "npm run test:modal && npm run test:issue-14"
   },

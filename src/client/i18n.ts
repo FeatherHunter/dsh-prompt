@@ -112,4 +112,86 @@ export const STR = {
   logReasonTimeout: { zh: '宿主超时未应答', en: 'host timed out' },
   logReasonStale: { zh: '已有更新的开关操作，本次作废', en: 'a newer switch action superseded this one' },
   logReasonOther: { zh: '未知原因', en: 'unknown reason' },
+  // #40：设置面板顶部的「检查更新」入口 + 更新弹窗。
+  // 八条失败原因的文案逐字对齐包 README 第 8 节的第三列（「用户该做什么」）——
+  // 只显示英文原因码对用户没用，这一列才是可执行的。第 8 条 registry-conflict 在 0.1.1 里
+  // 零处产出（#55 实测）：**预留文案，但不许为它编情形**（真机到不了就不要在别处假装它会到）。
+  updateEntry: { zh: '检查更新', en: 'Check for updates' },
+  updateEntryHint: { zh: '看当前版本，并问官方源有没有新版', en: 'See your version and ask the registry for a newer one' },
+  updateVersionUnknown: { zh: '版本未知', en: 'version unknown' },
+  updateRowRunning: { zh: '当前版本', en: 'Running' },
+  updateRowInstalled: { zh: '已装版本', en: 'Installed' },
+  updateRowLatest: { zh: '最新版本', en: 'Latest' },
+  updateLatestNone: { zh: '还没查过（点「检查更新」问官方源）', en: 'not checked yet (click "Check now" to ask the registry)' },
+  updateNotAvailable: { zh: '未知', en: 'unknown' },
+  updateBtnCheck: { zh: '检查更新', en: 'Check now' },
+  updateBtnChecking: { zh: '查询中…', en: 'Checking…' },
+  updateBtnInstall: { zh: '安装新版本', en: 'Install update' },
+  updateBtnInstalling: { zh: '安装中…', en: 'Installing…' },
+  updateBtnCopy: { zh: '复制命令', en: 'Copy command' },
+  updateCopied: { zh: '已复制到剪贴板。', en: 'Copied to the clipboard.' },
+  updateCopyFail: { zh: '复制失败，请手动选中命令复制。', en: 'Copy failed — select the command manually.' },
+  updateClose: { zh: '关闭', en: 'Close' },
+  updateHostFailTitle: { zh: '宿主没有回答更新状态', en: 'The host did not answer the update status' },
+  updateHostFailHint: {
+    zh: '更新能力可能没接通（宿主半未加载），也可能宿主半刚起、还没就绪。刷新页面再点一次；一直这样就把日志导出后提 Issue。',
+    en: 'The update capability may not be wired up (host half not loaded), or the host half is not ready yet. Refresh the page and try again; if it keeps happening, export the log and open an issue.',
+  },
+  updateReasonTitle: { zh: '装不了的原因', en: 'Why it cannot install' },
+  updateReasonUnknown: {
+    zh: '这条原因码本面板还不认识（多半是更新包升版加了新码）。把原始原因码记下来提 Issue。',
+    en: 'This panel does not know this reason code (an update package upgrade probably added it). Note the raw code down and open an issue.',
+  },
+  updateWhyUnknownProfile: {
+    zh: '检查使用范围名是否含特殊字符、目录是否还在；这种情形不给手工命令，先把范围修好。',
+    en: 'Check whether the profile name has special characters and whether the directory still exists; no manual command is given for this case — fix the profile first.',
+  },
+  updateWhySourceInstall: {
+    zh: '这种情形不给手工命令；想走更新，先按版本号重装一次。',
+    en: 'No manual command is given for this case; to use updates, reinstall once from a published version.',
+  },
+  updateWhyInvalidInstallation: {
+    zh: '重装当前版本，把已装目录修好再查更新。',
+    en: 'Reinstall the current version, fix the installed directory, then check again.',
+  },
+  updateWhyInstallationChanged: {
+    zh: '重新打开宿主再查一次，让指纹重新绑定；还出现就重装。',
+    en: 'Reopen the host and check again so the fingerprint rebinds; if it still appears, reinstall.',
+  },
+  updateWhyPendingRestart: {
+    zh: '重启宿主，让新版跑起来；这是正常终态，不是失败。',
+    en: 'Restart the host so the new version takes over; this is a normal end state, not a failure.',
+  },
+  updateWhyRegistryConflict: {
+    zh: '打开使用范围的清单文件，看目标包名那一行写的是不是版本号，改成版本号再试。',
+    en: 'Open the profile manifest and check whether the target package line pins a version; pin one and retry.',
+  },
+  updateWhyIncompatibleNode: {
+    zh: '先升级 Node 到 22 或更高，再查更新。',
+    en: 'Upgrade Node to 22 or newer first, then check again.',
+  },
+  updateWhyRecoveryRequired: {
+    // 包 README 第三列的原话是「重新点一次安装；一直出现就按第 12 节排错」——「第 12 节」是**包自己的**
+    // README，用户手里没有，所以这里把那半句换成一句用户真能执行的话（点安装 / 导出日志提 Issue）。
+    zh: '重新点一次「安装新版本」；一直出现就把日志导出后提 Issue。',
+    en: 'Click "Install update" once more; if it keeps appearing, export the log and open an issue.',
+  },
+  updatePendingBanner: {
+    zh: '⚠️ 新版 {new} 已装好，正在跑的还是 {old}，重启宿主后生效。',
+    en: '⚠️ Update {new} is installed; {old} is still running — restart the host to apply it.',
+  },
+  updatePendingHint: {
+    zh: '桌面端完全退出重开；web 端重启后刷新页面（Ctrl+F5）。',
+    en: 'Fully quit and reopen the desktop app; for the web host, restart it and refresh the page (Ctrl+F5).',
+  },
+  updateManualTitle: { zh: '手工兜底命令', en: 'Manual fallback command' },
+  updateManualNone: { zh: '宿主这次没有给出手工命令（只展示上面的原因）。', en: 'The host returned no manual command this time (only the reason above).' },
+  updateManualHint: {
+    zh: '这不是万能药：命令装的是「已装版本」那一侧——没先点「检查更新」时，命令里的版本号就是你已装的版本；状态是「安装位置变了」时，执行它也只是原地重装，清不掉那个状态。',
+    en: 'This is not a cure-all: the command targets the installed side — without a fresh check the version in it is simply your installed version, and under "installation location changed" it only reinstalls in place without clearing that state.',
+  },
+  updateStatusNote: {
+    zh: '版本与状态每次都由宿主现算，不缓存；「最新版本」只有点过「检查更新」才有值。',
+    en: 'Versions and state are recomputed by the host on every call and never cached; "Latest" only has a value after a check.',
+  },
 }

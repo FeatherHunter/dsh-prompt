@@ -56,11 +56,26 @@ function failKeyOf(method: string, kind: string): string {
   return method + '\u0000' + kind
 }
 
-/** 一个失败状态的账：已落盘的成因、等间隔的成因队列（每项带到达时刻）、上次落盘时刻。 */
+/**
+ * 一个失败状态的账：已落盘的成因、等间隔的成因队列、上次落盘时刻。
+ *
+ * 队列项除了成因指纹，还带着**这一条该落盘的 `errorHash` 值**：补落落的是队首那一条，
+ * 落盘行必须是**它自己**的值，不能拿当前请求的值顶替（#40 前置条件 2 / #39 复审 H 的 R2
+ * 实测过这种错配：账记的是 B、盘上写的是 A）。
+ */
 interface FailState {
   reported: Set<string>
-  pending: Array<{ hash: string; at: number }>
+  pending: Array<{ hash: string; at: number; errorHash: unknown }>
   lastLogAt: number
+}
+
+/**
+ * `noteFail` 的判决。`null` = 本次不落盘；非空 = 落盘行的 `errorHash` 用这里的值
+ * （常态是本次请求的值，补落队首时是队首那条的值）。用对象包一层而不是直接返回那个值：
+ * 上游没带 `errorHash` 时「落盘但值为空」与「不落盘」必须能区分开 —— 前者是真失败，不许被静默。
+ */
+interface FailVerdict {
+  errorHash: unknown
 }
 
 /**
@@ -90,7 +105,7 @@ export function createBridgeLog(
    * 这个失败该不该落盘（H2 + 四轮整改 K3）。**速率由「失败到达的时刻」把关**（唯一定时器 = `lastLogAt`）：
    * ① 没见过这个 (method, kind) → 落（**首条必落**：真实故障不许因为节流而看不见）；
    * ② 这个成因**正排在队首等**且间隔已到 → 出队落它（见下）；
-   * ③ 这个成因已经落过 → 不落；
+   * ③ 这个成因已经落过 → 本次不落（但见下面 R2 那条：队首仍要得到补落机会）；
    * ④ 这个成因已经在队列里等着 → 不落，**也不刷新它的等待起点**（重复报到不该让待落盘的东西一推再推）；
    * ⑤ 全新成因且距上次到达 ≥ `relogFloorMs` → 落它并记进 `reported`；否则进队列等下一次调用。
    * 「按到达时刻计时」而不是「按队列头年龄」是刻意的：成败交替时每次成功都会清账、
@@ -98,53 +113,71 @@ export function createBridgeLog(
    * 键稳定在 (method, kind)：**成因与次数进的是落盘判据，不是去重键**；队列不设条数上限
    * （上限同样会丢掉真实的新失败；频率已经由间隔把关：每个间隔最多落一条）。
    *
-   * **② 是这个收口轮修掉的那个 FAIL**：早先的写法把「已在队列」放在最前面 return，
-   * 于是「恢复 → 同一个成因再失败」这条路上，那个成因永远卡在队列里 —— 恢复把 `reported` 清空了，
-   * 但（按设计）不碰队列，于是它每次报到都在第 ④ 步被挡回、补落根本轮不到执行；
-   * 量出来的现象正是 `恢复（成功一次）+ 间隔到点后再失败 → 0 行`：一个**真实的持续故障被静默了**
-   * （本票最忌讳的一类病，也是复审 F 的 Top3）。队列里的成因本来就是「还没落盘、在等间隔」的东西，
-   * 所以它该被认成**待补落**而不是**重复**：只在「③ 已落过」时才压掉，队首那条在 ② 出队。
-   * 这一条只在 `head.hash === cause` 时生效 —— 换一个成因进来时仍按 ⑤ 走，队列纪律不变。
+   * **② 的来历（别删）**：早先的写法把「已在队列」放在最前面 return，于是「恢复（成功一次）→
+   * 同一个成因再失败」这条路上，该成因永远卡在队列里 —— 恢复把 `reported` 清空了、但（按设计）
+   * 不碰队列，它每次报到都被「已在队列」挡回，量出来的现象是「恢复 + 间隔到点后再失败 → 0 行」：
+   * 一个真实的持续故障被静默（复审 F 的 Top3）。队列里的成因本来就是「还没落盘、在等间隔」的东西，
+   * 该被认成**待补落**而不是**重复**，所以队首那条在 ② 出队。
+   *
+   * **② 与 ③④ 的顺序是本票的前置条件 2（#39 复审 H 的 R2）**：早先 ③ 直接 `return false`，而补落
+   * 只在 ⑤ 与 ④ 的尾巴上执行 —— 于是「A 落过一次 → 间隔内来了 B → 之后**只有 A 反复失败**」这条
+   * 日常序列里，B 卡在队首永远轮不到补落（复审 H 实测：B 的成因指纹在真日志文件里**出现 0 次**；
+   * 而请求级补落打印的还是当前请求的成因 ⇒ **记账与落盘不一致**）。现在 ③④ 都把「队首补落」当成
+   * 第一件事：队首那条等够了就出队落**它自己**，于是新成因最迟在下一次任何调用可见（不是永久不可见）；
+   * 没等够就原样留着（不刷新它的等待起点）。
+   *
+   * 返回值是**判决**而不是布尔：落盘行的 `errorHash` 必须用「被记账的那个成因」的值 ——
+   * 常态是本次请求的值，补落队首时是队首那条的值。返回布尔会让调用点拿当前请求的值落盘，
+   * 正好复现上面那条「记账与落盘不一致」。
    */
-  function noteFail(method: string, kind: string, causeHash: string): boolean {
+  function noteFail(
+    method: string,
+    kind: string,
+    causeHash: string,
+    causeLiteral: unknown,
+  ): FailVerdict | null {
     const key = failKeyOf(method, kind)
     const cause = String(causeHash)
     const at = now()
     const entry = failedStates.get(key)
     if (!entry) {
       failedStates.set(key, { reported: new Set([cause]), pending: [], lastLogAt: at })
-      return true
+      return { errorHash: causeLiteral }
     }
     const head = entry.pending[0]
     if (head !== undefined && head.hash === cause) {
-      if (at - entry.lastLogAt < relogFloorMs) return false
+      if (at - entry.lastLogAt < relogFloorMs) return null
       entry.pending.shift()
       entry.reported.add(cause)
       entry.lastLogAt = at
-      return true
+      return { errorHash: head.errorHash }
     }
-    if (entry.reported.has(cause)) return false
-    if (entry.pending.some((p) => p.hash === cause)) return false
+    if (entry.reported.has(cause) || entry.pending.some((p) => p.hash === cause)) {
+      // 本次这个成因不落盘 —— 但队首那条可能正等着补落（R2）：它本来就不是「重复」，
+      // 而是「还没落盘、在等间隔」，所以这里必须给它机会，别让它在队列里卡死。
+      if (at - entry.lastLogAt < relogFloorMs) return null
+      return flushPendingFail(entry)
+    }
     if (at - entry.lastLogAt >= relogFloorMs) {
       entry.reported.add(cause)
       entry.lastLogAt = at
-      return true
+      return { errorHash: causeLiteral }
     }
-    entry.pending.push({ hash: cause, at })
+    entry.pending.push({ hash: cause, at, errorHash: causeLiteral })
     return flushPendingFail(entry)
   }
   /**
-   * 队列里最老的成因等够间隔（相对它自己到达的时刻）就落它，返回 true。成不落盘都不会被丢掉：
+   * 队列里最老的成因等够间隔（相对它自己到达的时刻）就出队落它自己，返回它的判决。成不落盘都不会被丢掉：
    * 没等够就留在队列里，下一次任何调用都会再试 —— 间隔内到达的成因不会因为「没人再报它」而被吞掉。
    */
-  function flushPendingFail(entry: FailState): boolean {
+  function flushPendingFail(entry: FailState): FailVerdict | null {
     const head = entry.pending[0]
-    if (!head) return false
-    if (now() - head.at < relogFloorMs) return false
+    if (!head) return null
+    if (now() - head.at < relogFloorMs) return null
     entry.pending.shift()
     entry.reported.add(head.hash)
     entry.lastLogAt = now()
-    return true
+    return { errorHash: head.errorHash }
   }
   /**
    * 这个电话成功了：清掉它的**成因账**（恢复之后再失败是**新状态**，必须重新落一条 —— 不是只报一次）。
@@ -179,8 +212,16 @@ export function createBridgeLog(
             // 成因 = 错误原文的指纹（拿原文过 hash8，而不是只看上游传的 errorHash 字段值，
             // 因为后者可能不是 8 位十六进制、会被安全网再散一次）。
             const causeHash = hash8(String(f.errorHash ?? ''))
-            if (!noteFail(String(safe.method ?? ''), String(safe.kind ?? ''), causeHash)) return
-            cap.log('host.call.fail', { ...safe })
+            // 落盘行的 errorHash 用**被记账的那个成因**的值（判决里给）：常态是本次请求的值，
+            // 补落队首时是队首那条的值。这里若照旧写 `{ ...safe }`，补落就会把当前请求的指纹
+            // 写进那行 —— 账记的成因与盘上的指纹对不上（R2 的「记账与落盘不一致」）。
+            const verdict = noteFail(
+              String(safe.method ?? ''), String(safe.kind ?? ''), causeHash, safe.errorHash,
+            )
+            if (verdict === null) return
+            cap.log('host.call.fail', verdict.errorHash === safe.errorHash
+              ? { ...safe }
+              : { ...safe, errorHash: verdict.errorHash })
             return
           }
           case 'update.install.exec': {

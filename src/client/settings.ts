@@ -10,6 +10,7 @@
  */
 import { getReact, TemplateBrowser } from './panel'
 import { SettingsHeaderLinks, AuthorPlugins } from './about'
+import { UpdateEntry } from './update'
 import { isSmartEnabled, setSmartEnabled } from './smartstore'
 import { getLang, tr, STR } from './i18n'
 
@@ -291,6 +292,8 @@ export function SettingsPage(props: any): any {
 
   // #37：旧的一行文字链接（⛭ GitHub 仓库 / ⚠ 反馈故障）已由顶部右上角两个图标按钮取代，不再保留第二处入口。
   return h('div', { style: { padding: 4, display: 'flex', flexDirection: 'column' } }, [
+    // #40：更新入口自己独占一行、左对齐，排在 #37 那一行右对齐图标**之上**；#37 的两行一字不动。
+    h(UpdateEntry, { key: 'update' }),
     h(SettingsHeaderLinks, { key: 'links', lang }),
     h(SettingGroup, { key: 'smart', title: t('smartGroup') }, [
       h(SettingRow, {

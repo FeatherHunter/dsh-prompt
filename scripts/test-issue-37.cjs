@@ -11,6 +11,7 @@ try { ts = require('typescript') } catch (e) { ts = require('D:/0Tools/DSHDeskto
 const DIR = path.join(__dirname, '.rt-tmp');
 fs.mkdirSync(DIR, { recursive: true });
 const SRC = (f) => path.join(__dirname, '..', 'src', 'client', f);
+const UPD = (f) => path.join(__dirname, '..', 'src', 'update', f);
 const MODULES = [
   ['templates.ts', SRC('templates.ts'), []],
   ['store.ts', SRC('store.ts'), ['./templates']],
@@ -19,13 +20,22 @@ const MODULES = [
   ['smartstore.ts', SRC('smartstore.ts'), []],
   ['panel.ts', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore']],
   ['about.ts', SRC('about.ts'), ['./panel', './i18n']],
-  ['settings.ts', SRC('settings.ts'), ['./panel', './about', './smartstore', './i18n']],
+  // #40 的连带：settings.ts 顶部多了一行更新入口（`./update`），转译表与依赖改写必须跟着带上，
+  // 否则这个脚本会以「Cannot find module './update'」直接崩（不是断言失败，是跑不起来）。
+  ['update.ts', SRC('update.ts'), ['./panel', './i18n', '../update/bridge']],
+  ['settings.ts', SRC('settings.ts'), ['./panel', './about', './update', './smartstore', './i18n']],
+  ['bridge.ts', UPD('bridge.ts'), ['./gen/updateClient.derived.js']],
+  ['updateClient.derived.js', UPD('gen/updateClient.derived.js'), []],
 ];
 for (const [outName, srcPath, deps] of MODULES) {
   let src = fs.readFileSync(srcPath, 'utf8');
   let js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true } }).outputText;
-  for (const d of deps) js = js.split('require("' + d + '")').join('require("' + d + '.cjs")');
-  fs.writeFileSync(path.join(DIR, outName.replace(/\.ts$/, '.cjs')), js);
+  for (const d of deps) {
+    // 跨目录依赖（update.ts 的 '../update/bridge' 与 bridge 的派生文件）落到本临时目录里的同名产物
+    const to = d === '../update/bridge' ? './bridge.cjs' : d === './gen/updateClient.derived.js' ? './updateClient.derived.cjs' : d + '.cjs';
+    js = js.split('require("' + d + '")').join('require("' + to + '")');
+  }
+  fs.writeFileSync(path.join(DIR, outName.replace(/\.ts$/, '.cjs').replace(/\.js$/, '.cjs')), js);
 }
 const React = require('react');
 const TR = require('react-test-renderer');
@@ -192,21 +202,24 @@ const kids = tree.children;
 // #52 改版：版式变了（每个功能各收进一张卡片：智能推荐组 / 诊断日志组），所以这几条改成**按内容找**，
 // 不再按索引钉死（索引断言会随版式变化而失去意义）。#37 自己的四条保证一条不减：
 // 两个图标按钮、四行引流区、旧文字链接下线、末尾是引流区。
+// #40 连带：设置页顶层**上方**多了一行「检查更新」入口（左对齐、带版本号），于是所有索引整体后移一位、
+// 块数 6 → 7。本段只做这个位移，四条保证与文案一字不动；新增第 0 块的存在性顺便在这里钉住。
 const hasCheckbox = (node) => !!(node && ((node.props && node.props.type === 'checkbox')
   || (Array.isArray(node.children) && node.children.some(hasCheckbox))));
-eq(kids.length, 6, '设置页顶层六块：标题行 / 智能推荐组 / 诊断日志组 / 模板列表 / 存储说明 / 引流区');
-eq(jsonAnchors(kids[0]).map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '第 1 块是右上角两个按钮（顺序：🌟 仓库、💬 ISSUE）');
-eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 1 块左边有插件名字');
-eq(txt(kids[1]).indexOf(STR.smartGroup.zh) >= 0, true, '第 2 块是「智能推荐」组（带组标题）');
-eq(txt(kids[1]).indexOf(STR.smartToggle.zh) >= 0, true, '智能开关在组内（文案一字不动）');
-eq(hasCheckbox(kids[1]), true, '智能开关仍是 checkbox');
-eq(txt(kids[2]).indexOf(STR.logGroup.zh) >= 0, true, '第 3 块是「诊断日志」组');
-eq([STR.logExport.zh, STR.logCopyPath.zh, STR.logClear.zh].every((s) => txt(kids[2]).indexOf(s) >= 0), true, '日志三入口都在组内（导出 / 复制路径 / 清空）');
-eq(txt(kids[2]).indexOf(STR.logWhere.zh) >= 0, true, '组内有落点行（等宽字体，不再写尖括号）');
-eq(kids[3].type, 'div', '第 4 块是模板浏览列表');
-eq(!kids[3].props['data-dsh-prompt-more'], true, '第 4 块不是引流区');
-eq(txt(kids[4]), STR.storageNote.zh, '第 5 块是存储说明（跟模板区走，文案一字不动）');
-eq(kids[5].props['data-dsh-prompt-more'], '', '第 6 块（页面底部）是引流区');
+eq(kids.length, 7, '设置页顶层七块：#40 更新入口 / 标题行 / 智能推荐组 / 诊断日志组 / 模板列表 / 存储说明 / 引流区');
+eq(txt(kids[0]).indexOf(STR.updateEntry.zh) >= 0, true, '#40：第 0 块是「检查更新」入口（在 #37 的标题行之上）');
+eq(jsonAnchors(kids[1]).map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '第 1 块是右上角两个按钮（顺序：🌟 仓库、💬 ISSUE）');
+eq(txt(kids[1]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 1 块左边有插件名字');
+eq(txt(kids[2]).indexOf(STR.smartGroup.zh) >= 0, true, '第 2 块是「智能推荐」组（带组标题）');
+eq(txt(kids[2]).indexOf(STR.smartToggle.zh) >= 0, true, '智能开关在组内（文案一字不动）');
+eq(hasCheckbox(kids[2]), true, '智能开关仍是 checkbox');
+eq(txt(kids[3]).indexOf(STR.logGroup.zh) >= 0, true, '第 3 块是「诊断日志」组');
+eq([STR.logExport.zh, STR.logCopyPath.zh, STR.logClear.zh].every((s) => txt(kids[3]).indexOf(s) >= 0), true, '日志三入口都在组内（导出 / 复制路径 / 清空）');
+eq(txt(kids[3]).indexOf(STR.logWhere.zh) >= 0, true, '组内有落点行（等宽字体，不再写尖括号）');
+eq(kids[4].type, 'div', '第 4 块是模板浏览列表');
+eq(!kids[4].props['data-dsh-prompt-more'], true, '第 4 块不是引流区');
+eq(txt(kids[5]), STR.storageNote.zh, '第 5 块是存储说明（跟模板区走，文案一字不动）');
+eq(kids[6].props['data-dsh-prompt-more'], '', '第 6 块（页面底部）是引流区');
 // #53 回归：panel.ts 头行两处内联灯泡 SVG 换成 logo.ts 的 promptMark 后，设置页头行必须照旧（标志 + Prompt + 新增）
 const browser = mount(React.createElement(panel.TemplateBrowser, { compact: false }));
 eq(browser.root.findAll((x) => x.type === 'svg').length >= 1, true, '#53：模板列表头行仍有标志 svg');

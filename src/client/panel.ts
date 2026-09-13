@@ -264,8 +264,9 @@ export function TopPortal(props: any): any {
 /**
  * 弹窗顶层 Portal（#21）：新增/编辑/删除确认弹窗经 TopPortal 挂到 body，
  * 逃离面板层叠上下文（compact 面板 PANEL_Z 上下文 / 设置页 settings.section 上下文）。
+ * #40 起导出：更新弹窗复用同一套顶层机制与同一个 rootAttr（`test:issue-21` 钉着这条）。
  */
-function ModalPortal(props: any): any {
+export function ModalPortal(props: any): any {
   const react = getReact()
   if (!react) return null
   return react.createElement(TopPortal, { rootAttr: 'data-dsh-prompt-modal-root' }, props.children)

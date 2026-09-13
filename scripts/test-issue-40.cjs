@@ -396,6 +396,15 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
       eq(acc.length, 1, msg + '：整只窗只有一个 accent 主按钮（实际 ' + acc.length + ' 个）');
       eq(acc.length === 1 ? acc[0].props['data-dsh-prompt-update-action'] : null, want, msg + '：主按钮是 ' + want);
     };
+    /**
+     * 「结论行是唯一的视觉主角」的可判定形态：弹窗**卡片里**铺了底色的块只有一个 ——
+     * 正常态是结论行（`blockStyle + background: bgLayer`），待重启态是那条横幅。
+     * 只看卡片的直接孩子（遮罩与卡片自己的底色不算「块」，按钮/命令码也不是 div）。
+     */
+    const filledBlocks = (cc) => {
+      const card = one(cc, 'data-dsh-prompt-update-modal').findAll((x) => x.type === 'div')[1];
+      return card.children.filter((ch) => ch && ch.props && ch.props.style && ch.props.style.background).length;
+    };
     // (a) 已是最新：最新版 == 正在跑的版本。
     script.status = okEnv(snap({ latestVersion: '0.1.7', canInstall: true }), 'CMD');
     let c = await mount(React.createElement(update.UpdateEntry, {}));
@@ -404,6 +413,7 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     eq(verdictOf(c) && verdictOf(c).text, fillT(STR.updateVerdictUpToDate.zh, { version: '0.1.7' }), '（已是最新）结论行文案：已是最新版本（0.1.7）');
     oneAccent(c, 'check', '（已是最新）');
     eq(!!actOf(c, 'install'), false, '（已是最新）不给安装按钮（没有新版本可装）');
+    eq(filledBlocks(c), 1, '（已是最新）铺底色的块只有一个 = 结论行（唯一视觉主角）');
     eq(!!one(c, 'data-dsh-prompt-update-banner'), false, '（已是最新）没有待重启横幅');
     eq(txt(one(c, 'data-dsh-prompt-update-modal')).indexOf('万能药') < 0, true, '（已是最新）命令块的免责声明不再出现（它平常压根不渲染）');
     c.unmount();
@@ -438,6 +448,7 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     eq(verdictOf(c) && verdictOf(c).kind, 'unknown', '（还没查过）结论行形态 = unknown');
     eq(String(txt(one(c, 'data-dsh-prompt-update-verdict-box'))).indexOf(STR.updateVerdictUnknownHint.zh) >= 0, true, '（还没查过）结论行补一句下一步（点「检查更新」问一次）');
     oneAccent(c, 'check', '（还没查过）');
+    eq(filledBlocks(c), 1, '（还没查过）铺底色的块仍是只有结论行一个');
     c.unmount();
     ok('三种结论形态（已是最新 / 有新版本 / 这次没查到）各如其分，且任何时刻只有一个主按钮');
   }
@@ -688,6 +699,9 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     eq(banner.props.title, undefined, '横幅不是悬停提示里的一行小字');
     // #60-B：这一种状态的主角是横幅 —— 结论行**不出现**（同一时刻只许有一个主角）。
     eq(!!one(m, 'data-dsh-prompt-update-verdict'), false, '待重启：结论行让位给横幅（不并排两个主角）');
+    eq(one(m, 'data-dsh-prompt-update-modal').findAll((x) => x.type === 'div')[1].children
+      .filter((ch) => ch && ch.props && ch.props.style && ch.props.style.background).length, 1,
+      '待重启：铺底色的块同样只有一个 = 那条横幅（主角换了人，仍然只有一个）');
     await openDetails(m);
     const seen = m.root.findAll(() => true);
     const at = (n) => seen.findIndex((x) => x.props && x.props['data-dsh-prompt-update-field'] === n);

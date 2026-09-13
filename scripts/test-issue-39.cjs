@@ -9,7 +9,7 @@
 //  (b) 状态快照带齐包 README 第 8 节的六字段，且与真实 dsh-plugin-update 的 buildSnapshot 对账
 //  (c) 同源防护没有被削弱：非 loopback / 跨站 / 跨 origin 请求仍被拒，同源仍放行
 //  (d) 客户端 shim 的电话名映射到上述三条端点（源码级静态断言，含与真实更新包 buildPhoneNames 对账）
-// 另有结构断言：依赖声明、构建产物把第三方包留作外部依赖、四处路径常量不漂移、能力缺席时诚实失败。
+// 另有结构断言：依赖声明、构建产物把更新包**内联**（#58，见下 (p)）、四处路径常量不漂移、能力缺席时诚实失败。
 //
 // 对抗式审查返工（#39 整改）新增/改正的断言：
 //  (e) 日志口**三参** fire（level, event, fields）：真事件名与字段一个不丢地到日志能力，
@@ -43,6 +43,15 @@
 //      刷屏面，逼修：不随请求数线性增长。
 //  (o) `update.install.exec` 的 `route:"none"`（没有安装配方 ⇒ 该路径**没有 exitCode 键**，也不是一条
 //      真路由）在清单 guard 里写明并由真闸门断言钉住 —— 见 8b（复审 D 的 A3）。
+//
+// #58（把更新包搬进本插件包内）新增/改正的断言：
+//  (p) **hoisted 部署布局回归**（见 13)）：把构建产物放进真机那种布局（插件包在
+//      `<profile>/node_modules/dsh-prompt`，更新包只可能在**插件包外**那一层 node_modules）里，
+//      真入口跑 status / check / install 三条电话，必须 `ok:true` + `blockedReason:null`；
+//      并且「插件包外有没有更新包」两种形态都要绿 —— 钉住「更新包住在本插件包内」这件事，
+//      否则下一个人把它改回 externals（或改回按包名解析），真机上又会静默退回 unknown-profile。
+//      （负例对照：HEAD 7ed096e 的产物在同布局下三条路由全回 unknown-profile，实测见
+//      `.wayfinder/update/58-progress.md` 与探针 `.tmp-verify/probe-58/hoisted-matrix.mjs`。）
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -92,14 +101,21 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   const pkg = JSON.parse(readSrc('package.json'));
 
   /* ── 0) 结构：依赖与脚本入口 ── */
-  if (pkg.dependencies['dsh-plugin-update'] !== '0.1.1') {
-    fail('dependencies["dsh-plugin-update"] 应为精确 "0.1.1"，实为 ' + JSON.stringify(pkg.dependencies['dsh-plugin-update']));
+  // #58：更新包是**构建期输入**（内联进 lib/update.js），不是运行时依赖 —— 用户装到的包里不该再装它，
+  // 否则又会出现「插件包外恰好有一份更新包」那种布局依赖（真机 hoisted 下就是 unknown-profile）。
+  if (pkg.dependencies['dsh-plugin-update'] !== undefined) {
+    fail('dsh-plugin-update 不许留在 dependencies（#58 起它是构建期输入，已内联进 lib/update.js），实为 '
+      + JSON.stringify(pkg.dependencies['dsh-plugin-update']));
+  }
+  if (pkg.devDependencies['dsh-plugin-update'] !== '0.1.1') {
+    fail('devDependencies["dsh-plugin-update"] 应为精确 "0.1.1"（构建期输入，版本冻结在产物里），实为 '
+      + JSON.stringify(pkg.devDependencies['dsh-plugin-update']));
   }
   if (!pkg.devDependencies.esbuild) fail('devDependencies 缺 esbuild');
   if (!pkg.scripts['test:issue-39']) fail('package.json 缺 test:issue-39 入口');
   if (!pkg.scripts['build:update-host']) fail('package.json 缺 build:update-host 入口');
   if (!pkg.scripts['derive:update-values']) fail('package.json 缺 derive:update-values 入口');
-  ok('依赖声明（dsh-plugin-update@0.1.1 + esbuild + test:issue-39 + build:update-host + derive:update-values）');
+  ok('依赖声明（dsh-plugin-update@0.1.1 在 devDependencies + esbuild + test:issue-39 + build:update-host + derive:update-values）');
   // 400 行告警线（地图 #38 grilling 拍板）：生产代码按「文件行数」算。本脚本自己的数字不被人工数骗到
   // （PowerShell 的 Get-Content 在 UTF-8 文件上会少报），所以这里真数一遍，超线的当场点名。
   // 覆盖面 = **本票改动过的全部代码文件**，包括本测试脚本、探针、构建脚本，以及因事件清单条数变化
@@ -110,6 +126,11 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   //   - scripts/test-issue-39.cjs：本票新增；沿用仓内既有先例 scripts/test-log.cjs（基线 452 行、
   //     本票连带改后 455 行），「拆测试」另开票，不在本票顺手拆（顺手拆会违反上面那条裁定的精神）；
   //   - scripts/test-log.cjs：同一先例，本票因清单条数/kind 字面量变化连带改（+3 行），已裁决不拆。
+  // #58 追加的第四处（同一裁定、当场点名）：
+  //   - lib/update.js（#58 起 1245 行）：**构建产物**（esbuild 单文件输出），行数由「内联进来的第三方
+  //     更新包」决定，不是人手写的代码 —— #58 之前它是 250 行（更新包留 externals），内联后必然越线。
+  //     人手写的宿主半源码仍受 400 行纪律约束（src/update/host/*.ts 全在线内），所以这里把产物
+  //     显式点名裁决，不让它挂在「未裁决超线」里当噪音。
   // 其余文件若超线则点名报「未裁决」，不阻断其余断言。
   const ALERT_LINES = 400;
   const lineCount = (rel) => readSrc(rel).split('\n').length - (readSrc(rel).endsWith('\n') ? 1 : 0);
@@ -130,7 +151,7 @@ const squash = (s) => s.replace(/\s+/g, ' ');
     'scripts/test-issue-39.cjs',
     'scripts/test-log.cjs',
   ];
-  const adjudicated = ['lib/index.js', 'scripts/test-issue-39.cjs', 'scripts/test-log.cjs'];
+  const adjudicated = ['lib/index.js', 'lib/update.js', 'scripts/test-issue-39.cjs', 'scripts/test-log.cjs'];
   const over = watchFiles.filter((f) => lineCount(f) > ALERT_LINES);
   const undecided = over.filter((f) => !adjudicated.includes(f));
   const counts = watchFiles.map((f) => f + '=' + lineCount(f)).join(' ');
@@ -139,14 +160,31 @@ const squash = (s) => s.replace(/\s+/g, ' ');
     (over.length ? '  ⚠️ 超线：' + over.join(' ') + '（已裁决不拆：' + over.filter((f) => adjudicated.includes(f)).join(' ') + '）' : '  全部在线的以内') +
     (undecided.length ? '  ⚠️ 未裁决超线：' + undecided.join(' ') : ''));
 
-  /* ── 1) 构建产物存在，且第三方包保持外部依赖 ── */
+  /* ── 1) 构建产物存在，且更新包**必须已内联**（#58）──
+   * 上一版这里是反的：断言「lib/update.js 按包名动态 import dsh-plugin-update（externals）」。
+   * 那条断言保护的是一个**会降级的接法**：留 externals 时更新包的代码住在**插件包外**的
+   * `node_modules/dsh-plugin-update/dist/`，而它的 `dist/reader.js:102` / `dist/host.js:83` 用
+   * `containingPackage(fileURLToPath(import.meta.url), 'dsh-prompt')` 反推「正在运行的包」——
+   * 真机 profile 是 DSH 自己写死的 hoisted 布局（app.asar：`nodeLinker: hoisted`），那条上溯到盘根
+   * 都没有一个叫 dsh-prompt 的 package.json ⇒ `loaded = null` ⇒ `host.js:85` 抛 unknown-profile
+   * ⇒ 三条更新路由全降级（本脚本 13) 段有同布局的正/反例对照；负例是 HEAD 7ed096e 的产物实测跑出来的）。
+   */
   const built = readSrc('lib/update.js');
   if (!built.includes('createUpdateCapability')) fail('lib/update.js 里没有 createUpdateCapability（先跑 npm run build:update-host）');
-  if (!/import\(\s*["']dsh-plugin-update["']\s*\)/.test(built)) {
-    fail('lib/update.js 应按包名动态 import dsh-plugin-update（externals），实际没有');
+  if (/from\s*["']dsh-plugin-update["']/.test(built) || /import\(\s*["']dsh-plugin-update["']\s*\)/.test(built)) {
+    fail('lib/update.js 里出现了对 dsh-plugin-update 的裸导入（#58 起必须是内联：留 externals 会让真机 '
+      + 'hoisted 布局下三条更新路由只会回 unknown-profile，见本文件 13) 段）');
   }
   if (!built.includes('AUTO-GENERATED')) fail('lib/update.js 缺构建产物告示行（人手改过？）');
-  ok('lib/update.js 为构建产物，且 dsh-plugin-update 保持外部依赖（升级只改 package.json 一处）');
+  // 「住进来」而不是「引用」：更新包自己的函数名与它产出的机器码都得在产物里。
+  for (const marker of ['containingPackage', 'pathsForUpdate', 'createUpdateReader', 'unknown-profile']) {
+    if (!built.includes(marker)) fail('lib/update.js 里没有内联进来的更新包标记 ' + JSON.stringify(marker) + '（内联没生效？）');
+  }
+  // 构建脚本不许把 external 又加回来 —— 加了以后上面这几条会在下次重建时同时失效（#58 的回归就是防这个）。
+  if (/external\s*:\s*\[[^\]]*dsh-plugin-update/.test(readSrc('scripts/update/build-host.mjs'))) {
+    fail('scripts/update/build-host.mjs 又把 dsh-plugin-update 写进 external 了（#58 起它是内联输入）');
+  }
+  ok('lib/update.js 为构建产物，且更新包已**内联**（无裸导入；containingPackage 住在本插件包内 ⇒ 命中本包的 package.json）');
 
   /* ── 2) 路径常量四处不漂移：产物 / 宿主源码 / 客户端源码 / lib/index.js ── */
   const bridgeSrc = readSrc('src/update/bridge.ts');
@@ -1258,6 +1296,123 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   if (!execBad) fail('真 executor 失败那次没落 update.install.exec（默认开关下「装更新退了几」就查不到）');
   eq([execBad[1].route, execBad[1].ok, execBad[1].exitCode, execBad[1].pluginId], ['cli-process', false, 7, 'dsh-prompt'], '真包安装失败那次：exitCode 7 查得到');
   ok('(k) 真包 executor 驱动的 update.install.exec：成功 / 失败（exitCode 7）两条都经生产桥到日志能力');
+
+  /* ── 13) hoisted 部署布局回归（#58）：更新包必须住在本插件包内 ──
+   * 现场 = 真机的形态：`<root>/profiles/web/node_modules/dsh-prompt` 是**部署副本**（宿主跑的就是它），
+   * 更新包只可能在**插件包外**那一层 node_modules —— DSH 自己在 app.asar 里把 profile 写死成
+   * `nodeLinker: hoisted`（不一致还会改回来），所以真机上的插件包里没有嵌套的更新包副本。
+   * 这个形态下：
+   *   - HEAD 7ed096e 的产物（更新包留 externals）：三条路由全回 `unknown-profile`（实测反例，
+   *     见 `.wayfinder/update/58-progress.md`；同布局同入口的探针是 `.tmp-verify/probe-58/hoisted-matrix.mjs`）；
+   *   - #58 之后（内联进 lib/update.js）：`containingPackage` 从产物自己的 URL 上溯命中的是
+   *     **本插件包**的 package.json ⇒ `loaded == installed` ⇒ status 回 `blockedReason:null`。
+   * 两种「插件包外」形态都要绿：
+   *   A) sibling：插件包外**有一份** dsh-plugin-update（真机现状；也是「下一个人改回 externals」时的样子）；
+   *   B) plain：插件包外**什么都没有**（用户从 npm 装到的新包 —— 更新包在 devDependencies，不再另装）。
+   * 三条安全边界：不联网（受控 fetch 回一个假的 0.1.8）、不真装包（不接 subprocess 服务 ⇒ 配方执行体
+   * 必抛 install-failed，只验到「过了布局闸门与守卫」）、不碰真 home / 真 profile（布局造在
+   * `scripts/.rt-tmp-39/hoisted/` 内，DSH_HOME 指向布局自己的临时 home）。
+   */
+  const HOISTED = path.join(DIR, 'hoisted');
+  const fakeRelease = {
+    name: 'dsh-prompt',
+    version: '0.1.8',
+    dist: {
+      tarball: 'https://registry.npmjs.org/dsh-prompt/-/dsh-prompt-0.1.8.tgz',
+      integrity: 'sha512-' + 'A'.repeat(86) + '==',
+    },
+  };
+  /** 受控官方源（形状照 dist/service.js:105-140 的要求拼），不回真网络。 */
+  async function fakeRegistryFetch(url) {
+    if (String(url) !== 'https://registry.npmjs.org/dsh-prompt/latest') {
+      fail('受控 fetch 只该被问 dsh-prompt/latest，实收 ' + String(url));
+    }
+    const text = JSON.stringify(fakeRelease);
+    return {
+      ok: true,
+      headers: { get: (k) => (String(k).toLowerCase() === 'content-length' ? String(text.length) : null) },
+      text: async () => text,
+    };
+  }
+  /** 造一份 hoisted 部署布局；withSibling 决定插件包外那层有没有更新包。 */
+  function layoutHoisted(name, withSibling) {
+    const root = path.join(HOISTED, name);
+    const homeDir = path.join(root, 'home');
+    const profileDir = path.join(root, 'profiles', 'web');
+    const pkgDir = path.join(profileDir, 'node_modules', 'dsh-prompt');
+    fs.mkdirSync(path.join(pkgDir, 'lib'), { recursive: true });
+    fs.mkdirSync(homeDir, { recursive: true });
+    // 部署副本 = 用户装到的那份：三个入口（main / exports["./client"] / dsh.bundle.patch）都要在，
+    // 否则 reader 的 validPackage 会判 invalid-installation，测的就不是「布局」这件事了。
+    for (const rel of ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/update.js']) {
+      fs.cpSync(path.join(ROOT, rel), path.join(pkgDir, rel));
+    }
+    const clientSrc = path.join(ROOT, 'lib', 'client.js');
+    if (fs.existsSync(clientSrc)) fs.cpSync(clientSrc, path.join(pkgDir, 'lib', 'client.js'));
+    else fs.writeFileSync(path.join(pkgDir, 'lib', 'client.js'), '// 占位：本机没跑过 build:client（lib/client.js 不入库），本段只验宿主半的布局，不加载它\nexport {}\n');
+    fs.writeFileSync(path.join(profileDir, 'package.json'),
+      JSON.stringify({ name: 'dsh-profile-web', version: '0.0.0', private: true, dependencies: { 'dsh-prompt': '^0.1.7' } }, null, 2) + '\n');
+    if (withSibling) {
+      fs.cpSync(path.join(ROOT, 'node_modules', 'dsh-plugin-update'),
+        path.join(profileDir, 'node_modules', 'dsh-plugin-update'), { recursive: true });
+    }
+    return { root, homeDir, profileDir, pkgDir };
+  }
+  /** 在布局里跑**真入口**：import 部署副本的 lib/update.js → 建能力 → 打三条电话。 */
+  async function driveHoisted(layout) {
+    const prevHome = process.env.DSH_HOME;
+    const prevFetch = globalThis.fetch;
+    process.env.DSH_HOME = layout.homeDir;
+    globalThis.fetch = fakeRegistryFetch;
+    try {
+      const mod = await import(pathToFileURL(path.join(layout.pkgDir, 'lib', 'update.js')).href);
+      const cap = await mod.createUpdateCapability({ ctx: { get: () => undefined } });
+      if (!cap.ok) return { degraded: cap.reason };
+      const status = await cap.runRoute(cap.paths.status, {});
+      const check = await cap.runRoute(cap.paths.check, {});
+      const installNoId = await cap.runRoute(cap.paths.install, {});
+      const freshId = check.receipt && check.receipt.checkId;
+      const installFresh = freshId
+        ? await cap.runRoute(cap.paths.install, { checkId: freshId, requestId: 'issue-39-hoisted' })
+        : null;
+      return { status, check, installNoId, installFresh };
+    } finally {
+      if (prevHome === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = prevHome;
+      if (prevFetch === undefined) delete globalThis.fetch; else globalThis.fetch = prevFetch;
+    }
+  }
+
+  const pkgVersion = pkg.version;
+  for (const [name, withSibling] of [['sibling', true], ['plain', false]]) {
+    const layout = layoutHoisted(name, withSibling);
+    const r = await driveHoisted(layout);
+    const where = 'hoisted 布局（' + (withSibling ? '插件包外有一份更新包' : '插件包外没有更新包') + '）';
+    if (r.degraded) {
+      fail(where + '：能力建不起来（' + r.degraded + '）—— 更新包没住进本插件包内？'
+        + '（改回 externals / 按包名 import 就会这样）');
+    }
+    eq(r.status.ok, true, where + '：status 电话应成功（实回 ' + JSON.stringify(r.status) + '）');
+    eq(r.status.snapshot.blockedReason, null, where + '：status 的 blockedReason 必须是 null（不是 unknown-profile，也不是 installation-changed）');
+    eq([r.status.snapshot.runningVersion, r.status.snapshot.installedVersion], [pkgVersion, pkgVersion],
+      where + '：runningVersion 应来自部署副本自身（loaded == installed）');
+    eq(r.check.ok, true, where + '：check 电话应成功（实回 ' + JSON.stringify(r.check) + '）');
+    eq([r.check.snapshot.latestVersion, r.check.snapshot.canInstall], ['0.1.8', true], where + '：受控源上的 0.1.8 应可装');
+    if (!r.check.receipt) fail(where + '：check 成功后 receipt 不该为空');
+    eq([r.installNoId.ok, r.installNoId.error], [false, 'check-expired'], where + '：没有 checkId 的 install 应停在守卫上');
+    if (r.installNoId.error === 'unknown-profile') {
+      fail(where + '：install 回 unknown-profile —— 布局闸门没过，#58 要防的就是这个');
+    }
+    if (!r.installFresh || r.installFresh.ok !== true) {
+      fail(where + '：带着新 checkId 的 install 应过守卫（实回 ' + JSON.stringify(r.installFresh) + '）');
+    }
+    eq(r.installFresh.snapshot.job.state, 'installing', where + '：install 返回时任务应处于 installing');
+    // 没真装包：受控台子没接 subprocess 服务（配方的执行体在后台必抛 install-failed），
+    // 部署副本的 package.json 一个字节都不该变。
+    eq(JSON.parse(fs.readFileSync(path.join(layout.pkgDir, 'package.json'), 'utf8')).version, pkgVersion,
+      where + '：部署副本没有被改动（没真装包）');
+  }
+  ok('(p) hoisted 部署布局（插件包外有/无更新包两种）：status ok:true + blockedReason:null、'
+    + 'check ok:true + canInstall:true + receipt 非空、install 停在功能守卫（check-expired）而不是 unknown-profile');
 
   console.log('=== Test #39 PASS ===');
   process.exit(0);

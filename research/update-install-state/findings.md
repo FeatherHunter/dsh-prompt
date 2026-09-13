@@ -392,7 +392,12 @@ hoisted 布局下成功，靠的就是「包在自己包里」这一点。
 (b) 更该准备的是**电话级失败**形态 `{ok:false, error:"unknown-profile"}` —— 真机部署后最可能先撞上
 这一个（R6），此时 `snapshot` 是 `null`，面板必须走「能力/环境认不出」分支（现成的
 `update-capability-unavailable` 文案位可复用），而不是去读 `blockedReason`；
-(c) `blockedReason` 的八条中文映射照旧做（`src/update/host/safe-values.ts:55` 的白名单就是那八条）。
+(c) `blockedReason` 的中文映射照旧做，但**本版本实际能产出的只有 7 条**：`unknown-profile`
+（`dist/reader.js:120/129`）、`invalid-installation`（`:140/:159`）、`installation-changed`（`:157/:158`）、
+`source-install`（`:160`）、`pending-restart`（`:161` + `dist/service.js:213`）、`incompatible-node`
+（`dist/service.js:253`）、`recovery-required`（`dist/service.js:211`）；第 8 条 `registry-conflict`
+只出现在已知码表（`dist/host.js:154`）与任务消息白名单（`dist/service.js:284`）里，**0.1.1 里没有任何
+地方产出它** —— 文案表按「7 条 + 1 条预留」写，别把「八种」当成八个可测状态。
 
 **② #43 的验收口径怎么写？——写「宿主自证」三条硬口径 + 一条前置：**
 前置：把更新包**搬进插件包内**（照 deck 的 `lib/updatePkg/` 派生副本模式，或把包 esbuild 进
@@ -426,6 +431,9 @@ hoisted 布局下成功，靠的就是「包在自己包里」这一点。
 7. 上游作者自己的 deck 用**包内派生副本 + 相对路径 import**（文件与注释实测），且它在
    `<home>\profiles\web` 上真装成功过（`state.json` + hash 与 `realpath(profileDir)` 一致，node 计算）。
 8. npm 上 `dsh-prompt` 最新版本 = 0.1.7（`npm view`）。
+9. `blockedReason` 的可产出集合：source 里 grep `incompatible-node|registry-conflict|recovery-required`
+   的结果显示 `registry-conflict` 在 `dist/` 里**零处产出**（只在 `host.js:154` 已知码表与
+   `service.js:284` 任务消息白名单里），第 6 节 ①(c) 的「7 条实产 + 1 条预留」由此得出。
 
 **推断未坐实（写着但没验，别当结论用）**
 

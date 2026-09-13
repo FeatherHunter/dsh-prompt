@@ -139,16 +139,25 @@ export const STR = {
     zh: '更新能力可能没接通（宿主半未加载），也可能宿主半刚起、还没就绪。刷新页面再点一次；一直这样就把日志导出后提 Issue。',
     en: 'The update capability may not be wired up (host half not loaded), or the host half is not ready yet. Refresh the page and try again; if it keeps happening, export the log and open an issue.',
   },
+  // 第三类：宿主**回了话**，回的却是「更新能力没接通」（`update-capability-unavailable` / `phone-failed` /
+  // `unknown-phone`）。它不是「宿主是通的，不用刷新页面」那一类 —— 把它划过去就是撒谎（红队 L2 的 N1），
+  // #43 真机验收最容易撞的失败态（宿主半没加载）正好落在它上面。
+  updateCapDownTitle: { zh: '更新能力没接通（宿主半降级或未加载）', en: 'The update capability is not wired up (host half degraded or not loaded)' },
+  updateCapDownAction: {
+    zh: '宿主回了这个码 = 它那边的更新能力没起来：把宿主整个重启一次（关掉 DSH 再开）让能力重建，再点「检查更新」。',
+    en: 'This code comes from the host and means its update capability did not come up: restart the host (quit DSH and start it again) so it is rebuilt, then click "Check now".',
+  },
   updateFailAnsweredTitle: { zh: '宿主回答了：这次操作没成', en: 'The host answered — this operation did not go through' },
   updateFailAnsweredHint: {
-    zh: '往下看这个错误码与对应做法；宿主是通的，不用刷新页面，也不用报「宿主没接通」的故障。',
-    en: 'See the code below and what to do about it — the host is reachable, so there is no need to refresh the page or report a "host not reachable" fault.',
+    zh: '往下看这个错误码与对应做法（表里没有的新码也会给一条兜底做法）；宿主这次确实回了话，除非那个码本身就说能力没接通，否则不用刷新页面、也不用按「宿主没接通」报故障。',
+    en: 'See the code below and what to do about it (an unknown code still gets a fallback action). The host did answer this time, so unless the code itself says the capability is not wired up, there is no need to refresh the page or report a "host not reachable" fault.',
   },
   updateFailNoFault: {
     zh: '这不是故障码，是包设计内的守卫（README 第 11 节点名为正常错误码）。',
     en: 'This is not a fault code but a guard the package documents (section 11 of its README names it a normal error code).',
   },
-  // 六类实产失败码的「下一步动作」：码 → 文案键。每个键的文本都要能独立成立（读者可能只看这一行）。
+  // 实产失败码的「下一步动作」：码 → 文案键（表在 update.ts 的 UPDATE_FAIL_KEYS，两边同名对应）。
+  // 每个键的文本都要能独立成立（读者可能只看这一行）。
   updateFailBusy: {
     zh: '宿主正在装另一个任务或刚装完：等它跑完、面板会自己刷新；一直这样就把宿主重启一次。',
     en: 'The host is busy with another install (or just finished one): wait for it to settle — the panel refreshes itself; if it persists, restart the host.',
@@ -181,10 +190,6 @@ export const STR = {
     zh: '上次安装被打断，留下一个半截任务：点「检查更新」看现在的状态，必要时重新点一次安装。',
     en: 'The previous install was interrupted and left a half-done job: click "Check now" to see the current state, then retry the install if needed.',
   },
-  updateFailParams: {
-    zh: '这次请求的参数不对（面板内部问题）：点「检查更新」从头再来一次；一直这样就把日志导出后提 Issue。',
-    en: 'The request parameters were rejected (an issue inside the panel): click "Check now" to start over; if it keeps happening, export the log and open an issue.',
-  },
   updateFailUnknown: {
     zh: '面板还不认识这个码：把原始错误码记下来提 Issue，或点「检查更新」重试一次。',
     en: 'The panel does not know this code yet: note the raw error code down and open an issue, or click "Check now" to retry.',
@@ -193,8 +198,17 @@ export const STR = {
     zh: '宿主这次没给安装凭证，装不了；再点一次「检查更新」拿张新凭证。',
     en: 'The host returned no install credential this time, so nothing was installed; click "Check now" again for a fresh one.',
   },
+  // 单飞锁挡下这一下点击时的说法（N5）：真实原因是「面板上一次通话还在飞」（多半是轮询那一发），
+  // **不是**宿主没给凭证 —— 照后者说就把用户支去重新查新版了。
+  updateBusyRetry: {
+    zh: '面板上一次通话还没回来（多半是轮询那一发在飞），这次点击没发出去；等一拍再点一次「安装新版本」。',
+    en: 'A previous call from the panel has not returned yet (usually the polling shot), so this click sent nothing; wait a moment and click "Install update" again.',
+  },
   // 安装任务自己的终态失败（`snapshot.job.state` 为 failed / interrupted）。这不是 `blockedReason` 的
   // 八条之一 —— 包 README 第 8 节没有「安装失败」这种情形，所以**另起一条**、不冒充那八条。
+  // 注意：这里**没有**上一版那条凭空编出来的「参数不对」文案。那个码在更新包的 `updateError(...)`
+  // 实参全集与本仓宿主半的码表里都不存在（整个 dist 连 `params` 这个字都没有），红队 L2 的 N2 点名删掉。
+  // 不认识的码一律走 `updateFailUnknown` 的兜底动作，不再为它编情形。
   updateJobFailTitle: { zh: '这次安装没成功', en: 'This install did not succeed' },
   updateJobFailHint: {
     zh: '磁盘上的版本没变。用下面的手工兜底命令重装，或点「检查更新」再试一次；一直这样就把日志导出后提 Issue。',

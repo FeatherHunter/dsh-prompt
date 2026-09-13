@@ -347,13 +347,17 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
   }
   ok('七条实产原因逐条对过（' + PRODUCED.join(' / ') + '）；manual 为空的两种情形 = ' + EMPTY_MANUAL.join(' / '));
 
-  console.log('=== T6: 电话级失败必须分类呈现（桥没回答 vs 宿主回答了但没成），且不是空白 ===');
-  // 两类文案必须分开：`bridge-*` / `no-fetch` 才是「宿主没有回答」；其余码是宿主**回答了**并给了精确码
-  // （整改 M2 之前，`check-expired` / `invalid-release` / `check-failed` 全被说成「宿主没有回答更新状态」，
-  //  那是对用户撒谎 —— 用户会去报一个不存在的「宿主没接通」故障）。
+  console.log('=== T6: 电话级失败必须分类呈现（桥没回答 / 能力没接通 / 宿主回答了但没成），且不是空白 ===');
+  // 三类文案必须分开：
+  //  · `bridge-*` / `no-fetch` 才是「宿主这次一个字都没回」（BRIDGE_DOWN_CODES）；
+  //  · `update-capability-unavailable` / `phone-failed` / `unknown-phone` 是宿主**回了话**、但回的是
+  //    「更新能力本身没接通」（CAP_DOWN_CODES）—— 把它们说成「宿主是通的、不用刷新页面」就是撒谎
+  //    （红队 L2 第二轮 N1；#43 真机验收最容易撞的失败态正是宿主半没加载）；
+  //  · 其余码是「宿主回答了、这次操作没成」（整改 M2 之前它们全被说成「宿主没有回答更新状态」）。
   const DOWN = ['bridge-unreachable', 'bridge-bad-json'];
-  const ANSWERED = ['unknown-profile', 'check-expired', 'invalid-release', 'check-failed', 'install-failed', 'update-busy'];
-  for (const code of DOWN.concat(ANSWERED)) {
+  const CAPDOWN = ['update-capability-unavailable', 'phone-failed', 'unknown-phone'];
+  const ANSWERED = ['unknown-profile', 'check-expired', 'invalid-release', 'check-failed', 'install-failed', 'update-busy', 'a-brand-new-code-2077'];
+  for (const code of DOWN.concat(CAPDOWN, ANSWERED)) {
     script.status = failEnv(code);
     const c = await mount(React.createElement(update.UpdateEntry, {}));
     await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
@@ -363,22 +367,94 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     if (!hostfail) { bad(code + '：snapshot 为 null 时弹窗没有专门呈现（会是一片空白）'); c.unmount(); continue }
     const body = txt(hostfail);
     const down = DOWN.indexOf(code) >= 0;
-    eq(body.indexOf(down ? STR.updateHostFailTitle.zh : STR.updateFailAnsweredTitle.zh) >= 0, true,
-      code + '：' + (down ? '说清「宿主没有回答更新状态」' : '不许说「宿主没有回答」（宿主明明回了这个码）'));
-    eq(body.indexOf(down ? STR.updateFailAnsweredTitle.zh : STR.updateHostFailTitle.zh) >= 0, false,
-      code + '：另一类的标题不许同时出现（两类文案不混）');
+    const capdown = CAPDOWN.indexOf(code) >= 0;
+    const wantKey = down ? 'updateHostFailTitle' : capdown ? 'updateCapDownTitle' : 'updateFailAnsweredTitle';
+    eq(body.indexOf(STR[wantKey].zh) >= 0, true, code + '：标题就是它该在的那一类（' + wantKey + '）');
+    for (const other of ['updateHostFailTitle', 'updateCapDownTitle', 'updateFailAnsweredTitle']) {
+      if (other !== wantKey) eq(body.indexOf(STR[other].zh) >= 0, false, code + '：另两类的标题不许同时出现（' + other + '）');
+    }
     eq(txt(one(c, 'data-dsh-prompt-update-code')), code, code + '：把原始错误码给出来');
     eq(body.indexOf(code) >= 0, true, code + '：失败块里带着原始码（报 Issue 靠它）');
+    // 动作行：桥没回答那一类靠 hint 自带做法；宿主回了话的另两类**必须**有一条动作行，
+    // 不认识的码也落兜底动作（N4：不许「承诺了做法却不给做法」）。
+    const action = one(c, 'data-dsh-prompt-update-fail-action');
+    if (down) {
+      eq(!!action, false, code + '：桥一个字没回那一类的做法在 hint 里，不另给动作行');
+    } else {
+      eq(!!action, true, code + '：宿主回了话就必须给一条动作行（不许承诺了做法却是空的）');
+      eq(String(txt(action)).length > 8, true, code + '：动作行有实际内容（不是空串）');
+      if (capdown) eq(String(txt(action)).indexOf(STR.updateCapDownAction.zh) >= 0, true, code + '：动作是「重启宿主让能力重建」');
+      if (code === 'a-brand-new-code-2077') eq(String(txt(action)).indexOf(STR.updateFailUnknown.zh) >= 0, true, '不认识的码落 updateFailUnknown 兜底动作');
+    }
+    if (capdown) {
+      // N1 的核心两问：① 文案回到「能力没接通」那一类（上一版对它是说对的）；② 不许出现那句劝退话。
+      eq(body.indexOf('更新能力可能没接通') >= 0, true, code + '：文案回到「更新能力可能没接通 / 宿主半未加载」那一类');
+      eq(body.indexOf(STR.updateFailAnsweredTitle.zh) >= 0, false, code + '：不许说成「宿主是通的、这次操作没成」');
+      eq(body.indexOf('不用刷新页面') >= 0, false, code + '：不许再说「宿主是通的，不用刷新页面，也不用报「宿主没接通」」（撒谎 + 劝退）');
+    }
     if (code === 'unknown-profile') {
       eq(body.indexOf(STR.updateWhyUnknownProfile.zh) >= 0, true, 'unknown-profile：电话级失败时也把「该做什么」给出来（同一张原因码表）');
     }
     if (code === 'check-expired') {
-      eq(!!one(c, 'data-dsh-prompt-update-fail-action'), true, 'check-expired：给出「下一步动作」那一句');
       eq(body.indexOf(STR.updateFailCheckExpired.zh) >= 0, true, 'check-expired：动作是「重取凭证再提交」（包 README 第 11 节）');
       eq(body.indexOf(STR.updateFailNoFault.zh) >= 0, true, 'check-expired：说清它不是故障码（README 第 11 节点名）');
     }
     eq(txt(one(c, 'data-dsh-prompt-update-modal')).length > 30, true, code + '：弹窗整体有内容（不是空白）');
     c.unmount();
+  }
+
+  console.log('=== T6b: 真宿主半「能力起不来」→ 面板说「能力没接通」+ 有动作（红队 L2 的 N1 现场） ===');
+  {
+    // 手法与红队一致：拿**真宿主半产物**（lib/update.js 跑真 createUpdateCapability）把能力打到「起不来」——
+    // `hostUpdate.createHostUpdate()` 直接抛，等价于宿主半 `src/update/host/index.ts` 里两条 degraded 路
+    // （依赖装载失败 / 能力建不起来）。真回包 = degradedCapability 的 `update-capability-unavailable`。
+    const capMod = await import(pathToFileURL(path.join(ROOT, 'lib', 'update.js')).href);
+    const degraded = await capMod.createUpdateCapability({
+      hostUpdate: { createHostUpdate() { throw new Error('simulated build failure') } },
+    });
+    eq(degraded.ok, false, '真宿主半：createHostUpdate 抛 → 能力起不来（degraded 实例）');
+    const phoneOut = await degraded.runRoute(STATUS_PATH, {});
+    eq(phoneOut, { ok: false, error: 'update-capability-unavailable', errorKind: 'simulated build failure' },
+      '真宿主半回的就是 update-capability-unavailable（与 host/index.ts:52 的 UNAVAILABLE 同字）');
+    // lib/index.js 那条真路由的信封（T11 抄的是同一个形状）：电话回包进 value，error.code = 电话的 error。
+    const envelope = { ok: false, value: phoneOut, error: { code: String(phoneOut.error), message: String(phoneOut.errorKind) } };
+    const realFetch3 = globalThis.fetch;
+    globalThis.fetch = async () => ({ status: 200, json: async () => envelope });
+    const c = await mount(React.createElement(update.UpdateEntry, {}));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    await flush();
+    const block = one(c, 'data-dsh-prompt-update-hostfail');
+    const body = block ? String(txt(block)) : '';
+    eq(!!block, true, '能力没接通：有专门的失败块（不是空白）');
+    eq(String(txt(one(c, 'data-dsh-prompt-update-code'))), 'update-capability-unavailable', '失败块给出真码');
+    eq(body.indexOf(STR.updateCapDownTitle.zh) >= 0, true, '文案回到「能力没接通」那一类（updateCapDownTitle）');
+    eq(body.indexOf(STR.updateHostFailHint.zh) >= 0, true, '并说清「更新能力可能没接通 / 宿主半未加载」');
+    const action = one(c, 'data-dsh-prompt-update-fail-action');
+    eq(!!action, true, '★ 有动作行（修前这里是 null：承诺了做法却不给）');
+    eq(String(txt(action)).indexOf(STR.updateCapDownAction.zh) >= 0, true, '动作行给的是「重启宿主让能力重建」');
+    eq(body.indexOf(STR.updateFailAnsweredTitle.zh) >= 0, false, '不许说「宿主回答了：这次操作没成」（把这个码划到那一侧是撒谎）');
+    eq(body.indexOf('不用刷新页面') >= 0, false, '不许出现「宿主是通的，不用刷新页面」那句劝退话');
+    c.unmount();
+    globalThis.fetch = realFetch3;
+  }
+
+  console.log('=== T6c: 失败码表里不许有凭空编的码（红队 L2 的 N2） ===');
+  {
+    eq(updateSrc.indexOf('update-params') >= 0, false, '源码里没有凭空编的「参数不对」那个码（上一版它在表里，却没有任何产出点）');
+    eq(Object.prototype.hasOwnProperty.call(STR, 'updateFailParams'), false, '也没有为它编的那条具体情形文案');
+    const tableStart = updateSrc.indexOf('const UPDATE_FAIL_KEYS');
+    const table = updateSrc.slice(tableStart, updateSrc.indexOf('\n}', tableStart));
+    const codes = Array.from(table.matchAll(/'([a-z-]+)':/g)).map((m) => m[1]);
+    eq(codes.length >= 10, true, '动作表里有 ' + codes.length + ' 个码：' + codes.join(' / '));
+    // 每个码都要在**真产出点**里找得到：更新包 dist + 真宿主半产物 + 宿主半源码 + 桥源码。
+    // 上一版那条编出来的码在这里当场红（整个 dist 连 `params` 这个词都没有）。
+    const corpus = distFiles.map(distOf).join('\n')
+      + fs.readFileSync(path.join(ROOT, 'lib', 'update.js'), 'utf8')
+      + fs.readFileSync(path.join(ROOT, 'src', 'update', 'host', 'index.ts'), 'utf8')
+      + fs.readFileSync(path.join(ROOT, 'src', 'update', 'bridge.ts'), 'utf8');
+    const missing = codes.filter((k) => corpus.indexOf("'" + k + "'") < 0 && corpus.indexOf('"' + k + '"') < 0);
+    eq(missing, [], '表里每个码都在真产出点里出现过（不是猜的 / 不是编的）');
+    eq(corpus.indexOf('params') >= 0, false, '真产出点里连 params 这个词都没有（那条码没有任何对应情形）');
   }
 
   console.log('=== T7: ⚠️ 待重启横幅（显眼样式、说清版本与重启、不给安装按钮） ===');
@@ -672,6 +748,79 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     c.unmount();
   }
 
+  console.log('=== T13b: 重试那一轮必须**强制重查**（N3：宿主拒凭证时手里那张面板自认还是新鲜的） ===');
+  {
+    // 红队 L2 实测的形态：面板时钟没动、宿主那边已判死（或另一处 check 抢掉了唯一的 checked 槽）。
+    // 上一版 `ensureCheckId` 读的是**本次渲染闭包里的 `res`**，失败回包在同一个事件处理里还没落地 ⇒
+    // 第二轮把同一张「面板自认新鲜」的死凭证原样再交一遍：`status,check,install[rid-1],install[rid-1]`。
+    requests.length = 0;
+    let lived = 0;
+    script.status = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD', null);
+    script.check = () => { lived++; return okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD', { checkId: 'FRESH-' + lived, checkedAt: 1, expiresAt: Date.now() + 900000 }); };
+    script.install = () => failEnv('check-expired');
+    const c = await mount(React.createElement(update.UpdateEntry, {}));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    // 用户先点一次「检查更新」→ 手里那张凭证在面板看来有 15 分钟有效期。
+    await act(() => {
+      nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
+    });
+    eq(requests.filter((r) => r.which === 'check').length, 1, '用户点检查更新：拿到一张 FRESH-1');
+    requests.length = 0;
+    await act(() => {
+      nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'install')[0].props.onClick();
+    });
+    const seq = requests.map((r) => r.which + (r.which === 'install' ? '[' + r.body.checkId + ']' : ''));
+    eq(requests.map((r) => r.which), ['install', 'check', 'install'],
+      '序列 = install[旧凭证] → check → install[新凭证]（修前是 install[FRESH-1],install[FRESH-1]：中间零 check、重试空转）');
+    if (requests.length === 3) {
+      eq(seq[0], 'install[FRESH-1]', '第一枪用的是手里那张（面板自认新鲜 ⇒ 不当场多查一次）');
+      eq(requests[0].body.checkId !== requests[2].body.checkId, true, '重提换了凭证（强制重查拿到 FRESH-2，不是拿死凭证硬顶）');
+      eq(requests[2].body.checkId, 'FRESH-2', '重提用的正是那一发强查的新凭证');
+      eq(requests[2].body.requestId, requests[0].body.requestId, '同一个 requestId（包里幂等重放 ⇒ 只装了 1 次、不是 2 次安装）');
+    }
+    eq(requests.filter((r) => r.which === 'install').length, 2, 'install 通话有界：正好 2 次（≤2 轮，不是无限重试）');
+    eq(requests.filter((r) => r.which === 'check').length, 1, '重试只补 1 次 check（不是每轮都重查）');
+    eq(String(txt(one(c, 'data-dsh-prompt-update-code'))), 'check-expired', '两轮都没成时码仍摆到界面上');
+    c.unmount();
+  }
+
+  console.log('=== T13c: 单飞锁挡下点击时的说法（N5：真实原因是「面板正忙」，不是「宿主没给凭证」） ===');
+  {
+    let mode = 'noreceipt';
+    let releaseCheck;
+    const gate = new Promise((r) => { releaseCheck = r });
+    script.status = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD', null);
+    script.check = async () => {
+      if (mode === 'hang') { await gate; return okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD', { checkId: 'LATE-1', checkedAt: 1, expiresAt: Date.now() + 900000 }); }
+      if (mode === 'noreceipt') return okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD', null);
+      return okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD', { checkId: 'HOLD-1', checkedAt: 1, expiresAt: Date.now() + 900000 });
+    };
+    const c = await mount(React.createElement(update.UpdateEntry, {}));
+    await flush();
+    const btn = (a) => nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === a)[0];
+    const modalText = () => String(txt(one(c, 'data-dsh-prompt-update-modal')));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    // 负控：宿主**真的**回了一个不带凭证的回包 → 照旧说「这次没给凭证」，且一条 install 都不发。
+    requests.length = 0;
+    await act(() => { btn('install').props.onClick() });
+    eq(requests.map((r) => r.which), ['check'], '真没凭证：先补 check、不发 install');
+    eq(modalText().indexOf(STR.updateNoCredential.zh) >= 0, true, '负控：真没凭证时照旧说「宿主这次没给安装凭证」');
+    // 正题：上一次通话还在飞（轮询那一发 / 用户刚点下的检查更新）时点安装 —— `run` 的单飞锁把它挡回，
+    // `ensureCheckId` 拿到 null。真实原因是**面板正忙**，说成「宿主没给凭证」就是提示说反了。
+    mode = 'hang';
+    await act(() => { btn('check').props.onClick() });
+    const inFlight = requests.filter((r) => r.which === 'check').length;
+    eq(inFlight >= 1, true, '先有一发 check 在飞（锁被占着）');
+    requests.length = 0;
+    await act(() => { btn('install').props.onClick() });
+    eq(requests.filter((r) => r.which === 'install').length, 0, '被锁挡下：一条 install 都没发出去');
+    eq(modalText().indexOf(STR.updateBusyRetry.zh) >= 0, true, '提示说的是「上一次通话还没回来，等一拍再点」');
+    eq(modalText().indexOf(STR.updateNoCredential.zh) >= 0, false, '不再说「宿主这次没给安装凭证」（真实原因是被自己的锁挡了）');
+    releaseCheck();
+    await flush();
+    c.unmount();
+  }
+
   console.log('=== T14: 弹窗打开期间按 UPD_POLL 轮询（安装中能收敛；关掉就停表） ===');
   {
     eq(typeof derived.UPD_POLL === 'number' && derived.UPD_POLL >= derived.UPD_POLL_MIN, true,
@@ -758,7 +907,9 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     // 整改 M1/M2 新增：失败两类文案 + 按码动作 + 安装任务终态失败 + 旧命令标注
     'updateFailAnsweredTitle', 'updateFailAnsweredHint', 'updateFailNoFault', 'updateFailBusy', 'updateFailCheckFailed',
     'updateFailInvalidRelease', 'updateFailInstallFailed', 'updateFailCheckExpired', 'updateFailInstallationChanged',
-    'updateFailRegistryConflict', 'updateFailRecoveryRequired', 'updateFailParams', 'updateFailUnknown',
+    'updateFailRegistryConflict', 'updateFailRecoveryRequired', 'updateFailUnknown',
+    // L2 第二轮 N1/N5 新增（能力没接通那一类 + 单飞锁挡下时的说法）；N2 删掉了凭空编的 updateFailParams
+    'updateCapDownTitle', 'updateCapDownAction', 'updateBusyRetry',
     'updateNoCredential', 'updateJobFailTitle', 'updateJobFailHint', 'updateManualStale'];
   for (const k of I18N_KEYS) {
     const zh = STR[k] && STR[k].zh, en = STR[k] && STR[k].en;

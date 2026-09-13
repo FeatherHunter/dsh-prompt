@@ -64,26 +64,38 @@ export const UPDATE_REASON_KEYS: Record<string, keyof typeof STR> = {
 type T = (k: keyof typeof STR) => string
 
 /**
- * 「电话级失败」分两类，**文案必须分开**（红队 L2 打出来的撒谎）：
+ * 「电话级失败」分三类，**文案必须分开**（红队 L2 打出来的撒谎；L2 第二轮的 N1/N4 又修了两处边角）：
  *
  * 1. `BRIDGE_DOWN_CODES`：**桥本身没回答** —— 没 catch 到 HTTP、回的不是信封、body 不是 JSON、环境没有
- *    fetch。只有这一类的成就是「宿主没接通 / 宿主半未加载」，`updateHostFailTitle` + `updateHostFailHint`
+ *    fetch。只有这一类的成就是「宿主这次一个字都没回」，`updateHostFailTitle` + `updateHostFailHint`
  *    是给它的。
- * 2. 其余码：宿主**回答了**，并且给了精确的错误码（`check-expired` / `invalid-release` / `check-failed` /
- *    `install-failed` / `update-busy` / `update-params` / `recovery-required`…）。对这些码说「宿主没有回答
- *    更新状态」是**对用户撒谎**：用户会去报一个不存在的「宿主没接通」故障。这一支的标题换成
- *    `updateFailAnsweredTitle`，并按码给「下一步动作」（`UPDATE_FAIL_KEYS`）。
+ * 2. `CAP_DOWN_CODES`：宿主**回了话**，但回的是「更新能力本身没接通」——
+ *    `update-capability-unavailable` 是宿主半 `src/update/host/index.ts:52` 的实产码（degraded 实例：
+ *    依赖装载失败 / 能力建不起来，两条路都回它，宿主半还专门为它们落了 `dep-load-fail` /
+ *    `capability-degraded` / `capability-build-fail` 事件）；`phone-failed` / `unknown-phone` 是同一个
+ *    文件里电话路由那一层的实产码（电话抛错 / 路由没有对应电话）。判据是**码的语义，不是它从哪条路
+ *    返回**：把它们划进「宿主是通的」那一侧就是撒谎 —— 上一版那句「更新能力可能没接通」对它们本来
+ *    是对的，划错类之后反而告诉用户「不用报宿主没接通」、且一个动作都不给（#43 真机验收最容易撞的
+ *    失败态正是宿主半没加载）。这一支给 `updateCapDownTitle` + `updateHostFailHint`（同一句
+ *    「更新能力可能没接通」）+ 一条动作行。
+ * 3. 其余码：宿主回答了「这次操作没成」，给了精确的错误码（`check-expired` / `invalid-release` /
+ *    `check-failed` / `install-failed` / `update-busy`…）。对这一类说「宿主没有回答更新状态」才是撒谎
+ *    （用户会去报一个不存在的「宿主没接通」故障）⇒ 标题 `updateFailAnsweredTitle` + 按码动作。
  *
- * `UPDATE_FAIL_KEYS` 只覆盖已知码，渲染时按「认识就给动作、不认识就给原始码 + 一句通用说明」降级 —— 绝不空白。
+ * 第 3 类里**不认识的码**一律落 `updateFailUnknown` 的动作行：说了「往下看这个码与对应做法」就必须给
+ * 得出来（N4 —— 曾经 `phone-failed` 与表外的新码拿到的是「承诺了做法却不给做法」）。
  */
 const BRIDGE_DOWN_CODES = ['bridge-unreachable', 'bridge-bad-shape', 'bridge-bad-json', 'no-fetch']
+/** 宿主回了话、但回的是「更新能力/电话通道本身没接通」（见上面第 2 类）。 */
+const CAP_DOWN_CODES = ['update-capability-unavailable', 'phone-failed', 'unknown-phone']
 
 /**
- * 实产失败码 → 「下一步动作」文案键。码从两处抄来，都不是猜的：
- * - 宿主半 `dist/service.js` / `host.js` 里 `updateError(...)` 的实参（`check-expired` / `check-failed` /
- *   `invalid-release` / `install-failed` / `update-busy` / `update-params` / `installation-changed` /
- *   `registry-conflict` / `recovery-required`）；
- * - 桥自己的兜底形状码（`bridge-error`）。
+ * 实产失败码 → 「下一步动作」文案键。码从两处抄来，都不是猜的（表里不许有凭空编的码）：
+ * - 更新包 `dist/service.js` / `host.js` 里 `updateError(...)` 的实参（`check-expired` / `check-failed` /
+ *   `invalid-release` / `install-failed` / `update-busy` / `installation-changed` / `registry-conflict` /
+ *   `recovery-required`）；
+ * - 宿主半 `src/update/host/index.ts` 的路由层（`update-capability-unavailable` / `phone-failed` /
+ *   `unknown-phone`）与桥自己的兜底形状码（`bridge-error`）。
  * 包 README 第 11 节点名 `check-expired` 是「正常错误码，不是程序缺陷」⇒ 它的动作就是「重取凭证再提交」，
  * 而且这一句同时由 `ensureCheckId` 在**源头**上自动做掉（见 onInstall 的重试）。
  */
@@ -96,7 +108,10 @@ const UPDATE_FAIL_KEYS: Record<string, keyof typeof STR> = {
   'installation-changed': 'updateFailInstallationChanged',
   'registry-conflict': 'updateFailRegistryConflict',
   'recovery-required': 'updateFailRecoveryRequired',
-  'update-params': 'updateFailParams',
+  // 能力没接通那一类（CAP_DOWN_CODES）：动作是「重启宿主让能力重建」，不是「宿主是通的，不用刷新页面」。
+  'update-capability-unavailable': 'updateCapDownAction',
+  'phone-failed': 'updateCapDownAction',
+  'unknown-phone': 'updateCapDownAction',
   'bridge-error': 'updateFailUnknown',
 }
 
@@ -238,11 +253,18 @@ export function UpdateEntry(): any {
 
   const snap = snapOf(res) ?? snapOf(lastGoodRes)
   const failed = res !== null && !res.ok
-  // 失败回包的码：分「桥没回答」与「宿主回答了但这次操作没成」两类，文案不同（见 BRIDGE_DOWN_CODES）。
+  // 失败回包的码：桥没回答 / 宿主回了但说「能力没接通」/ 宿主回了但这次操作没成 —— 三类文案不同
+  // （见 BRIDGE_DOWN_CODES / CAP_DOWN_CODES 上面的注释）。
   const failCode = failed ? asText(res && res.error && res.error.code) : ''
   const code = failCode
+  // 桥没回答 / 宿主回了但说「能力没接通」/ 宿主回了但这次操作没成 —— 三类文案互不串（见上面三条的注释）。
   const bridgeDown = failed && BRIDGE_DOWN_CODES.indexOf(failCode) >= 0
-  const failAction = failed && !bridgeDown && UPDATE_FAIL_KEYS[failCode] ? t(UPDATE_FAIL_KEYS[failCode]) : ''
+  const capDown = failed && !bridgeDown && CAP_DOWN_CODES.indexOf(failCode) >= 0
+  // 「认识就给按码动作、不认识就给 updateFailUnknown 的兜底动作」：绝不出现「说了看做法、做法却是空的」
+  // （N4 的死端）。桥没回答那一类靠 `updateHostFailHint` 自带做法，不给动作行。
+  const failAction = failed && !bridgeDown ? t(UPDATE_FAIL_KEYS[failCode] || 'updateFailUnknown') : ''
+  const failTitle = bridgeDown ? 'updateHostFailTitle' : capDown ? 'updateCapDownTitle' : 'updateFailAnsweredTitle'
+  const failHint = bridgeDown || capDown ? 'updateHostFailHint' : 'updateFailAnsweredHint'
   const reason = asText(snap && snap.blockedReason)
   const running = asText(snap && snap.runningVersion)
   const installed = asText(snap && snap.installedVersion)
@@ -315,25 +337,41 @@ export function UpdateEntry(): any {
    * 安装前先确保手里有凭证。裸调 install 必回 `check-expired`（包的功能守卫），
    * 所以这里不赌：没有 checkId（或那张凭证已经过期）就先补一次 check —— 用户点的是「安装」，
    * 跑两步是本面板的事，不该让用户自己去理解「先查再装」。
+   *
+   * `force` 给重试那一轮用（N3）：收到 `check-expired` 时，宿主眼里的凭证已经死了，而面板自己那份
+   * `expiresAt` 可能还说它新鲜（两边时钟差、或另一端把唯一的 `checked` 槽抢走了）。这时 `held` 与这里
+   * 读的 `res` 是**同一次渲染的闭包**，失败回包还没落地 ⇒ 不强制就只会把同一张死凭证原样再交一遍
+   * （红队实测：`status,check,install[rid-1],install[rid-1]`，中间零 check ⇒ 重试是空转）。
+   *
+   * 返回值三态：凭证字符串 / `''`（这次真没拿到凭证）/ `null`（单飞锁挡着：上一次通话还在飞）。
    */
-  const ensureCheckId = async (): Promise<string> => {
+  const ensureCheckId = async (force = false): Promise<string | null> => {
     const held = checkIdOf(res)
     // 只认「把 check 回包放进界面状态」的那张（见 receiptFresh）：它一定来自 check。
-    if (held && receiptFresh(res)) return held
+    if (!force && held && receiptFresh(res)) return held
     const out = await run(updatePhoneNames.updateCheck, 'check')
-    if (!out || !out.ok) return ''
+    if (!out) return null
+    if (!out.ok) return ''
     return checkIdOf(out)
   }
 
   /**
    * 点「安装新版本」。凭证在**提交那一刻已经过期**是实产路径（用户查完新版去干别的、回来再点安装），
    * 这不是程序缺陷也不是「宿主没接通」：重取一次凭证再提交一次，最多两轮（`check-expired` 后重试一次
-   * 就地收敛，不给无限循环留口子）。两轮都过期才把码摆到界面上让用户看见。
+   * 就地收敛，不给无限循环留口子）。第二轮**强制重查**（N3）：手里那张在宿主眼里已经死了，不重查就是
+   * 拿同一张再撞一次。两轮都过期才把码摆到界面上让用户看见。
+   * 同一个 `requestId` 贯穿两轮（包里对同 requestId 是幂等重放 ⇒ 不是「装两次」）。
    */
   const onInstall = async (): Promise<void> => {
     const requestId = 'upd-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10)
     for (let attempt = 0; attempt < 2; attempt++) {
-      const checkId = await ensureCheckId()
+      const checkId = await ensureCheckId(attempt > 0)
+      if (checkId === null) {
+        // 单飞锁挡着（多半是轮询那一发还在飞）：真实原因是「面板正忙」，**不是**宿主没给凭证。
+        // 照后者说（N5）会把用户支去重新查新版，而这里该做的是等一拍再点。
+        setNote(t('updateBusyRetry'))
+        return
+      }
       if (!checkId) {
         // 无凭证时**不能静默 return**（L5）：说一句「没拿到凭证」总比界面一动不动强。
         setNote(t('updateNoCredential'))
@@ -410,18 +448,18 @@ export function UpdateEntry(): any {
   }
 
   // ② 电话级失败：`snapshot` 为 null 也要说清楚（票面验收：不能空白）。
-  //    两类文案分开：`bridgeDown` 才是「宿主没回答」；其余码是宿主**回答了**、给了精确码，
-  //    照前者说就是撒谎（L2）。失败块一定带原始码 —— 用户报 Issue 时靠它。
+  //    三类文案分开：`bridgeDown` 才是「宿主一个字都没回」；`capDown` 是「宿主回了、但更新能力没接通」
+  //    （对这两类说「宿主是通的、不用刷新页面」都是撒谎，见 BRIDGE_DOWN_CODES 上的注释）；
+  //    其余码是宿主**回答了**、给了精确码。失败块一定带原始码 —— 用户报 Issue 时靠它。
   if (failed) {
     const why = UPDATE_REASON_KEYS[code]
     const parts: any[] = [
-      h('span', { key: 't', style: { fontSize: 13, fontWeight: 600 } },
-        t(bridgeDown ? 'updateHostFailTitle' : 'updateFailAnsweredTitle')),
+      h('span', { key: 't', style: { fontSize: 13, fontWeight: 600 } }, t(failTitle)),
       h('span', { key: 'code', 'data-dsh-prompt-update-code': '', style: codeStyle }, code || 'unknown'),
-      h('span', { key: 'hint', style: { fontSize: 12, color: TOK.labelSecondary, lineHeight: 1.6 } },
-        t(bridgeDown ? 'updateHostFailHint' : 'updateFailAnsweredHint')),
+      h('span', { key: 'hint', style: { fontSize: 12, color: TOK.labelSecondary, lineHeight: 1.6 } }, t(failHint)),
     ]
-    // 宿主回答了但没成：按码给「下一步动作」（`check-expired` 这类码的动作是明确的一句话）。
+    // 宿主回了话但没成（含「能力没接通」与不认识的码）：按码给「下一步动作」——
+    // 动作行**恒非空**（不认识的码落兜底），不做「承诺了做法却不给做法」的死端。
     if (failAction) {
       parts.push(h('span', {
         key: 'action', 'data-dsh-prompt-update-fail-action': '', style: { fontSize: 12.5, lineHeight: 1.65 },

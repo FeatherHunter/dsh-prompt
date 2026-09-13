@@ -131,6 +131,37 @@ const mount = async (el) => {
 const nodes = (c, attr) => c.root.findAll((x) => !!x.props && x.props[attr] !== undefined);
 const one = (c, attr) => nodes(c, attr)[0];
 const act = async (fn) => { await TR.act(async () => { fn() }); await flush() };
+/**
+ * 有界等待：条件成立返回 true；超过 `budgetMs` 仍不成立返回 **false**（= 调用方必须判红，并把当时的
+ * 真实状态打进 FAIL 里）。**不是**「等不到就跳过 / 把断言放宽成 null 也算过」。
+ *
+ * 为什么 T11 非它不可：T11 驱动的是**真包宿主**，而宿主 handler 每条通话都要走一遍真 fs
+ * （`node_modules/dsh-plugin-update/dist/host.js` 的 `getSharedReader` → `containingPackage`：
+ * `realpath` + 逐级 `readFile`）。fs 回调是 libuv 的**宏任务**，不是微任务 —— `flush()` 那两次
+ * `setTimeout(0)` 不构成「通话已完成 / 渲染已跟上」的屏障：
+ *  · 回包晚于屏障落地 → 读到 `job=null`（本机 30 次探针里 2 次，就是「got=null want="failed"」那条假红）；
+ *  · 更早的那一下点击会被 `run` 的单飞锁 `lock` **原地吞掉**（挂载那次 status 还在飞）→ 一条通话都不发，
+ *    界面一动不动（同一次探针里 1 次；给假 fetch 只加一个 `setTimeout(0)` 的宏任务跳，重现率 100%）；
+ *  · 渲染晚于屏障 → 读到「安装按钮还没出现」（旧脚本在这里是 `undefined.props` 崩，不是判红）。
+ * 等它落地为止才是确定的。
+ */
+const waitFor = async (pred, budgetMs = 8000, stepMs = 5) => {
+  const deadline = Date.now() + budgetMs;
+  for (;;) {
+    if (pred()) return true;
+    if (Date.now() >= deadline) return false;
+    await new Promise((r) => setTimeout(r, stepMs));
+  }
+};
+/** 同上，但条件看的是**渲染结果**：等的时候要 pump React（与 T14 的轮询等待同一写法）。 */
+const waitShown = async (pred, budgetMs = 8000, stepMs = 10) => {
+  const deadline = Date.now() + budgetMs;
+  for (;;) {
+    if (pred()) return true;
+    if (Date.now() >= deadline) return false;
+    await TR.act(async () => { await new Promise((r) => setTimeout(r, stepMs)) });
+  }
+};
 /** 从 toJSON 的宿主树里捞 <a>（复用 test-issue-37 的走法，按内容找而不是按索引钉死）。 */
 const jsonAnchors = (n) => {
   const out = [];
@@ -523,27 +554,50 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
       return { status: 200, json: async () => callHost(which, JSON.parse((init && init.body) || '{}')) };
     };
     const c = await mount(React.createElement(update.UpdateEntry, {}));
+    const btnOf = (a) => nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === a)[0];
+    const clickable = (a) => { const b = btnOf(a); return !!b && b.props.disabled === false };
+    const callSeq = () => (requests.map((r) => r.which).join('|') || '(无)');
+    const modalText = () => String(txt(one(c, 'data-dsh-prompt-update-modal')));
     await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
-    await act(() => {
-      nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
-    });
-    await act(() => {
-      nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'install')[0].props.onClick();
-    });
-    await flush();
-    eq(job && job.state, 'failed', '真包宿主：runInstall 抛 → 任务落成 failed');
-    eq(job && job.message, 'install-failed', '真包宿主：job.message 是精确码 install-failed');
-    const blockedSnap = await callHost('status', {});
-    eq(blockedSnap.value && blockedSnap.value.snapshot && blockedSnap.value.snapshot.blockedReason, null,
-      '真包宿主：这条路 blockedReason 仍是 null（包只在「已装 != 正在跑」时才翻 recovery-required）');
-    now += 3000;
-    await act(() => {
-      nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
-    });
-    const jf = one(c, 'data-dsh-prompt-update-job-failed');
-    if (!jf) bad('安装失败在面板上一个字都不说（静默失败：安装按钮还回来、横幅/原因块/失败块全无）');
-    else {
-      const body = txt(jf);
+    // 三个「等它在界面上真的可点，再点」的关卡（有界；等不到=判红并打印通话序列与当时的界面）。
+    // 为什么不能点完就走：
+    //  1) 挂载那次 `status` 也是真通话（过真 fs），它没落地之前面板是「忙」的 —— `run` 的单飞锁
+    //     `lock` 会把这一下点击**原地吞掉**（一条通话都不发、界面一动不动）。实测：给假 fetch 只加一个
+    //     `setTimeout(0)` 的宏任务跳，check 这一枪就永远发不出去（`[t+10ms] WAIT0 btn=no`，全程零 check）。
+    //     所以「可点」= 按钮不再是 `disabled`（面板空闲），这才是确定性的点击前提。
+    //  2) 安装按钮要等 check 回包落地才渲染（`canInstall` 为假时不给按钮），立刻点会 `undefined.props` 崩脚本。
+    //  3) 失败块的渲染要等下一次回包落地（T13/T14 已证明面板会自己轮询/重查，这里只是等它）。
+    t11: {
+      if (!await waitShown(() => clickable('check'))) {
+        bad('真包宿主：等 8s 面板仍不空闲（挂载那次 status 没落地）；通话序列=' + callSeq());
+        break t11;
+      }
+      await act(() => { btnOf('check').props.onClick() });
+      if (!await waitShown(() => clickable('install'))) {
+        bad('真包宿主：等 8s 安装按钮仍不可点（check 回包没落地 / canInstall 一直是假）；通话序列=' + callSeq() +
+          '；弹窗=' + modalText());
+        break t11;
+      }
+      await act(() => { btnOf('install').props.onClick() });
+      // 后台任务（`service.js` 的 `runBackground`）写终态也是**跨真 fs** 的宏任务：
+      // 等到终态为止；等不到=判红（不判过），并把当时的真实 job 摆出来。
+      if (!await waitFor(() => !!(job && (job.state === 'failed' || job.state === 'interrupted')))) {
+        bad('真包宿主：等 8s 后台任务仍没落成终态；当时 job=' + JSON.stringify(job) + '；通话序列=' + callSeq());
+        break t11;
+      }
+      eq(job.state, 'failed', '真包宿主：runInstall 抛 → 任务落成 failed');
+      eq(job.message, 'install-failed', '真包宿主：job.message 是精确码 install-failed');
+      const blockedSnap = await callHost('status', {});
+      eq(blockedSnap.value && blockedSnap.value.snapshot && blockedSnap.value.snapshot.blockedReason, null,
+        '真包宿主：这条路 blockedReason 仍是 null（包只在「已装 != 正在跑」时才翻 recovery-required）');
+      now += 3000;
+      await act(() => { btnOf('check').props.onClick() });
+      if (!await waitShown(() => !!one(c, 'data-dsh-prompt-update-job-failed'))) {
+        bad('安装失败在面板上一个字都不说（静默失败：安装按钮还回来、横幅/原因块/失败块全无）；当时 job=' +
+          JSON.stringify(job) + '；通话序列=' + callSeq() + '；弹窗=' + modalText());
+        break t11;
+      }
+      const body = txt(one(c, 'data-dsh-prompt-update-job-failed'));
       eq(body.indexOf('install-failed') >= 0, true, '失败块把安装任务的码 install-failed 摆出来（原文里出现 0 次 → 现在 ≥1 次）');
       eq(body.indexOf(STR.updateJobFailTitle.zh) >= 0, true, '失败块说清「这次安装没成功」');
       eq(body.indexOf(STR.updateFailInstallFailed.zh) >= 0, true, '并给出下一步（手工命令 / 重取凭证再试）');

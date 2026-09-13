@@ -140,3 +140,30 @@ export function decideAutoOpen(input: AutoOpenInput): AutoOpenVerdict {
   if (latest === skipped) return { open: false, why: 'skipped' }
   return { open: true, why: 'newer' }
 }
+
+/**
+ * 启动后等多久才发那条自动检查的电话（毫秒）。
+ *
+ * 为什么是 8 秒：宿主半的更新能力是在 boot 之后才装载的（装载失败会回 `update-capability-unavailable`，
+ * 见 update.ts 的 CAP_DOWN_CODES），桥路由也要等本地 web 服务起来 —— 早于这个窗口发出去只是白费
+ * 这一次机会（本票一个页面会话只自动查一次）。8 秒既避开启动竞争，又不至于让用户以为「它根本没查」。
+ *
+ * **这个数字在本仓的代码里只出现这一处**（票面交付 1）：调用点引用常量，回归脚本把同一个期望写死。
+ */
+export const AUTO_CHECK_DELAY_MS = 8000
+
+/**
+ * 「一次启动只自动查一次」的闩。宿主把浮层槽重建、会话切换都可能让宿主组件重挂载，
+ * 那不该变成第二条电话、第二只弹窗 —— 票面的「有新版本弹一次」说的是**每次启动至多一次**
+ * （页面重载 = 新的一次启动，闩跟着模块重建）。
+ *
+ * 用户手动点「检查更新」不走这里：想查几次查几次（交付 3 的后半句就靠这条分界）。
+ */
+let autoClaimed = false
+
+/** 领这一次启动的自动检查名额：第一个调用者拿到 true，其后一律 false。 */
+export function claimAutoCheck(): boolean {
+  if (autoClaimed) return false
+  autoClaimed = true
+  return true
+}

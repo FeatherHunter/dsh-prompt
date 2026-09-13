@@ -79,6 +79,19 @@ dsh plugin --profile web update dsh-prompt   # upgrade
 dsh plugin --profile web remove dsh-prompt   # uninstall
 ```
 
+<h2 align="center"><sub>SUPPORTED DSH</sub><br>Supported DSH versions</h2>
+
+Developed and verified against **DSH CLI `0.1.5-rc.1`** and **DSH Desktop `2.0.9`**.<br>
+Lower DSH versions are not verified — they install fine, but running correctly is not guaranteed; issues are welcome.
+
+The block below is the single version declaration, and it must match `dsh.engines.dsh` in `package.json` character for character (`npm run test:issue-42` compares the two, so editing one and forgetting the other turns red). It is documentation only: installation never blocks on a version.
+
+```text
+dsh.engines.dsh = >=0.1.5-rc.1
+dsh.cli = 0.1.5-rc.1
+dsh.desktop = 2.0.9
+```
+
 <h2 align="center"><sub>PROMPT BUTTON</sub><br>Way 1 · Prompt button</h2>
 
 <div align="center">

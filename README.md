@@ -83,6 +83,19 @@ dsh plugin --profile web update dsh-prompt   # 升级
 dsh plugin --profile web remove dsh-prompt   # 卸载
 ```
 
+<h2 align="center"><sub>SUPPORTED DSH</sub><br>支持的 DSH 版本</h2>
+
+开发与验证基线：**DSH CLI `0.1.5-rc.1`** · **DSH Desktop `2.0.9`**。<br>
+比基线更低的 DSH 版本未验证——装得上，但能不能跑对不保证；遇到了问题欢迎[提 ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)。
+
+下面这段是唯一的版本声明，`package.json` 的 `dsh.engines.dsh` 与它逐字一致（`npm run test:issue-42` 会比对，改一处忘另一处就变红）。声明只作说明：安装时不拦版本。
+
+```text
+dsh.engines.dsh = >=0.1.5-rc.1
+dsh.cli = 0.1.5-rc.1
+dsh.desktop = 2.0.9
+```
+
 <h2 align="center"><sub>PROMPT BUTTON</sub><br>入口一 · Prompt 按钮</h2>
 
 <div align="center">

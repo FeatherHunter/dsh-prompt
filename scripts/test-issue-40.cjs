@@ -179,6 +179,47 @@ const jsonAnchors = (n) => {
   walk(n);
   return out;
 };
+/** 宿主树按文档序展开（#60-A 的「排在两个图标之前」靠它判定）。 */
+const domSeq = (n) => {
+  const out = [];
+  const walk = (c) => {
+    if (!c || typeof c !== 'object') return;
+    if (Array.isArray(c)) { c.forEach(walk); return }
+    out.push(c);
+    (c.children || []).forEach(walk);
+  };
+  walk(n);
+  return out;
+};
+/** 宿主树的父子表（同一行 = 两个图标与入口同一个父节点）。 */
+const parentMap = (root) => {
+  const map = new Map();
+  const walk = (c, p) => {
+    if (!c || typeof c !== 'object') return;
+    if (Array.isArray(c)) { c.forEach((x) => walk(x, p)); return }
+    map.set(c, p);
+    (c.children || []).forEach((x) => walk(x, c));
+  };
+  walk(root, null);
+  return map;
+};
+/** 一只窗里的动作按钮（`data-dsh-prompt-update-action`）。 */
+const actionsOf = (c) => nodes(c, 'data-dsh-prompt-update-action');
+const actOf = (c, a) => actionsOf(c).filter((n) => n.props['data-dsh-prompt-update-action'] === a)[0];
+/** accent（主）按钮：`btn(true)` 的底就是 TOK.accent —— 「同一时刻只有一个主按钮」靠它数。 */
+const ACCENT = 'var(--dsw-specific-accent,#f0a45c)';
+const accentsOf = (c) => actionsOf(c).filter((n) => n.props.style && n.props.style.background === ACCENT);
+/** 结论行（#60-B 的唯一主角）：拿它的形态与文案。 */
+const verdictOf = (c) => {
+  const n = one(c, 'data-dsh-prompt-update-verdict');
+  return n ? { kind: n.props['data-dsh-prompt-update-verdict'], text: String(txt(n)) } : null;
+};
+/** 展开「详情」（三个版本号默认收起）。 */
+const openDetails = async (c) => {
+  const t = one(c, 'data-dsh-prompt-update-details-toggle');
+  if (t) await act(() => { t.props.onClick() });
+};
+const fieldOf = (c, k) => nodes(c, 'data-dsh-prompt-update-field').filter((n) => n.props['data-dsh-prompt-update-field'] === k)[0];
 
 /** 包 README 第 8 节第三列的可执行要求：逐字抄成可判定的片段（与本仓文案表相互独立）。 */
 const README_DO = {
@@ -258,56 +299,71 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     eq(typeof (STR[key] && STR[key].zh) === 'string' && STR[key].zh.length > 0, true, code + '：预留文案在表里（没有为它编情形）');
   }
 
-  console.log('=== T3: 入口行（身份行之下，带当前版本号；点开弹窗） ===');
+  console.log('=== T3: 入口（在插件身份行里，与 🌟 / 💬 同一行） ===');
   script.status = okEnv(snap(), 'dsh plugin --profile web add --save-exact dsh-prompt@0.1.7 --registry=https://registry.npmjs.org/');
   const page = await mount(React.createElement(settings.SettingsPage, {}));
   await flush();
   const kids = page.toJSON().children;
-  eq(kids.length, 7, '设置页顶层七块（块数不变：#60 只把前两块换了顺序）');
-  // #60 的位置修正：身份行在前、更新入口在后（本票之前是反的 —— 入口压着身份行，看着像整页主标题）。
-  // 变异判据：把入口挪回身份行之上 ⇒ 下面「第 1 块是入口」这条当场变红。
+  eq(kids.length, 6, '设置页顶层六块（#60-A：入口并进身份行，不再单独成块）');
+  // #60 追加交付 A（用户第二次真机反馈「检查更新和版本号和 star 的按钮在一起」）：入口与两个图标
+  // 同一行、同一父节点，顺序在图标之前。变异判据：把它挪回独立的一块 / 挪到图标之后 ⇒ 下面几条当场变红。
   eq(jsonAnchors(kids[0]).length, 2, '#37 的右上角两个图标按钮原样在第 0 块（顺序不变）');
   eq(jsonAnchors(kids[0]).map((a) => a.props.href).join('|'),
     'https://github.com/FeatherHunter/dsh-prompt|https://github.com/FeatherHunter/dsh-prompt/issues',
     '#37 两个按钮的地址与顺序一字不动');
-  eq(txt(kids[0]).indexOf(STR.updateEntry.zh) < 0, true, '#60：第 0 块是插件身份行，不是「检查更新」入口');
-  eq(txt(kids[1]).indexOf(STR.updateEntry.zh) >= 0, true, '#60：第 1 块才是「检查更新」入口');
-  eq(txt(kids[1]).indexOf('v0.1.7') >= 0, true, '入口行带当前版本号（v0.1.7，来自 status 回包）');
+  eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 0 块左边仍是插件名字');
+  eq(txt(kids[0]).indexOf(STR.updateEntry.zh) >= 0, true, '#60-A：入口在**身份行里面**（不再另起一块）');
+  eq(txt(kids[0]).indexOf('v0.1.7') >= 0, true, '入口带当前版本号（v0.1.7，来自 status 回包）');
+  eq(kids.filter((k) => txt(k).indexOf(STR.updateEntry.zh) >= 0).length, 1, '#60-A：整页只有身份行那一块带入口文案');
   eq(txt(kids[0]).indexOf('⛭') < 0, true, '#37 的旧文字链接仍不在');
+  {
+    // 同一父节点 + 顺序在图标之前：两条都在**宿主树**上判（React 树的 parent 走得上去，这里更直接）。
+    const seq0 = domSeq(kids[0]);
+    const entryNode = seq0.find((n) => n.props && n.props['data-dsh-prompt-update'] !== undefined);
+    eq(!!entryNode, true, '#60-A：入口是身份行里的一枚元素');
+    eq(!!entryNode && entryNode.type, 'button', '#60-A：入口是可点的 <button>（不是纯文字）');
+    const host = entryNode ? parentMap(kids[0]).get(entryNode) : null;
+    eq(!!host && host.children.filter((c) => jsonAnchors(c).length > 0).length, 2,
+      '#60-A：两个图标与入口是同一父节点下的兄弟（同一行）');
+    const at = (pred) => seq0.findIndex(pred);
+    const iEntry = at((n) => n.props && n.props['data-dsh-prompt-update'] !== undefined);
+    const iStar = at((n) => n.type === 'a' && n.props.href === 'https://github.com/FeatherHunter/dsh-prompt');
+    const iIssue = at((n) => n.type === 'a' && n.props.href === 'https://github.com/FeatherHunter/dsh-prompt/issues');
+    eq(iEntry >= 0 && iEntry < iStar && iStar < iIssue, true,
+      '#60-A：DOM 顺序 = 入口 → 🌟 → 💬（' + iEntry + ' < ' + iStar + ' < ' + iIssue + '）');
+  }
   const all = page.root.findAll(() => true);
   const entryIdx = all.findIndex((x) => x.props && x.props['data-dsh-prompt-update'] !== undefined);
   const linkIdx = all.findIndex((x) => x.props && x.props['aria-label'] === STR.gitHubRepo.zh);
-  eq(entryIdx >= 0 && linkIdx >= 0 && linkIdx < entryIdx, true, '#60：身份行（图标按钮）排在入口之前（DOM 顺序）');
+  eq(entryIdx >= 0 && linkIdx >= 0 && entryIdx < linkIdx, true, '#60-A：图标按钮排在入口之后（DOM 顺序）');
   eq(requests.length, 1, '打开设置页只发生一次通话（正好一次，不重复打）');
   eq(requests[0].which, 'status', '打的是 status（只读本机、不联网）；自动查新版是 #41 的事，本票不擅自联网');
   eq(requests[0].method, 'POST', '通话走 POST');
 
-  console.log('=== T3b: #60 入口行的版式（卡片 + 版本徽标 + chevron + 悬停态；不引新色 / 新字号 / 新圆角） ===');
+  console.log('=== T3b: #60-A 入口的版式（身份行里的一枚按钮：可点 / 悬停 / 徽标；卡片与 borderBottom 都没了） ===');
   {
     const rowOf = () => one(page, 'data-dsh-prompt-update');
-    // ① 容器：一张**无组标题**的卡片，数值与 settings.ts 的 SettingGroup 逐字相同 —— 分隔交给它，
-    //    不再自己划一条整宽 borderBottom。
-    let card = rowOf().parent;
-    while (card && card.type !== 'section') card = card.parent;
-    eq(!!card, true, '入口行被一张卡片包住（section）');
-    eq(card && card.props.style.border, '1px solid var(--dsw-alias-border-l1)', '卡片边框 = TOK.border（与 SettingGroup 同数）');
-    eq(card && card.props.style.borderRadius, 12, '卡片圆角 12（既有数值，不新造）');
-    eq(card && card.props.style.padding, '2px 14px 12px', '卡片内距与 SettingGroup 逐字相同');
-    eq(card && card.props.style.margin, '14px 0 4px', '卡片外边距与 SettingGroup 逐字相同（垂直节奏沿用既有比例）');
-    // ② 行解剖对齐同页的 SettingRow：左 = 文案（13px / labelPrimary），右 = 徽标 + chevron。
+    // ① 它不再有自己的容器：卡片（SettingGroup 那种 section）与整宽 borderBottom 都删了。
     const rs = rowOf().props.style;
-    eq(rs.borderBottom, undefined, '整宽 borderBottom 已删（它正是「看着像页面 header」的来源）');
-    eq(rs.border, 0, '行自己没有边框（边框属于卡片）');
-    eq(rs.padding, '10px 0', '行内距 = SettingRow 的 10px 0');
-    eq(rs.justifyContent, 'space-between', '两端布局：左文案 / 右徽标 + chevron');
-    eq(rs.cursor, 'pointer', '整行可点（cursor: pointer）');
-    eq(rs.background, 'transparent', '静止态不铺底色');
-    eq(String(rs.transition).indexOf('background-color') >= 0, true, '底色过渡沿用既有 Btn 那套写法');
+    eq(rowOf().props.type, 'button', '入口是 <button>');
+    eq(rs.cursor, 'pointer', '可点线索一：整枚 cursor: pointer');
+    eq(rs.display, 'inline-flex', '内联布局 —— 与两个图标同一行');
+    eq(rs.border, 0, '自己不带边框（卡片已删）');
+    eq(rs.borderBottom, undefined, '整宽 borderBottom 已删（它是「看着像页面 header」的来源）');
+    eq(rs.borderRadius, 8, '圆角 8（既有数值：与同页 Btn 同）');
+    eq(rs.padding, '4px 6px', '内距 4px 6px（0/4/6 都是这一页既有的数值）');
+    eq(rs.gap, 6, '文案与徽标之间 gap 6（既有数值）');
+    const anc = [];
+    for (let p = rowOf().parent; p; p = p.parent) anc.push(p);
+    eq(anc.filter((x) => x.type === 'section').length, 0, '入口不再被任何卡片包着（SettingGroup 那张卡没了）');
+    // ② 文案：既有字号，窄容器下可收缩（省略号）——「挤坏也不能挤掉徽标与图标」的前半条。
     const label = rowOf().findAll((x) => x.type === 'span' && txt(x) === STR.updateEntry.zh)[0];
     eq(!!label, true, '左边是入口文案');
-    eq(label && label.props.style.fontSize, 13, '文案 13px（既有字号）');
-    eq(label && label.props.style.color, 'var(--dsw-alias-label-primary)', '文案 labelPrimary');
-    // ③ 版本徽标：等宽小字 + 底色 + 圆角，不再是紧贴文案的副标题。
+    eq(label && label.props.style.fontSize, 12.5, '文案 12.5px（既有字号：与同页 Btn 同）');
+    eq(label && label.props.style.minWidth, 0, '窄容器下文案可收缩（minWidth 0）');
+    eq(label && label.props.style.textOverflow, 'ellipsis', '收缩时用省略号（与身份行的插件名字同一处理）');
+    eq(label && label.props.style.whiteSpace, 'nowrap', '文案不换行');
+    // ③ 版本徽标：等宽小字 + 底色 + 圆角，恒定不收缩、不换行（后半条：徽标必须留着）。
     const badge = one(page, 'data-dsh-prompt-update-version');
     eq(badge.props.style.fontFamily, 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', '徽标用既有等宽字体 TOK.mono');
     eq(badge.props.style.fontSize, 11.5, '徽标 11.5px（既有字号）');
@@ -315,24 +371,127 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     eq(badge.props.style.background, 'var(--dsw-alias-bg-layer-3)', '徽标底色 bgLayer');
     eq(badge.props.style.borderRadius, 6, '徽标圆角 6（既有数值）');
     eq(badge.props.style.padding, '1px 6px', '徽标内距 1px 6px');
-    // ④ 可点线索之三：右侧 chevron（纯装饰，对读屏隐藏）。
-    const chev = rowOf().findAll((x) => x.type === 'span' && txt(x) === '›')[0];
-    eq(!!chev, true, '右侧有 chevron ›');
-    eq(chev && chev.props.style.color, 'var(--dsw-alias-label-tertiary)', 'chevron labelTertiary');
-    eq(chev && chev.props.style.fontSize, 13, 'chevron 13px（既有字号）');
-    eq(chev && chev.props['aria-hidden'], 'true', 'chevron aria-hidden（装饰，不进读屏）');
+    eq(badge.props.style.flex, 'none', '徽标 flex:none（挤的时候不会被压掉）');
+    eq(badge.props.style.whiteSpace, 'nowrap', '徽标不换行');
+    // ④ 两个图标同样不收缩 —— 窄容器下入口可以瘦，图标必须在。
+    const icons = page.root.findAll((x) => x.type === 'a' && !!x.props['aria-label']);
+    eq(icons.length === 2 && icons.every((i) => i.props.style.flex === 'none'), true, '两个图标 flex:none（不会被入口挤掉）');
     // ⑤ 悬停态：内联样式没有 :hover，靠 useState + 进入/离开（既有 Btn 的写法）。
     await act(() => { rowOf().props.onMouseEnter() });
-    eq(rowOf().props.style.background, 'var(--dsw-alias-bg-layer-2,rgba(255,255,255,.06))', '悬停时整行铺 bgHover');
+    eq(rowOf().props.style.background, 'var(--dsw-alias-bg-layer-2,rgba(255,255,255,.06))', '悬停铺 bgHover（可点线索二）');
     await act(() => { rowOf().props.onMouseLeave() });
     eq(rowOf().props.style.background, 'transparent', '移开后底色收回（不留常驻高亮）');
   }
   await act(() => { one(page, 'data-dsh-prompt-update').props.onClick() });
-  eq(!!one(page, 'data-dsh-prompt-update-modal'), true, '点入口行打开弹窗');
+  eq(!!one(page, 'data-dsh-prompt-update-modal'), true, '点入口打开弹窗');
   eq(txt(one(page, 'data-dsh-prompt-update-modal')).length > 30, true, '弹窗有内容（不是空白）');
   page.unmount();
 
-  console.log('=== T4: 状态区 + 检查/安装按钮（含裸调 install 的功能守卫） ===');
+  console.log('=== T3c: #60-B 结论行 = 唯一主角（三选一），同一时刻只有一个主（accent）按钮 ===');
+  {
+    // 测试自己按 i18n 模板填占位（与实现无关地算出期望文案；模板错、接线错都会红）。
+    const fillT = (tpl, vars) => String(tpl).replace(/\{(\w+)\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(vars, k) ? String(vars[k]) : m));
+    const oneAccent = (cc, want, msg) => {
+      const acc = accentsOf(cc);
+      eq(acc.length, 1, msg + '：整只窗只有一个 accent 主按钮（实际 ' + acc.length + ' 个）');
+      eq(acc.length === 1 ? acc[0].props['data-dsh-prompt-update-action'] : null, want, msg + '：主按钮是 ' + want);
+    };
+    // (a) 已是最新：最新版 == 正在跑的版本。
+    script.status = okEnv(snap({ latestVersion: '0.1.7', canInstall: true }), 'CMD');
+    let c = await mount(React.createElement(update.UpdateEntry, {}));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    eq(verdictOf(c) && verdictOf(c).kind, 'uptodate', '（已是最新）结论行形态 = uptodate');
+    eq(verdictOf(c) && verdictOf(c).text, fillT(STR.updateVerdictUpToDate.zh, { version: '0.1.7' }), '（已是最新）结论行文案：已是最新版本（0.1.7）');
+    oneAccent(c, 'check', '（已是最新）');
+    eq(!!actOf(c, 'install'), false, '（已是最新）不给安装按钮（没有新版本可装）');
+    eq(!!one(c, 'data-dsh-prompt-update-banner'), false, '（已是最新）没有待重启横幅');
+    eq(txt(one(c, 'data-dsh-prompt-update-modal')).indexOf('万能药') < 0, true, '（已是最新）命令块的免责声明不再出现（它平常压根不渲染）');
+    c.unmount();
+
+    // (b) 有新版本：最新版比正在跑的新 ⇒ 主按钮变「安装新版本」，「检查更新」降为次级（仍可点）。
+    script.status = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
+    c = await mount(React.createElement(update.UpdateEntry, {}));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    eq(verdictOf(c) && verdictOf(c).kind, 'newer', '（有新版本）结论行形态 = newer');
+    eq(verdictOf(c) && verdictOf(c).text, fillT(STR.updateVerdictNewer.zh, { latest: '0.1.9', running: '0.1.7' }), '（有新版本）结论行文案带新版号与当前版本');
+    oneAccent(c, 'install', '（有新版本）');
+    eq(!!actOf(c, 'check'), true, '（有新版本）「检查更新」仍作为次级按钮在（随时能重查）');
+    eq(actOf(c, 'check').props.style.background !== ACCENT, true, '（有新版本）「检查更新」不是 accent（同一时刻只有一个主按钮）');
+    eq(!!one(c, 'data-dsh-prompt-update-manual'), false, '（有新版本）一切正常 ⇒ 手工命令不出现（不再常驻）');
+    c.unmount();
+
+    // (c) 这次没查到（电话级失败）：结论行说「这次没查到」，原因与下一步由既有失败块给（形态一字不改）。
+    script.status = failEnv('bridge-unreachable');
+    c = await mount(React.createElement(update.UpdateEntry, {}));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    eq(verdictOf(c) && verdictOf(c).kind, 'unknown', '（电话级失败）结论行形态 = unknown');
+    eq(verdictOf(c) && verdictOf(c).text, STR.updateVerdictUnknown.zh, '（电话级失败）结论行说「这次没查到」');
+    oneAccent(c, 'check', '（电话级失败）');
+    eq(!!actOf(c, 'install'), false, '（电话级失败）不给安装按钮');
+    eq(!!one(c, 'data-dsh-prompt-update-hostfail'), true, '（电话级失败）既有失败块仍在（原因 + 下一步），弹窗不是空白');
+    c.unmount();
+
+    // (d) 刚打开、还没查过：结论行也是「这次没查到」，并补一句下一步（此时没有别的块替它说）。
+    script.status = okEnv(snap(), 'CMD');
+    c = await mount(React.createElement(update.UpdateEntry, {}));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    eq(verdictOf(c) && verdictOf(c).kind, 'unknown', '（还没查过）结论行形态 = unknown');
+    eq(String(txt(one(c, 'data-dsh-prompt-update-verdict-box'))).indexOf(STR.updateVerdictUnknownHint.zh) >= 0, true, '（还没查过）结论行补一句下一步（点「检查更新」问一次）');
+    oneAccent(c, 'check', '（还没查过）');
+    c.unmount();
+    ok('三种结论形态（已是最新 / 有新版本 / 这次没查到）各如其分，且任何时刻只有一个主按钮');
+  }
+
+  console.log('=== T3d: #60-B 三个版本号收进可展开的「详情」，默认收起 ===');
+  {
+    script.status = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
+    const c = await mount(React.createElement(update.UpdateEntry, {}));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    eq(!!one(c, 'data-dsh-prompt-update-modal'), true, '弹窗已开');
+    eq(nodes(c, 'data-dsh-prompt-update-field').length, 0, '默认收起：三个版本号一个都不在页面上');
+    eq(!!one(c, 'data-dsh-prompt-update-details'), false, '收起时连容器都不渲染');
+    eq(!!one(c, 'data-dsh-prompt-update-details-toggle'), true, '有一枚「详情」切换按钮');
+    eq(txt(one(c, 'data-dsh-prompt-update-details-toggle')).indexOf(STR.updateDetails.zh) >= 0, true, '切换按钮的文案是「详情」');
+    await openDetails(c);
+    eq(nodes(c, 'data-dsh-prompt-update-field').length, 3, '展开后当前 / 已装 / 最新三个版本号都在');
+    eq(txt(fieldOf(c, 'running')), '0.1.7', '详情：当前版本');
+    eq(txt(fieldOf(c, 'installed')), '0.1.7', '详情：已装版本');
+    eq(txt(fieldOf(c, 'latest')), '0.1.9', '详情：最新版本');
+    await act(() => { one(c, 'data-dsh-prompt-update-details-toggle').props.onClick() });
+    eq(nodes(c, 'data-dsh-prompt-update-field').length, 0, '再点一次收回（默认态可来回切）');
+    eq(actionsOf(c).filter((n) => n.props['data-dsh-prompt-update-action'] === 'details').length, 0,
+      '「详情」不是动作按钮（不进「这只窗有几个动作」的账）');
+    c.unmount();
+  }
+
+  console.log('=== T3e: #60-B 手工兜底命令只在「装不了 / 失败」时出现；四行免责声明与缓存说明已删 ===');
+  {
+    // 正常态之一：宿主给了命令、但没给任何装不了的理由 ⇒ 不出（这一条就是「不再常驻」的判据）。
+    script.status = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD_HIDDEN');
+    let c = await mount(React.createElement(update.UpdateEntry, {}));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    eq(!!one(c, 'data-dsh-prompt-update-manual'), false, '正常态：手工命令块不出现');
+    eq(!!one(c, 'data-dsh-prompt-update-command'), false, '正常态：命令本身也不在');
+    eq(!!one(c, 'data-dsh-prompt-update-manual-empty'), false, '正常态：连「宿主没给命令」那句也不出现（它只在需要兜底时才说）');
+    eq(String(txt(one(c, 'data-dsh-prompt-update-modal'))).indexOf('万能药') < 0, true, '正常态：全文没有那段免责声明');
+    c.unmount();
+
+    // 装不了：宿主给了 blockedReason 且 canInstall 为假 ⇒ 命令块出现，命令下面**只有一句**。
+    script.status = okEnv(snap({ blockedReason: 'installation-changed', canInstall: false }), 'CMD_NEEDED');
+    c = await mount(React.createElement(update.UpdateEntry, {}));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    eq(txt(one(c, 'data-dsh-prompt-update-command')), 'CMD_NEEDED', '装不了：命令块出现（自动安装不可用时它就是出口）');
+    const mt = String(txt(one(c, 'data-dsh-prompt-update-modal')));
+    eq(mt.indexOf(STR.updateManualHint.zh) >= 0, true, '命令下面留一句说清它能做什么');
+    eq(STR.updateManualHint.zh.split('。').filter((s) => s.trim()).length, 1, '命令下面只有一句（不是四行自我辩解）');
+    eq(mt.indexOf('万能药') < 0, true, '四行免责声明（「这不是万能药…」）不再出现');
+    eq(mt.indexOf('不缓存') < 0, true, '底部那句缓存机制说明不再出现');
+    eq(Object.prototype.hasOwnProperty.call(STR, 'updateStatusNote'), false, 'i18n 里那条缓存说明文案已删（updateStatusNote 不存在）');
+    eq(fs.readFileSync(SRC('i18n.ts'), 'utf8').indexOf('updateStatusNote') < 0, true, '源码里也不再引用 updateStatusNote');
+    c.unmount();
+  }
+
+  console.log('=== T4: 详情里的三个版本号 + 检查/安装按钮（含裸调 install 的功能守卫） ===');
   script.status = okEnv(snap({ canInstall: false }), 'CMD_STATUS');
   let m = await mount(React.createElement(update.UpdateEntry, {}));
   let modal = one(m, 'data-dsh-prompt-update-modal');
@@ -340,10 +499,12 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
   await act(() => { one(m, 'data-dsh-prompt-update').props.onClick() });
   modal = one(m, 'data-dsh-prompt-update-modal');
   eq(!!modal, true, '弹窗已开');
-  const field = (k) => nodes(m, 'data-dsh-prompt-update-field').filter((n) => n.props['data-dsh-prompt-update-field'] === k)[0];
-  eq(txt(field('running')), '0.1.7', '状态区：当前版本');
-  eq(txt(field('installed')), '0.1.7', '状态区：已装版本');
-  eq(txt(field('latest')), STR.updateLatestNone.zh, '状态区：最新版本（没查过就明说，不留空）');
+  // #60-B：三个版本号默认收起 ⇒ 先展开「详情」再读（默认收起本身由 T3d 钉着）。
+  await openDetails(m);
+  const field = (k) => fieldOf(m, k);
+  eq(txt(field('running')), '0.1.7', '详情：当前版本');
+  eq(txt(field('installed')), '0.1.7', '详情：已装版本');
+  eq(txt(field('latest')), STR.updateLatestNone.zh, '详情：最新版本（没查过就明说，不留空）');
   eq(!!one(m, 'data-dsh-prompt-update-action'), true, '有「检查更新」按钮');
   eq(nodes(m, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'install').length, 0,
     'canInstall 为假 → 不给安装按钮');
@@ -355,7 +516,7 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     nodes(m, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
   });
   eq(requests.map((r) => r.which), ['check'], '点「检查更新」只打 check');
-  eq(txt(field('latest')), '0.1.9', '状态区：最新版本取回包（现刷，不缓存）');
+  eq(txt(field('latest')), '0.1.9', '详情：最新版本取回包（现刷，不缓存）');
   const installBtn = nodes(m, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'install')[0];
   eq(!!installBtn, true, 'canInstall 为真 → 出现安装按钮');
   requests.length = 0;
@@ -511,7 +672,7 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     eq(corpus.indexOf('params') >= 0, false, '真产出点里连 params 这个词都没有（那条码没有任何对应情形）');
   }
 
-  console.log('=== T7: ⚠️ 待重启横幅（显眼样式、说清版本与重启、不给安装按钮） ===');
+  console.log('=== T7: ⚠️ 待重启横幅（显眼样式、说清版本与重启、不给安装按钮、不抢主角） ===');
   script.status = okEnv(snap({ blockedReason: 'pending-restart', runningVersion: '0.1.6', installedVersion: '0.1.7', latestVersion: '0.1.7', canInstall: false }), 'CMD');
   m = await mount(React.createElement(update.UpdateEntry, {}));
   await act(() => { one(m, 'data-dsh-prompt-update').props.onClick() });
@@ -525,34 +686,46 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     eq(!!banner.props.style && !!banner.props.style.background && !!banner.props.style.border, true,
       '横幅是显眼样式（有底色与描边，不是一行灰字）');
     eq(banner.props.title, undefined, '横幅不是悬停提示里的一行小字');
+    // #60-B：这一种状态的主角是横幅 —— 结论行**不出现**（同一时刻只许有一个主角）。
+    eq(!!one(m, 'data-dsh-prompt-update-verdict'), false, '待重启：结论行让位给横幅（不并排两个主角）');
+    await openDetails(m);
     const seen = m.root.findAll(() => true);
     const at = (n) => seen.findIndex((x) => x.props && x.props['data-dsh-prompt-update-field'] === n);
-    eq(seen.indexOf(banner) < at('running'), true, '横幅在状态区之上（顶部横幅）');
+    eq(seen.indexOf(banner) < at('running'), true, '横幅在版本详情之上（顶部横幅）');
   }
   eq(nodes(m, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'install').length, 0,
     '待重启期间不给安装按钮');
+  eq(accentsOf(m).length, 1, '待重启期间也只有一个主按钮');
   m.unmount();
 
-  console.log('=== T8: 手工命令现刷不缓存 + 它不是万能药（前置条件 6） ===');
-  script.status = okEnv(snap(), 'CMD_A');
+  console.log('=== T8: 手工命令现刷不缓存 + 只在「装不了 / 失败」时才出现（#60-B 第 4 条） ===');
+  // 先给一个**不该出现**的基线：宿主手里有命令、但这台机器没有装不了的理由 ⇒ 命令一个字都不出现。
+  script.status = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD_A');
   m = await mount(React.createElement(update.UpdateEntry, {}));
   await act(() => { one(m, 'data-dsh-prompt-update').props.onClick() });
-  eq(txt(one(m, 'data-dsh-prompt-update-command')), 'CMD_A', '先展示 status 给的命令');
-  eq(txt(m).indexOf(STR.updateManualHint.zh) >= 0, true, '命令旁边交代局限（干活的是已装那一侧 / 清不掉 installation-changed）');
-  script.check = okEnv(snap(), 'CMD_B', null);
+  eq(!!one(m, 'data-dsh-prompt-update-command'), false, '一切正常：命令块**不**出现（改造前它常驻，正是用户说的主次颠倒）');
+  eq(txt(m).indexOf('CMD_A'), -1, '一切正常：命令文本也不在页面上');
+  // 装不了 + 宿主给了命令 ⇒ 出现；随后每次回包都现刷，不缓存。
+  script.check = okEnv(snap({ blockedReason: 'installation-changed', canInstall: false }), 'CMD_B', null);
   await act(() => {
     nodes(m, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
   });
-  eq(txt(one(m, 'data-dsh-prompt-update-command')), 'CMD_B', 'check 回包换了命令 → 界面跟着换（不是缓存旧命令）');
-  eq(txt(m).indexOf('CMD_A'), -1, '旧命令不再留在界面上');
-  script.check = okEnv(snap(), '', null);
+  eq(txt(one(m, 'data-dsh-prompt-update-command')), 'CMD_B', '装不了 ⇒ 命令块出现，且取的是这次回包的值');
+  eq(txt(m).indexOf(STR.updateManualHint.zh) >= 0, true, '命令下面一句说清它能做什么（不是四行免责声明）');
+  script.check = okEnv(snap({ blockedReason: 'installation-changed', canInstall: false }), 'CMD_C', null);
+  await act(() => {
+    nodes(m, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
+  });
+  eq(txt(one(m, 'data-dsh-prompt-update-command')), 'CMD_C', 'check 回包换了命令 → 界面跟着换（不是缓存旧命令）');
+  eq(txt(m).indexOf('CMD_B'), -1, '旧命令不再留在界面上');
+  script.check = okEnv(snap({ blockedReason: 'unknown-profile', canInstall: false }), '', null);
   await act(() => {
     nodes(m, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
   });
   eq(!!one(m, 'data-dsh-prompt-update-command'), false, '回包命令为空 → 命令整块消失');
-  eq(!!one(m, 'data-dsh-prompt-update-manual-empty'), true, '空命令时给出「宿主没给命令」的说明');
+  eq(!!one(m, 'data-dsh-prompt-update-manual-empty'), true, '需要兜底却没命令时，给一句「宿主没给命令」的说明');
   // 复制按钮：把**当前**命令写进剪贴板（不是旧的那条）
-  script.check = okEnv(snap(), 'CMD_COPY', null);
+  script.check = okEnv(snap({ blockedReason: 'installation-changed', canInstall: false }), 'CMD_COPY', null);
   await act(() => {
     nodes(m, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
   });
@@ -752,23 +925,26 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     await act(() => {
       nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
     });
-    eq(txt(one(c, 'data-dsh-prompt-update-version')), 'v0.1.7', '成功时入口行有版本');
+    eq(txt(one(c, 'data-dsh-prompt-update-version')), 'v0.1.7', '成功时入口有版本');
+    await openDetails(c);
     const before = {
-      running: txt(nodes(c, 'data-dsh-prompt-update-field').filter((n) => n.props['data-dsh-prompt-update-field'] === 'running')[0]),
-      installed: txt(nodes(c, 'data-dsh-prompt-update-field').filter((n) => n.props['data-dsh-prompt-update-field'] === 'installed')[0]),
-      latest: txt(nodes(c, 'data-dsh-prompt-update-field').filter((n) => n.props['data-dsh-prompt-update-field'] === 'latest')[0]),
-      command: txt(one(c, 'data-dsh-prompt-update-command')),
+      running: txt(fieldOf(c, 'running')),
+      installed: txt(fieldOf(c, 'installed')),
+      latest: txt(fieldOf(c, 'latest')),
     };
+    // 成功那一刻手里那条命令**不**在页面上（#60-B：只有在需要兜底时才出现）。
+    eq(!!one(c, 'data-dsh-prompt-update-command'), false, '成功态：命令不常驻');
     mode = 'fail';
     await act(() => {
       nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
     });
-    const fieldVal = (k) => { const n = nodes(c, 'data-dsh-prompt-update-field').filter((x) => x.props['data-dsh-prompt-update-field'] === k)[0]; return n ? txt(n) : null };
-    eq(txt(one(c, 'data-dsh-prompt-update-version')), 'v0.1.7', '失败后入口行**没有**变成「版本未知」（已知版本不被抹掉）');
+    const fieldVal = (k) => { const n = fieldOf(c, k); return n ? txt(n) : null };
+    eq(txt(one(c, 'data-dsh-prompt-update-version')), 'v0.1.7', '失败后入口**没有**变成「版本未知」（已知版本不被抹掉）');
     eq(fieldVal('running'), before.running, '失败后「当前版本」还是 0.1.7');
     eq(fieldVal('installed'), before.installed, '失败后「已装版本」还在');
     eq(fieldVal('latest'), before.latest, '失败后「最新版本」还在（上次查到的那份）');
-    eq(txt(one(c, 'data-dsh-prompt-update-command')), before.command, '失败后手工命令块还在（不是整块消失）');
+    // 这一枪失败了 ⇒ 兜底命令**这才**出现（不是常驻），并且标明它来自上一份成功回包。
+    eq(txt(one(c, 'data-dsh-prompt-update-command')), 'CMD_GOOD', '失败后手工命令块出现（失败就是需要兜底的那一刻）');
     eq(!!one(c, 'data-dsh-prompt-update-manual-stale'), true, '并标明这条命令来自上一份成功回包');
     eq(String(txt(one(c, 'data-dsh-prompt-update-hostfail'))).indexOf(STR.updateHostFailTitle.zh) >= 0, false,
       '失败说明不冒充「宿主没有回答」（宿主回答了 check-failed）');
@@ -957,7 +1133,9 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     'updateRowLatest', 'updateLatestNone', 'updateNotAvailable', 'updateBtnCheck', 'updateBtnChecking', 'updateBtnInstall',
     'updateBtnInstalling', 'updateBtnCopy', 'updateCopied', 'updateCopyFail', 'updateClose', 'updateHostFailTitle',
     'updateHostFailHint', 'updateReasonTitle', 'updateReasonUnknown', 'updatePendingBanner', 'updatePendingHint',
-    'updateManualTitle', 'updateManualNone', 'updateManualHint', 'updateStatusNote',
+    'updateManualTitle', 'updateManualNone', 'updateManualHint',
+    // #60 追加交付 B 新增：结论行三条 + 没查到时的下一步 + 「详情」
+    'updateVerdictUpToDate', 'updateVerdictNewer', 'updateVerdictUnknown', 'updateVerdictUnknownHint', 'updateDetails',
     // 整改 M1/M2 新增：失败两类文案 + 按码动作 + 安装任务终态失败 + 旧命令标注
     'updateFailAnsweredTitle', 'updateFailAnsweredHint', 'updateFailNoFault', 'updateFailBusy', 'updateFailCheckFailed',
     'updateFailInvalidRelease', 'updateFailInstallFailed', 'updateFailCheckExpired', 'updateFailInstallationChanged',
@@ -965,6 +1143,8 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     // L2 第二轮 N1/N5 新增（能力没接通那一类 + 单飞锁挡下时的说法）；N2 删掉了凭空编的 updateFailParams
     'updateCapDownTitle', 'updateCapDownAction', 'updateBusyRetry',
     'updateNoCredential', 'updateJobFailTitle', 'updateJobFailHint', 'updateManualStale'];
+  // 注意：#60-B 第 6 条把「版本与状态每次现算、不缓存」那句说明删了（行为不变，只是不再写出来），
+  // 所以它不在上面的清单里 —— 上面 T3e 另有一条断言钉着它确实不存在。
   for (const k of I18N_KEYS) {
     const zh = STR[k] && STR[k].zh, en = STR[k] && STR[k].en;
     if (!zh || !en) { bad('缺文案 ' + k); continue }

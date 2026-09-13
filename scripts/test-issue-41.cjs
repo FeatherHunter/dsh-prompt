@@ -564,8 +564,10 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
       } else ok('（R1）在飞的那条 check 的回包落到**重挂载后**那一份身上 ⇒ 照常自动弹出（整会话不再静默）');
       eq(calls('check'), 1, '（R1）从头到尾只用了一条 check 换来这只窗');
       const acts = nodes(c2, 'data-dsh-prompt-update-action').map((n) => n.props['data-dsh-prompt-update-action']);
-      eq(acts.indexOf('install') >= 0 && acts.length === 5, true,
-        '（R1）那一只窗带完整的五个动作（含「安装新版本」），且只有这一只：' + JSON.stringify(acts));
+      // #60-B 起动作是四个：关闭 / 跳过此版本 / 检查更新 / 安装新版本。
+      // （手工命令的「复制」只在需要兜底时才在，这一只窗是「查到新版且能装」，所以不出现 —— 见 test:issue-40 的 T3e。）
+      eq(acts.indexOf('install') >= 0 && acts.length === 4, true,
+        '（R1）那一只窗带完整的四个动作（含「安装新版本」），且只有这一只：' + JSON.stringify(acts));
     }
     c2.unmount();
     await flush();
@@ -615,7 +617,10 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
     // 真机形态：设置页那一份（UpdateEntry{}）+ shell.overlay 那一份（UpdateEntry{auto:true}）同时在树上。
     // 修前：两只各自 setOpen(true) ⇒ 两个全屏遮罩 + 两套按钮，各自能点安装（客户端零防护）。
     resetScript(); clearLS(); clearClock();
-    script.status = okEnv(snap({ canInstall: true }), 'CMD');
+    // #60-B 起「安装新版本」只在结论为「有新版本」时才渲染（没有已知新版本时不再摆一个安装按钮），
+    // 所以这一段必须让**两边的快照都带一个新版本**，否则这里量到的 0 只是「按钮本来就不该在」，
+    // 量不出「同屏只有一只可点安装的窗」。给上新版本之后，这只断言才真的在守 R2。
+    script.status = okEnv(snap({ canInstall: true, latestVersion: '0.1.9' }), 'CMD');
     script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
     const { update } = reload();
     const cS = await mount(React.createElement(update.UpdateEntry, {}));
@@ -637,7 +642,7 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
 
     // 反方向：自动那只先弹出来，用户随后点开设置页入口行 ⇒ 自动那只关掉，只剩用户那一只（用户的手算数）
     resetScript(); clearLS(); clearClock();
-    script.status = okEnv(snap({ canInstall: true }), 'CMD');
+    script.status = okEnv(snap({ canInstall: true, latestVersion: '0.1.9' }), 'CMD');
     script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
     const m2 = reload();
     const cS2 = await mount(React.createElement(m2.update.UpdateEntry, {}));

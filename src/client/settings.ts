@@ -292,10 +292,10 @@ export function SettingsPage(props: any): any {
 
   // #37：旧的一行文字链接（⛭ GitHub 仓库 / ⚠ 反馈故障）已由顶部右上角两个图标按钮取代，不再保留第二处入口。
   return h('div', { style: { padding: 4, display: 'flex', flexDirection: 'column' } }, [
-    // #60 的位置修正：身份行在前、更新入口在后 —— 先认识「这是哪个插件」，再看到「关于它」的动作。
-    // #40 当初把入口排在身份行**之上**（本票之前的样子）会让一个功能看起来像整页主标题。
-    h(SettingsHeaderLinks, { key: 'links', lang }),
-    h(UpdateEntry, { key: 'update' }),
+    // #60 追加交付 A 的位置修正（第二次真机反馈）：更新入口**不再是独立的一块**，而是交给身份行，
+    // 与 🌟 / 💬 同一行、排在这两个图标之前 —— 用户原话「检查更新和版本号和 star 的按钮在一起」。
+    // 于是这一页的顶层块从 7 块回到 6 块：身份行带着入口一起当第 0 块。
+    h(SettingsHeaderLinks, { key: 'links', lang, entry: h(UpdateEntry, { key: 'update' }) }),
     h(SettingGroup, { key: 'smart', title: t('smartGroup') }, [
       h(SettingRow, {
         key: 'smart-row',

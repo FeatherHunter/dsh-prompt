@@ -118,6 +118,14 @@ export const STR = {
   // 零处产出（#55 实测）：**预留文案，但不许为它编情形**（真机到不了就不要在别处假装它会到）。
   updateEntry: { zh: '检查更新', en: 'Check for updates' },
   updateEntryHint: { zh: '看当前版本，并问官方源有没有新版', en: 'See your version and ask the registry for a newer one' },
+  // #60 追加交付 B：结论行（这一页唯一的视觉主角）。它只回答「我是不是最新版」，三选一。
+  // `{version}` / `{latest}` / `{running}` 三个占位由 update.ts 的 fill() 填。
+  updateVerdictUpToDate: { zh: '已是最新版本（{version}）', en: 'Up to date ({version})' },
+  updateVerdictNewer: { zh: '有新版本 {latest}（当前 {running}）', en: 'Update {latest} available (you have {running})' },
+  updateVerdictUnknown: { zh: '这次没查到', en: 'Could not find out this time' },
+  updateVerdictUnknownHint: { zh: '还没问过官方源：点「检查更新」问一次。', en: 'The registry has not been asked yet — click "Check now".' },
+  // 三个版本号收进「详情」，默认收起：它们是排查用的实现细节。
+  updateDetails: { zh: '详情', en: 'Details' },
   updateVersionUnknown: { zh: '版本未知', en: 'version unknown' },
   updateRowRunning: { zh: '当前版本', en: 'Running' },
   updateRowInstalled: { zh: '已装版本', en: 'Installed' },
@@ -282,16 +290,14 @@ export const STR = {
   },
   updateManualTitle: { zh: '手工兜底命令', en: 'Manual fallback command' },
   updateManualNone: { zh: '宿主这次没有给出手工命令（只展示上面的原因）。', en: 'The host returned no manual command this time (only the reason above).' },
+  // #60 追加交付 B 第 4/6 条：命令下面**只留一句**说清它能做什么。上一版那四行自我辩解
+  // （「这不是万能药…」）与末尾那句缓存机制说明都删了 —— 把作者的不确定感摊给用户，正是这次要修的。
   updateManualHint: {
-    zh: '这不是万能药：命令装的是「已装版本」那一侧——没先点「检查更新」时，命令里的版本号就是你已装的版本；状态是「安装位置变了」时，执行它也只是原地重装，清不掉那个状态。',
-    en: 'This is not a cure-all: the command targets the installed side — without a fresh check the version in it is simply your installed version, and under "installation location changed" it only reinstalls in place without clearing that state.',
+    zh: '这条命令会把「已装版本」重装一遍。',
+    en: 'This command reinstalls the version you already have.',
   },
   updateManualStale: {
     zh: '这条命令来自上一次成功的通话，不是这次失败的答复。',
     en: 'This command comes from the last call that succeeded, not from the call that just failed.',
-  },
-  updateStatusNote: {
-    zh: '版本与状态每次都由宿主现算，不缓存；「最新版本」只有点过「检查更新」才有值。',
-    en: 'Versions and state are recomputed by the host on every call and never cached; "Latest" only has a value after a check.',
   },
 }

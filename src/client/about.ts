@@ -3,7 +3,8 @@
  * 两件东西：顶部右上角两个图标按钮（🌟 仓库 / 💬 ISSUE 列表，各带自绘悬停气泡）+ 底部「作者其他插件」四行引流区。
  * 边界：纯前端展示，不发网络请求、不写本地存档键、不碰模板数据与智能召回。
  * 顶层显示：气泡经 panel 的 TopPortal 挂到 body —— 设置面板自身会滚动、且带层叠上下文，内联气泡会被裁剪或遮挡。
- * 契约：导出 SettingsHeaderLinks({ lang }) 与 AuthorPlugins({ lang }) 两个组件；气泡、定位、清单常量都是内部实现。
+ * 契约：导出 SettingsHeaderLinks({ lang, entry? }) 与 AuthorPlugins({ lang }) 两个组件；气泡、定位、清单常量都是内部实现。
+ * #60 追加交付 A 起多一个可选的 `entry`：调用方（settings.ts）把更新入口那枚按钮交进来，与两个图标同排。
  */
 import { getReact, TopPortal, MODAL_Z, PromptMark } from './panel'
 import { tr, STR, type Lang } from './i18n'
@@ -31,11 +32,13 @@ const headerRowStyle: any = { display: 'flex', alignItems: 'center', justifyCont
 // #53：头行左侧的插件标志与页面名 —— 名字与设置面板导航项同名（i18n 的 sectionName），标志与模板列表同一个
 const brandStyle: any = { display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }
 const brandNameStyle: any = { fontWeight: 600, fontSize: '0.95em', color: 'var(--dsw-alias-label-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
-const headBtnsStyle: any = { display: 'inline-flex', alignItems: 'center', gap: 4, flex: 'none' }
+// #60 追加交付 A：这一组里现在还会坐一枚「检查更新」，所以整组可收缩（minWidth 0 + flex '0 1 auto'）——
+// 窄容器下先让文案省略，两个图标各自 flex:'none' 恒定 26×26，永远留着。
+const headBtnsStyle: any = { display: 'inline-flex', alignItems: 'center', gap: 4, flex: '0 1 auto', minWidth: 0 }
 const iconBtnStyle: any = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7,
   textDecoration: 'none', cursor: 'pointer', lineHeight: 1, border: '1px solid transparent',
-  background: 'transparent', color: 'var(--dsw-alias-label-secondary)',
+  background: 'transparent', color: 'var(--dsw-alias-label-secondary)', flex: 'none',
 }
 const iconBtnHover: any = { background: 'var(--dsw-alias-bg-layer-3)', borderColor: 'var(--dsw-alias-border-l1)', color: 'var(--dsw-alias-label-primary)' }
 const tipStyle: any = {
@@ -166,8 +169,15 @@ function PluginRow(props: any): any {
   ])
 }
 
-/** 顶部头行：左边插件标志与页面名，右边两个图标按钮（取代旧的一行文字链接）。 */
-export function SettingsHeaderLinks(props: { lang: Lang }): any {
+/**
+ * 顶部头行：左边插件标志与页面名，右边「更新入口（调用方给了就渲染）+ 两个图标按钮」。
+ *
+ * #60 追加交付 A：更新入口不再是独立卡片，而是**这一行里的一枚按钮** —— 与 🌟 / 💬 同一个父节点
+ * （`headBtnsStyle` 那个 span）、DOM 顺序排在这两个图标**之前**。`entry` 由 settings.ts 交进来
+ * （它同时持有 about.ts 与 update.ts 的引用），本文件因此不 import update.ts，两边都不成环。
+ * 不传 `entry` 时这一行与 #37 完全一致（本文件的回归脚本就是单独挂载它）。
+ */
+export function SettingsHeaderLinks(props: { lang: Lang; entry?: any }): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
@@ -178,6 +188,8 @@ export function SettingsHeaderLinks(props: { lang: Lang }): any {
       h('span', { key: 'name', style: brandNameStyle }, t('sectionName')),
     ]),
     h('span', { key: 'btns', style: headBtnsStyle }, [
+      // 更新入口在图标**之前**（同一行的左起第二段），两个图标仍是 #37 那两枚、地址与顺序一字不动。
+      props.entry || null,
       h(HoverTip, { key: 'star', content: t('starTip') },
         h(IconLink, { href: REPO_URL, label: t('gitHubRepo'), emoji: '🌟' })),
       h(HoverTip, { key: 'feedback', content: t('feedbackTip') },

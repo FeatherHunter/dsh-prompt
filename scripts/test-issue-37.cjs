@@ -99,6 +99,29 @@ const jsonAnchors = (n) => {
 const wrappers = (c) => c.root.findAll((x) => x.props && typeof x.props.onMouseEnter === 'function' && typeof x.props.onFocus === 'function');
 const tips = (c) => c.root.findAll((x) => x.props && x.props['data-dsh-prompt-tip'] === '');
 const fire = (node, name, ev) => { TR.act(() => { node.props[name](ev || {}) }); TR.act(() => {}) };
+/* 宿主树（toJSON）按文档序展开 + 父子表：#60 追加交付 A 的「同一行、同一父节点、排在图标之前」靠它们判定。 */
+const domSeq = (n) => {
+  const out = [];
+  const walk = (c) => {
+    if (!c || typeof c !== 'object') return;
+    if (Array.isArray(c)) { c.forEach(walk); return }
+    out.push(c);
+    (c.children || []).forEach(walk);
+  };
+  walk(n);
+  return out;
+};
+const parentMap = (root) => {
+  const map = new Map();
+  const walk = (c, p) => {
+    if (!c || typeof c !== 'object') return;
+    if (Array.isArray(c)) { c.forEach((x) => walk(x, p)); return }
+    map.set(c, p);
+    (c.children || []).forEach((x) => walk(x, c));
+  };
+  walk(root, null);
+  return map;
+};
 
 console.log('=== T1: i18n 双语齐全（英文不许夹中文） ===');
 for (const k of I18N_KEYS) {
@@ -208,27 +231,42 @@ const kids = tree.children;
 // #52 改版：版式变了（每个功能各收进一张卡片：智能推荐组 / 诊断日志组），所以这几条改成**按内容找**，
 // 不再按索引钉死（索引断言会随版式变化而失去意义）。#37 自己的四条保证一条不减：
 // 两个图标按钮、四行引流区、旧文字链接下线、末尾是引流区。
-// #40 连带：设置页顶层多了一行「检查更新」入口（左对齐、带版本号），块数 6 → 7。
-// #60 的位置修正：那一行从身份行**之上**挪到**之下** ⇒ 前两块互换、块数不变（还是 7）。
-// 四条保证（两个图标按钮 / 四行引流区 / 旧文字链接下线 / 末尾是引流区）一条不减，文案一字不动。
+// #40 连带：设置页顶层多了一行「检查更新」入口，块数 6 → 7。
+// #60 追加交付 A（用户第二次真机反馈）：那一行/卡片**并进了插件身份行**（与 🌟 / 💬 同一行），
+// ⇒ 顶层又回到 6 块，入口不再是独立的一块。四条保证一条不减，只是入口换了住处。
 const hasCheckbox = (node) => !!(node && ((node.props && node.props.type === 'checkbox')
   || (Array.isArray(node.children) && node.children.some(hasCheckbox))));
-eq(kids.length, 7, '设置页顶层七块：#60 身份行 / 更新入口 / 智能推荐组 / 诊断日志组 / 模板列表 / 存储说明 / 引流区');
+eq(kids.length, 6, '设置页顶层六块：#60 身份行（含更新入口）/ 智能推荐组 / 诊断日志组 / 模板列表 / 存储说明 / 引流区');
 eq(jsonAnchors(kids[0]).map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '第 0 块是右上角两个按钮（顺序：🌟 仓库、💬 ISSUE）');
 eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 0 块左边有插件名字');
-// 变异判据：把更新入口挪回身份行之上（#60 之前的样子）⇒ 这两条当场变红。
-eq(txt(kids[0]).indexOf(STR.updateEntry.zh) < 0, true, '#60：第 0 块不是更新入口（它不再压在插件身份行之上）');
-eq(txt(kids[1]).indexOf(STR.updateEntry.zh) >= 0, true, '#60：第 1 块是「检查更新」入口（在 #37 的身份行之下）');
-eq(txt(kids[2]).indexOf(STR.smartGroup.zh) >= 0, true, '第 2 块是「智能推荐」组（带组标题）');
-eq(txt(kids[2]).indexOf(STR.smartToggle.zh) >= 0, true, '智能开关在组内（文案一字不动）');
-eq(hasCheckbox(kids[2]), true, '智能开关仍是 checkbox');
-eq(txt(kids[3]).indexOf(STR.logGroup.zh) >= 0, true, '第 3 块是「诊断日志」组');
-eq([STR.logExport.zh, STR.logCopyPath.zh, STR.logClear.zh].every((s) => txt(kids[3]).indexOf(s) >= 0), true, '日志三入口都在组内（导出 / 复制路径 / 清空）');
-eq(txt(kids[3]).indexOf(STR.logWhere.zh) >= 0, true, '组内有落点行（等宽字体，不再写尖括号）');
-eq(kids[4].type, 'div', '第 4 块是模板浏览列表');
-eq(!kids[4].props['data-dsh-prompt-more'], true, '第 4 块不是引流区');
-eq(txt(kids[5]), STR.storageNote.zh, '第 5 块是存储说明（跟模板区走，文案一字不动）');
-eq(kids[6].props['data-dsh-prompt-more'], '', '第 6 块（页面底部）是引流区');
+// #60 追加交付 A：入口与两个图标**同一行、同一父节点**，且排在两个图标之前 —— 三条都是可判定的。
+{
+  const seq0 = domSeq(kids[0]);
+  const entryNode = seq0.find((n) => n.props && n.props['data-dsh-prompt-update'] !== undefined);
+  ok(!!entryNode, '#60-A：更新入口在身份行**内部**（不再是独立的一块）');
+  eq(!!entryNode && entryNode.type, 'button', '#60-A：入口是可点的 <button>（不是纯文字）');
+  const parents = parentMap(kids[0]);
+  const host = entryNode ? parents.get(entryNode) : null;
+  eq(!!host && host.children.filter((c) => jsonAnchors(c).length > 0).length, 2,
+    '#60-A：两个图标与入口是**同一父节点下的兄弟**（同一行），顺序：入口 → 🌟 → 💬');
+  const at = (pred) => seq0.findIndex(pred);
+  const iEntry = at((n) => n.props && n.props['data-dsh-prompt-update'] !== undefined);
+  const iStar = at((n) => n.type === 'a' && n.props.href === REPO);
+  const iIssue = at((n) => n.type === 'a' && n.props.href === ISSUES);
+  eq(iEntry >= 0 && iEntry < iStar && iStar < iIssue, true, '#60-A：入口排在 🌟 / 💬 之前（DOM 顺序 ' + iEntry + ' < ' + iStar + ' < ' + iIssue + '）');
+  eq(kids.filter((k) => txt(k).indexOf(STR.updateEntry.zh) >= 0).length, 1, '#60-A：整页只有身份行那一块带入口文案（不再另起一块）');
+  eq(domSeq(entryNode).some((n) => n.props && n.props['data-dsh-prompt-update-version'] !== undefined), true, '#60-A：入口那一枚按钮里带着版本徽标');
+}
+eq(txt(kids[1]).indexOf(STR.smartGroup.zh) >= 0, true, '第 1 块是「智能推荐」组（带组标题）');
+eq(txt(kids[1]).indexOf(STR.smartToggle.zh) >= 0, true, '智能开关在组内（文案一字不动）');
+eq(hasCheckbox(kids[1]), true, '智能开关仍是 checkbox');
+eq(txt(kids[2]).indexOf(STR.logGroup.zh) >= 0, true, '第 2 块是「诊断日志」组');
+eq([STR.logExport.zh, STR.logCopyPath.zh, STR.logClear.zh].every((s) => txt(kids[2]).indexOf(s) >= 0), true, '日志三入口都在组内（导出 / 复制路径 / 清空）');
+eq(txt(kids[2]).indexOf(STR.logWhere.zh) >= 0, true, '组内有落点行（等宽字体，不再写尖括号）');
+eq(kids[3].type, 'div', '第 3 块是模板浏览列表');
+eq(!kids[3].props['data-dsh-prompt-more'], true, '第 3 块不是引流区');
+eq(txt(kids[4]), STR.storageNote.zh, '第 4 块是存储说明（跟模板区走，文案一字不动）');
+eq(kids[5].props['data-dsh-prompt-more'], '', '第 5 块（页面底部）是引流区');
 // #53 回归：panel.ts 头行两处内联灯泡 SVG 换成 logo.ts 的 promptMark 后，设置页头行必须照旧（标志 + Prompt + 新增）
 const browser = mount(React.createElement(panel.TemplateBrowser, { compact: false }));
 eq(browser.root.findAll((x) => x.type === 'svg').length >= 1, true, '#53：模板列表头行仍有标志 svg');

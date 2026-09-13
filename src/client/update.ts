@@ -1,6 +1,6 @@
 /**
- * dsh-prompt — 更新入口 + 更新弹窗（#40）：设置面板里一行「检查更新」，点开做全四件事
- * （#60 起这一行排在插件身份行**之下**、并且走本页既有的卡片语言，见 entryCardStyle 与 row 上的注释）
+ * dsh-prompt — 更新入口 + 更新弹窗（#40）：设置面板里一枚「检查更新」，点开做全四件事
+ * （#60 追加交付 A 起这枚按钮坐在插件身份行里 —— 与 🌟 / 💬 同一行、排在两个图标之前，见 row 上的注释）
  *
  * 数据来源只有一个：更新包的电话 —— 就是 `src/update/bridge.ts` 那张表。本文件**一个电话名与
  * 端点路径都不写**：名字从 `updatePhoneNames` 取、路径由 bridge 决定（派生文件是唯一真值）。
@@ -18,9 +18,10 @@
  * 2. 装不了的原因不止给原因码，还要给「用户该做什么」（包 README 第 8 节第三列）。本版本实产 7 条，
  *    第 8 条 `registry-conflict` 在 0.1.1 里零处产出（#55 实测）⇒ 文案预留，但不许为它编情形。
  * 3. `pending-restart` 不是失败：顶部显眼横幅 + 说清新版号与「重启宿主后生效」，且不给安装按钮。
- * 4. 手工兜底命令按回包现刷、**不缓存**；为空时只讲原因、不展示命令。它不是万能药：命令装的是
- *    **已装**那一侧（没先 check 时版本号会退化成已装版本），也清不掉 `installation-changed` ——
- *    这层含义写在命令旁边，不许当救命稻草展示（开工前置 6）。
+ * 4. 手工兜底命令按回包现刷、**不缓存**；为空时只讲原因、不展示命令。**它不再是常驻块**（#60 追加交付 B
+ *    第 4 条）：只在「这台机器自动装不了」（宿主给了 `blockedReason` 且 `canInstall` 为假）或「这次失败」
+ *    （电话级失败 / 安装任务终态失败）时才出现，命令下面只留**一句**说清它能做什么 —— 上一版那段
+ *    四行免责声明与底部那句缓存机制说明都删了（把作者的不确定感摊给用户，主次颠倒）。
  *
  * 本文件不记客户端日志事件：宿主半已经把三条更新事件写进诊断日志（#39），客户端再加事件要同时改
  * 事件清单与 `test:log` 的计数，超出本票范围（要加就单独开票）。
@@ -206,18 +207,31 @@ const codeStyle: any = {
 }
 
 /**
- * 入口那一行的卡片外壳（#60）：数值逐字取自 settings.ts 的 `SettingGroup` —— 1px 边框 / 圆角 12 /
- * 内距 `2px 14px 12px` / 外边距 `14px 0 4px`。**分隔交给这张卡片自己的边框与圆角**：改造前那一行只用
- * 一条整宽的 `borderBottom` 划开，读起来像「页面 header」而不是「这一页里的一块」。
+ * 入口按钮的样式（#60 追加交付 A）：它现在是**插件身份行里的一枚按钮** —— 与右上角 🌟 / 💬
+ * 同一行、同一父节点，排在这两个图标之前。因此它不再有任何自己的容器：`SettingGroup` 那张卡片
+ * 与那条整宽 `borderBottom` 都删掉了（上一版把入口做成卡片行，这次连卡片也不要了）。
  *
- * 为什么不直接 import settings.ts 的 `SettingGroup`：settings.ts 已经 import 本文件的 `UpdateEntry`
- * （一条既有边），反向 import 就成环 —— 仓内回归脚本把客户端模块逐个转译成 CJS 再 require
- * （`scripts/.rt-tmp-40` 这类临时目录），成环时某一边会拿到半截导出。本文件顶部那份 TOK 表就是同一个取舍的先例
- * （两文件各持一份、数值同一套，谁也不发明第二套视觉）。
+ * 仍是按钮、不是纯文字，三条可点线索保留：
+ *   · 整枚 `cursor: 'pointer'`；
+ *   · 悬停铺 `TOK.bgHover`（内联样式没有 `:hover`，沿用既有 `Btn` 的 `useState` + 进入/离开写法）；
+ *   · 版本号是一枚**徽标**（等宽 11.5 / `labelSecondary` / 底 `bgLayer` / 圆角 6 / 内距 `1px 6px`）。
+ * 数值全部是这一页既有的：字号 12.5（= `Btn`）、11.5（= 徽标 / 日志落点行），圆角 8（= `Btn`）、6（= 徽标），
+ * 内距 `4px 6px`、间距 6 —— 没有新造颜色 / 字号 / 圆角。
+ *
+ * 窄容器（票面追加交付 A 的硬要求）：这一枚可收缩（`minWidth: 0` + 文案省略号），徽标 `flex: 'none'`、
+ * 两个图标各自 `flex: 'none'` —— 挤的时候先牺牲文案，**徽标与图标必须留着**。
  */
-const entryCardStyle: any = {
-  border: '1px solid ' + TOK.border, borderRadius: 12, padding: '2px 14px 12px', margin: '14px 0 4px',
-  display: 'flex', flexDirection: 'column', fontFamily: TOK.font,
+const entryRowStyle: any = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%',
+  padding: '4px 6px', border: 0, borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+  fontFamily: TOK.font, color: TOK.labelPrimary, transition: 'background-color .12s ease',
+}
+/** 入口文案：可以被挤掉（省略号），与身份行的插件名字同一个处理方式。 */
+const entryLabelStyle: any = { fontSize: 12.5, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+/** 版本徽标：恒定不收缩、不换行（挤的时候它是必须留着的那两样之一）。 */
+const entryBadgeStyle: any = {
+  flex: 'none', whiteSpace: 'nowrap', fontFamily: TOK.mono, fontSize: 11.5, color: TOK.labelSecondary,
+  background: TOK.bgLayer, borderRadius: 6, padding: '1px 6px',
 }
 
 /**
@@ -277,6 +291,13 @@ export function UpdateEntry(props?: any): any {
   const rowHoverState = react.useState(false)
   const rowHover: boolean = rowHoverState[0]
   const setRowHover = rowHoverState[1]
+  /**
+   * 「详情」的展开状态（#60 追加交付 B 第 5 条）：当前 / 已装 / 最新三个版本号是**排查用的实现细节**，
+   * 默认收起 —— 用户来这一页问的不是它们，而是「我是不是最新版」。
+   */
+  const detailState = react.useState(false)
+  const detailOpen: boolean = detailState[0]
+  const setDetailOpen = detailState[1]
 
   /**
    * 一条电话。任何异常都收成回包形状（`ok:false` + 错误码），**绝不向上抛** ——
@@ -354,6 +375,17 @@ export function UpdateEntry(props?: any): any {
   const pendingRestart = reason === 'pending-restart'
   const manual = res && res.ok ? asText(res.manual) : asText(lastGoodRes && lastGoodRes.manual)
   const versionLine = running ? 'v' + running : t('updateVersionUnknown')
+  /**
+   * 结论判据（#60 追加交付 B 第 1 条）：这个弹窗只回答一个问题 ——「我是不是最新版？不是的话怎么装上？」
+   * 所以先算出这次该说的是哪一句，后面每一块的取舍都挂在它上面：
+   *   `newer`    最新版比正在跑的新 ⇒「有新版本 x（当前 y）」；
+   *   `uptodate` 两边都读得出来、且最新版不比正在跑的新 ⇒「已是最新版本（x）」；
+   *   `unknown`  其余（还没查过 / 版本读不出来 / 电话级失败）⇒「这次没查到」+ 一句下一步；
+   *   `restart`  待重启：主角是上面那条横幅，结论行不出现（同一时刻只许有一个主角）。
+   * 「有没有新版」不另立第二套口径：与自动弹窗共用 `decideAutoOpen`（它内部就是 `compareVersionsText`）。
+   */
+  const hasNewer = decideAutoOpen({ latest, running, skipped: '' }).open
+  const verdict = pendingRestart ? 'restart' : hasNewer ? 'newer' : latest && running ? 'uptodate' : 'unknown'
 
   // 打开设置页就读一次状态（只读本机）：入口那行要显示的「当前版本」就是从这里来的。
   // 自动模式（#41）不读这一次：check 的回包本来就带 running / installed / latest 三个版本号，
@@ -542,46 +574,26 @@ export function UpdateEntry(props?: any): any {
    */
   const close = (): void => { setOpen(false); setNote('') }
   /**
-   * 设置页那一行入口（#60 版式改造）。三件事一次说清：
-   * 1. **容器**：一张无组标题的卡片（`entryCardStyle`，与 settings.ts 的 `SettingGroup` 同数值），
-   *    分隔由卡片的边框与圆角承担 —— 那条整宽 `borderBottom` 已删（它是「这是页面 header」的错觉来源）。
-   * 2. **行解剖**对齐同页的 `SettingRow`：左 = 入口文案（13px / `labelPrimary`），右 = 版本徽标 + chevron；
-   *    内距 `10px 0`、两端 12px、右侧小间隙 6px，都是这一页既有的那套数值。
-   * 3. **版本徽标**（不再是紧贴文案的副标题）：等宽 11.5px / `labelSecondary` / 底 `bgLayer` / 圆角 6 /
-   *    内距 `1px 6px` —— 版本号从此是一枚「徽标」，不是一行标题的尾巴。
-   * 行为一字不动（#40/#41 已验收）：点整行仍是 askPort + setOpen，`data-dsh-prompt-update` 仍在**可点的那一个**
-   * 元素上（回归脚本点它、并在 auto 模式数它为 0）。
+   * 设置页那一枚入口按钮（#60 追加交付 A，用户原话「检查更新和版本号和 star 的按钮在一起」）：
+   * 它由 `settings.ts` 交给身份行渲染 —— 与 🌟 / 💬 同一行、同一父节点、顺序在两个图标之前。
+   *
+   * 所以这里**只出这一枚按钮**（外加弹窗，见函数尾）：没有卡片、没有 `borderBottom`、没有整行布局。
+   * 三条可点线索与窄容器口径见 `entryRowStyle` 上面那段注释。
+   * 行为一字不动（#40/#41 已验收）：点它仍是 askPort + setOpen，`data-dsh-prompt-update` 仍在**可点的
+   * 那一个**元素上（回归脚本点它、并在 auto 模式数它为 0）。
    */
-  const row = h('section', { key: 'update-card', style: entryCardStyle }, [
-    h('button', {
-      key: 'update-row',
-      type: 'button',
-      'data-dsh-prompt-update': '',
-      // 用户亲手开：先领名额（若自动那一只正占着就压掉它，见 upddialog.ts 的口径 2），再开窗。
-      onClick: () => { askPort(port); setOpen(true) },
-      onMouseEnter: () => setRowHover(true),
-      onMouseLeave: () => setRowHover(false),
-      style: {
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: '100%',
-        textAlign: 'left', padding: '10px 0', background: rowHover ? TOK.bgHover : 'transparent',
-        border: 0, borderRadius: 8, cursor: 'pointer', fontFamily: TOK.font,
-        transition: 'background-color .12s ease',
-      },
-    }, [
-      h('span', { key: 'label', style: { fontSize: 13, color: TOK.labelPrimary } }, t('updateEntry')),
-      h('span', { key: 'right', style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, [
-        h('span', {
-          key: 'ver',
-          'data-dsh-prompt-update-version': '',
-          style: {
-            fontFamily: TOK.mono, fontSize: 11.5, color: TOK.labelSecondary,
-            background: TOK.bgLayer, borderRadius: 6, padding: '1px 6px',
-          },
-        }, versionLine),
-        // 可点线索之三：右侧 chevron（「这一行会打开点什么」）。纯装饰，对读屏隐藏。
-        h('span', { key: 'chev', 'aria-hidden': 'true', style: { fontSize: 13, color: TOK.labelTertiary } }, '›'),
-      ]),
-    ]),
+  const row = h('button', {
+    key: 'update-row',
+    type: 'button',
+    'data-dsh-prompt-update': '',
+    // 用户亲手开：先领名额（若自动那一只正占着就压掉它，见 upddialog.ts 的口径 2），再开窗。
+    onClick: () => { askPort(port); setOpen(true) },
+    onMouseEnter: () => setRowHover(true),
+    onMouseLeave: () => setRowHover(false),
+    style: { ...entryRowStyle, background: rowHover ? TOK.bgHover : 'transparent' },
+  }, [
+    h('span', { key: 'label', style: entryLabelStyle }, t('updateEntry')),
+    h('span', { key: 'ver', 'data-dsh-prompt-update-version': '', style: entryBadgeStyle }, versionLine),
   ])
 
   const versionRow = (key: string, label: string, value: string): any => h('div', {
@@ -624,6 +636,34 @@ export function UpdateEntry(props?: any): any {
     ]))
   }
 
+  // ①b 结论行（#60 追加交付 B 第 1 条）：**这一页唯一的视觉主角** —— 三选一，一眼回答
+  //     「我是不是最新版」。它是整只弹窗里唯一铺了底色的块（其余块只有描边），13/600/labelPrimary。
+  //     `pending-restart` 时不出现：那种状态的主角是上面那条横幅，绝不并排两个主角。
+  if (verdict !== 'restart') {
+    const line = verdict === 'newer'
+      ? fill(t('updateVerdictNewer'), { latest, running })
+      : verdict === 'uptodate'
+        ? fill(t('updateVerdictUpToDate'), { version: latest || running })
+        : t('updateVerdictUnknown')
+    const parts: any[] = [
+      h('span', {
+        key: 'v', 'data-dsh-prompt-update-verdict': verdict,
+        style: { fontSize: 13, fontWeight: 600, lineHeight: 1.6, color: TOK.labelPrimary },
+      }, line),
+    ]
+    // 「这次没查到」还得给一句下一步。电话级失败 / 装不了这两类原因与下一步由下面那些块原样负责
+    // （既有形态一个字不改），所以这里只在**没有**那些块的时候补一句，绝不把同一件事说两遍。
+    if (verdict === 'unknown' && !failed && !reason) {
+      parts.push(h('span', {
+        key: 'next', style: { fontSize: 12, lineHeight: 1.65, color: TOK.labelSecondary },
+      }, t('updateVerdictUnknownHint')))
+    }
+    children.push(h('div', {
+      key: 'verdict', 'data-dsh-prompt-update-verdict-box': '',
+      style: { ...blockStyle, background: TOK.bgLayer },
+    }, parts))
+  }
+
   // ② 电话级失败：`snapshot` 为 null 也要说清楚（票面验收：不能空白）。
   //    三类文案分开：`bridgeDown` 才是「宿主一个字都没回」；`capDown` 是「宿主回了、但更新能力没接通」
   //    （对这两类说「宿主是通的、不用刷新页面」都是撒谎，见 BRIDGE_DOWN_CODES 上的注释）；
@@ -658,12 +698,8 @@ export function UpdateEntry(props?: any): any {
     children.push(h('div', { key: 'hostfail', 'data-dsh-prompt-update-hostfail': '', style: { ...blockStyle, borderColor: TOK.accent } }, parts))
   }
 
-  // ③ 状态区：当前 / 已装 / 最新 + 两个按钮（canInstall 为假时不给安装按钮）。
-  children.push(h('div', { key: 'status', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, [
-    versionRow('running', t('updateRowRunning'), running || t('updateNotAvailable')),
-    versionRow('installed', t('updateRowInstalled'), installed || t('updateNotAvailable')),
-    versionRow('latest', t('updateRowLatest'), latest || t('updateLatestNone')),
-  ]))
+  // ③ 三个版本号搬到结尾的「详情」里（#60 追加交付 B 第 5 条）：它们默认收起 —— 排查用的实现细节，
+  //    不是用户来这一页的主问题。这里只留一句「安装中…」（真装在宿主后台跑，面板停在那一刻）。
   if (installing) {
     children.push(h('div', { key: 'job', style: { fontSize: 12, color: TOK.labelSecondary } }, t('updateBtnInstalling')))
   }
@@ -685,47 +721,8 @@ export function UpdateEntry(props?: any): any {
     ]))
   }
 
-  /**
-   * 「跳过此版本」按钮（#41 交付 3）：只在新版本确实比正在跑的版本新、且还没跳过**这一个**版本号时给。
-   * 「有没有新版本」与自动弹窗共用同一条判据（`decideAutoOpen` 内部同款比较），不另立第二套口径；
-   * 点下去只写 localStorage —— 存 `storages/dsh_prompt.json` 的 schema 已冻结，不许动（map #38 定案）。
-   *
-   * 已经跳过这一个版本时按钮不再给（没什么可跳的了）：跳过**只挡自动弹窗**，手动点「检查更新」
-   * 照旧看得到这个版本与安装按钮（票面交付 3 的后半句）。
-   */
-  const canSkip = decideAutoOpen({ latest, running, skipped: '' }).open && skipped !== latest
-  const onSkip = (): void => {
-    const written = saveSkippedVersion(latest)
-    if (written) {
-      setSkipped(latest)
-      setNote(fill(t('updateSkipDone'), { version: latest }))
-    } else {
-      // 写失败必须说出来：不说就等于让用户以为「下次不会弹了」。
-      setNote(t('updateSkipFail'))
-    }
-  }
-  children.push(h('div', { key: 'actions', style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } }, [
-    canSkip
-      ? h('button', {
-        key: 'skip', type: 'button', 'data-dsh-prompt-update-action': 'skip', disabled: busy !== '',
-        onClick: () => { onSkip() }, style: btn(false),
-      }, t('updateSkipVersion'))
-      : null,
-    h('button', {
-      key: 'check', type: 'button', 'data-dsh-prompt-update-action': 'check', disabled: busy !== '',
-      onClick: () => { run(updatePhoneNames.updateCheck, 'check').catch(() => undefined) },
-      style: btn(true),
-    }, busy === 'check' ? t('updateBtnChecking') : t('updateBtnCheck')),
-    canInstallSafe && !pendingRestart
-      ? h('button', {
-        key: 'install', type: 'button', 'data-dsh-prompt-update-action': 'install', disabled: busy !== '',
-        onClick: () => { onInstall().catch(() => undefined) },
-        style: btn(false),
-      }, busy === 'install' ? t('updateBtnInstalling') : t('updateBtnInstall'))
-      : null,
-  ]))
-
-  // ④ 装不了的原因：给「用户该做什么」，不给英文原因码了事。
+  // ④ 装不了的原因：给「用户该做什么」，不给英文原因码了事。它排在按钮**之前** ——
+  //    先看清「为什么装不了 / 还要做什么」，再决定按哪一个按钮。
   if (reason) {
     const key = UPDATE_REASON_KEYS[reason]
     children.push(h('div', {
@@ -742,10 +739,64 @@ export function UpdateEntry(props?: any): any {
     ]))
   }
 
-  // ⑤ 手工兜底命令：宿主每次回包里的值现刷，不缓存；为空时只讲原因、不展示命令。
-  //    注意这里是**有命令就展示**（不是「这次回包 ok 才展示」）：一次失败的 check 不该把手上那条
-  //    还能用的命令整块藏掉（L2：成功过就有命令，失败后命令块消失），但必须标清它来自上一份回包。
-  if (manual) {
+  /**
+   * ⑤ 按钮行（#60 追加交付 B 第 2 条）：**同一时刻只有一个主（accent）按钮**，随结论变 ——
+   *   结论是「有新版本」且宿主说能装时，主按钮是「安装新版本」，「检查更新」降为次级（随时能重查）；
+   *   其余结论（已是最新 / 这次没查到 / 待重启）主按钮就是「检查更新」，**不给安装按钮**
+   *   （没有已知的新版本时摆一个安装按钮，正是用户说的「主次颠倒」）。
+   * 「跳过此版本」（#41 交付 3）是次级按钮，仍在最左：
+   *   只在新版本确实比正在跑的新、且还没跳过**这一个**版本号时给？—— 是，判据与自动弹窗共用同一条
+   *   （`hasNewer` 就是 `decideAutoOpen` 的结果），不另立第二套口径；点下去只写 localStorage
+   *   （`storages/dsh_prompt.json` 的 schema 已冻结，不许动，见 map #38 定案）。
+   *   已经跳过这一个版本时按钮不再给（没什么可跳的了）：跳过**只挡自动弹窗**，手动点「检查更新」
+   *   照旧看得到这个版本与安装按钮（票面交付 3 的后半句）。
+   */
+  const canSkip = hasNewer && skipped !== latest
+  const onSkip = (): void => {
+    const written = saveSkippedVersion(latest)
+    if (written) {
+      setSkipped(latest)
+      setNote(fill(t('updateSkipDone'), { version: latest }))
+    } else {
+      // 写失败必须说出来：不说就等于让用户以为「下次不会弹了」。
+      setNote(t('updateSkipFail'))
+    }
+  }
+  const primaryIsInstall = verdict === 'newer' && canInstallSafe && !pendingRestart
+  children.push(h('div', { key: 'actions', style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } }, [
+    canSkip
+      ? h('button', {
+        key: 'skip', type: 'button', 'data-dsh-prompt-update-action': 'skip', disabled: busy !== '',
+        onClick: () => { onSkip() }, style: btn(false),
+      }, t('updateSkipVersion'))
+      : null,
+    // 「检查更新」永远在：主按钮不是它的时候降为次级（这样改口径之后用户仍能随时重查一次）。
+    h('button', {
+      key: 'check', type: 'button', 'data-dsh-prompt-update-action': 'check', disabled: busy !== '',
+      onClick: () => { run(updatePhoneNames.updateCheck, 'check').catch(() => undefined) },
+      style: btn(!primaryIsInstall),
+    }, busy === 'check' ? t('updateBtnChecking') : t('updateBtnCheck')),
+    primaryIsInstall
+      ? h('button', {
+        key: 'install', type: 'button', 'data-dsh-prompt-update-action': 'install', disabled: busy !== '',
+        onClick: () => { onInstall().catch(() => undefined) },
+        style: btn(true),
+      }, busy === 'install' ? t('updateBtnInstalling') : t('updateBtnInstall'))
+      : null,
+  ]))
+
+  /**
+   * ⑥ 手工兜底命令（#60 追加交付 B 第 4 条）：**只在「自动安装不可用」或「这次失败」时才出现**，
+   *    不再常驻 ——
+   *      · 宿主说这台机器装不了：`blockedReason` 非空且 `canInstall` 为假（八条原因里的每一条都算，含待重启）；
+   *      · 这次通话失败：电话级失败（`failed`）或安装任务的终态失败（`jobFailed`）。
+   *    一切正常时（刚打开 / 已是最新 / 查到新版且可装）一个字都不出现。
+   *
+   *    命令值仍是宿主每次回包里的那个，现刷、不缓存；一次失败的 check 不该把手上那条还能用的命令
+   *    整块藏掉（L2：成功过就有命令，失败后命令块消失），但必须标清它来自上一份回包。
+   */
+  const manualNeeded = failed || jobFailed || (!!reason && !canInstallSafe)
+  if (manualNeeded && manual) {
     children.push(h('div', { key: 'manual', 'data-dsh-prompt-update-manual': '', style: blockStyle }, [
       h('div', { key: 'h', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } }, [
         h('span', { key: 't', style: { fontSize: 12.5, fontWeight: 600 } }, t('updateManualTitle')),
@@ -755,6 +806,7 @@ export function UpdateEntry(props?: any): any {
         }, t('updateBtnCopy')),
       ]),
       h('code', { key: 'cmd', 'data-dsh-prompt-update-command': '', style: codeStyle }, manual),
+      // 命令下面**只留一句**说清它能做什么（上一版那段四行免责声明已删，见票面追加交付 B 第 6 条）。
       h('span', { key: 'hint', style: { fontSize: 11.5, lineHeight: 1.65, color: TOK.labelTertiary } }, t('updateManualHint')),
       // 命令是**上一次成功回包**给的：说清它是旧的那一份，别让用户以为这是这次电话的答复。
       failed
@@ -764,7 +816,9 @@ export function UpdateEntry(props?: any): any {
         }, t('updateManualStale'))
         : null,
     ].filter(Boolean)))
-  } else if (res && res.ok) {
+  } else if (manualNeeded) {
+    // 需要兜底、宿主却没给命令（包 README 第 9 节：源码安装与认不出使用范围这两种情形本来就不给）：
+    // 那就只讲这一句，不摆一个空命令块。
     children.push(h('div', {
       key: 'manual-none',
       'data-dsh-prompt-update-manual-empty': '',
@@ -772,7 +826,42 @@ export function UpdateEntry(props?: any): any {
     }, t('updateManualNone')))
   }
   if (note) children.push(h('div', { key: 'note', style: { fontSize: 11.5, color: TOK.labelTertiary } }, note))
-  children.push(h('div', { key: 'foot', style: { fontSize: 11.5, lineHeight: 1.65, color: TOK.labelTertiary } }, t('updateStatusNote')))
+
+  /**
+   * ⑦ 详情（#60 追加交付 B 第 5 条）：当前 / 已装 / 最新三个版本号**默认收起**。
+   *    它们是排查用的实现细节（报 Issue 时才要），不是用户的主问题；展开按钮是一枚纯文本切换，
+   *    不带 `data-dsh-prompt-update-action`（它不是动作，别混进「这只窗有几个动作」的账里）。
+   *    三个字段的挂点（`data-dsh-prompt-update-field`）顺序与名字一字不动，只是搬进了这一层。
+   */
+  children.push(h('div', {
+    key: 'details',
+    style: { display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid ' + TOK.border, marginTop: 2, paddingTop: 10 },
+  }, [
+    h('button', {
+      key: 'toggle', type: 'button', 'data-dsh-prompt-update-details-toggle': '',
+      onClick: () => { setDetailOpen(!detailOpen) },
+      style: {
+        display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: 0, border: 0,
+        background: 'transparent', cursor: 'pointer', fontFamily: TOK.font, fontSize: 12, color: TOK.labelTertiary,
+      },
+    }, [
+      t('updateDetails'),
+      h('span', {
+        key: 'c', 'aria-hidden': 'true',
+        style: { display: 'inline-block', fontSize: 12, transform: detailOpen ? 'rotate(90deg)' : 'none' },
+      }, '›'),
+    ]),
+    detailOpen
+      ? h('div', {
+        key: 'fields', 'data-dsh-prompt-update-details': '',
+        style: { display: 'flex', flexDirection: 'column', gap: 6 },
+      }, [
+        versionRow('running', t('updateRowRunning'), running || t('updateNotAvailable')),
+        versionRow('installed', t('updateRowInstalled'), installed || t('updateNotAvailable')),
+        versionRow('latest', t('updateRowLatest'), latest || t('updateLatestNone')),
+      ])
+      : null,
+  ]))
 
   const modal = !open ? null : h(ModalPortal, { key: 'update-modal' }, h('div', {
     'data-dsh-prompt-update-modal': '',
@@ -780,9 +869,13 @@ export function UpdateEntry(props?: any): any {
     onClick: close,
   }, h('div', { style: cardStyle, onClick: (e: any) => { if (e && typeof e.stopPropagation === 'function') e.stopPropagation() } }, children)))
 
-  // 自动模式（#41）：全局那一份只出弹窗，不出设置页那一行；关着的时候整棵子树回 null ——
+  // 自动模式（#41）：全局那一份只出弹窗，不出设置页那一枚入口按钮；关着的时候整棵子树回 null ——
   // 宿主浮层里不留一个空壳节点（`modal` 自己经 ModalPortal 挂 body，与设置页那一份同一套顶层机制）。
   if (auto) return modal
 
-  return h('div', { key: 'update-entry', style: { display: 'flex', flexDirection: 'column' } }, [row, modal])
+  // 设置页那一份（#60 追加交付 A）：入口按钮与弹窗仍是同一个组件（版本号来自同一次回包，拆成两处
+  // 会各自持有一份可能不同步的状态），但**按钮本身由 settings.ts 交给插件身份行去渲染** ——
+  // 它就坐在 🌟 / 💬 那一行里。所以这里交出去的是「按钮 + 弹窗」（Fragment 不做任何布局：
+  // 弹窗经 ModalPortal 挂 body，与身份行没有父子关系）。
+  return h(react.Fragment, null, [row, modal])
 }

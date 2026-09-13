@@ -1,12 +1,16 @@
 /**
- * dsh-prompt — 启动自动检查的两块判据（#41）：跳过记录存哪、以及「这次该不该弹」
+ * dsh-prompt — 启动自动检查的两块判据与一道闸（#41）：跳过记录存哪、这次该不该弹、能不能发
  *
  * 本文件的性格与 `src/client/state.ts` 一样：不渲染、不认识 RPC、也不 import update.ts
  * （免得和它绕成一个环）。#41 新增的能力里，凡是**不需要 React 与电话**的部分都落在这里：
  *   1. 「跳过此版本」的存取 —— 只落 localStorage 一个键；
- *   2. 「这次该不该自动弹」的纯判据 `decideAutoOpen`。
- * 调用点在 update.ts 的 auto 模式：延迟到点 → 发一条 check → 把回包喂给 `decideAutoOpen`
- * → 为真才开弹窗（弹窗本身仍是 #40 那一只，没有第二只）。
+ *   2. 「这次该不该自动弹」的纯判据 `decideAutoOpen`；
+ *   3. 「一次启动只自动查一次」的闸 `claimAutoCheck` / `deliverAutoCheck`（三态 + 回包交接，见注释）。
+ * 另一道闸（弹窗归属：同屏不许叠两只可各自点安装的窗）在 `upddialog.ts`：那边要订阅 React 重渲染，
+ * 与这里的纯判据分开，两边都不认识对方。
+ * 调用点在 update.ts 的 auto 模式：延迟到点 → 领闸 → 发一条 check → 回包落地交给**当前挂载**的
+ * `applyAutoResult`（落状态 + 把快照喂给 `decideAutoOpen`）→ 为真才开弹窗（弹窗本身仍是 #40 那一只，
+ * 没有第二只）；结算由 `deliverAutoCheck` 做，交接不到活着的挂载就把名额放回去。
  *
  * 三条边界（map #38 的 grilling 定案）：
  * 1. 「跳过此版本」**只落 localStorage**，不进 `storages/dsh_prompt.json`（那个 schema 已冻结），
@@ -153,17 +157,68 @@ export function decideAutoOpen(input: AutoOpenInput): AutoOpenVerdict {
 export const AUTO_CHECK_DELAY_MS = 8000
 
 /**
- * 「一次启动只自动查一次」的闩。宿主把浮层槽重建、会话切换都可能让宿主组件重挂载，
- * 那不该变成第二条电话、第二只弹窗 —— 票面的「有新版本弹一次」说的是**每次启动至多一次**
- * （页面重载 = 新的一次启动，闩跟着模块重建）。
+ * 「一次启动只自动查一次」的闸（#41 收口 R1，三态 + 回包交接）。
+ *
+ * 宿主把浮层槽重建、会话切换都可能让宿主组件重挂载，那不该变成第二条电话、第二只弹窗 —— 票面的
+ * 「有新版本弹一次」说的是**每次启动至多一次**（页面重载 = 新的一次启动，闸跟着模块重建）。
+ *
+ * 三态而不是「领了就花掉」（红队 N §4 实测的洞）：第一条 check 还在飞的时候宿主重挂载，旧写法里
+ * 名额已经被前一次挂载花掉，新挂载的延迟到点后什么也不做 ⇒ **这一整个会话再也不自动弹窗**
+ * （实测通话只有 `check×1`、没有窗口）。所以分成三件事：
+ *   - 还没发出去：`autoInFlight` / `autoSpent` 都是假 ⇒ 可以领；
+ *   - 已经有一条在飞：`autoInFlight` ⇒ 不重发（不变成两条电话），回包**交给还活着的那个挂载**收
+ *     （见 `setAutoCheckHandler`）—— 发出去的那次挂载会卸载，不交接就等于把结果扔掉；
+ *   - 拿到了**可判读的回包**：`autoSpent` ⇒ 从此不再发（一次启动就一次）；
+ *   - 回包不可判读（桥没答 / 能力没接通 / 连快照都没有）：`deliverAutoCheck` 放闸 ——
+ *     「花掉名额」这件事只在真的换来一次判断之后才算数，而不是把「这一整个会话」赔进去。
  *
  * 用户手动点「检查更新」不走这里：想查几次查几次（交付 3 的后半句就靠这条分界）。
  */
-let autoClaimed = false
+let autoInFlight = false
+let autoSpent = false
 
-/** 领这一次启动的自动检查名额：第一个调用者拿到 true，其后一律 false。 */
+/**
+ * 回包交接的落点：当前挂载的 handler（每次挂载登记一次，卸载时注销）。
+ * 只在「有一条在飞」的时候可能有值 —— 这份闸就是它的生命周期。
+ * 参数是**整条通话结果**（`UpdateCallResult`）：本模块不认识它的形状，只当交接物。
+ */
+type AutoCheckHandler = (result: unknown) => boolean
+const autoHandlers: AutoCheckHandler[] = []
+
+/**
+ * 领这一次启动的自动检查名额：名额空着就发（`true`），已经有一条在飞或已经拿到过可判读的回包就
+ * 不发（`false`）。拿到 `true` 的调用方**必须**在回包落地时叫一次 `deliverAutoCheck(result)`。
+ */
 export function claimAutoCheck(): boolean {
-  if (autoClaimed) return false
-  autoClaimed = true
+  if (autoInFlight || autoSpent) return false
+  autoInFlight = true
   return true
+}
+
+/**
+ * 登记「回包交给谁」：当前挂载的实例在挂载时登记、卸载时注销（拿返回值当注销函数）。
+ * 挂载顺序保证新挂载一登记就能接住在飞的那一条（登记只用 `useState`，比 8 秒的延迟早得多）。
+ */
+export function setAutoCheckHandler(fn: AutoCheckHandler): () => void {
+  autoHandlers.push(fn)
+  return () => {
+    const i = autoHandlers.indexOf(fn)
+    if (i >= 0) autoHandlers.splice(i, 1)
+  }
+}
+
+/**
+ * 一条自动 check 的回包落地：交给**当前还活着**的挂载处理（它负责落状态、判据、开窗、把话说清楚），
+ * 并据此结算闸 —— handler 回 `true` 表示这次拿到的是可判读的回包（名额落定），回 `false`
+ * （或压根没人接：卸载后再也没有挂载）就把名额放回去。
+ *
+ * `result` 用 `unknown`：本模块不认识通话结果的形状，只当交接物。
+ */
+export function deliverAutoCheck(result: unknown): void {
+  autoInFlight = false
+  let readable = false
+  for (const fn of autoHandlers.slice()) {
+    try { if (fn(result)) readable = true } catch (e) { /* 一个 handler 抛不许影响闸的结算 */ }
+  }
+  if (readable) autoSpent = true
 }

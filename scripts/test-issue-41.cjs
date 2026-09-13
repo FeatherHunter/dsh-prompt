@@ -43,9 +43,11 @@ const MODULES = [
   ['i18n.ts', SRC('i18n.ts'), []],
   ['smartstore.ts', SRC('smartstore.ts'), []],
   ['updauto.ts', SRC('updauto.ts'), []],
+  // #41 收口 R2 的连带：update.ts 多了一条 `./upddialog` 的 import 边（弹窗归属闸）。
+  ['upddialog.ts', SRC('upddialog.ts'), []],
   ['panel.ts', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore']],
   ['about.ts', SRC('about.ts'), ['./panel', './i18n']],
-  ['update.ts', SRC('update.ts'), ['./panel', './i18n', './updauto', '../update/bridge', '../update/gen/updateClient.derived.js']],
+  ['update.ts', SRC('update.ts'), ['./panel', './i18n', './updauto', './upddialog', '../update/bridge', '../update/gen/updateClient.derived.js']],
   ['bridge.ts', path.join(ROOT, 'src', 'update', 'bridge.ts'), ['./gen/updateClient.derived.js']],
   ['updateClient.derived.js', path.join(ROOT, 'src', 'update', 'gen', 'updateClient.derived.js'), []],
 ];
@@ -344,8 +346,9 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
     const hits = srcless.filter((f) => /\b8000\b/.test(stripComments(fs.readFileSync(f, 'utf8'))))
       .map((f) => path.relative(ROOT, f).replace(/\\/g, '/'));
     eq(hits, ['src/client/updauto.ts'], '延迟数字 8000 在 src 的代码里只出现在 updauto.ts 一处');
+    // #41 收口 R1 之后闸在定时器回调里领（回包落地才结算），所以常量在代码里是 import + 定时器两处。
     eq(updateCode.split('AUTO_CHECK_DELAY_MS').length - 1, 2, 'update.ts 只在 import + setTimeout 两处提到这个常量（自己不写数字）');
-    eq(/setTimeout\([\s\S]{0,120}AUTO_CHECK_DELAY_MS/.test(updateCode), true, '延迟到点的定时器用的就是这个常量');
+    eq(/setTimeout\([\s\S]{0,240}AUTO_CHECK_DELAY_MS/.test(updateCode), true, '延迟到点的定时器用的就是这个常量');
     eq(/clearTimeout\(timer\)/.test(updateCode), true, '卸载 / 关窗时 clearTimeout（不留常驻表）');
     // 全局宿主：shell.overlay 的第二个注册点（与智能卡并列），auto 开关只在这一处传
     eq(indexCode.split("'shell.overlay'").length - 1, 4, 'index.ts 在 shell.overlay 注册两处（inject + register 各一次 × 智能卡与更新自动检查）');
@@ -393,8 +396,10 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
       const pend2 = pendingDelay()[0];
       eq(pend2 && pend2.ms, EXPECT_DELAY_MS, '重挂载后确实又排了一次延迟（不是靠「根本没挂上」蒙过的）');
       await fireTimeout(pend2);
+      // 有界等待：上一条 check 的回包已经落地（可判读 ⇒ 名额落定），重挂载这一枪必须什么都不发。
+      await waitFor(() => calls('check') === 1, 4000);
       await TR.act(async () => { await new Promise((r) => setTimeout(r, 60)) });
-      eq(calls('check'), 1, '第二次启动阶段一条 check 都不发（闩在模块级，跨重挂载）');
+      eq(calls('check'), 1, '第二次启动阶段一条 check 都不发（闸在模块级、跨重挂载：一启动只查一次）');
       eq(!!one(c2, 'data-dsh-prompt-update-modal'), false, '也不再弹第二只窗（「有新版本弹一次」）');
       c2.unmount();
     }
@@ -519,6 +524,137 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
       clearLS();
       await flush();
     }
+  }
+
+  console.log('=== T10: #41 收口 R1 —— 第一条 check 在飞时重挂载，新挂载那次仍能自动弹 ===');
+  {
+    // 修前：闸在「排定时器 / 领闸」那一刻就花掉，重挂载那次连领闸都领不到 ⇒ 一条电话都不发、整会话静默。
+    // 修后：闸只在**回包真的交到活着的挂载手里**之后才算花掉 —— 在飞的那条会重新试一次，且旧挂载那条的
+    // 回包落到新挂载身上（发起者已经卸载，闭包写进旧实例的状态等于扔掉），照常把弹窗开出来。
+    resetScript(); clearLS(); clearClock();
+    const deferred = [];
+    // 挂起的回包：`script.check` 回一个真 thenable —— 桥在 `await res.json()` 上挂住，直到测试放行。
+    script.check = () => new Promise((res) => { deferred.push(res) });
+    const { update } = reload();
+    const c1 = await mount(React.createElement(update.UpdateEntry, { auto: true }));
+    const pend1 = pendingDelay()[0];
+    eq(pend1 && pend1.ms, EXPECT_DELAY_MS, '（R1）第一次挂载排的是生产延迟 ' + EXPECT_DELAY_MS + 'ms');
+    await fireTimeout(pend1);
+    if (!await waitFor(() => calls('check') === 1, 4000)) bad('（R1）延迟到点没发出第一条 check');
+    else ok('（R1）第一条 check 已发出且还在飞（回包被测试按住了）');
+
+    // 宿主把浮层槽重建：卸载旧挂载 → 再挂一个新的（真机形态：重挂载发生在第一条 check 还没回来时）。
+    c1.unmount();
+    await flush();
+    const c2 = await mount(React.createElement(update.UpdateEntry, { auto: true }));
+    const pend2 = pendingDelay()[0];
+    eq(pend2 && pend2.ms, EXPECT_DELAY_MS, '（R1）重挂载后确实又排了延迟（不是靠「根本没挂上」蒙过的）');
+    await fireTimeout(pend2);
+    await TR.act(async () => { await new Promise((r) => setTimeout(r, 30)) });
+    eq(!!one(c2, 'data-dsh-prompt-update-modal'), false, '（R1）第一条 check 还没回包：这一刻没有窗（不凭猜测弹）');
+    eq(calls('check'), 1, '（R1）重挂载那枪自己不抢发（在飞的那一条就是这次启动的一次查——闸不重复打扰宿主）');
+    eq(nodes(c2, 'data-dsh-prompt-update-action').length, 0, '（R1）重挂载这一份此刻没有任何按钮（还没回包）');
+
+    if (deferred.length < 1) bad('（R1）测试没能按住第一条 check（假 fetch 的挂起没生效）');
+    else {
+      // 关键一条：回包落地时**发起者已经卸载**，结果必须被还活着的那一份收下并开窗。
+      deferred[0](okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD'));
+      if (!await waitShown(() => !!one(c2, 'data-dsh-prompt-update-modal'), 4000)) {
+        bad('（R1）重挂载之后弹窗没有出现（在飞那条的回包被扔给了已卸载的实例，整会话静默）；通话序列=' + (requests.map((r) => r.which).join('|') || '(无)'));
+      } else ok('（R1）在飞的那条 check 的回包落到**重挂载后**那一份身上 ⇒ 照常自动弹出（整会话不再静默）');
+      eq(calls('check'), 1, '（R1）从头到尾只用了一条 check 换来这只窗');
+      const acts = nodes(c2, 'data-dsh-prompt-update-action').map((n) => n.props['data-dsh-prompt-update-action']);
+      eq(acts.indexOf('install') >= 0 && acts.length === 5, true,
+        '（R1）那一只窗带完整的五个动作（含「安装新版本」），且只有这一只：' + JSON.stringify(acts));
+    }
+    c2.unmount();
+    await flush();
+
+    // 对照：回包**可判读**（宿主答了、带快照形状）⇒ 名额照样落定，不会因为这次修复变成「重挂载就再查一次」。
+    resetScript(); clearLS(); clearClock();
+    script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
+    const m2 = reload();
+    const c3 = await mount(React.createElement(m2.update.UpdateEntry, { auto: true }));
+    await fireTimeout(pendingDelay()[0]);
+    if (!await waitShown(() => !!one(c3, 'data-dsh-prompt-update-modal'), 4000)) bad('（R1 对照）第一次挂载没有自动弹窗');
+    c3.unmount();
+    await flush();
+    const c4 = await mount(React.createElement(m2.update.UpdateEntry, { auto: true }));
+    await fireTimeout(pendingDelay()[0]);
+    await TR.act(async () => { await new Promise((r) => setTimeout(r, 60)) });
+    eq(calls('check'), 1, '（R1 对照）回包可判读 ⇒ 名额落定：重挂载不再补发 check（还是一启动一次）');
+    eq(!!one(c4, 'data-dsh-prompt-update-modal'), false, '（R1 对照）重挂载也不弹第二只窗');
+    c4.unmount();
+    await flush();
+
+    // 边界：回包**不可判读**（桥没答）⇒ 放闸，下一次挂载还有一次机会（不是把整会话赔进去）。
+    resetScript(); clearLS(); clearClock();
+    script.check = failEnv('bridge-unreachable');
+    const m3 = reload();
+    const c5 = await mount(React.createElement(m3.update.UpdateEntry, { auto: true }));
+    await fireTimeout(pendingDelay()[0]);
+    if (!await waitFor(() => calls('check') === 1, 4000)) bad('（R1 边界）第一条 check 没有发出');
+    await TR.act(async () => { await new Promise((r) => setTimeout(r, 60)) });
+    eq(!!one(c5, 'data-dsh-prompt-update-modal'), false, '（R1 边界）桥没答：不弹窗（后台动作的失败不上面）');
+    c5.unmount();
+    await flush();
+    script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
+    const c6 = await mount(React.createElement(m3.update.UpdateEntry, { auto: true }));
+    await fireTimeout(pendingDelay()[0]);
+    if (!await waitFor(() => calls('check') === 2, 4000)) bad('（R1 边界）回包读不出来时重挂载没再试一次（名额被白花掉；通话序列=' + (requests.map((r) => r.which).join('|') || '(无)') + '）');
+    else ok('（R1 边界）回包读不出来 ⇒ 放闸：重挂载再试一次并拿到可判读的回包');
+    if (!await waitShown(() => !!one(c6, 'data-dsh-prompt-update-modal'), 4000)) bad('（R1 边界）第二次机会没有弹出窗');
+    else ok('（R1 边界）第二次机会照常自动弹窗');
+    c6.unmount();
+    clearLS();
+    await flush();
+  }
+
+  console.log('=== T11: #41 收口 R2 —— 两只实例不再叠出两只可各自点安装的弹窗 ===');
+  {
+    // 真机形态：设置页那一份（UpdateEntry{}）+ shell.overlay 那一份（UpdateEntry{auto:true}）同时在树上。
+    // 修前：两只各自 setOpen(true) ⇒ 两个全屏遮罩 + 两套按钮，各自能点安装（客户端零防护）。
+    resetScript(); clearLS(); clearClock();
+    script.status = okEnv(snap({ canInstall: true }), 'CMD');
+    script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
+    const { update } = reload();
+    const cS = await mount(React.createElement(update.UpdateEntry, {}));
+    const cA = await mount(React.createElement(update.UpdateEntry, { auto: true }));
+    const action = (cc, a) => nodes(cc, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === a)[0];
+    const installBtns = () => [cS, cA].reduce((n, cc) => n + nodes(cc, 'data-dsh-prompt-update-action').filter((x) => x.props['data-dsh-prompt-update-action'] === 'install').length, 0);
+    // 用户先点开设置页入口行 ⇒ 第一只窗
+    await act(() => { nodes(cS, 'data-dsh-prompt-update')[0].props.onClick() });
+    eq(!!one(cS, 'data-dsh-prompt-update-modal'), true, '（R2）用户点开设置页入口行：那一只窗在');
+    // 到点自动检查有新版 ⇒ 修前这里会叠出第二只
+    await fireTimeout(pendingDelay()[0]);
+    if (!await waitFor(() => calls('check') === 1, 4000)) bad('（R2）自动检查没有发出');
+    await TR.act(async () => { await new Promise((r) => setTimeout(r, 60)) });
+    eq(!!one(cA, 'data-dsh-prompt-update-modal'), false, '（R2）已有弹窗打开时自动那只不接手（修前：会叠出第二只）');
+    eq(!!one(cS, 'data-dsh-prompt-update-modal'), true, '（R2）用户那只一直开着，没被顶掉');
+    eq(installBtns(), 1, '（R2）全屏上只有一只可点安装的弹窗（修前：两只各自可点）');
+    cS.unmount(); cA.unmount();
+    await flush();
+
+    // 反方向：自动那只先弹出来，用户随后点开设置页入口行 ⇒ 自动那只关掉，只剩用户那一只（用户的手算数）
+    resetScript(); clearLS(); clearClock();
+    script.status = okEnv(snap({ canInstall: true }), 'CMD');
+    script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
+    const m2 = reload();
+    const cS2 = await mount(React.createElement(m2.update.UpdateEntry, {}));
+    const cA2 = await mount(React.createElement(m2.update.UpdateEntry, { auto: true }));
+    await fireTimeout(pendingDelay()[0]);
+    if (!await waitShown(() => !!one(cA2, 'data-dsh-prompt-update-modal'), 4000)) bad('（R2b）自动那只没有弹出来，后面两条无从谈起');
+    else {
+      eq(!!one(cS2, 'data-dsh-prompt-update-modal'), false, '（R2b）自动那只先弹：设置页那只没有自己冒出来');
+      await act(() => { nodes(cS2, 'data-dsh-prompt-update')[0].props.onClick() });
+      eq(!!one(cS2, 'data-dsh-prompt-update-modal'), true, '（R2b）用户点入口行：用户那一只开出来了');
+      eq(!!one(cA2, 'data-dsh-prompt-update-modal'), false, '（R2b）自动那只被压掉（同屏不再两只）');
+      const nb = [cS2, cA2].reduce((n, cc) => n + nodes(cc, 'data-dsh-prompt-update-action').filter((x) => x.props['data-dsh-prompt-update-action'] === 'install').length, 0);
+      eq(nb, 1, '（R2b）还是一只可点安装的弹窗');
+    }
+    cS2.unmount(); cA2.unmount();
+    clearLS();
+    await flush();
   }
 
   globalThis.fetch = realFetch;

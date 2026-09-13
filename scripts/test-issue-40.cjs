@@ -48,8 +48,10 @@ const MODULES = [
   ['about.ts', SRC('about.ts'), ['./panel', './i18n']],
   // #41 的连带：update.ts 多了一条 `./updauto` 的 import 边（启动自动检查的判据 + 跳过记录的落点）。
   // 与 #40 给本脚本加 `./update` / `./about` 时同一条纪律：新 import 边必须进这张表，否则脚本直接崩。
+  // #41 收口 R2 的连带同理：又多了一条 `./upddialog`（弹窗归属闸 —— 同屏不许叠两只可各自点安装的窗）。
   ['updauto.ts', SRC('updauto.ts'), []],
-  ['update.ts', SRC('update.ts'), ['./panel', './i18n', './updauto', '../update/bridge', '../update/gen/updateClient.derived.js']],
+  ['upddialog.ts', SRC('upddialog.ts'), []],
+  ['update.ts', SRC('update.ts'), ['./panel', './i18n', './updauto', './upddialog', '../update/bridge', '../update/gen/updateClient.derived.js']],
   ['settings.ts', SRC('settings.ts'), ['./panel', './about', './update', './smartstore', './i18n']],
   ['bridge.ts', path.join(ROOT, 'src', 'update', 'bridge.ts'), ['./gen/updateClient.derived.js']],
   ['updateClient.derived.js', path.join(ROOT, 'src', 'update', 'gen', 'updateClient.derived.js'), []],

@@ -127,10 +127,11 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   //     本票连带改后 455 行），「拆测试」另开票，不在本票顺手拆（顺手拆会违反上面那条裁定的精神）；
   //   - scripts/test-log.cjs：同一先例，本票因清单条数/kind 字面量变化连带改（+3 行），已裁决不拆。
   // #58 追加的第四处（同一裁定、当场点名）：
-  //   - lib/update.js（#58 起 1245 行）：**构建产物**（esbuild 单文件输出），行数由「内联进来的第三方
-  //     更新包」决定，不是人手写的代码 —— #58 之前它是 250 行（更新包留 externals），内联后必然越线。
+  //   - lib/update.js（#58 起远超 400 行，实测值见下面 ok 行打印的 lib/update.js=N）：**构建产物**
+  //     （esbuild 单文件输出），行数由「内联进来的第三方更新包」决定，不是人手写的代码 ——
+  //     内联前它是 337 行（0281216^ 的 externals 产物，实测），内联后必然越线。
   //     人手写的宿主半源码仍受 400 行纪律约束（src/update/host/*.ts 全在线内），所以这里把产物
-  //     显式点名裁决，不让它挂在「未裁决超线」里当噪音。
+  //     显式点名裁决，不让它挂在「未裁决超线」里当噪音。行数不写死在注释里：它随内联输入变。
   // 其余文件若超线则点名报「未裁决」，不阻断其余断言。
   const ALERT_LINES = 400;
   const lineCount = (rel) => readSrc(rel).split('\n').length - (readSrc(rel).endsWith('\n') ? 1 : 0);
@@ -180,6 +181,26 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   for (const marker of ['containingPackage', 'pathsForUpdate', 'createUpdateReader', 'unknown-profile']) {
     if (!built.includes(marker)) fail('lib/update.js 里没有内联进来的更新包标记 ' + JSON.stringify(marker) + '（内联没生效？）');
   }
+  // #58 门禁之二（复审 J 的 Top2）：产物必须自带**内联包版本标记**，并与 package.json **耦合**对账 ——
+  // 上一版产物里搜不到任何版本号（`0.1.x` / `dsh-plugin-update@x.y.z` 全 NONE），从**入库字节**看不出
+  // 它内联的是哪一版；「升了包版本却忘了重建」当时只有下面那条 devDependencies 字面量断言能挡
+  // （而它自己也正是「改版本号要连测试一起改」的那个字面量）。标记由构建脚本从 devDependencies
+  // 注入 banner（见 scripts/update/build-host.mjs 的 INLINED_UPDATE_PKG_VERSION），这里把两头钉在一起。
+  const inlinedVersion = pkg.devDependencies['dsh-plugin-update'];
+  const versionMark = built.match(/INLINED_UPDATE_PKG_VERSION\s*=\s*['"]([^'"]+)['"]/);
+  if (!versionMark) {
+    fail('lib/update.js 里没有内联包版本标记 INLINED_UPDATE_PKG_VERSION（构建脚本 banner 必须注入它 —— '
+      + '先跑 node scripts/update/build-host.mjs 重建产物）');
+  }
+  if (versionMark[1] !== inlinedVersion) {
+    fail('lib/update.js 里的内联包版本标记是 ' + versionMark[1] + '，package.json 的 devDependencies["dsh-plugin-update"] 是 '
+      + JSON.stringify(inlinedVersion) + ' —— 升了包版本但产物没重建（跑 node scripts/update/build-host.mjs 重出 lib/update.js）');
+  }
+  if (!readSrc('scripts/update/build-host.mjs').includes('INLINED_UPDATE_PKG_VERSION')) {
+    fail('scripts/update/build-host.mjs 不再注入 INLINED_UPDATE_PKG_VERSION（产物里那一行会变成人手维护的，删掉重建就丢）');
+  }
+  ok('lib/update.js 自带内联包版本标记 ' + versionMark[1] + '，与 devDependencies["dsh-plugin-update"] 逐字一致'
+    + '（升包不重建 ⇒ 这条立刻变红；构建脚本是唯一注入点）');
   // 构建脚本不许把 external 又加回来 —— 加了以后上面这几条会在下次重建时同时失效（#58 的回归就是防这个）。
   if (/external\s*:\s*\[[^\]]*dsh-plugin-update/.test(readSrc('scripts/update/build-host.mjs'))) {
     fail('scripts/update/build-host.mjs 又把 dsh-plugin-update 写进 external 了（#58 起它是内联输入）');

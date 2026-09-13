@@ -437,6 +437,88 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
       c4.unmount();
       await flush();
     }
+
+    console.log('=== T8: 「跳过此版本」只写 localStorage；跳过之后（含重启）不再自动弹；清掉键即恢复 ===');
+    {
+      const store = memStore();
+      setLS(store.api);
+      resetScript(); clearClock();
+      script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
+      const m1 = reload();
+      const c1 = await mount(React.createElement(m1.update.UpdateEntry, { auto: true }));
+      await fireTimeout(pendingDelay()[0]);
+      const skipBtn = (cc) => nodes(cc, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'skip')[0];
+      if (!await waitShown(() => !!one(c1, 'data-dsh-prompt-update-modal'), 4000)) bad('（跳过用例）自动弹窗没出现，后面几条无从谈起');
+      else {
+        eq(!!skipBtn(c1), true, '自动弹出的弹窗里有「跳过此版本」');
+        await act(() => { skipBtn(c1).props.onClick() });
+        eq(store.map.has(EXPECT_SKIP_KEY), true, '点一下就把记录写进 localStorage');
+        eq(JSON.parse(store.map.get(EXPECT_SKIP_KEY)), { version: '0.1.9' }, '写进去的就是弹窗里那个最新版本号');
+        const mt = String(txt(one(c1, 'data-dsh-prompt-update-modal')));
+        eq(mt.indexOf('已跳过') >= 0 && mt.indexOf('0.1.9') >= 0, true, '弹窗里说清「已跳过 0.1.9」');
+        eq(!!skipBtn(c1), false, '跳过之后按钮不再给（这一个版本没什么可跳的了）');
+        eq(others.length, 0, '跳过只写 localStorage：没有任何别的端点被访问');
+        c1.unmount();
+      }
+      // 「重启」：模块状态清空、localStorage 留住 —— 这正是票面「跳过之后重启宿主不再自动弹」那条验收。
+      resetScript(); clearClock();
+      script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
+      const m2 = reload();
+      const c2 = await mount(React.createElement(m2.update.UpdateEntry, { auto: true }));
+      await fireTimeout(pendingDelay()[0]);
+      if (!await waitFor(() => calls('check') === 1, 4000)) bad('（跳过之后）重启那次自动检查没发出 check');
+      else ok('重启后仍然会查一次（跳过挡的是「弹窗」，不是「不查」）');
+      await TR.act(async () => { await new Promise((r) => setTimeout(r, 60)) });
+      eq(!!one(c2, 'data-dsh-prompt-update-modal'), false, '重启之后不再自动弹（同版本被跳过）');
+      eq(calls('check'), 1, '重启也只查这一条');
+      c2.unmount();
+      // 清掉那个键 ⇒ 恢复自动弹（票面验收：「清掉该 localStorage 键后恢复」）。
+      store.api.removeItem(EXPECT_SKIP_KEY);
+      resetScript(); clearClock();
+      script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
+      const m3 = reload();
+      const c3 = await mount(React.createElement(m3.update.UpdateEntry, { auto: true }));
+      await fireTimeout(pendingDelay()[0]);
+      if (!await waitShown(() => !!one(c3, 'data-dsh-prompt-update-modal'), 4000)) bad('清掉跳过键之后没有恢复自动弹窗');
+      else ok('清掉 localStorage 那个键 ⇒ 自动弹窗恢复');
+      c3.unmount();
+      clearLS();
+      await flush();
+    }
+
+    console.log('=== T9: 跳过只挡自动弹窗 —— 手动点「检查更新」仍能看到那个版本 ===');
+    {
+      const store = memStore();
+      setLS(store.api);
+      store.api.setItem(EXPECT_SKIP_KEY, JSON.stringify({ version: '0.1.9' }));
+      resetScript(); clearClock();
+      script.status = okEnv(snap({ canInstall: false }), 'CMD');
+      script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
+      const m = reload();
+      const c = await mount(React.createElement(m.update.UpdateEntry, {}));
+      const btn = (a) => nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === a)[0];
+      const idle = () => { const b = btn('check'); return !!b && b.props.disabled === false };
+      // 打开弹窗（点设置页那一行入口），等挂载那次 status 落地（按钮不再是 disabled）再点检查
+      await act(() => { nodes(c, 'data-dsh-prompt-update')[0].props.onClick() });
+      if (!await waitShown(idle, 4000)) bad('手动路径：等 4s 检查按钮仍不可点（挂载那次 status 没落地）');
+      else {
+        await act(() => { btn('check').props.onClick() });
+        const shown = await waitShown(() => {
+          const ib = btn('install');
+          const mt = String(txt(one(c, 'data-dsh-prompt-update-modal')));
+          return !!ib && mt.indexOf('0.1.9') >= 0;
+        }, 4000);
+        if (!shown) bad('手动检查看不到被跳过的那个版本（票面交付 3 的后半句被违反）');
+        else {
+          ok('手动点「检查更新」照样看到 0.1.9 与「安装新版本」（跳过只挡自动弹窗）');
+          eq(calls('check'), 1, '手动那条 check 正常发出（跳过没有把电话也挡掉）');
+          eq(!!btn('skip'), false, '已经跳过这一个版本：弹窗不再给「跳过此版本」（没什么可跳的了）');
+        }
+      }
+      c.unmount();
+      clearLS();
+      await flush();
+    }
   }
 
   globalThis.fetch = realFetch;

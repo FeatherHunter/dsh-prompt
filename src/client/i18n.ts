@@ -137,6 +137,16 @@ export const STR = {
     zh: '这是启动时自动检查的结果：只在发现新版本时弹这一次，之后不再打扰。',
     en: 'Automatic check on start: this dialog appears once, and only when a newer version exists.',
   },
+  // #41：「跳过此版本」只落 localStorage（不进 storages/dsh_prompt.json），同版本不再自动弹。
+  updateSkipVersion: { zh: '跳过此版本', en: 'Skip this version' },
+  updateSkipDone: {
+    zh: '已跳过 {version}：下次启动不再自动提示这个版本；点「检查更新」仍能看到它。',
+    en: 'Skipped {version}: it will not be auto-prompted on the next start; "Check now" still shows it.',
+  },
+  updateSkipFail: {
+    zh: '没能记住这个版本（本机存储不可用）：下次启动可能还会自动提示。',
+    en: 'Could not remember this version (local storage unavailable): it may be auto-prompted again next start.',
+  },
   // 两类「电话级失败」的标题与 hint 是**分开**的：桥真的没回答（上面这两条）与宿主回答了但这次操作没成
   // （下面这两条）不是一回事，后者照前者说就是撒谎（用户会去报一个不存在的「宿主没接通」）。
   updateHostFailTitle: { zh: '宿主没有回答更新状态', en: 'The host did not answer the update status' },

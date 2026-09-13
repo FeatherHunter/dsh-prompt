@@ -34,7 +34,7 @@ import { getLang, tr, STR } from './i18n'
 import { createUpdateBridge, updatePhoneNames, type UpdateCallResult } from '../update/bridge'
 import { UPD_POLL } from '../update/gen/updateClient.derived.js'
 // #41 的两块判据（跳过记在哪 / 这次该不该弹）在 updauto.ts；那边不 import 本文件，两文件不成环。
-import { AUTO_CHECK_DELAY_MS, claimAutoCheck, decideAutoOpen, loadSkippedVersion } from './updauto'
+import { AUTO_CHECK_DELAY_MS, claimAutoCheck, decideAutoOpen, loadSkippedVersion, saveSkippedVersion } from './updauto'
 
 /** 样式令牌：与 settings.ts 同一套宿主变量，不发明第二套视觉。 */
 const TOK = {
@@ -227,6 +227,13 @@ export function UpdateEntry(props?: any): any {
   const setNote = noteState[1]
   /** 同一时刻只允许一次通话：按钮会被 busy 关掉，但双击 / 回车连发仍可能撞上。 */
   const lock = react.useRef(false)
+  /**
+   * 用户点过「跳过此版本」的版本号（#41，只落 localStorage；见 updauto.ts）。
+   * 初始值从存储里读一次，写成功后就地更新 —— 按钮随即消失，界面不必等下一次启动才对上。
+   */
+  const skipState = react.useState(loadSkippedVersion)
+  const skipped: string = skipState[0]
+  const setSkipped = skipState[1]
 
   /**
    * 一条电话。任何异常都收成回包形状（`ok:false` + 错误码），**绝不向上抛** ——
@@ -554,7 +561,32 @@ export function UpdateEntry(props?: any): any {
         UPDATE_FAIL_KEYS[jobCode] ? t(UPDATE_FAIL_KEYS[jobCode]) : t('updateJobFailHint')),
     ]))
   }
+  /**
+   * 「跳过此版本」按钮（#41 交付 3）：只在新版本确实比正在跑的版本新、且还没跳过**这一个**版本号时给。
+   * 「有没有新版本」与自动弹窗共用同一条判据（`decideAutoOpen` 内部同款比较），不另立第二套口径；
+   * 点下去只写 localStorage —— 存 `storages/dsh_prompt.json` 的 schema 已冻结，不许动（map #38 定案）。
+   *
+   * 已经跳过这一个版本时按钮不再给（没什么可跳的了）：跳过**只挡自动弹窗**，手动点「检查更新」
+   * 照旧看得到这个版本与安装按钮（票面交付 3 的后半句）。
+   */
+  const canSkip = decideAutoOpen({ latest, running, skipped: '' }).open && skipped !== latest
+  const onSkip = (): void => {
+    const written = saveSkippedVersion(latest)
+    if (written) {
+      setSkipped(latest)
+      setNote(fill(t('updateSkipDone'), { version: latest }))
+    } else {
+      // 写失败必须说出来：不说就等于让用户以为「下次不会弹了」。
+      setNote(t('updateSkipFail'))
+    }
+  }
   children.push(h('div', { key: 'actions', style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } }, [
+    canSkip
+      ? h('button', {
+        key: 'skip', type: 'button', 'data-dsh-prompt-update-action': 'skip', disabled: busy !== '',
+        onClick: () => { onSkip() }, style: btn(false),
+      }, t('updateSkipVersion'))
+      : null,
     h('button', {
       key: 'check', type: 'button', 'data-dsh-prompt-update-action': 'check', disabled: busy !== '',
       onClick: () => { run(updatePhoneNames.updateCheck, 'check').catch(() => undefined) },

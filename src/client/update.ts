@@ -561,6 +561,7 @@ export function UpdateEntry(props?: any): any {
         UPDATE_FAIL_KEYS[jobCode] ? t(UPDATE_FAIL_KEYS[jobCode]) : t('updateJobFailHint')),
     ]))
   }
+
   /**
    * 「跳过此版本」按钮（#41 交付 3）：只在新版本确实比正在跑的版本新、且还没跳过**这一个**版本号时给。
    * 「有没有新版本」与自动弹窗共用同一条判据（`decideAutoOpen` 内部同款比较），不另立第二套口径；

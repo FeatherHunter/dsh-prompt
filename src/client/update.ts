@@ -27,6 +27,7 @@
 import { getReact, MODAL_Z, ModalPortal } from './panel'
 import { getLang, tr, STR } from './i18n'
 import { createUpdateBridge, updatePhoneNames, type UpdateCallResult } from '../update/bridge'
+import { UPD_POLL } from '../update/gen/updateClient.derived.js'
 
 /** 样式令牌：与 settings.ts 同一套宿主变量，不发明第二套视觉。 */
 const TOK = {
@@ -61,6 +62,43 @@ export const UPDATE_REASON_KEYS: Record<string, keyof typeof STR> = {
 
 /** 取 STR 文案。 */
 type T = (k: keyof typeof STR) => string
+
+/**
+ * 「电话级失败」分两类，**文案必须分开**（红队 L2 打出来的撒谎）：
+ *
+ * 1. `BRIDGE_DOWN_CODES`：**桥本身没回答** —— 没 catch 到 HTTP、回的不是信封、body 不是 JSON、环境没有
+ *    fetch。只有这一类的成就是「宿主没接通 / 宿主半未加载」，`updateHostFailTitle` + `updateHostFailHint`
+ *    是给它的。
+ * 2. 其余码：宿主**回答了**，并且给了精确的错误码（`check-expired` / `invalid-release` / `check-failed` /
+ *    `install-failed` / `update-busy` / `update-params` / `recovery-required`…）。对这些码说「宿主没有回答
+ *    更新状态」是**对用户撒谎**：用户会去报一个不存在的「宿主没接通」故障。这一支的标题换成
+ *    `updateFailAnsweredTitle`，并按码给「下一步动作」（`UPDATE_FAIL_KEYS`）。
+ *
+ * `UPDATE_FAIL_KEYS` 只覆盖已知码，渲染时按「认识就给动作、不认识就给原始码 + 一句通用说明」降级 —— 绝不空白。
+ */
+const BRIDGE_DOWN_CODES = ['bridge-unreachable', 'bridge-bad-shape', 'bridge-bad-json', 'no-fetch']
+
+/**
+ * 实产失败码 → 「下一步动作」文案键。码从两处抄来，都不是猜的：
+ * - 宿主半 `dist/service.js` / `host.js` 里 `updateError(...)` 的实参（`check-expired` / `check-failed` /
+ *   `invalid-release` / `install-failed` / `update-busy` / `update-params` / `installation-changed` /
+ *   `registry-conflict` / `recovery-required`）；
+ * - 桥自己的兜底形状码（`bridge-error`）。
+ * 包 README 第 11 节点名 `check-expired` 是「正常错误码，不是程序缺陷」⇒ 它的动作就是「重取凭证再提交」，
+ * 而且这一句同时由 `ensureCheckId` 在**源头**上自动做掉（见 onInstall 的重试）。
+ */
+const UPDATE_FAIL_KEYS: Record<string, keyof typeof STR> = {
+  'update-busy': 'updateFailBusy',
+  'check-failed': 'updateFailCheckFailed',
+  'invalid-release': 'updateFailInvalidRelease',
+  'install-failed': 'updateFailInstallFailed',
+  'check-expired': 'updateFailCheckExpired',
+  'installation-changed': 'updateFailInstallationChanged',
+  'registry-conflict': 'updateFailRegistryConflict',
+  'recovery-required': 'updateFailRecoveryRequired',
+  'update-params': 'updateFailParams',
+  'bridge-error': 'updateFailUnknown',
+}
 
 const asText = (v: unknown): string => (typeof v === 'string' ? v : '')
 
@@ -146,6 +184,14 @@ export function UpdateEntry(): any {
   const resState = react.useState(null as UpdateCallResult | null)
   const res: UpdateCallResult | null = resState[0]
   const setRes = resState[1]
+  /**
+   * 上一份**成功**的回包。一次失败的 check / install 不该把已知版本整块抹成「版本未知」——
+   * 失败时下面前提是「多一块失败说明」，不是「把已知的事忘掉」（L2 实测：成功过 `v0.1.7 / 0.1.7 /
+   * 0.1.9 + 命令块`，再失败一次全被抹成 `版本未知 / 未知 / 未知 / 还没查过`，命令块消失）。
+   */
+  const lastGood = react.useState(null as UpdateCallResult | null)
+  const lastGoodRes: UpdateCallResult | null = lastGood[0]
+  const setLastGood = lastGood[1]
   const openState = react.useState(false)
   const open: boolean = openState[0]
   const setOpen = openState[1]
@@ -186,44 +232,116 @@ export function UpdateEntry(): any {
       setBusy('')
     }
     setRes(out)
+    if (out.ok) setLastGood(out)
     return out
   }
 
-  // 打开设置页就读一次状态（只读本机）：入口那行要显示的「当前版本」就是从这里来的。
-  react.useEffect(() => { run(updatePhoneNames.updateStatus, 'status').catch(() => undefined) }, [])
-
-  const snap = snapOf(res)
+  const snap = snapOf(res) ?? snapOf(lastGoodRes)
   const failed = res !== null && !res.ok
-  const code = failed ? asText(res && res.error && res.error.code) : ''
+  // 失败回包的码：分「桥没回答」与「宿主回答了但这次操作没成」两类，文案不同（见 BRIDGE_DOWN_CODES）。
+  const failCode = failed ? asText(res && res.error && res.error.code) : ''
+  const code = failCode
+  const bridgeDown = failed && BRIDGE_DOWN_CODES.indexOf(failCode) >= 0
+  const failAction = failed && !bridgeDown && UPDATE_FAIL_KEYS[failCode] ? t(UPDATE_FAIL_KEYS[failCode]) : ''
   const reason = asText(snap && snap.blockedReason)
   const running = asText(snap && snap.runningVersion)
   const installed = asText(snap && snap.installedVersion)
   const latest = asText(snap && snap.latestVersion)
   const canInstall = !!(snap && snap.canInstall === true)
+  /**
+   * 恶意形状的降级口（L5 边角）：版本字段不是字符串（数字 / 数组 / 对象）时 `asText` 会把它读成空串，
+   * 界面只剩「未知」，安装按钮却照给。这里认一次「快照里确实给了版本字段但不是字符串」，把那个按钮收掉 ——
+   * 类型不对时不给安装按钮，宁可让用户重查一次。真宿主 `readRunningVersion` 恒为字符串，这条只挡坏形状。
+   */
+  const malformedVersions = !!snap && [snap.runningVersion, snap.installedVersion, snap.latestVersion]
+    .some((v) => v !== null && v !== undefined && typeof v !== 'string')
+  const canInstallSafe = canInstall && !malformedVersions
   const jobState = asText(snap && (snap.job as { state?: unknown } | null | undefined)?.state)
+  const jobMessage = asText(snap && (snap.job as { message?: unknown } | null | undefined)?.message)
   const installing = jobState === 'installing' || jobState === 'verifying'
+  /**
+   * 安装任务的终态失败（L1 打出来的静默失败）：`job.state` 为 `failed`，`job.message` 是包写的精确码
+   * （`install-failed` / `installation-changed` / `registry-conflict`，见包 `dist/service.js` 的
+   * `runBackground` catch）。宿主**不会**把这种情况翻成 `blockedReason` —— 包只在「已装版本 != 正在跑的
+   * 版本」时才翻 `recovery-required`，所以「安装失败、磁盘上的版本没变」这条路在面板上曾经一个字都没有：
+   * 用户点安装 →「安装中…」→ 一切恢复正常、按钮还回来，没人告诉他失败。这里把它当成与 `blockedReason`
+   * 同级的一条**失败原因**呈现，码取任务自己的 `message`。
+   * `interrupted` 同理（同一个 heal 逻辑的另一半：半截任务）。
+   */
+  const jobFailed = jobState === 'failed' || jobState === 'interrupted'
+  const jobCode = jobFailed ? (jobMessage || 'install-failed') : ''
   const pendingRestart = reason === 'pending-restart'
-  const manual = res && res.ok ? asText(res.manual) : ''
+  const manual = res && res.ok ? asText(res.manual) : asText(lastGoodRes && lastGoodRes.manual)
   const versionLine = running ? 'v' + running : t('updateVersionUnknown')
+
+  // 打开设置页就读一次状态（只读本机）：入口那行要显示的「当前版本」就是从这里来的。
+  react.useEffect(() => { run(updatePhoneNames.updateStatus, 'status').catch(() => undefined) }, [])
+
+  /**
+   * 打开设置页读一次状态不够：install 的回包只是「安装中…」（真装在宿主后台跑），
+   * 没有轮询面板就**永远停在「安装中…」**，直到用户自己再点一次「检查更新」——同一件事也是
+   * 「安装失败了没有任何触发点」的根因（包 README 第 3 节客户端三件事之一就是「按间隔轮询查状态」，
+   * 示例正是 `setInterval(readStatus, UPD_POLL)`）。
+   *
+   * 三条纪律：
+   * 1. 间隔取派生文件的 `UPD_POLL`（不写字面量；换前缀或升级包时重跑 derive 即可）；
+   * 2. **只在弹窗打开期间**跑，关闭 / 卸载时 `clearInterval`（启动自动检查是另一张票的事，本票不擅自联网）；
+   * 3. 不重入：轮询只发**上一次还没回来**就不发下一次（`run` 里的 `lock` 挡掉，并且这里再判一次）。
+   *    另外只在「安装任务还没到终态」时轮询：空闲面板不需要每秒问一次宿主。
+   */
+  const lastRun = react.useRef(run)
+  lastRun.current = run
+  react.useEffect(() => {
+    if (!open) return undefined
+    if (!installing) return undefined
+    const timer = setInterval(() => { lastRun.current(updatePhoneNames.updateStatus, 'status').catch(() => undefined) }, UPD_POLL)
+    return () => clearInterval(timer)
+  }, [open, installing])
+
+  /**
+   * 手里那张凭证还能不能用。包 README 第 11 节的表：凭证（`confirmationTtlMs`）默认 10 分钟，
+   * 「用户查完新版隔很久才点安装，凭证过期要重查」；同一节还点名 `check-expired` 是**正常错误码**，
+   * 指令是「面板此时重新调一次查新版、拿新凭证再提交即可」。
+   * 主路径上 install 只接受 `check` 回的凭证，所以判 `expiresAt` 就够。
+   */
+  const receiptFresh = (r: UpdateCallResult | null): boolean => {
+    const receipt = r && r.receipt
+    if (!receipt || typeof receipt !== 'object') return false
+    const exp = (receipt as { expiresAt?: unknown }).expiresAt
+    return typeof exp === 'number' && Number.isFinite(exp) && exp > Date.now()
+  }
 
   /**
    * 安装前先确保手里有凭证。裸调 install 必回 `check-expired`（包的功能守卫），
-   * 所以这里不赌：没有 checkId 就先补一次 check —— 用户点的是「安装」，跑两步是本面板的事，
-   * 不该让用户自己去理解「先查再装」。
+   * 所以这里不赌：没有 checkId（或那张凭证已经过期）就先补一次 check —— 用户点的是「安装」，
+   * 跑两步是本面板的事，不该让用户自己去理解「先查再装」。
    */
   const ensureCheckId = async (): Promise<string> => {
     const held = checkIdOf(res)
-    if (held) return held
+    // 只认「把 check 回包放进界面状态」的那张（见 receiptFresh）：它一定来自 check。
+    if (held && receiptFresh(res)) return held
     const out = await run(updatePhoneNames.updateCheck, 'check')
     if (!out || !out.ok) return ''
     return checkIdOf(out)
   }
 
+  /**
+   * 点「安装新版本」。凭证在**提交那一刻已经过期**是实产路径（用户查完新版去干别的、回来再点安装），
+   * 这不是程序缺陷也不是「宿主没接通」：重取一次凭证再提交一次，最多两轮（`check-expired` 后重试一次
+   * 就地收敛，不给无限循环留口子）。两轮都过期才把码摆到界面上让用户看见。
+   */
   const onInstall = async (): Promise<void> => {
-    const checkId = await ensureCheckId()
-    if (!checkId) return
     const requestId = 'upd-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10)
-    await run(updatePhoneNames.updateInstall, 'install', { checkId, requestId })
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const checkId = await ensureCheckId()
+      if (!checkId) {
+        // 无凭证时**不能静默 return**（L5）：说一句「没拿到凭证」总比界面一动不动强。
+        setNote(t('updateNoCredential'))
+        return
+      }
+      const out = await run(updatePhoneNames.updateInstall, 'install', { checkId, requestId })
+      if (!out || out.ok || asText(out.error && out.error.code) !== 'check-expired') return
+    }
   }
 
   const onCopy = async (): Promise<void> => {
@@ -292,13 +410,29 @@ export function UpdateEntry(): any {
   }
 
   // ② 电话级失败：`snapshot` 为 null 也要说清楚（票面验收：不能空白）。
+  //    两类文案分开：`bridgeDown` 才是「宿主没回答」；其余码是宿主**回答了**、给了精确码，
+  //    照前者说就是撒谎（L2）。失败块一定带原始码 —— 用户报 Issue 时靠它。
   if (failed) {
     const why = UPDATE_REASON_KEYS[code]
     const parts: any[] = [
-      h('span', { key: 't', style: { fontSize: 13, fontWeight: 600 } }, t('updateHostFailTitle')),
+      h('span', { key: 't', style: { fontSize: 13, fontWeight: 600 } },
+        t(bridgeDown ? 'updateHostFailTitle' : 'updateFailAnsweredTitle')),
       h('span', { key: 'code', 'data-dsh-prompt-update-code': '', style: codeStyle }, code || 'unknown'),
-      h('span', { key: 'hint', style: { fontSize: 12, color: TOK.labelSecondary, lineHeight: 1.6 } }, t('updateHostFailHint')),
+      h('span', { key: 'hint', style: { fontSize: 12, color: TOK.labelSecondary, lineHeight: 1.6 } },
+        t(bridgeDown ? 'updateHostFailHint' : 'updateFailAnsweredHint')),
     ]
+    // 宿主回答了但没成：按码给「下一步动作」（`check-expired` 这类码的动作是明确的一句话）。
+    if (failAction) {
+      parts.push(h('span', {
+        key: 'action', 'data-dsh-prompt-update-fail-action': '', style: { fontSize: 12.5, lineHeight: 1.65 },
+      }, failAction))
+    }
+    // `check-expired` 是包 README 第 11 节点名的「正常错误码，不是程序缺陷」：不点明会有用户把它当故障报。
+    if (code === 'check-expired') {
+      parts.push(h('span', {
+        key: 'nofault', 'data-dsh-prompt-update-fail-nofault': '', style: { fontSize: 11.5, lineHeight: 1.65, color: TOK.labelTertiary },
+      }, t('updateFailNoFault')))
+    }
     // 电话级失败的码也可能是更新包的原因码（宿主把 `unknown-profile` 这类码直接回在 `error.code` 上），
     // 那就顺带把「该做什么」给出来 —— 原因码表是同一张，不为这条路径另写一套。
     if (why) {
@@ -318,13 +452,30 @@ export function UpdateEntry(): any {
   if (installing) {
     children.push(h('div', { key: 'job', style: { fontSize: 12, color: TOK.labelSecondary } }, t('updateBtnInstalling')))
   }
+  // ③b 安装任务的终态失败：与 ④「装不了的原因」同级的一条失败说明（不是灰字，也不是只在日志里）。
+  // 这一块是 L1 那个「点安装 → 一切恢复正常、没人告诉他失败」的唯一出口。
+  if (jobFailed) {
+    children.push(h('div', {
+      key: 'job-failed',
+      'data-dsh-prompt-update-job-failed': '',
+      'data-dsh-prompt-update-job-state': jobState,
+      style: { ...blockStyle, borderColor: TOK.accent },
+    }, [
+      h('div', { key: 'h', style: { display: 'flex', alignItems: 'center', gap: 8 } }, [
+        h('span', { key: 't', style: { fontSize: 12.5, fontWeight: 600 } }, t('updateJobFailTitle')),
+        h('span', { key: 'code', style: { fontFamily: TOK.mono, fontSize: 11.5, color: TOK.labelTertiary } }, jobCode),
+      ]),
+      h('span', { key: 'why', style: { fontSize: 12.5, lineHeight: 1.65, color: TOK.labelPrimary } },
+        UPDATE_FAIL_KEYS[jobCode] ? t(UPDATE_FAIL_KEYS[jobCode]) : t('updateJobFailHint')),
+    ]))
+  }
   children.push(h('div', { key: 'actions', style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } }, [
     h('button', {
       key: 'check', type: 'button', 'data-dsh-prompt-update-action': 'check', disabled: busy !== '',
       onClick: () => { run(updatePhoneNames.updateCheck, 'check').catch(() => undefined) },
       style: btn(true),
     }, busy === 'check' ? t('updateBtnChecking') : t('updateBtnCheck')),
-    canInstall && !pendingRestart
+    canInstallSafe && !pendingRestart
       ? h('button', {
         key: 'install', type: 'button', 'data-dsh-prompt-update-action': 'install', disabled: busy !== '',
         onClick: () => { onInstall().catch(() => undefined) },
@@ -351,26 +502,33 @@ export function UpdateEntry(): any {
   }
 
   // ⑤ 手工兜底命令：宿主每次回包里的值现刷，不缓存；为空时只讲原因、不展示命令。
-  if (res && res.ok) {
-    if (manual) {
-      children.push(h('div', { key: 'manual', 'data-dsh-prompt-update-manual': '', style: blockStyle }, [
-        h('div', { key: 'h', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } }, [
-          h('span', { key: 't', style: { fontSize: 12.5, fontWeight: 600 } }, t('updateManualTitle')),
-          h('button', {
-            key: 'copy', type: 'button', 'data-dsh-prompt-update-action': 'copy',
-            onClick: () => { onCopy().catch(() => undefined) }, style: { ...btn(false), padding: '4px 10px' },
-          }, t('updateBtnCopy')),
-        ]),
-        h('code', { key: 'cmd', 'data-dsh-prompt-update-command': '', style: codeStyle }, manual),
-        h('span', { key: 'hint', style: { fontSize: 11.5, lineHeight: 1.65, color: TOK.labelTertiary } }, t('updateManualHint')),
-      ]))
-    } else {
-      children.push(h('div', {
-        key: 'manual-none',
-        'data-dsh-prompt-update-manual-empty': '',
-        style: { fontSize: 11.5, lineHeight: 1.65, color: TOK.labelTertiary },
-      }, t('updateManualNone')))
-    }
+  //    注意这里是**有命令就展示**（不是「这次回包 ok 才展示」）：一次失败的 check 不该把手上那条
+  //    还能用的命令整块藏掉（L2：成功过就有命令，失败后命令块消失），但必须标清它来自上一份回包。
+  if (manual) {
+    children.push(h('div', { key: 'manual', 'data-dsh-prompt-update-manual': '', style: blockStyle }, [
+      h('div', { key: 'h', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } }, [
+        h('span', { key: 't', style: { fontSize: 12.5, fontWeight: 600 } }, t('updateManualTitle')),
+        h('button', {
+          key: 'copy', type: 'button', 'data-dsh-prompt-update-action': 'copy',
+          onClick: () => { onCopy().catch(() => undefined) }, style: { ...btn(false), padding: '4px 10px' },
+        }, t('updateBtnCopy')),
+      ]),
+      h('code', { key: 'cmd', 'data-dsh-prompt-update-command': '', style: codeStyle }, manual),
+      h('span', { key: 'hint', style: { fontSize: 11.5, lineHeight: 1.65, color: TOK.labelTertiary } }, t('updateManualHint')),
+      // 命令是**上一次成功回包**给的：说清它是旧的那一份，别让用户以为这是这次电话的答复。
+      failed
+        ? h('span', {
+          key: 'stale', 'data-dsh-prompt-update-manual-stale': '',
+          style: { fontSize: 11.5, lineHeight: 1.65, color: TOK.labelTertiary },
+        }, t('updateManualStale'))
+        : null,
+    ].filter(Boolean)))
+  } else if (res && res.ok) {
+    children.push(h('div', {
+      key: 'manual-none',
+      'data-dsh-prompt-update-manual-empty': '',
+      style: { fontSize: 11.5, lineHeight: 1.65, color: TOK.labelTertiary },
+    }, t('updateManualNone')))
   }
   if (note) children.push(h('div', { key: 'note', style: { fontSize: 11.5, color: TOK.labelTertiary } }, note))
   children.push(h('div', { key: 'foot', style: { fontSize: 11.5, lineHeight: 1.65, color: TOK.labelTertiary } }, t('updateStatusNote')))

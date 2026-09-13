@@ -46,7 +46,7 @@ const MODULES = [
   ['smartstore.ts', SRC('smartstore.ts'), []],
   ['panel.ts', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore']],
   ['about.ts', SRC('about.ts'), ['./panel', './i18n']],
-  ['update.ts', SRC('update.ts'), ['./panel', './i18n', '../update/bridge']],
+  ['update.ts', SRC('update.ts'), ['./panel', './i18n', '../update/bridge', '../update/gen/updateClient.derived.js']],
   ['settings.ts', SRC('settings.ts'), ['./panel', './about', './update', './smartstore', './i18n']],
   ['bridge.ts', path.join(ROOT, 'src', 'update', 'bridge.ts'), ['./gen/updateClient.derived.js']],
   ['updateClient.derived.js', path.join(ROOT, 'src', 'update', 'gen', 'updateClient.derived.js'), []],
@@ -58,7 +58,9 @@ for (const [outName, srcPath, deps] of MODULES) {
   }).outputText;
   for (const d of deps) {
     // '../update/bridge' 这类跨目录依赖要落到本临时目录里的同名产物上（bridge 的派生文件同理）
-    const target = d === '../update/bridge' ? './bridge.cjs' : d === './gen/updateClient.derived.js' ? './updateClient.derived.cjs' : d + '.cjs';
+    const target = d === '../update/bridge' ? './bridge.cjs'
+      : (d === './gen/updateClient.derived.js' || d === '../update/gen/updateClient.derived.js') ? './updateClient.derived.cjs'
+        : d + '.cjs';
     js = js.split('require("' + d + '")').join('require("' + target + '")');
   }
   fs.writeFileSync(path.join(DIR, outName.replace(/\.ts$/, '.cjs').replace(/\.js$/, '.cjs')), js);
@@ -158,6 +160,8 @@ const PRODUCED = ['unknown-profile', 'invalid-installation', 'installation-chang
 const RESERVED = ['registry-conflict'];
 /** 包 README 第 9 节：manual 为空是正常的两种情形（源码安装与认不出使用范围）。 */
 const EMPTY_MANUAL = ['unknown-profile', 'source-install'];
+/** 构建期派生出来的取值文件（电话名与轮询间隔的唯一真值）。 */
+const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
 
 (async () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
@@ -271,9 +275,10 @@ const EMPTY_MANUAL = ['unknown-profile', 'source-install'];
   eq(!!installBtn, true, 'canInstall 为真 → 出现安装按钮');
   requests.length = 0;
   await act(() => { installBtn.props.onClick() });
-  eq(requests.map((r) => r.which), ['install'], '点安装只打 install（手里已有凭证）');
-  eq(requests[0].body.checkId, 'CHK-42', '安装带上「检查更新」发的 checkId（不是裸调）');
-  eq(typeof requests[0].body.requestId === 'string' && requests[0].body.requestId.length > 0, true, '安装带上 requestId');
+  eq(requests.map((r) => r.which), ['check', 'install'],
+    '点安装时手里那张凭证已过期（expiresAt=2 早于现在）→ 先补 check 再 install（不裸调、不拿过期凭证赌运气）');
+  eq(requests[1].body.checkId, 'CHK-42', '安装带上「检查更新」发的 checkId（不是裸调）');
+  eq(typeof requests[1].body.requestId === 'string' && requests[1].body.requestId.length > 0, true, '安装带上 requestId');
   m.unmount();
 
   // 裸调 install 必回 check-expired（包的功能守卫）：面板不许赌，没有凭证就先补一次 check。
@@ -311,8 +316,13 @@ const EMPTY_MANUAL = ['unknown-profile', 'source-install'];
   }
   ok('七条实产原因逐条对过（' + PRODUCED.join(' / ') + '）；manual 为空的两种情形 = ' + EMPTY_MANUAL.join(' / '));
 
-  console.log('=== T6: 电话级失败（snapshot 为 null）必须有呈现，不是空白 ===');
-  for (const code of ['unknown-profile', 'update-capability-unavailable']) {
+  console.log('=== T6: 电话级失败必须分类呈现（桥没回答 vs 宿主回答了但没成），且不是空白 ===');
+  // 两类文案必须分开：`bridge-*` / `no-fetch` 才是「宿主没有回答」；其余码是宿主**回答了**并给了精确码
+  // （整改 M2 之前，`check-expired` / `invalid-release` / `check-failed` 全被说成「宿主没有回答更新状态」，
+  //  那是对用户撒谎 —— 用户会去报一个不存在的「宿主没接通」故障）。
+  const DOWN = ['bridge-unreachable', 'bridge-bad-json'];
+  const ANSWERED = ['unknown-profile', 'check-expired', 'invalid-release', 'check-failed', 'install-failed', 'update-busy'];
+  for (const code of DOWN.concat(ANSWERED)) {
     script.status = failEnv(code);
     const c = await mount(React.createElement(update.UpdateEntry, {}));
     await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
@@ -321,10 +331,20 @@ const EMPTY_MANUAL = ['unknown-profile', 'source-install'];
     const hostfail = one(c, 'data-dsh-prompt-update-hostfail');
     if (!hostfail) { bad(code + '：snapshot 为 null 时弹窗没有专门呈现（会是一片空白）'); c.unmount(); continue }
     const body = txt(hostfail);
-    eq(body.indexOf(STR.updateHostFailTitle.zh) >= 0, true, code + '：说清「宿主没有回答更新状态」');
+    const down = DOWN.indexOf(code) >= 0;
+    eq(body.indexOf(down ? STR.updateHostFailTitle.zh : STR.updateFailAnsweredTitle.zh) >= 0, true,
+      code + '：' + (down ? '说清「宿主没有回答更新状态」' : '不许说「宿主没有回答」（宿主明明回了这个码）'));
+    eq(body.indexOf(down ? STR.updateFailAnsweredTitle.zh : STR.updateHostFailTitle.zh) >= 0, false,
+      code + '：另一类的标题不许同时出现（两类文案不混）');
     eq(txt(one(c, 'data-dsh-prompt-update-code')), code, code + '：把原始错误码给出来');
+    eq(body.indexOf(code) >= 0, true, code + '：失败块里带着原始码（报 Issue 靠它）');
     if (code === 'unknown-profile') {
       eq(body.indexOf(STR.updateWhyUnknownProfile.zh) >= 0, true, 'unknown-profile：电话级失败时也把「该做什么」给出来（同一张原因码表）');
+    }
+    if (code === 'check-expired') {
+      eq(!!one(c, 'data-dsh-prompt-update-fail-action'), true, 'check-expired：给出「下一步动作」那一句');
+      eq(body.indexOf(STR.updateFailCheckExpired.zh) >= 0, true, 'check-expired：动作是「重取凭证再提交」（包 README 第 11 节）');
+      eq(body.indexOf(STR.updateFailNoFault.zh) >= 0, true, 'check-expired：说清它不是故障码（README 第 11 节点名）');
     }
     eq(txt(one(c, 'data-dsh-prompt-update-modal')).length > 30, true, code + '：弹窗整体有内容（不是空白）');
     c.unmount();
@@ -440,12 +460,252 @@ const EMPTY_MANUAL = ['unknown-profile', 'source-install'];
   eq(/DEFAULT_RELOG_FLOOR_MS = 60000/.test(fs.readFileSync(path.join(ROOT, 'src', 'update', 'host', 'bridge-log.ts'), 'utf8')), true,
     '生产默认重落下限是 60000ms（改小它这条会红）');
 
-  console.log('=== T10: 双语文案（英文不许夹中文） ===');
+  if (process.env.T40_TRACE) {
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      const u = String(url);
+      const which = u === STATUS_PATH ? 'status' : u === CHECK_PATH ? 'check' : u === INSTALL_PATH ? 'install' : 'other';
+      const out = await origFetch(url, init);
+      console.log('    [trace] ' + which + ' method=' + (init && init.method));
+      return out;
+    };
+  }
+  console.log('=== T11: 安装任务的终态失败必须说出来（不是「一切恢复正常」） ===');
+  // 整改 M1（红队 L1）：真宿主里 `runInstall` 抛 → 后台任务落成 `job={state:"failed",message:"install-failed"}`，
+  // 而 `blockedReason` 仍是 null（包只在「已装 != 正在跑」时才翻 recovery-required）⇒ 面板曾一个字都不说。
+  // 这里跑的是**真包的 phone handler**（把 lib/index.js 那条真路由抄下来），只把 runInstall 换成抛错版。
+  {
+    const fakeEnv = {
+      profileName: 'web', environmentKind: 'cli', homeDir: 'C:\\fake\\.dsh', profileDir: 'C:\\fake\\.dsh\\profiles\\web',
+      installedVersion: '0.1.7', packageValid: true, sourceInstall: false, blockedReason: null,
+      installationKey: 'KEY-1', eligible: true,
+    };
+    let now = 1_000_000;
+    let job = null;
+    let seq = 0;
+    const hostMod = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'host.js')).href);
+    hostMod.__resetSharedUpdateReaderForTests?.();
+    const host = hostMod.createHostUpdate({ readerOverrides: {
+      runningVersion: '0.1.7',
+      readInstalled: async () => ({ ...fakeEnv }),
+      readJob: async () => job,
+      writeJob: async (j) => { job = j },
+      now: () => now,
+      randomId: () => 'rid-' + (++seq),
+      nodeVersion: 'v22.0.0',
+      homeDir: 'C:\\fake\\.dsh',
+      profileDir: 'C:\\fake\\.dsh\\profiles\\web',
+      environmentKind: 'cli',
+      fetchImpl: async () => {
+        const body = JSON.stringify({
+          name: 'dsh-prompt', version: '0.1.9', engines: { node: '>=22' },
+          dist: { tarball: 'https://registry.npmjs.org/dsh-prompt/-/dsh-prompt-0.1.9.tgz', integrity: 'sha512-' + 'A'.repeat(86) + '==' },
+        });
+        return { ok: true, status: 200, headers: { get: () => String(Buffer.byteLength(body)) }, text: async () => body };
+      },
+      runInstall: async () => { throw Object.assign(new Error('npm ERR! exit 1'), { code: 'install-failed' }) },
+      tryAcquireLock: async () => true,
+      releaseLock: async () => {},
+    } }, { pluginId: 'dsh-prompt', prefix: 'prompt', targetPackageName: 'dsh-prompt', registryUrl: 'https://registry.npmjs.org/' });
+    // lib/index.js 那条真路由的信封：宿主 handler 直接就是电话回包（`{ok:true,snapshot,manual,receipt}`
+    // 或 `{ok:false,error,errorKind}`，见 host.js 的 loggedPhone），这里原样进 `value`、按 `ok` 定信封。
+    const callHost = async (which, args) => {
+      const k = which === 'status' ? 'updateStatus' : which === 'check' ? 'updateCheck' : 'updateInstall';
+      const out = await host.handlers[host.phoneNames[k]](args);
+      const isFail = out === null || out.ok !== true;
+      return { ok: !isFail, value: out, error: isFail ? { code: String(out?.error ?? 'update-capability-unavailable'), message: String(out?.errorKind ?? '') } : null };
+    };
+    const realFetch2 = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      const u = String(url);
+      const which = u === STATUS_PATH ? 'status' : u === CHECK_PATH ? 'check' : u === INSTALL_PATH ? 'install' : '';
+      if (!which) return { status: 200, json: async () => ({ ok: false, error: { code: 'test-other-endpoint' } }) };
+      return { status: 200, json: async () => callHost(which, JSON.parse((init && init.body) || '{}')) };
+    };
+    const c = await mount(React.createElement(update.UpdateEntry, {}));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    await act(() => {
+      nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
+    });
+    await act(() => {
+      nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'install')[0].props.onClick();
+    });
+    await flush();
+    eq(job && job.state, 'failed', '真包宿主：runInstall 抛 → 任务落成 failed');
+    eq(job && job.message, 'install-failed', '真包宿主：job.message 是精确码 install-failed');
+    const blockedSnap = await callHost('status', {});
+    eq(blockedSnap.value && blockedSnap.value.snapshot && blockedSnap.value.snapshot.blockedReason, null,
+      '真包宿主：这条路 blockedReason 仍是 null（包只在「已装 != 正在跑」时才翻 recovery-required）');
+    now += 3000;
+    await act(() => {
+      nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
+    });
+    const jf = one(c, 'data-dsh-prompt-update-job-failed');
+    if (!jf) bad('安装失败在面板上一个字都不说（静默失败：安装按钮还回来、横幅/原因块/失败块全无）');
+    else {
+      const body = txt(jf);
+      eq(body.indexOf('install-failed') >= 0, true, '失败块把安装任务的码 install-failed 摆出来（原文里出现 0 次 → 现在 ≥1 次）');
+      eq(body.indexOf(STR.updateJobFailTitle.zh) >= 0, true, '失败块说清「这次安装没成功」');
+      eq(body.indexOf(STR.updateFailInstallFailed.zh) >= 0, true, '并给出下一步（手工命令 / 重取凭证再试）');
+      eq(!!one(c, 'data-dsh-prompt-update-manual'), true, '手工兜底命令仍在（装机失败时它就是出口）');
+      eq(!!one(c, 'data-dsh-prompt-update-hostfail'), false, '安装失败不是「电话级失败」：不冒充「宿主没有回答」');
+      eq(!!one(c, 'data-dsh-prompt-update-reason'), false, '安装失败也不冒充八条 blockedReason 之一（README 第 8 节没这条情形）');
+    }
+    eq(String(txt(one(c, 'data-dsh-prompt-update-modal'))).length > 30, true, '弹窗整体有内容');
+    c.unmount();
+    globalThis.fetch = realFetch2;
+  }
+
+  console.log('=== T12: 失败的 check 不许把上一份好快照抹掉 ===');
+  {
+    script.status = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD_GOOD', null);
+    let mode = 'ok';
+    script.check = () => (mode === 'ok'
+      ? okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD_GOOD', null)
+      : failEnv('check-failed'));
+    const c = await mount(React.createElement(update.UpdateEntry, {}));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    await act(() => {
+      nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
+    });
+    eq(txt(one(c, 'data-dsh-prompt-update-version')), 'v0.1.7', '成功时入口行有版本');
+    const before = {
+      running: txt(nodes(c, 'data-dsh-prompt-update-field').filter((n) => n.props['data-dsh-prompt-update-field'] === 'running')[0]),
+      installed: txt(nodes(c, 'data-dsh-prompt-update-field').filter((n) => n.props['data-dsh-prompt-update-field'] === 'installed')[0]),
+      latest: txt(nodes(c, 'data-dsh-prompt-update-field').filter((n) => n.props['data-dsh-prompt-update-field'] === 'latest')[0]),
+      command: txt(one(c, 'data-dsh-prompt-update-command')),
+    };
+    mode = 'fail';
+    await act(() => {
+      nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'check')[0].props.onClick();
+    });
+    const fieldVal = (k) => { const n = nodes(c, 'data-dsh-prompt-update-field').filter((x) => x.props['data-dsh-prompt-update-field'] === k)[0]; return n ? txt(n) : null };
+    eq(txt(one(c, 'data-dsh-prompt-update-version')), 'v0.1.7', '失败后入口行**没有**变成「版本未知」（已知版本不被抹掉）');
+    eq(fieldVal('running'), before.running, '失败后「当前版本」还是 0.1.7');
+    eq(fieldVal('installed'), before.installed, '失败后「已装版本」还在');
+    eq(fieldVal('latest'), before.latest, '失败后「最新版本」还在（上次查到的那份）');
+    eq(txt(one(c, 'data-dsh-prompt-update-command')), before.command, '失败后手工命令块还在（不是整块消失）');
+    eq(!!one(c, 'data-dsh-prompt-update-manual-stale'), true, '并标明这条命令来自上一份成功回包');
+    eq(String(txt(one(c, 'data-dsh-prompt-update-hostfail'))).indexOf(STR.updateHostFailTitle.zh) >= 0, false,
+      '失败说明不冒充「宿主没有回答」（宿主回答了 check-failed）');
+    eq(txt(one(c, 'data-dsh-prompt-update-code')), 'check-failed', '失败块给出原始码');
+    c.unmount();
+  }
+
+  console.log('=== T13: check-expired → 自动补一次 check 再重提（README 第 11 节） ===');
+  {
+    requests.length = 0;
+    let lived = 0;
+    script.status = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD', null);
+    script.check = () => { lived++; return okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD', { checkId: 'CHK-' + lived, checkedAt: 1, expiresAt: Date.now() + 900000 }); };
+    // 安装回包模拟「刚点完安装、宿主已受理」，但**凭证在宿主眼里已过期**（用户在别的页面待久了）：
+    // 这一段的重点不是第一枪成不成，而是面板拿到 check-expired 之后自己怎么办。
+    script.install = () => failEnv('check-expired');
+    const c = await mount(React.createElement(update.UpdateEntry, {}));
+    await act(() => { one(c, 'data-dsh-prompt-update').props.onClick() });
+    requests.length = 0;
+    await act(() => {
+      nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'install')[0].props.onClick();
+    });
+    eq(requests.map((r) => r.which), ['check', 'install', 'check', 'install'],
+      '收到 check-expired → 重取凭证再提交一次（序列 check,install,check,install），不是把过期凭证原地再交一遍、也不是装两次');
+    if (requests.length === 4) {
+      eq(requests[1].body.checkId !== requests[3].body.checkId, true, '重提用的是**新**凭证（不是拿旧 checkId 硬顶）');
+      eq(requests[3].body.requestId, requests[1].body.requestId, '重提是同一个安装请求（requestId 不变，不是装两次）');
+    }
+    eq(String(txt(one(c, 'data-dsh-prompt-update-code'))), 'check-expired', '两轮都没成时把码摆到界面上（不静默）');
+    eq(!!one(c, 'data-dsh-prompt-update-job-failed'), false, '这不是安装任务失败（任务根本没起来），不冒充 install-failed');
+    c.unmount();
+  }
+
+  console.log('=== T14: 弹窗打开期间按 UPD_POLL 轮询（安装中能收敛；关掉就停表） ===');
+  {
+    eq(typeof derived.UPD_POLL === 'number' && derived.UPD_POLL >= derived.UPD_POLL_MIN, true,
+      '派生文件给的 UPD_POLL = ' + derived.UPD_POLL + '（≥ 下限 ' + derived.UPD_POLL_MIN + '）');
+    eq(new RegExp('UPD_POLL').test(updateSrc), true, 'update.ts 引了派生文件的 UPD_POLL（间隔不写字面量）');
+    eq(/from '\.\.\/update\/gen\/updateClient\.derived\.js'/.test(updateSrc), true, 'UPD_POLL 从派生文件 import');
+    eq(new RegExp('setInterval\\([\\s\\S]{0,200}UPD_POLL').test(updateSrc), true, 'setInterval 的间隔取 UPD_POLL');
+    eq(/clearInterval\(timer\)/.test(updateSrc), true, '关闭 / 卸载时 clearInterval');
+    // 行为面：安装任务从 installing 收敛到 restart-required，**中间不点任何按钮**。
+    // 手法：安装回包立刻回一个 installing 快照（真宿主就是这样，真装在后台跑），后台落地由 gate 控制；
+    // 面板必须自己按 UPD_POLL 轮询、自己收敛。查询一律用直接 findAll（与本次整改的探针同一写法）。
+    let phase = 'idle';
+    let mode = 'quick';
+    let releaseInstall;
+    const gate = new Promise((r) => { releaseInstall = r });
+    const S = (o) => Object.assign({ runningVersion: '0.1.7', installedVersion: '0.1.7', latestVersion: '0.1.9', canInstall: true, blockedReason: null, job: null }, o);
+    requests.length = 0;
+    script.status = () => {
+      // 只有「还没开始装」那一份快照说 canInstall=true（像真宿主：点完安装它就把按钮收起来）。
+      // 面板挂载时打的那次 status 就是这一份 —— 然后这一份（带着凭证）一直留在 res/lastGood 上，
+      // 正是「用户看着安装按钮点下去」那一刻手里真有的东西。
+      if (phase === 'idle') return okEnv(S({ canInstall: true }), 'CMD', { checkId: 'CHK-P', checkedAt: 1, expiresAt: Date.now() + 900000 });
+      if (phase === 'installing') return okEnv(S({ canInstall: false, job: { state: 'installing' } }), 'CMD', null);
+      return okEnv(S({ canInstall: false, blockedReason: 'pending-restart', installedVersion: '0.1.9', job: { state: 'restart-required' } }), 'CMD', null);
+    };
+    script.check = () => okEnv(S({}), 'CMD', { checkId: 'CHK-P', checkedAt: 1, expiresAt: Date.now() + 900000 });
+    script.install = async () => {
+      if (mode === 'wait') await gate;
+      return okEnv(S({ canInstall: false, job: { state: 'installing' } }), 'CMD', null);
+    };
+    const c = await mount(React.createElement(update.UpdateEntry, {}));
+    await flush();
+    const q = (attr) => c.root.findAll((x) => !!x.props && x.props[attr] !== undefined);
+    const rowEl = q('data-dsh-prompt-update')[0];
+    const btn = (a) => q('data-dsh-prompt-update-action').filter((x) => x.props['data-dsh-prompt-update-action'] === a)[0];
+    await act(() => { rowEl.props.onClick() });
+    const ib = btn('install');
+    eq(!!ib, true, '弹窗打开后有安装按钮（status 回包 canInstall=true）');
+    // 用户按下安装之后：宿主开始装（status 从此回 installing），面板这一切通话都从这一刻算起。
+    phase = 'installing';
+    requests.length = 0;
+    await act(() => { if (ib) ib.props.onClick() });
+    const modalText = () => String(txt(q('data-dsh-prompt-update-modal')[0]));
+    eq(modalText().indexOf(STR.updateBtnInstalling.zh) >= 0, true, '安装中：面板停在「安装中…」');
+    const st = () => requests.filter((r) => r.which === 'status').length;
+    const seen = () => requests.map((r) => r.which).join(',');
+    const t0 = st();
+    // 轮询只该在「安装任务还没到终态」时跑 —— 真值面无从外部直接读，就用一个间接但确定的口子：
+    // 第一次轮询之后把后台任务切成「会阻塞」；只要面板还在轮询，就一定再次撞上这个阻塞。
+    mode = 'wait';
+    let blocked = false;
+    for (let i = 0; i < 60 && !blocked; i++) {
+      await TR.act(async () => { await new Promise((r) => setTimeout(r, 100)) });
+      blocked = seen().indexOf('install,status,status') >= 0;
+    }
+    eq(blocked, true, '弹窗打开期间真在轮询（status 通话 ' + t0 + ' → ' + st() + '，间隔 = UPD_POLL ' + derived.UPD_POLL + 'ms）');
+    eq(seen().split(',').pop(), 'status', '轮询发的是 status（只读本机、不联网），不是 check（不替用户擅自联网查新版）');
+    phase = 'done';
+    releaseInstall();
+    await flush();
+    let settled = false;
+    for (let i = 0; i < 80 && !settled; i++) {
+      await TR.act(async () => { await new Promise((r) => setTimeout(r, 100)) });
+      const banner = q('data-dsh-prompt-update-banner')[0];
+      if (banner && txt(banner).indexOf('0.1.9') >= 0) settled = true;
+    }
+    eq(settled, true, '不点任何按钮，面板自己收敛出 ⚠️ 待重启横幅（轮询看到终态）');
+    const atSettle = st();
+    eq(modalText().indexOf(STR.updateBtnInstalling.zh) >= 0, false, '终态后「安装中…」不再挂着');
+    await TR.act(async () => { await new Promise((r) => setTimeout(r, derived.UPD_POLL + 600)) });
+    eq(st() - atSettle <= 1, true, '终态（不再是 installing/verifying）后停止空转打 status（终态后又打了 ' + (st() - atSettle) + ' 次）');
+    const beforeUnmount = st();
+    c.unmount();
+    await TR.act(async () => { await new Promise((r) => setTimeout(r, derived.UPD_POLL + 300)) });
+    eq(st(), beforeUnmount, '卸载后 interval 已清（不再打 status）');
+  }
+
+
   const I18N_KEYS = ['updateEntry', 'updateEntryHint', 'updateVersionUnknown', 'updateRowRunning', 'updateRowInstalled',
     'updateRowLatest', 'updateLatestNone', 'updateNotAvailable', 'updateBtnCheck', 'updateBtnChecking', 'updateBtnInstall',
     'updateBtnInstalling', 'updateBtnCopy', 'updateCopied', 'updateCopyFail', 'updateClose', 'updateHostFailTitle',
     'updateHostFailHint', 'updateReasonTitle', 'updateReasonUnknown', 'updatePendingBanner', 'updatePendingHint',
-    'updateManualTitle', 'updateManualNone', 'updateManualHint', 'updateStatusNote'];
+    'updateManualTitle', 'updateManualNone', 'updateManualHint', 'updateStatusNote',
+    // 整改 M1/M2 新增：失败两类文案 + 按码动作 + 安装任务终态失败 + 旧命令标注
+    'updateFailAnsweredTitle', 'updateFailAnsweredHint', 'updateFailNoFault', 'updateFailBusy', 'updateFailCheckFailed',
+    'updateFailInvalidRelease', 'updateFailInstallFailed', 'updateFailCheckExpired', 'updateFailInstallationChanged',
+    'updateFailRegistryConflict', 'updateFailRecoveryRequired', 'updateFailParams', 'updateFailUnknown',
+    'updateNoCredential', 'updateJobFailTitle', 'updateJobFailHint', 'updateManualStale'];
   for (const k of I18N_KEYS) {
     const zh = STR[k] && STR[k].zh, en = STR[k] && STR[k].en;
     if (!zh || !en) { bad('缺文案 ' + k); continue }

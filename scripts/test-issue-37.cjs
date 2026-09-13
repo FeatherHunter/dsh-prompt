@@ -22,7 +22,7 @@ const MODULES = [
   ['about.ts', SRC('about.ts'), ['./panel', './i18n']],
   // #40 的连带：settings.ts 顶部多了一行更新入口（`./update`），转译表与依赖改写必须跟着带上，
   // 否则这个脚本会以「Cannot find module './update'」直接崩（不是断言失败，是跑不起来）。
-  ['update.ts', SRC('update.ts'), ['./panel', './i18n', '../update/bridge']],
+  ['update.ts', SRC('update.ts'), ['./panel', './i18n', '../update/bridge', '../update/gen/updateClient.derived.js']],
   ['settings.ts', SRC('settings.ts'), ['./panel', './about', './update', './smartstore', './i18n']],
   ['bridge.ts', UPD('bridge.ts'), ['./gen/updateClient.derived.js']],
   ['updateClient.derived.js', UPD('gen/updateClient.derived.js'), []],
@@ -31,8 +31,10 @@ for (const [outName, srcPath, deps] of MODULES) {
   let src = fs.readFileSync(srcPath, 'utf8');
   let js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true } }).outputText;
   for (const d of deps) {
-    // 跨目录依赖（update.ts 的 '../update/bridge' 与 bridge 的派生文件）落到本临时目录里的同名产物
-    const to = d === '../update/bridge' ? './bridge.cjs' : d === './gen/updateClient.derived.js' ? './updateClient.derived.cjs' : d + '.cjs';
+    // 跨目录依赖（update.ts 的 '../update/bridge' 与 bridge/update 用的派生文件）落到本临时目录里的同名产物
+    const to = d === '../update/bridge' ? './bridge.cjs'
+      : (d === './gen/updateClient.derived.js' || d === '../update/gen/updateClient.derived.js') ? './updateClient.derived.cjs'
+        : d + '.cjs';
     js = js.split('require("' + d + '")').join('require("' + to + '")');
   }
   fs.writeFileSync(path.join(DIR, outName.replace(/\.ts$/, '.cjs').replace(/\.js$/, '.cjs')), js);

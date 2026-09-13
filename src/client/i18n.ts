@@ -132,10 +132,73 @@ export const STR = {
   updateCopied: { zh: '已复制到剪贴板。', en: 'Copied to the clipboard.' },
   updateCopyFail: { zh: '复制失败，请手动选中命令复制。', en: 'Copy failed — select the command manually.' },
   updateClose: { zh: '关闭', en: 'Close' },
+  // 两类「电话级失败」的标题与 hint 是**分开**的：桥真的没回答（上面这两条）与宿主回答了但这次操作没成
+  // （下面这两条）不是一回事，后者照前者说就是撒谎（用户会去报一个不存在的「宿主没接通」）。
   updateHostFailTitle: { zh: '宿主没有回答更新状态', en: 'The host did not answer the update status' },
   updateHostFailHint: {
     zh: '更新能力可能没接通（宿主半未加载），也可能宿主半刚起、还没就绪。刷新页面再点一次；一直这样就把日志导出后提 Issue。',
     en: 'The update capability may not be wired up (host half not loaded), or the host half is not ready yet. Refresh the page and try again; if it keeps happening, export the log and open an issue.',
+  },
+  updateFailAnsweredTitle: { zh: '宿主回答了：这次操作没成', en: 'The host answered — this operation did not go through' },
+  updateFailAnsweredHint: {
+    zh: '往下看这个错误码与对应做法；宿主是通的，不用刷新页面，也不用报「宿主没接通」的故障。',
+    en: 'See the code below and what to do about it — the host is reachable, so there is no need to refresh the page or report a "host not reachable" fault.',
+  },
+  updateFailNoFault: {
+    zh: '这不是故障码，是包设计内的守卫（README 第 11 节点名为正常错误码）。',
+    en: 'This is not a fault code but a guard the package documents (section 11 of its README names it a normal error code).',
+  },
+  // 六类实产失败码的「下一步动作」：码 → 文案键。每个键的文本都要能独立成立（读者可能只看这一行）。
+  updateFailBusy: {
+    zh: '宿主正在装另一个任务或刚装完：等它跑完、面板会自己刷新；一直这样就把宿主重启一次。',
+    en: 'The host is busy with another install (or just finished one): wait for it to settle — the panel refreshes itself; if it persists, restart the host.',
+  },
+  updateFailCheckFailed: {
+    zh: '查新版没查成（多半是网络没通到官方源）：确认网络能访问 npm 官方源，再点一次「检查更新」。',
+    en: 'The version check did not complete (usually the registry was unreachable): make sure the npm registry is reachable, then click "Check now" again.',
+  },
+  updateFailInvalidRelease: {
+    zh: '官方源回的元数据不是本包或版本号非法：先确认没被代理/镜像换过内容，再点一次「检查更新」。',
+    en: 'The registry returned metadata that is not this package, or an invalid version: check that a proxy or mirror is not rewriting the response, then click "Check now" again.',
+  },
+  updateFailInstallFailed: {
+    zh: '这次安装没成功，磁盘上的版本没变：用下面的手工兜底命令装，或点「检查更新」拿到新凭证再试一次。',
+    en: 'This install did not succeed and the version on disk is unchanged: use the manual fallback command below, or click "Check now" to get a fresh credential and retry.',
+  },
+  updateFailCheckExpired: {
+    zh: '安装凭证过期了（默认 10 分钟）：点「检查更新」重新取一张凭证，再点「安装新版本」。',
+    en: 'The install credential expired (10 minutes by default): click "Check now" to get a fresh one, then click "Install update" again.',
+  },
+  updateFailInstallationChanged: {
+    zh: '安装位置在使用中途变了：把宿主重开一次，再点「检查更新」让指纹重新绑定。',
+    en: 'The installation moved mid-flight: reopen the host, then click "Check now" so the fingerprint rebinds.',
+  },
+  updateFailRegistryConflict: {
+    zh: '本地声明的版本与磁盘实际版本矛盾：打开使用范围的清单文件，把目标包那一行改成版本号再试。',
+    en: 'The version declared locally contradicts the one on disk: open the profile manifest, pin the target package to a version, and retry.',
+  },
+  updateFailRecoveryRequired: {
+    zh: '上次安装被打断，留下一个半截任务：点「检查更新」看现在的状态，必要时重新点一次安装。',
+    en: 'The previous install was interrupted and left a half-done job: click "Check now" to see the current state, then retry the install if needed.',
+  },
+  updateFailParams: {
+    zh: '这次请求的参数不对（面板内部问题）：点「检查更新」从头再来一次；一直这样就把日志导出后提 Issue。',
+    en: 'The request parameters were rejected (an issue inside the panel): click "Check now" to start over; if it keeps happening, export the log and open an issue.',
+  },
+  updateFailUnknown: {
+    zh: '面板还不认识这个码：把原始错误码记下来提 Issue，或点「检查更新」重试一次。',
+    en: 'The panel does not know this code yet: note the raw error code down and open an issue, or click "Check now" to retry.',
+  },
+  updateNoCredential: {
+    zh: '宿主这次没给安装凭证，装不了；再点一次「检查更新」拿张新凭证。',
+    en: 'The host returned no install credential this time, so nothing was installed; click "Check now" again for a fresh one.',
+  },
+  // 安装任务自己的终态失败（`snapshot.job.state` 为 failed / interrupted）。这不是 `blockedReason` 的
+  // 八条之一 —— 包 README 第 8 节没有「安装失败」这种情形，所以**另起一条**、不冒充那八条。
+  updateJobFailTitle: { zh: '这次安装没成功', en: 'This install did not succeed' },
+  updateJobFailHint: {
+    zh: '磁盘上的版本没变。用下面的手工兜底命令重装，或点「检查更新」再试一次；一直这样就把日志导出后提 Issue。',
+    en: 'The version on disk is unchanged. Reinstall with the manual fallback command below, or click "Check now" to retry; if it keeps happening, export the log and open an issue.',
   },
   updateReasonTitle: { zh: '装不了的原因', en: 'Why it cannot install' },
   updateReasonUnknown: {
@@ -167,6 +230,10 @@ export const STR = {
     en: 'Open the profile manifest and check whether the target package line pins a version; pin one and retry.',
   },
   updateWhyIncompatibleNode: {
+    // 包 README 第 8 节第三列原话是「先升级 Node 到 22 或更高，再查更新」——这一行**照抄**，不是偏离：
+    // 包判断的是远端 `engines.node` 声明的门槛（`satisfiesNodeRange(ports.nodeVersion, release.nodeRange)`），
+    // 本仓没有第二处门槛可写（#42 已经把 DSH 版本声明收成一处真值）。所以这里**只剩一处**有意偏离
+    // （`recovery-required`，见下），不要把它算成两处。
     zh: '先升级 Node 到 22 或更高，再查更新。',
     en: 'Upgrade Node to 22 or newer first, then check again.',
   },
@@ -189,6 +256,10 @@ export const STR = {
   updateManualHint: {
     zh: '这不是万能药：命令装的是「已装版本」那一侧——没先点「检查更新」时，命令里的版本号就是你已装的版本；状态是「安装位置变了」时，执行它也只是原地重装，清不掉那个状态。',
     en: 'This is not a cure-all: the command targets the installed side — without a fresh check the version in it is simply your installed version, and under "installation location changed" it only reinstalls in place without clearing that state.',
+  },
+  updateManualStale: {
+    zh: '这条命令来自上一次成功的通话，不是这次失败的答复。',
+    en: 'This command comes from the last call that succeeded, not from the call that just failed.',
   },
   updateStatusNote: {
     zh: '版本与状态每次都由宿主现算，不缓存；「最新版本」只有点过「检查更新」才有值。',

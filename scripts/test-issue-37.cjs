@@ -208,14 +208,17 @@ const kids = tree.children;
 // #52 改版：版式变了（每个功能各收进一张卡片：智能推荐组 / 诊断日志组），所以这几条改成**按内容找**，
 // 不再按索引钉死（索引断言会随版式变化而失去意义）。#37 自己的四条保证一条不减：
 // 两个图标按钮、四行引流区、旧文字链接下线、末尾是引流区。
-// #40 连带：设置页顶层**上方**多了一行「检查更新」入口（左对齐、带版本号），于是所有索引整体后移一位、
-// 块数 6 → 7。本段只做这个位移，四条保证与文案一字不动；新增第 0 块的存在性顺便在这里钉住。
+// #40 连带：设置页顶层多了一行「检查更新」入口（左对齐、带版本号），块数 6 → 7。
+// #60 的位置修正：那一行从身份行**之上**挪到**之下** ⇒ 前两块互换、块数不变（还是 7）。
+// 四条保证（两个图标按钮 / 四行引流区 / 旧文字链接下线 / 末尾是引流区）一条不减，文案一字不动。
 const hasCheckbox = (node) => !!(node && ((node.props && node.props.type === 'checkbox')
   || (Array.isArray(node.children) && node.children.some(hasCheckbox))));
-eq(kids.length, 7, '设置页顶层七块：#40 更新入口 / 标题行 / 智能推荐组 / 诊断日志组 / 模板列表 / 存储说明 / 引流区');
-eq(txt(kids[0]).indexOf(STR.updateEntry.zh) >= 0, true, '#40：第 0 块是「检查更新」入口（在 #37 的标题行之上）');
-eq(jsonAnchors(kids[1]).map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '第 1 块是右上角两个按钮（顺序：🌟 仓库、💬 ISSUE）');
-eq(txt(kids[1]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 1 块左边有插件名字');
+eq(kids.length, 7, '设置页顶层七块：#60 身份行 / 更新入口 / 智能推荐组 / 诊断日志组 / 模板列表 / 存储说明 / 引流区');
+eq(jsonAnchors(kids[0]).map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '第 0 块是右上角两个按钮（顺序：🌟 仓库、💬 ISSUE）');
+eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 0 块左边有插件名字');
+// 变异判据：把更新入口挪回身份行之上（#60 之前的样子）⇒ 这两条当场变红。
+eq(txt(kids[0]).indexOf(STR.updateEntry.zh) < 0, true, '#60：第 0 块不是更新入口（它不再压在插件身份行之上）');
+eq(txt(kids[1]).indexOf(STR.updateEntry.zh) >= 0, true, '#60：第 1 块是「检查更新」入口（在 #37 的身份行之下）');
 eq(txt(kids[2]).indexOf(STR.smartGroup.zh) >= 0, true, '第 2 块是「智能推荐」组（带组标题）');
 eq(txt(kids[2]).indexOf(STR.smartToggle.zh) >= 0, true, '智能开关在组内（文案一字不动）');
 eq(hasCheckbox(kids[2]), true, '智能开关仍是 checkbox');

@@ -1,5 +1,6 @@
 /**
- * dsh-prompt — 更新入口 + 更新弹窗（#40）：设置面板顶部一行「检查更新」，点开做全四件事
+ * dsh-prompt — 更新入口 + 更新弹窗（#40）：设置面板里一行「检查更新」，点开做全四件事
+ * （#60 起这一行排在插件身份行**之下**、并且走本页既有的卡片语言，见 entryCardStyle 与 row 上的注释）
  *
  * 数据来源只有一个：更新包的电话 —— 就是 `src/update/bridge.ts` 那张表。本文件**一个电话名与
  * 端点路径都不写**：名字从 `updatePhoneNames` 取、路径由 bridge 决定（派生文件是唯一真值）。
@@ -205,6 +206,21 @@ const codeStyle: any = {
 }
 
 /**
+ * 入口那一行的卡片外壳（#60）：数值逐字取自 settings.ts 的 `SettingGroup` —— 1px 边框 / 圆角 12 /
+ * 内距 `2px 14px 12px` / 外边距 `14px 0 4px`。**分隔交给这张卡片自己的边框与圆角**：改造前那一行只用
+ * 一条整宽的 `borderBottom` 划开，读起来像「页面 header」而不是「这一页里的一块」。
+ *
+ * 为什么不直接 import settings.ts 的 `SettingGroup`：settings.ts 已经 import 本文件的 `UpdateEntry`
+ * （一条既有边），反向 import 就成环 —— 仓内回归脚本把客户端模块逐个转译成 CJS 再 require
+ * （`scripts/.rt-tmp-40` 这类临时目录），成环时某一边会拿到半截导出。本文件顶部那份 TOK 表就是同一个取舍的先例
+ * （两文件各持一份、数值同一套，谁也不发明第二套视觉）。
+ */
+const entryCardStyle: any = {
+  border: '1px solid ' + TOK.border, borderRadius: 12, padding: '2px 14px 12px', margin: '14px 0 4px',
+  display: 'flex', flexDirection: 'column', fontFamily: TOK.font,
+}
+
+/**
  * 设置面板顶部那一行入口 +（点开后）更新弹窗。自带状态：打开设置页时读一次 `status`（只读本机、不联网）。
  *
  * 行与弹窗放同一个组件里是刻意的：版本号来自同一次回包，拆成两处会各自持有一份可能不同步的状态。
@@ -254,6 +270,13 @@ export function UpdateEntry(props?: any): any {
   const skipState = react.useState(loadSkippedVersion)
   const skipped: string = skipState[0]
   const setSkipped = skipState[1]
+  /**
+   * 入口那一行的悬停态（#60）：内联样式没有 `:hover`，所以沿用既有 `Btn` 的写法（useState + 进入/离开）。
+   * 可点线索一共三条：整行 `cursor: pointer`、整行底色变 `bgHover`、右侧 chevron。
+   */
+  const rowHoverState = react.useState(false)
+  const rowHover: boolean = rowHoverState[0]
+  const setRowHover = rowHoverState[1]
 
   /**
    * 一条电话。任何异常都收成回包形状（`ok:false` + 错误码），**绝不向上抛** ——
@@ -518,24 +541,47 @@ export function UpdateEntry(props?: any): any {
    * 这样自动那只才不会「用户刚关掉又弹回来」，而设置页这一份重开也不受影响（它本来就占着名额）。
    */
   const close = (): void => { setOpen(false); setNote('') }
-  const row = h('button', {
-    key: 'update-row',
-    type: 'button',
-    'data-dsh-prompt-update': '',
-    // 用户亲手开：先领名额（若自动那一只正占着就压掉它，见 upddialog.ts 的口径 2），再开窗。
-    onClick: () => { askPort(port); setOpen(true) },
-    style: {
-      display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 8, width: '100%',
-      textAlign: 'left', padding: '10px 4px', background: 'transparent', border: 0,
-      borderBottom: '1px solid ' + TOK.border, cursor: 'pointer', fontFamily: TOK.font,
-    },
-  }, [
-    h('span', { key: 'label', style: { fontSize: 13, color: TOK.labelPrimary } }, t('updateEntry')),
-    h('span', {
-      key: 'ver',
-      'data-dsh-prompt-update-version': '',
-      style: { fontFamily: TOK.mono, fontSize: 11.5, color: TOK.labelTertiary },
-    }, versionLine),
+  /**
+   * 设置页那一行入口（#60 版式改造）。三件事一次说清：
+   * 1. **容器**：一张无组标题的卡片（`entryCardStyle`，与 settings.ts 的 `SettingGroup` 同数值），
+   *    分隔由卡片的边框与圆角承担 —— 那条整宽 `borderBottom` 已删（它是「这是页面 header」的错觉来源）。
+   * 2. **行解剖**对齐同页的 `SettingRow`：左 = 入口文案（13px / `labelPrimary`），右 = 版本徽标 + chevron；
+   *    内距 `10px 0`、两端 12px、右侧小间隙 6px，都是这一页既有的那套数值。
+   * 3. **版本徽标**（不再是紧贴文案的副标题）：等宽 11.5px / `labelSecondary` / 底 `bgLayer` / 圆角 6 /
+   *    内距 `1px 6px` —— 版本号从此是一枚「徽标」，不是一行标题的尾巴。
+   * 行为一字不动（#40/#41 已验收）：点整行仍是 askPort + setOpen，`data-dsh-prompt-update` 仍在**可点的那一个**
+   * 元素上（回归脚本点它、并在 auto 模式数它为 0）。
+   */
+  const row = h('section', { key: 'update-card', style: entryCardStyle }, [
+    h('button', {
+      key: 'update-row',
+      type: 'button',
+      'data-dsh-prompt-update': '',
+      // 用户亲手开：先领名额（若自动那一只正占着就压掉它，见 upddialog.ts 的口径 2），再开窗。
+      onClick: () => { askPort(port); setOpen(true) },
+      onMouseEnter: () => setRowHover(true),
+      onMouseLeave: () => setRowHover(false),
+      style: {
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: '100%',
+        textAlign: 'left', padding: '10px 0', background: rowHover ? TOK.bgHover : 'transparent',
+        border: 0, borderRadius: 8, cursor: 'pointer', fontFamily: TOK.font,
+        transition: 'background-color .12s ease',
+      },
+    }, [
+      h('span', { key: 'label', style: { fontSize: 13, color: TOK.labelPrimary } }, t('updateEntry')),
+      h('span', { key: 'right', style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, [
+        h('span', {
+          key: 'ver',
+          'data-dsh-prompt-update-version': '',
+          style: {
+            fontFamily: TOK.mono, fontSize: 11.5, color: TOK.labelSecondary,
+            background: TOK.bgLayer, borderRadius: 6, padding: '1px 6px',
+          },
+        }, versionLine),
+        // 可点线索之三：右侧 chevron（「这一行会打开点什么」）。纯装饰，对读屏隐藏。
+        h('span', { key: 'chev', 'aria-hidden': 'true', style: { fontSize: 13, color: TOK.labelTertiary } }, '›'),
+      ]),
+    ]),
   ])
 
   const versionRow = (key: string, label: string, value: string): any => h('div', {

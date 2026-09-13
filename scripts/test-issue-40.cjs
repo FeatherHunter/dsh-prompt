@@ -258,26 +258,75 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     eq(typeof (STR[key] && STR[key].zh) === 'string' && STR[key].zh.length > 0, true, code + '：预留文案在表里（没有为它编情形）');
   }
 
-  console.log('=== T3: 入口行（设置页顶层第一行，带当前版本号；点开弹窗） ===');
+  console.log('=== T3: 入口行（身份行之下，带当前版本号；点开弹窗） ===');
   script.status = okEnv(snap(), 'dsh plugin --profile web add --save-exact dsh-prompt@0.1.7 --registry=https://registry.npmjs.org/');
   const page = await mount(React.createElement(settings.SettingsPage, {}));
   await flush();
   const kids = page.toJSON().children;
-  eq(kids.length, 7, '设置页顶层七块（#40 在 #37 的六块之上加了一行）');
-  eq(txt(kids[0]).indexOf(STR.updateEntry.zh) >= 0, true, '第 1 块是「检查更新」入口');
-  eq(txt(kids[0]).indexOf('v0.1.7') >= 0, true, '入口行带当前版本号（v0.1.7，来自 status 回包）');
-  eq(txt(kids[1]).indexOf('⛭') < 0, true, '#37 的旧文字链接仍不在');
-  eq(jsonAnchors(kids[1]).length, 2, '#37 的右上角两个图标按钮原样在第二行（顺序不变）');
-  eq(jsonAnchors(kids[1]).map((a) => a.props.href).join('|'),
+  eq(kids.length, 7, '设置页顶层七块（块数不变：#60 只把前两块换了顺序）');
+  // #60 的位置修正：身份行在前、更新入口在后（本票之前是反的 —— 入口压着身份行，看着像整页主标题）。
+  // 变异判据：把入口挪回身份行之上 ⇒ 下面「第 1 块是入口」这条当场变红。
+  eq(jsonAnchors(kids[0]).length, 2, '#37 的右上角两个图标按钮原样在第 0 块（顺序不变）');
+  eq(jsonAnchors(kids[0]).map((a) => a.props.href).join('|'),
     'https://github.com/FeatherHunter/dsh-prompt|https://github.com/FeatherHunter/dsh-prompt/issues',
     '#37 两个按钮的地址与顺序一字不动');
+  eq(txt(kids[0]).indexOf(STR.updateEntry.zh) < 0, true, '#60：第 0 块是插件身份行，不是「检查更新」入口');
+  eq(txt(kids[1]).indexOf(STR.updateEntry.zh) >= 0, true, '#60：第 1 块才是「检查更新」入口');
+  eq(txt(kids[1]).indexOf('v0.1.7') >= 0, true, '入口行带当前版本号（v0.1.7，来自 status 回包）');
+  eq(txt(kids[0]).indexOf('⛭') < 0, true, '#37 的旧文字链接仍不在');
   const all = page.root.findAll(() => true);
   const entryIdx = all.findIndex((x) => x.props && x.props['data-dsh-prompt-update'] !== undefined);
   const linkIdx = all.findIndex((x) => x.props && x.props['aria-label'] === STR.gitHubRepo.zh);
-  eq(entryIdx >= 0 && linkIdx >= 0 && entryIdx < linkIdx, true, '入口排在 #37 图标行之上（DOM 顺序）');
+  eq(entryIdx >= 0 && linkIdx >= 0 && linkIdx < entryIdx, true, '#60：身份行（图标按钮）排在入口之前（DOM 顺序）');
   eq(requests.length, 1, '打开设置页只发生一次通话（正好一次，不重复打）');
   eq(requests[0].which, 'status', '打的是 status（只读本机、不联网）；自动查新版是 #41 的事，本票不擅自联网');
   eq(requests[0].method, 'POST', '通话走 POST');
+
+  console.log('=== T3b: #60 入口行的版式（卡片 + 版本徽标 + chevron + 悬停态；不引新色 / 新字号 / 新圆角） ===');
+  {
+    const rowOf = () => one(page, 'data-dsh-prompt-update');
+    // ① 容器：一张**无组标题**的卡片，数值与 settings.ts 的 SettingGroup 逐字相同 —— 分隔交给它，
+    //    不再自己划一条整宽 borderBottom。
+    let card = rowOf().parent;
+    while (card && card.type !== 'section') card = card.parent;
+    eq(!!card, true, '入口行被一张卡片包住（section）');
+    eq(card && card.props.style.border, '1px solid var(--dsw-alias-border-l1)', '卡片边框 = TOK.border（与 SettingGroup 同数）');
+    eq(card && card.props.style.borderRadius, 12, '卡片圆角 12（既有数值，不新造）');
+    eq(card && card.props.style.padding, '2px 14px 12px', '卡片内距与 SettingGroup 逐字相同');
+    eq(card && card.props.style.margin, '14px 0 4px', '卡片外边距与 SettingGroup 逐字相同（垂直节奏沿用既有比例）');
+    // ② 行解剖对齐同页的 SettingRow：左 = 文案（13px / labelPrimary），右 = 徽标 + chevron。
+    const rs = rowOf().props.style;
+    eq(rs.borderBottom, undefined, '整宽 borderBottom 已删（它正是「看着像页面 header」的来源）');
+    eq(rs.border, 0, '行自己没有边框（边框属于卡片）');
+    eq(rs.padding, '10px 0', '行内距 = SettingRow 的 10px 0');
+    eq(rs.justifyContent, 'space-between', '两端布局：左文案 / 右徽标 + chevron');
+    eq(rs.cursor, 'pointer', '整行可点（cursor: pointer）');
+    eq(rs.background, 'transparent', '静止态不铺底色');
+    eq(String(rs.transition).indexOf('background-color') >= 0, true, '底色过渡沿用既有 Btn 那套写法');
+    const label = rowOf().findAll((x) => x.type === 'span' && txt(x) === STR.updateEntry.zh)[0];
+    eq(!!label, true, '左边是入口文案');
+    eq(label && label.props.style.fontSize, 13, '文案 13px（既有字号）');
+    eq(label && label.props.style.color, 'var(--dsw-alias-label-primary)', '文案 labelPrimary');
+    // ③ 版本徽标：等宽小字 + 底色 + 圆角，不再是紧贴文案的副标题。
+    const badge = one(page, 'data-dsh-prompt-update-version');
+    eq(badge.props.style.fontFamily, 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', '徽标用既有等宽字体 TOK.mono');
+    eq(badge.props.style.fontSize, 11.5, '徽标 11.5px（既有字号）');
+    eq(badge.props.style.color, 'var(--dsw-alias-label-secondary)', '徽标 labelSecondary');
+    eq(badge.props.style.background, 'var(--dsw-alias-bg-layer-3)', '徽标底色 bgLayer');
+    eq(badge.props.style.borderRadius, 6, '徽标圆角 6（既有数值）');
+    eq(badge.props.style.padding, '1px 6px', '徽标内距 1px 6px');
+    // ④ 可点线索之三：右侧 chevron（纯装饰，对读屏隐藏）。
+    const chev = rowOf().findAll((x) => x.type === 'span' && txt(x) === '›')[0];
+    eq(!!chev, true, '右侧有 chevron ›');
+    eq(chev && chev.props.style.color, 'var(--dsw-alias-label-tertiary)', 'chevron labelTertiary');
+    eq(chev && chev.props.style.fontSize, 13, 'chevron 13px（既有字号）');
+    eq(chev && chev.props['aria-hidden'], 'true', 'chevron aria-hidden（装饰，不进读屏）');
+    // ⑤ 悬停态：内联样式没有 :hover，靠 useState + 进入/离开（既有 Btn 的写法）。
+    await act(() => { rowOf().props.onMouseEnter() });
+    eq(rowOf().props.style.background, 'var(--dsw-alias-bg-layer-2,rgba(255,255,255,.06))', '悬停时整行铺 bgHover');
+    await act(() => { rowOf().props.onMouseLeave() });
+    eq(rowOf().props.style.background, 'transparent', '移开后底色收回（不留常驻高亮）');
+  }
   await act(() => { one(page, 'data-dsh-prompt-update').props.onClick() });
   eq(!!one(page, 'data-dsh-prompt-update-modal'), true, '点入口行打开弹窗');
   eq(txt(one(page, 'data-dsh-prompt-update-modal')).length > 30, true, '弹窗有内容（不是空白）');

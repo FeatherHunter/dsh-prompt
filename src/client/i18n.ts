@@ -132,6 +132,11 @@ export const STR = {
   updateCopied: { zh: '已复制到剪贴板。', en: 'Copied to the clipboard.' },
   updateCopyFail: { zh: '复制失败，请手动选中命令复制。', en: 'Copy failed — select the command manually.' },
   updateClose: { zh: '关闭', en: 'Close' },
+  // #41：启动后延迟一次自动检查，只在发现新版本时弹一次（同一个组件，不是第二只弹窗）。
+  updateAutoNote: {
+    zh: '这是启动时自动检查的结果：只在发现新版本时弹这一次，之后不再打扰。',
+    en: 'Automatic check on start: this dialog appears once, and only when a newer version exists.',
+  },
   // 两类「电话级失败」的标题与 hint 是**分开**的：桥真的没回答（上面这两条）与宿主回答了但这次操作没成
   // （下面这两条）不是一回事，后者照前者说就是撒谎（用户会去报一个不存在的「宿主没接通」）。
   updateHostFailTitle: { zh: '宿主没有回答更新状态', en: 'The host did not answer the update status' },

@@ -22,7 +22,9 @@ const MODULES = [
   ['about.ts', SRC('about.ts'), ['./panel', './i18n']],
   // #40 的连带：settings.ts 顶部多了一行更新入口（`./update`），转译表与依赖改写必须跟着带上，
   // 否则这个脚本会以「Cannot find module './update'」直接崩（不是断言失败，是跑不起来）。
-  ['update.ts', SRC('update.ts'), ['./panel', './i18n', '../update/bridge', '../update/gen/updateClient.derived.js']],
+  // #41 的连带同理：update.ts 多了一条 `./updauto` 的 import 边（自动检查的判据与跳过记录）。
+  ['updauto.ts', SRC('updauto.ts'), []],
+  ['update.ts', SRC('update.ts'), ['./panel', './i18n', './updauto', '../update/bridge', '../update/gen/updateClient.derived.js']],
   ['settings.ts', SRC('settings.ts'), ['./panel', './about', './update', './smartstore', './i18n']],
   ['bridge.ts', UPD('bridge.ts'), ['./gen/updateClient.derived.js']],
   ['updateClient.derived.js', UPD('gen/updateClient.derived.js'), []],

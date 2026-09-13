@@ -65,6 +65,7 @@ for (const [outName, srcPath, deps] of MODULES) {
 }
 const React = require('react');
 const TR = require('react-test-renderer');
+const derived = require(TMP('updateClient.derived.cjs'));
 
 /**
  * 把注释从源码里剥掉再看代码：有几条纪律是**代码**纪律（不认识宿主存储、不发请求），
@@ -100,6 +101,7 @@ const failEnv = (code) => ({ ok: false, value: { ok: false, error: code, errorKi
 const snap = (over) => Object.assign({
   runningVersion: '0.1.7', installedVersion: '0.1.7', latestVersion: null, canInstall: false, blockedReason: null, job: null,
 }, over);
+const realFetch = globalThis.fetch;
 globalThis.fetch = async (url, init) => {
   const u = String(url);
   const which = u === STATUS_PATH ? 'status' : u === CHECK_PATH ? 'check' : u === INSTALL_PATH ? 'install' : '';
@@ -188,38 +190,52 @@ const waitShown = async (pred, budgetMs = 5000, stepMs = 10) => {
   }
 };
 
-/* ── 定时器账本：把 setTimeout / setInterval 记成「谁在活着」，用来做行为断言 ──
-   包一层 globalThis 上的真函数（透传调用），只记 id、延迟与类型；clear* 把账划掉。
+/* ── 定时器账本：把 setTimeout / setInterval 记成「当下还活着几只在等」，用来做行为断言 ──
+   包一层 globalThis 上的真函数（透传调用），只记 id、延迟与回调；一次性定时器**烧掉就自己划账**，
+   所以账上剩下的就是「还没烧的」；clear* 也把账划掉。
    「关掉弹窗不留常驻定时器」这条断言看的就是这份账，不是源码。 */
 const realSetTimeout = globalThis.setTimeout;
 const realClearTimeout = globalThis.clearTimeout;
 const realSetInterval = globalThis.setInterval;
 const realClearInterval = globalThis.clearInterval;
-const clock = { timers: new Map(), seq: 0 };
+const clock = { timers: new Map() };
 globalThis.setTimeout = function (fn, ms) {
-  const id = realSetTimeout(fn, ms);
-  clock.timers.set(id, { kind: 'timeout', ms, fn });
+  const entry = { kind: 'timeout', ms, fn };
+  const id = realSetTimeout(function () { clock.timers.delete(id); return fn.apply(this, arguments) }, ms);
+  entry.id = id;
+  clock.timers.set(id, entry);
   return id;
 };
 globalThis.clearTimeout = function (id) { clock.timers.delete(id); return realClearTimeout(id) };
 globalThis.setInterval = function (fn, ms) {
   const id = realSetInterval(fn, ms);
-  clock.timers.set(id, { kind: 'interval', ms, fn });
+  clock.timers.set(id, { id, kind: 'interval', ms, fn });
   return id;
 };
 globalThis.clearInterval = function (id) { clock.timers.delete(id); return realClearInterval(id) };
-/** 活着的定时器（可按类型过滤）：interval 用「交出去的 id 还在账上」判。 */
-const liveTimers = (kind) => Array.from(clock.timers.entries()).filter(([, v]) => !kind || v.kind === kind);
-/** 把账上最近一个未触发的 `timeout` 记下来（不触发），交给调用方决定何时点火。 */
-const lastTimeout = () => {
-  let out = null;
-  for (const [id, v] of clock.timers) if (v.kind === 'timeout') out = { id, ...v };
-  return out;
-};
+/** 账上还活着的定时器（按钮可按类型过滤）。 */
+const liveTimers = (kind) => Array.from(clock.timers.values()).filter((v) => !kind || v.kind === kind);
+/**
+ * 账上那个**还没烧、且不是测试自己排的等待**的一次性定时器：测试的 waitFor 用的是 5/10ms、
+ * 最长的等待是 1.5s；组件排的启动延迟是 8s —— 用 1000ms 这条线把两者分开（这条线只服务测试的账本）。
+ */
+const pendingDelay = () => liveTimers('timeout').filter((v) => v.ms >= 1000);
 const clearClock = () => {
-  for (const [id, v] of clock.timers) { try { if (v.kind === 'timeout') realClearTimeout(id); else realClearInterval(id) } catch (e) { /* ignore */ } }
+  for (const v of clock.timers.values()) { try { if (v.kind === 'timeout') realClearTimeout(v.id); else realClearInterval(v.id) } catch (e) { /* ignore */ } }
   clock.timers.clear();
 };
+/**
+ * 手动点一次「账上那个还没烧掉的启动延迟」：先把真表拆掉（不然 8 秒后真定时器会再进同一段逻辑，
+ * 而那时测试已经在另一个用例里了），再在 act 里调它的回调 —— 这就是「延迟到点」的确定性等价物。
+ */
+const fireTimeout = async (t) => {
+  if (!t) { bad('账本上没有待触发的启动延迟（组件没排？还是被别的东西顶下去了）'); return }
+  realClearTimeout(t.id);
+  clock.timers.delete(t.id);
+  await act(() => { t.fn() });
+};
+/** 账上活着的常驻表：≥250ms 的 interval（测试自己不排 interval）。 */
+const liveIntervals = () => liveTimers('interval').filter((v) => v.ms >= 250);
 
 /* ── 生产真值（测试里写死，不许拿常量自己比自己） ── */
 /** 票面定死的延迟：启动后 8 秒。本行是**期望**，不是从源码读出来的值。 */
@@ -309,6 +325,121 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
     clearLS();
   }
 
-  console.log(failures === 0 ? '\n全部通过。' : '\n失败 ' + failures + ' 条。');
+  console.log('=== T4: 自动模式的接线与「延迟只出现一处」 ===');
+  {
+    const autoCode = stripComments(autoSrc);
+    const updateCode = stripComments(updateSrc);
+    const indexCode = stripComments(indexSrc);
+    eq(/export const AUTO_CHECK_DELAY_MS = 8000/.test(autoCode), true, 'updauto.ts 定义 AUTO_CHECK_DELAY_MS = 8000（本票定死的延迟）');
+    // 「代码里只出现一处」：把 src 下所有 .ts 剥掉注释后数这个数字
+    const srcless = [];
+    const walkSrc = (d) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name);
+        if (e.isDirectory()) walkSrc(p);
+        else if (e.name.endsWith('.ts')) srcless.push(p);
+      }
+    };
+    walkSrc(path.join(ROOT, 'src'));
+    const hits = srcless.filter((f) => /\b8000\b/.test(stripComments(fs.readFileSync(f, 'utf8'))))
+      .map((f) => path.relative(ROOT, f).replace(/\\/g, '/'));
+    eq(hits, ['src/client/updauto.ts'], '延迟数字 8000 在 src 的代码里只出现在 updauto.ts 一处');
+    eq(updateCode.split('AUTO_CHECK_DELAY_MS').length - 1, 2, 'update.ts 只在 import + setTimeout 两处提到这个常量（自己不写数字）');
+    eq(/setTimeout\([\s\S]{0,120}AUTO_CHECK_DELAY_MS/.test(updateCode), true, '延迟到点的定时器用的就是这个常量');
+    eq(/clearTimeout\(timer\)/.test(updateCode), true, '卸载 / 关窗时 clearTimeout（不留常驻表）');
+    // 全局宿主：shell.overlay 的第二个注册点（与智能卡并列），auto 开关只在这一处传
+    eq(indexCode.split("'shell.overlay'").length - 1, 4, 'index.ts 在 shell.overlay 注册两处（inject + register 各一次 × 智能卡与更新自动检查）');
+    eq(/id: 'dsh-prompt-update-auto'/.test(indexCode), true, '全局宿主有稳定的 id（dsh-prompt-update-auto）');
+    eq(indexCode.split('auto: true').length - 1, 1, 'auto 模式只在 index.ts 那一个宿主里打开（设置页那一份不受影响）');
+    eq(/conversation\.input\.overlay[\s\S]{0,200}dsh-prompt-update-auto/.test(indexCode), false, '自动宿主不在会话作用域（会话说白了可以有多个，电话只该发一次）');
+    // 自动模式仍是同一只弹窗（不另写一只）：ModalPortal + 同一个 data 属性
+    eq(/if \(auto\) return modal/.test(updateCode), true, 'auto 模式直接返回 ModalPortal 包的那只弹窗（不另写第二只）');
+
+    console.log('=== T5: 启动后按生产默认延迟自动查一次；有新版本弹同一只弹窗 ===');
+    resetScript(); clearLS(); clearClock();
+    script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
+    const { update } = reload();
+    const c = await mount(React.createElement(update.UpdateEntry, { auto: true }));
+    eq(calls('status'), 0, '自动模式挂载时不打 status（一个会话就一条电话：延迟到点的 check）');
+    eq(nodes(c, 'data-dsh-prompt-update').length, 0, '自动模式不渲染设置页那一行入口');
+    eq(!!one(c, 'data-dsh-prompt-update-modal'), false, '延迟没到点：不弹窗');
+    const pending = pendingDelay()[0];
+    eq(pending && pending.ms, EXPECT_DELAY_MS, '排的是一次 ' + EXPECT_DELAY_MS + 'ms 的延迟（生产默认值，测试写死期望）');
+    eq(calls('check'), 0, '到点之前一条 check 都不发（不是「先查再等」）');
+    await fireTimeout(pending);
+    if (!await waitFor(() => calls('check') === 1, 4000)) bad('延迟到点后等 4s 仍没发出 check；通话序列=' + (requests.map((r) => r.which).join('|') || '(无)'));
+    else ok('延迟到点发出且只发一条 check');
+    if (!await waitShown(() => !!one(c, 'data-dsh-prompt-update-modal'), 4000)) {
+      bad('有新版本却没弹窗；通话序列=' + (requests.map((r) => r.which).join('|') || '(无)'));
+    } else {
+      ok('有新版本 ⇒ 自动弹出更新弹窗');
+      const mt = String(txt(one(c, 'data-dsh-prompt-update-modal')));
+      eq(mt.indexOf('0.1.9') >= 0, true, '弹窗里能看到新版本号 0.1.9');
+      eq(!!one(c, 'data-dsh-prompt-update-action') && !!nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'install')[0], true,
+        '自动弹出的就是 #40 那只带「安装新版本」的弹窗');
+    }
+    eq(calls('check'), 1, '整个启动过程只自动查这一次（闸：一个会话一次）');
+    eq(pendingDelay().length, 0, '延迟那一刻的一次性定时器已经烧掉，账上没有别的一次性表在等');
+    eq(liveIntervals().length, 0, '空闲弹窗（没有安装任务）不开常驻轮询');
+
+    console.log('=== T6: 「只弹一次」——关掉后再重挂载也不发第二条电话、不再弹 ===');
+    {
+      const close = nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'close')[0];
+      await act(() => { close.props.onClick() });
+      eq(!!one(c, 'data-dsh-prompt-update-modal'), false, '点 ✕ 关掉弹窗');
+      c.unmount();
+      await flush();
+      const c2 = await mount(React.createElement(update.UpdateEntry, { auto: true }));
+      const pend2 = pendingDelay()[0];
+      eq(pend2 && pend2.ms, EXPECT_DELAY_MS, '重挂载后确实又排了一次延迟（不是靠「根本没挂上」蒙过的）');
+      await fireTimeout(pend2);
+      await TR.act(async () => { await new Promise((r) => setTimeout(r, 60)) });
+      eq(calls('check'), 1, '第二次启动阶段一条 check 都不发（闩在模块级，跨重挂载）');
+      eq(!!one(c2, 'data-dsh-prompt-update-modal'), false, '也不再弹第二只窗（「有新版本弹一次」）');
+      c2.unmount();
+    }
+
+    console.log('=== T7: 没有新版本 / 安装中轮询随弹窗生命周期起停 ===');
+    {
+      resetScript(); clearLS(); clearClock();
+      script.check = okEnv(snap({ latestVersion: '0.1.7' }), 'CMD');
+      const fresh = reload();
+      const c3 = await mount(React.createElement(fresh.update.UpdateEntry, { auto: true }));
+      await fireTimeout(pendingDelay()[0]);
+      if (!await waitFor(() => calls('check') === 1, 4000)) bad('（第二个模块实例）延迟到点没发 check');
+      await TR.act(async () => { await new Promise((r) => setTimeout(r, 50)) });
+      eq(!!one(c3, 'data-dsh-prompt-update-modal'), false, 'latest == running（没有新版本）⇒ 不弹窗，不打扰');
+      eq(pendingDelay().length, 0, '没弹窗也不留常驻一次性表');
+      eq(liveIntervals().length, 0, '没弹窗也不留常驻轮询');
+      c3.unmount();
+
+      // 安装中：弹窗打开期间按 UPD_POLL 轮询；关掉弹窗即停表（票面验收第 3 条）。
+      resetScript(); clearLS(); clearClock();
+      script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: false, job: { state: 'installing' } }), 'CMD');
+      script.status = () => okEnv(snap({ latestVersion: '0.1.9', canInstall: false, job: { state: 'installing' } }), 'CMD');
+      const fresh2 = reload();
+      const c4 = await mount(React.createElement(fresh2.update.UpdateEntry, { auto: true }));
+      await fireTimeout(pendingDelay()[0]);
+      if (!await waitShown(() => !!one(c4, 'data-dsh-prompt-update-modal'), 4000)) bad('安装中那一份没有自动弹窗，后面两条轮询断言无从谈起');
+      else {
+        if (!await waitFor(() => calls('status') >= 1, 4000)) bad('安装中：等 4s 没看到轮询发 status');
+        else ok('安装中：弹窗打开期间按 UPD_POLL（' + derived.UPD_POLL + 'ms）轮询 status');
+        eq(requests.filter((r) => r.which === 'status').length >= 1 && requests[requests.length - 1].which === 'status', true,
+          '轮询发的是 status（只读本机、不联网）');
+        const close4 = nodes(c4, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'close')[0];
+        await act(() => { close4.props.onClick() });
+        const at = calls('status');
+        await TR.act(async () => { await new Promise((r) => setTimeout(r, derived.UPD_POLL + 500)) });
+        eq(calls('status'), at, '关掉弹窗后不再打 status（轮询随弹窗生命周期结束，' + (derived.UPD_POLL + 500) + 'ms 内又打了 ' + (calls('status') - at) + ' 次）');
+        eq(liveIntervals().length, 0, '关掉弹窗后账上没有活着的 interval');
+        eq(pendingDelay().length, 0, '关掉弹窗后账上也没有别的一次性表');
+      }
+      c4.unmount();
+      await flush();
+    }
+  }
+
+  globalThis.fetch = realFetch;
+  console.log(failures === 0 ? '\n全部通过：启动自动检查 + 只弹一次 + 跳过此版本（#41）' : '\n失败 ' + failures + ' 条。');
   process.exit(failures === 0 ? 0 : 1);
 })().catch((e) => { console.log('FAIL: 脚本自己抛了 ' + (e && e.stack || e)); process.exit(1) });

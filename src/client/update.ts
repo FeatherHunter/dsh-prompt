@@ -23,11 +23,18 @@
  *
  * 本文件不记客户端日志事件：宿主半已经把三条更新事件写进诊断日志（#39），客户端再加事件要同时改
  * 事件清单与 `test:log` 的计数，超出本票范围（要加就单独开票）。
+ *
+ * #41 起本组件有**两种模式**（同一个组件，不是第二只弹窗）：
+ *   设置页那一份（默认，`auto` 不传）：一行入口 + 弹窗，行为与 #40 一字不差；
+ *   全局那一份（`auto: true`，`index.ts` 挂在 shell.overlay）：不渲染入口行，改为「延迟一次 check →
+ *   有新版本才开同一只弹窗」。判据与跳过记录的落点都在 `updauto.ts`，本文件只做接线。
  */
 import { getReact, MODAL_Z, ModalPortal } from './panel'
 import { getLang, tr, STR } from './i18n'
 import { createUpdateBridge, updatePhoneNames, type UpdateCallResult } from '../update/bridge'
 import { UPD_POLL } from '../update/gen/updateClient.derived.js'
+// #41 的两块判据（跳过记在哪 / 这次该不该弹）在 updauto.ts；那边不 import 本文件，两文件不成环。
+import { AUTO_CHECK_DELAY_MS, claimAutoCheck, decideAutoOpen, loadSkippedVersion } from './updauto'
 
 /** 样式令牌：与 settings.ts 同一套宿主变量，不发明第二套视觉。 */
 const TOK = {
@@ -189,12 +196,14 @@ const codeStyle: any = {
  *
  * 行与弹窗放同一个组件里是刻意的：版本号来自同一次回包，拆成两处会各自持有一份可能不同步的状态。
  */
-export function UpdateEntry(): any {
+export function UpdateEntry(props?: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
   const lang = getLang()
   const t: T = (k) => tr(lang, STR[k])
+  /** 自动模式（#41）：全局宿主渲染的那一份 —— 只出弹窗，不出设置页那一行（见文件头）。 */
+  const auto = !!(props && props.auto)
 
   const resState = react.useState(null as UpdateCallResult | null)
   const res: UpdateCallResult | null = resState[0]
@@ -297,7 +306,13 @@ export function UpdateEntry(): any {
   const versionLine = running ? 'v' + running : t('updateVersionUnknown')
 
   // 打开设置页就读一次状态（只读本机）：入口那行要显示的「当前版本」就是从这里来的。
-  react.useEffect(() => { run(updatePhoneNames.updateStatus, 'status').catch(() => undefined) }, [])
+  // 自动模式（#41）不读这一次：check 的回包本来就带 running / installed / latest 三个版本号，
+  // 而挂载那次 status 还在飞的时候，`run` 的单飞锁会把延迟到点的那条 check **原地吞掉** —— 自动模式
+  // 只发一条电话，也就不存在这个竞争。
+  react.useEffect(() => {
+    if (auto) return undefined
+    run(updatePhoneNames.updateStatus, 'status').catch(() => undefined)
+  }, [auto])
 
   /**
    * 打开设置页读一次状态不够：install 的回包只是「安装中…」（真装在宿主后台跑），
@@ -307,7 +322,8 @@ export function UpdateEntry(): any {
    *
    * 三条纪律：
    * 1. 间隔取派生文件的 `UPD_POLL`（不写字面量；换前缀或升级包时重跑 derive 即可）；
-   * 2. **只在弹窗打开期间**跑，关闭 / 卸载时 `clearInterval`（启动自动检查是另一张票的事，本票不擅自联网）；
+   * 2. **只在弹窗打开期间**跑，关闭 / 卸载时 `clearInterval`（`open` 为假就一条不发：启动自动检查走
+   *    下面的 auto 分支，不在这里）；
    * 3. 不重入：轮询只发**上一次还没回来**就不发下一次（`run` 里的 `lock` 挡掉，并且这里再判一次）。
    *    另外只在「安装任务还没到终态」时轮询：空闲面板不需要每秒问一次宿主。
    */
@@ -319,6 +335,37 @@ export function UpdateEntry(): any {
     const timer = setInterval(() => { lastRun.current(updatePhoneNames.updateStatus, 'status').catch(() => undefined) }, UPD_POLL)
     return () => clearInterval(timer)
   }, [open, installing])
+
+  /**
+   * 启动自动检查（#41，只在 `auto` 模式跑）：延迟到点发**一条** check，有新版本、且不是用户点过
+   * 「跳过此版本」的那一个，才把同一只弹窗开出来。
+   *
+   * 四条纪律：
+   * 1. **延迟常量只在 updauto.ts 定义一次**（这里引用，不写第二个数字）；
+   * 2. 一个页面会话至多一次：`claimAutoCheck()` 的闩跨组件重挂载（见 updauto.ts 的注释）；
+   * 3. 判据是纯函数 `decideAutoOpen` —— 比不出大小就不弹；这一支的失败**不上面**（后台动作不该把设置页
+   *    炸掉，也不该在界面上多一块用户没点过的失败），用户手动点「检查更新」仍有 #40 的全套说明；
+   * 4. 卸载即清定时器：关掉弹窗 / 卸载宿主后不留任何常驻定时器（票面验收第 3 条）。
+   */
+  const autoCheck = async (): Promise<void> => {
+    if (!claimAutoCheck()) return
+    const out = await run(updatePhoneNames.updateCheck, 'check')
+    const s = snapOf(out)
+    const verdict = decideAutoOpen({
+      latest: asText(s && s.latestVersion),
+      running: asText(s && s.runningVersion),
+      skipped: loadSkippedVersion(),
+    })
+    if (!verdict.open) return
+    setNote(t('updateAutoNote'))
+    setOpen(true)
+  }
+
+  react.useEffect(() => {
+    if (!auto) return undefined
+    const timer = setTimeout(() => { autoCheck().catch(() => undefined) }, AUTO_CHECK_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [auto])
 
   /**
    * 手里那张凭证还能不能用。包 README 第 11 节的表：凭证（`confirmationTtlMs`）默认 10 分钟，
@@ -576,6 +623,10 @@ export function UpdateEntry(): any {
     style: maskStyle,
     onClick: close,
   }, h('div', { style: cardStyle, onClick: (e: any) => { if (e && typeof e.stopPropagation === 'function') e.stopPropagation() } }, children)))
+
+  // 自动模式（#41）：全局那一份只出弹窗，不出设置页那一行；关着的时候整棵子树回 null ——
+  // 宿主浮层里不留一个空壳节点（`modal` 自己经 ModalPortal 挂 body，与设置页那一份同一套顶层机制）。
+  if (auto) return modal
 
   return h('div', { key: 'update-entry', style: { display: 'flex', flexDirection: 'column' } }, [row, modal])
 }

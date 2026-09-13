@@ -5,6 +5,7 @@
 import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler } from './panel'
 import { EntryButton } from './button'
 import { SettingsPage } from './settings'
+import { UpdateEntry } from './update'
 import { buildPromptSource } from './trigger'
 import { SmartCardHost } from './smart'
 import { setSmartInput } from './smartstore'
@@ -29,6 +30,19 @@ type ClientContext = {
 }
 
 export const inject = ['slots', 'inputTriggers']
+
+/**
+ * 更新自动检查宿主（#41）：全局单点（shell.overlay）、启动即挂 —— 挂载后自己延迟一把再查，
+ * 有新版本才弹 #40 那只弹窗（`auto` 模式只出弹窗、不出设置页那一行）。
+ *
+ * 为什么放在 shell.overlay 而不是 conversation.input.overlay：会话说白了可以有多个，
+ * 而「启动后自动查一次」这件事每台机器只该发生一次（电话与弹窗都不该按会话翻倍）。
+ */
+function UpdateAutoHost(): any {
+  const react = getReact()
+  if (!react) return null
+  return react.createElement(UpdateEntry, { auto: true })
+}
 
 /** 面板浮层（conversation.input.overlay，session 作用域 → 有 useInput/inputActions） */
 function PanelHost(props: any): any {
@@ -151,4 +165,9 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.slots.inject('shell.overlay', () =>
     ctx.slots.register({ name: 'shell.overlay', id: 'dsh-prompt-smart', order: 200, label: () => 'dsh-prompt smart' }, SmartCardHost),
   ), 'dsh-prompt: smart card')
+
+  // 更新自动检查（#41）：同一个 shell.overlay 槽的第二个注册点，启动后延迟一次（见 UpdateAutoHost）
+  ctx.effect(() => ctx.slots.inject('shell.overlay', () =>
+    ctx.slots.register({ name: 'shell.overlay', id: 'dsh-prompt-update-auto', order: 210, label: () => 'dsh-prompt update auto' }, UpdateAutoHost),
+  ), 'dsh-prompt: update auto')
 }

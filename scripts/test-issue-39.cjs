@@ -52,6 +52,13 @@
 //      否则下一个人把它改回 externals（或改回按包名解析），真机上又会静默退回 unknown-profile。
 //      （负例对照：HEAD 7ed096e 的产物在同布局下三条路由全回 unknown-profile，实测见
 //      `.wayfinder/update/58-progress.md` 与探针 `.tmp-verify/probe-58/hoisted-matrix.mjs`。）
+//
+// 发布 #44（版本号解耦）新增/改正的断言：
+//  (q) 本文件不再写死任何**本包**的版本号：受控源那个假 release 的版本、以及 executor 的 targetVersion
+//      都由 package.json 的当前版本推出来（`nextPatchVersion`，见文件顶部「版本号口径」）。
+//      旧版把假 release 写死成 `0.1.8`，本包升到 0.1.8 后它就不再「比当前新」⇒ canInstall:false ⇒
+//      (p) 段变红，而且**每次升版都会红**（发布门禁永远带一条假红）。反向验证：本包版本临时改成
+//      0.2.0 / 0.1.9 时本文件都必须全绿 —— 与版本号真正解耦的唯一判据。
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -99,6 +106,22 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   fs.mkdirSync(path.join(DIR, 'log'), { recursive: true });
 
   const pkg = JSON.parse(readSrc('package.json'));
+
+  /* ── 版本号口径（发布 #44）──
+   * 本文件有三处「一个比当前版本新的版本」：受控源的假 release、受控源要反着断言的期望值、
+   * 真 executor 的 targetVersion。它们以前写成字面量 `0.1.8`；本包自己是 0.1.8 之后，假 release
+   * 就不再「比当前新」，`canInstall` 变假 —— 断言红，而且**每升一次版就红一次**（发布门禁永远
+   * 带一条假红）。口径改成从 package.json 的当前版本推出来：假 release 的版本由**唯一的版本真值**
+   * （package.json 的 `version`）加一个 patch 位得到，测试从此不认任何写死的包版本号。
+   */
+  const pkgVersion = pkg.version;                     // 唯一版本真值（旧版在本文件 13) 段里单独再读一遍，已合并到这一处）
+  /** 受控源要冒充的那个「比当前新一版」的版本号：patch 位 +1（0.1.8 → 0.1.9），与真包版本解耦。 */
+  function nextPatchVersion(version) {
+    const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(version));
+    if (!m) fail('package.json 的 version 不是三段式数字版本（' + JSON.stringify(version) + '），本测试的「下一个版本」推不出来');
+    return m[1] + '.' + m[2] + '.' + (Number(m[3]) + 1);
+  }
+  const NEXT_RELEASE_VERSION = nextPatchVersion(pkgVersion);
 
   /* ── 0) 结构：依赖与脚本入口 ── */
   // #58：更新包是**构建期输入**（内联进 lib/update.js），不是运行时依赖 —— 用户装到的包里不该再装它，
@@ -385,7 +408,7 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   const fakeLines = [
     'export const __seen = [];',
     'let logCap = null;',
-    'const SNAPSHOT = { runningVersion: "0.1.7", installedVersion: "0.1.7", latestVersion: null, canInstall: false, blockedReason: "source-install", job: null };',
+    'const SNAPSHOT = { runningVersion: "' + pkgVersion + '", installedVersion: "' + pkgVersion + '", latestVersion: null, canInstall: false, blockedReason: "source-install", job: null };',
     'const phoneNames = ' + JSON.stringify(PHONE_NAMES) + ';',
     'const routeTable = ' + JSON.stringify(ROUTES) + ';',
     'const byRoute = { [routeTable.status]: phoneNames.updateStatus, [routeTable.check]: phoneNames.updateCheck, [routeTable.install]: phoneNames.updateInstall };',
@@ -400,7 +423,7 @@ const squash = (s) => s.replace(/\s+/g, ' ');
     '    [phoneNames.updateStatus]: async (args) => {',
     '      __seen.push(["status", args]);',
     '      fire("info", "host.call", { method: phoneNames.updateStatus, latencyMs: 3, ok: true, kind: "update-status", pluginId: "dsh-prompt" });',
-    '      return { ok: true, snapshot: { ...SNAPSHOT }, manual: "dsh plugin --profile web add --save-exact dsh-prompt@0.1.8", receipt: null };',
+    '      return { ok: true, snapshot: { ...SNAPSHOT }, manual: "dsh plugin --profile web add --save-exact dsh-prompt@' + pkgVersion + '", receipt: null };',
     '    },',
     '    [phoneNames.updateCheck]: async (args) => {',
     '      __seen.push(["check", args]);',
@@ -1303,7 +1326,7 @@ const squash = (s) => s.replace(/\s+/g, ' ');
     pluginId: 'dsh-prompt',
     log: (level, event, fields) => execDeps.logCtx.fire(level, event, fields),
   });
-  await realExec({ version: '0.1.8', profileName: 'web' });
+  await realExec({ version: pkgVersion, profileName: 'web' });
   const execOk = execLogged.filter((e) => e[0] === 'update.install.exec').pop();
   if (!execOk) fail('真 executor 的安装事件没经生产桥到日志能力（日志口收到的事件名：' + JSON.stringify(execLogged.map((e) => e[0])) + '）');
   eq(Object.keys(execOk[1]).sort(), ['durationMs', 'exitCode', 'ok', 'pluginId', 'route'], '真包安装事件的字段集合');
@@ -1311,7 +1334,7 @@ const squash = (s) => s.replace(/\s+/g, ' ');
   if (typeof execOk[1].durationMs !== 'number') fail('真包安装事件应带数字 durationMs，实为 ' + JSON.stringify(execOk[1].durationMs));
   execLogged.length = 0;
   execExit = 7;
-  const execFailCode = await realExec({ version: '0.1.8', profileName: 'web' }).then(() => 'ok', (e) => String(e?.code ?? e?.message ?? e));
+  const execFailCode = await realExec({ version: pkgVersion, profileName: 'web' }).then(() => 'ok', (e) => String(e?.code ?? e?.message ?? e));
   eq(execFailCode, 'install-failed', '真 executor 失败时应抛 install-failed');
   const execBad = execLogged.filter((e) => e[0] === 'update.install.exec').pop();
   if (!execBad) fail('真 executor 失败那次没落 update.install.exec（默认开关下「装更新退了几」就查不到）');
@@ -1330,16 +1353,20 @@ const squash = (s) => s.replace(/\s+/g, ' ');
    * 两种「插件包外」形态都要绿：
    *   A) sibling：插件包外**有一份** dsh-plugin-update（真机现状；也是「下一个人改回 externals」时的样子）；
    *   B) plain：插件包外**什么都没有**（用户从 npm 装到的新包 —— 更新包在 devDependencies，不再另装）。
-   * 三条安全边界：不联网（受控 fetch 回一个假的 0.1.8）、不真装包（不接 subprocess 服务 ⇒ 配方执行体
+   * 三条安全边界：不联网（受控 fetch 回一个假 release —— 版本号由 package.json 当前版本 patch+1 推出）、
+   * 不真装包（不接 subprocess 服务 ⇒ 配方执行体
    * 必抛 install-failed，只验到「过了布局闸门与守卫」）、不碰真 home / 真 profile（布局造在
    * `scripts/.rt-tmp-39/hoisted/` 内，DSH_HOME 指向布局自己的临时 home）。
    */
   const HOISTED = path.join(DIR, 'hoisted');
-  const fakeRelease = {
+  // 这个版本号**不写死**：由 package.json 的当前版本 +1 个 patch 位推出来（见文件顶部的版本号口径）。
+  // 写死成具体号（旧版是 `0.1.8`）会让本段在「本包自己正好是那一版」时红：真包判「不比当前新」⇒
+  // canInstall:false，而且**每次升版都红**（发布 #44 实测：本包升到 0.1.8 时这一段就红了）。
+  const RELEASE = {
     name: 'dsh-prompt',
-    version: '0.1.8',
+    version: NEXT_RELEASE_VERSION,
     dist: {
-      tarball: 'https://registry.npmjs.org/dsh-prompt/-/dsh-prompt-0.1.8.tgz',
+      tarball: 'https://registry.npmjs.org/dsh-prompt/-/dsh-prompt-' + NEXT_RELEASE_VERSION + '.tgz',
       integrity: 'sha512-' + 'A'.repeat(86) + '==',
     },
   };
@@ -1348,7 +1375,7 @@ const squash = (s) => s.replace(/\s+/g, ' ');
     if (String(url) !== 'https://registry.npmjs.org/dsh-prompt/latest') {
       fail('受控 fetch 只该被问 dsh-prompt/latest，实收 ' + String(url));
     }
-    const text = JSON.stringify(fakeRelease);
+    const text = JSON.stringify(RELEASE);
     return {
       ok: true,
       headers: { get: (k) => (String(k).toLowerCase() === 'content-length' ? String(text.length) : null) },
@@ -1403,7 +1430,6 @@ const squash = (s) => s.replace(/\s+/g, ' ');
     }
   }
 
-  const pkgVersion = pkg.version;
   for (const [name, withSibling] of [['sibling', true], ['plain', false]]) {
     const layout = layoutHoisted(name, withSibling);
     const r = await driveHoisted(layout);
@@ -1417,7 +1443,8 @@ const squash = (s) => s.replace(/\s+/g, ' ');
     eq([r.status.snapshot.runningVersion, r.status.snapshot.installedVersion], [pkgVersion, pkgVersion],
       where + '：runningVersion 应来自部署副本自身（loaded == installed）');
     eq(r.check.ok, true, where + '：check 电话应成功（实回 ' + JSON.stringify(r.check) + '）');
-    eq([r.check.snapshot.latestVersion, r.check.snapshot.canInstall], ['0.1.8', true], where + '：受控源上的 0.1.8 应可装');
+    eq([r.check.snapshot.latestVersion, r.check.snapshot.canInstall], [NEXT_RELEASE_VERSION, true],
+      where + '：受控源上的 ' + NEXT_RELEASE_VERSION + '（当前 ' + pkgVersion + ' 的下一个 patch）应可装');
     if (!r.check.receipt) fail(where + '：check 成功后 receipt 不该为空');
     eq([r.installNoId.ok, r.installNoId.error], [false, 'check-expired'], where + '：没有 checkId 的 install 应停在守卫上');
     if (r.installNoId.error === 'unknown-profile') {

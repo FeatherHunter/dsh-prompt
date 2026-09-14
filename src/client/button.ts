@@ -5,12 +5,63 @@ import { getReact } from './panel'
 import { isPanelOpen, setPanelOpen, cancelPanelClose, schedulePanelClose } from './state'
 import { getLang, tr, STR } from './i18n'
 
+/**
+ * #66 窄屏优化：对话框底部输入区变窄时，按钮收起文字、只剩图标。
+ *
+ * 为什么用容器查询而不是 ResizeObserver：宿主输入条那一行（InputBar 的 .row）自带
+ * `container-type: inline-size`，插槽 wrapper 是 `display:contents`（不产生盒子、不遮挡），
+ * 所以 `@container` 命中的正是那一行本身 —— 纯 CSS 就够，无 JS、无挂载闪烁。宿主自己的
+ * 模型选择器用的就是同一套做法（360px 处把自己那一行文字换成图标）。
+ *
+ * 断点标定（#65 原型实测，真 Chrome 布局）：现状要 ≥530.4px 才不换行
+ * （tools 254.7 + 间隙 12 + trailing 263.7）；本规则取 560px = 标定值 + 约 30px 余量
+ * （相邻按钮宽度会随宿主与其它插件变化）。比的是「那一行的内容盒宽度」，不是视口宽度；
+ * 收起「Prompt」文字省 46.7px，等于把「开始换行」的宽度往下推 46.7px。
+ *
+ * 兜底：若将来宿主去掉 container-type，规则静默不匹配 ⇒ 行为退回今天的宽屏样式，不产生回归。
+ */
+const NARROW_STYLE_ID = 'dsh-prompt-entry-narrow'
+const NARROW_CSS = [
+  '@container (max-width: 560px) {',
+  '  [data-dsh-prompt-entry] [data-dsh-prompt-label] { display: none; }',
+  '}',
+].join('\n')
+
+let narrowStyleReady = false
+
+/** 注入窄屏样式（幂等；任何失败都不影响按钮本身可用） */
+function ensureNarrowStyle(): void {
+  if (narrowStyleReady) return
+  try {
+    const doc: any = (globalThis as any).document
+    if (!doc || !doc.head || typeof doc.createElement !== 'function') return
+    const sel = 'style[data-dsh-prompt-style="' + NARROW_STYLE_ID + '"]'
+    if (typeof doc.querySelector === 'function' && doc.querySelector(sel)) {
+      narrowStyleReady = true
+      return
+    }
+    const tag = doc.createElement('style')
+    tag.setAttribute('data-dsh-prompt-style', NARROW_STYLE_ID)
+    tag.textContent = NARROW_CSS
+    doc.head.appendChild(tag)
+    narrowStyleReady = true
+  } catch (e) { /* 注入失败时保持今天的样子 */ }
+}
+
+/** 仅供测试：重置注入缓存 */
+export function __resetNarrowStyle(): void {
+  narrowStyleReady = false
+}
+
 export function EntryButton(props: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
   const open = props.open ?? false
   const lang = getLang()
+  const label = tr(lang, STR.entryBtn)
+
+  ensureNarrowStyle()
 
   const style: any = {
     display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -23,7 +74,10 @@ export function EntryButton(props: any): any {
     flex: 'none',
   }
   return h('button', {
-    style, title: tr(lang, STR.entryBtn),
+    style, title: label,
+    // #66 图标化后可见文字为空，可访问名必须由 aria-label 顶上，否则读屏念不出这个按钮。
+    // 与可见文字同名（WCAG 2.5.3 名称与可见标签一致）；宽屏下与文字重复也无害。
+    'aria-label': label,
     'data-dsh-prompt-entry': '1',
     // #61 保焦：click 开面板时不把焦点从输入框抢走（与面板行同理），这样后续行点击
     // 仍命中焦点输入框精确路径；键盘 Tab+Enter 无 mousedown，不受影响。
@@ -41,6 +95,7 @@ export function EntryButton(props: any): any {
       h('path', { d: 'M10 22h4' }),
       h('path', { d: 'M18.5 2.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z' }),
     ]),
-    h('span', null, tr(lang, STR.entryBtn)),
+    // 文案：加钩子供窄屏规则收起（宽屏一个字不变）
+    h('span', { 'data-dsh-prompt-label': '1' }, label),
   ])
 }

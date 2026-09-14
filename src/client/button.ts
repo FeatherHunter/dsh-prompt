@@ -1,7 +1,7 @@
 /**
  * dsh-prompt — 入口按钮（conversation.input.left）
  */
-import { getReact } from './panel'
+import { getReact, keepComposerFocus } from './panel'
 import { isPanelOpen, setPanelOpen, cancelPanelClose, schedulePanelClose } from './state'
 import { getLang, tr, STR } from './i18n'
 
@@ -79,9 +79,9 @@ export function EntryButton(props: any): any {
     // 与可见文字同名（WCAG 2.5.3 名称与可见标签一致）；宽屏下与文字重复也无害。
     'aria-label': label,
     'data-dsh-prompt-entry': '1',
-    // #61 保焦：click 开面板时不把焦点从输入框抢走（与面板行同理），这样后续行点击
-    // 仍命中焦点输入框精确路径；键盘 Tab+Enter 无 mousedown，不受影响。
-    onMouseDown: (e: any) => { try { if (e && typeof e.preventDefault === 'function') e.preventDefault() } catch (err) { /* ignore */ } },
+    // #61 保焦（宿主 input.left 自家按钮同款 keepFocus）：click 开面板时不把焦点从作曲家抢走，
+    // 面板内搜索框聚焦时不抢（见 keepComposerFocus）；键盘 Tab+Enter 无 mousedown，不受影响。
+    onMouseDown: keepComposerFocus,
     // hover 触发：进入即开；离开延迟 150ms 关（列表接管时取消）
     onMouseEnter: () => { cancelPanelClose(); setPanelOpen(true) },
     onMouseLeave: () => { schedulePanelClose(150) },

@@ -1,19 +1,24 @@
 // 回归测试 #61: 悬浮列表点击插入直接覆盖输入框草稿
-// 根因（第一性原理）：插入时焦点已离开输入框，只能走回退链；而回退链只信 store，
-// store 为空/过期即 setDraft(正文) 整框覆盖。修复分三层：
-//   L0 行/entry mousedown 保焦（焦点根本不离开，精确路径永远命中）；
-//   L1 focusin 缓存最后聚焦框（blur 不改变值与光标，不受 store 影响）；
-//   L2/L3 store 只做印证，矛盾时采纳 DOM；Q3 删 render 外 hook 直调；
-//   Q2 设置页纯管理：行点击无插入、无用量、无 insertHint。
-// 验收（与评论区 Agent Brief 对齐）：
-//   T1 stale-store + 失焦 → 草稿保留（H1 主回归）
-//   T2 焦点精确路径（含行首 0 光标被尊重）
-//   T3 焦点缓存：在多框 + stale-store 下选中用户最后摸过的框
-//   T4 store/DOM 矛盾信 DOM；DOM 全空 + store 非空则信 store
-//   T5 Q3：DOM 有证据时旧桥函数根本不被调用；全程无 hook 直调抛错
-//   T6 设置页 onPick 无桥 → 无写入无抛错；有桥 compact onPick → 保留拼接 + 用量 +1
-//   T7 悬浮行带保焦 onMouseDown；设置页行无 onClick、无 insertHint
-//   T8 入口按钮 mousedown 保焦
+// 真根因（宿主源码实证 dsh-client-ui-conversation）：
+//   1) 会话输入框是 Lexical contenteditable div，根本没有 textarea；
+//   2) useInput 是裸 selector hook（无 getState/getSnapshot，只能 render 内调用）。
+// 旧代码两条路全瞎 → setDraft(模板正文) 整框覆盖。真修复只信两样活物：
+//   H=render 内 DraftTap 订阅的已提交草稿，D=点击瞬间 contenteditable 活读（含组词中文字）。
+// 本文件所有 mock 都按宿主真形状来：useInput 是裸函数（绝无 getState），输入框是
+// contenteditable div（绝无 textarea，末路兼容测试除外）。
+//   T1 无桥可读 + 失焦 → DOM 活读保留拼接（H1 主回归的新形态）
+//   T2 多段落 caret 映射（段落↔\n，光标落在第二段内）
+//   T3 focusin 缓存：多 editable + 失焦命中最后摸过的框
+//   T4 分歧：hook 已提交 AB vs DOM 组词中 ABc → 信看得见的
+//   T5 引用 chip：hook 含 U+FFFC vs DOM 显示形 → 信桥保编码
+//   T6 裸 hook 在事件回调里一次都不调（Q3 真形态）+ 全程无抛错
+//   T7 onPick：设置页无桥纯管理；面板有桥保留拼接 + 用量 +1
+//   T8 行保焦 keepComposerFocus：BODY 下 preventDefault + 送回作曲家；面板搜索框内不抢
+//   T9 入口按钮 mousedown 同款保焦
+//   T10 真空：两边全空 → setDraft(正文) 即创建，无内容可丢
+//   T11 行首 0 光标被尊重（前插非后插）
+//   T12 弹窗内 editable 被排除（不读自家弹窗）
+//   T13 末路 textarea 兼容（宿主史前形态）
 const fs = require('node:fs');
 const path = require('node:path');
 let ts;
@@ -45,6 +50,9 @@ const store = require(path.join(DIR, 'store.cjs'));
 const { tr, STR } = require(path.join(DIR, 'i18n.cjs'));
 const zh = (k) => tr('zh', STR[k]);
 
+const React = require('react');
+const TR = require('react-test-renderer');
+
 let failures = 0;
 function ok(cond, msg) {
   if (cond) { console.log('  PASS ' + msg); return; }
@@ -52,147 +60,270 @@ function ok(cond, msg) {
   console.log('  FAIL ' + msg);
 }
 
-// —— DOM  mock：元素身份稳定（同真实 DOM），供 L0 同一性判断 ——
-function makeTextarea(value, caret) {
-  return {
-    tagName: 'TEXTAREA', value, selectionStart: caret,
-    closest: () => null, isConnected: true,
-    focus() {}, setSelectionRange(s) { this.selectionStart = s; },
-  };
+// —— DOM mock（宿主真形状：contenteditable div + <p> 段落 + getSelection）——
+function tnode(text) {
+  return { nodeType: 3, nodeValue: text, textContent: text };
 }
-function makeDocument() {
+function pnode(text) {
+  const tn = tnode(text);
+  const p = {
+    nodeType: 1, tagName: 'P', textContent: text, childNodes: [tn],
+    contains(n) { return n === tn || n === p; },
+    closest: () => null,
+  };
+  p._tn = tn;
+  return p;
+}
+function ediv(paras, opts) {
+  opts = opts || {};
+  const kids = paras.map(pnode);
+  const el = {
+    nodeType: 1, tagName: 'DIV', childNodes: kids,
+    textContent: paras.join('\n'),
+    getAttribute(k) { return k === 'contenteditable' ? 'true' : null; },
+    contains(n) { return n === el || kids.some((k) => k === n || k._tn === n); },
+    closest(sel) {
+      if (sel === '[data-composer-card]') return opts.card === false ? null : {};
+      if (opts.modal && sel.indexOf('modal') >= 0) return {};
+      return null;
+    },
+    isConnected: true, _focused: false,
+    focus() { this._focused = true; },
+  };
+  return el;
+}
+function bodyEl() {
+  return { tagName: 'BODY', closest: () => null, getAttribute: () => null };
+}
+function makeDocument(opts) {
+  opts = opts || {};
   const listeners = {};
   const doc = {
-    activeElement: { tagName: 'BODY' },
+    activeElement: opts.active || bodyEl(),
     documentElement: { lang: 'zh-CN' },
-    _areas: [],
-    querySelectorAll: (sel) => (sel === 'textarea' ? doc._areas.slice() : []),
-    querySelector: () => null,
-    addEventListener: (t, fn) => { (listeners[t] = listeners[t] || []).push(fn); },
+    _areas: opts.areas || [],
+    _tas: opts.textareas || [],
+    querySelectorAll(sel) {
+      if (String(sel).indexOf('contenteditable') >= 0) return doc._areas.slice();
+      if (sel === 'textarea') return doc._tas.slice();
+      return [];
+    },
+    querySelector(sel) {
+      if (String(sel).indexOf('contenteditable') >= 0) return doc._areas[0] || null;
+      return null;
+    },
+    addEventListener(t, fn) { (listeners[t] = listeners[t] || []).push(fn); },
     removeEventListener: () => {},
-    dispatch: (t, ev) => { (listeners[t] || []).forEach((fn) => fn(ev)); },
+    dispatch(t, ev) { (listeners[t] || []).forEach((fn) => fn(ev)); },
   };
   return doc;
 }
-const staleStore = { getState: () => ({ draft: '' }) };
-// 与真实浏览器一致：T1–T6 + T3 共享同一个 document（focusin 监听器只绑一次）。
-// T7 渲染隔离用新 doc；其后不再调 insertBody，不影响缓存。
-global.document = makeDocument();
+// selection：锚在某 <p> 文本节点的偏移；null=无选择（回末尾）
+function setSelection(tn, offset) {
+  const sel = tn ? { rangeCount: 1, anchorNode: tn, anchorOffset: offset } : { rangeCount: 0, anchorNode: null, anchorOffset: 0 };
+  global.getSelection = () => sel;
+  global.window = { getSelection: () => sel, addEventListener: () => {}, removeEventListener: () => {} };
+}
+// 裸 hook（宿主真形状：裸函数，无 getState/getSnapshot/subscribe）
+function bareHook(draft, counter) {
+  const fn = (sel) => { if (counter) counter.n += 1; return sel({ draft }); };
+  return fn;
+}
+// render 内订阅一次（非法 render 外调用；每测必先调，保证 tapDraft 确定）
+function tap(draft, counter) {
+  let r = null;
+  TR.act(() => { r = TR.create(React.createElement(panel.DraftTap, { useInput: bareHook(draft, counter) })); });
+  return r;
+}
+const NOP_BRIDGE = () => { throw new Error('must not be called outside render'); };
 
-console.log('=== T1: stale-store + 失焦 → 草稿保留（H1 主回归） ===');
+console.log('=== T1: 无桥可读 + 失焦 → DOM 活读保留拼接 ===');
 {
-  const ta = makeTextarea('ABCDEF', 2);
-  global.document._areas = [ta];
-  global.document.activeElement = { tagName: 'BODY' };
+  const ed = ediv(['ABCDEF']);
+  global.document = makeDocument({ areas: [ed], active: bodyEl() });
+  setSelection(ed.childNodes[0]._tn, 2);
+  tap('');
   let got = null;
-  const r = panel.insertBody(staleStore, { setDraft: (v) => { got = v; } }, '[TPL]');
-  ok(got === 'AB[TPL]CDEF', '失焦 + store 为空仍保留并拼接，实际=' + JSON.stringify(got));
+  const r = panel.insertBody(NOP_BRIDGE, { setDraft: (v) => { got = v; } }, '[TPL]');
+  ok(got === 'AB[TPL]CDEF', '失焦 + 桥空仍保留并拼接，实际=' + JSON.stringify(got));
   ok(r === 6, '返回插入前草稿长度 6，实际=' + r);
 }
 
-console.log('=== T2: 焦点精确路径（含行首 0 光标） ===');
+console.log('=== T2: 多段落 caret 映射 ===');
 {
-  const ta = makeTextarea('ABCDEF', 2);
-  global.document._areas = [ta];
-  global.document.activeElement = ta; // 同一引用，模拟真实 DOM
+  const ed = ediv(['AB', 'CD']);
+  global.document = makeDocument({ areas: [ed], active: ed });
+  setSelection(ed.childNodes[1]._tn, 1);
+  tap('AB\nCD');
   let got = null;
-  panel.insertBody(staleStore, { setDraft: (v) => { got = v; } }, '[TPL]');
-  ok(got === 'AB[TPL]CDEF', '焦点在框内光标处注入，实际=' + JSON.stringify(got));
-
-  const ta0 = makeTextarea('AB', 0);
-  global.document._areas = [ta0];
-  global.document.activeElement = ta0;
-  got = null;
-  panel.insertBody(staleStore, { setDraft: (v) => { got = v; } }, '[TPL]');
-  ok(got === '[TPL]AB', '行首 0 光标被尊重（前插非后插），实际=' + JSON.stringify(got));
+  panel.insertBody(NOP_BRIDGE, { setDraft: (v) => { got = v; } }, '[TPL]');
+  ok(got === 'AB\nC[TPL]D', '第二段内光标处注入，实际=' + JSON.stringify(got));
 }
 
-console.log('=== T4: store/DOM 矛盾信 DOM；DOM 全空 + store 非空则信 store ===');
+console.log('=== T3: focusin 缓存命中最后摸过的框 ===');
 {
-  const ta = makeTextarea('DOM真相', 1);
-  global.document._areas = [ta];
-  global.document.activeElement = { tagName: 'BODY' };
+  const a = ediv(['AAA']);
+  const b = ediv(['BBB']);
+  global.document = makeDocument({ areas: [a, b], active: bodyEl() });
+  setSelection(null);
+  tap('');
+  panel.insertBody(NOP_BRIDGE, { setDraft: () => {} }, '[X]'); // 挂上 focusin 监听
+  global.document.dispatch('focusin', { target: b }); // 用户最后在 B 里打字
+  setSelection(b.childNodes[0]._tn, 2);
   let got = null;
-  panel.insertBody({ getState: () => ({ draft: 'STORE过期' }) }, { setDraft: (v) => { got = v; } }, '[TPL]');
-  ok(got === 'D[TPL]OM真相', '矛盾时采纳 DOM 可见值，实际=' + JSON.stringify(got));
-
-  const empty = makeTextarea('', 0);
-  global.document._areas = [empty];
-  got = null;
-  const r = panel.insertBody({ getState: () => ({ draft: '程序化' }) }, { setDraft: (v) => { got = v; } }, '[TPL]');
-  ok(got === '程序化[TPL]', 'DOM 全空时采信 store，实际=' + JSON.stringify(got));
-  ok(r === 3, '返回 store 草稿长度，实际=' + r);
+  panel.insertBody(NOP_BRIDGE, { setDraft: (v) => { got = v; } }, '[TPL]');
+  ok(got === 'BB[TPL]B', '缓存命中 B（含其光标 2），实际=' + JSON.stringify(got));
 }
 
-console.log('=== T5: Q3 旧桥函数在 DOM 有证据时根本不被调用 ===');
+console.log('=== T4: 组词中分歧信看得见的 ===');
 {
-  const ta = makeTextarea('ABCDEF', 2);
-  global.document._areas = [ta];
-  global.document.activeElement = { tagName: 'BODY' };
-  let called = false;
-  const legacyHook = (sel) => { called = true; throw new Error('Invalid hook call'); };
+  const ed = ediv(['ABc']);
+  global.document = makeDocument({ areas: [ed], active: ed });
+  setSelection(ed.childNodes[0]._tn, 3);
+  tap('AB'); // 桥里还是已提交的 AB，c 尚未提交
+  let got = null;
+  panel.insertBody(NOP_BRIDGE, { setDraft: (v) => { got = v; } }, '[TPL]');
+  ok(got === 'ABc[TPL]', '组词中文字不丢，实际=' + JSON.stringify(got));
+}
+
+console.log('=== T5: 引用 chip 信桥保编码 ===');
+{
+  const ed = ediv(['A@fileB']);
+  global.document = makeDocument({ areas: [ed], active: ed });
+  setSelection(ed.childNodes[0]._tn, 6);
+  tap('A\uFFFCB'); // 存储形带 chip 占位，显示形是对不上的
+  let got = null;
+  panel.insertBody(NOP_BRIDGE, { setDraft: (v) => { got = v; } }, '[TPL]');
+  ok(got === 'A\uFFFCB[TPL]', 'chip 编码不被显示形破坏，实际=' + JSON.stringify(got));
+}
+
+console.log('=== T6: 裸 hook 在事件回调里零调用 ===');
+{
+  const ed = ediv(['ABCDEF']);
+  global.document = makeDocument({ areas: [ed], active: ed });
+  setSelection(ed.childNodes[0]._tn, 2);
+  const counter = { n: 0 };
+  tap('ABCDEF', counter);
+  const before = counter.n;
   let got = null;
   let threw = false;
   try {
-    panel.insertBody(legacyHook, { setDraft: (v) => { got = v; } }, '[TPL]');
+    panel.insertBody(bareHook('STALE', counter), { setDraft: (v) => { got = v; } }, '[TPL]');
   } catch (e) { threw = true; }
-  ok(!threw, '全程无抛错（旧hook直调已删）');
-  ok(!called, 'DOM 有证据时旧桥函数一次都没调');
+  ok(!threw, '全程无抛错');
+  ok(counter.n === before, 'insertBody 内一次都没调 hook（render 外调用即抛，Q3）');
   ok(got === 'AB[TPL]CDEF', '草稿保留，实际=' + JSON.stringify(got));
 }
 
-console.log('=== T6: onPick 无桥即纯管理；有桥则保留拼接 + 用量 +1 ===');
+console.log('=== T7: onPick 无桥纯管理；有桥保留拼接 + 用量 +1 ===');
 {
-  global.document._areas = [makeTextarea('草稿', 1)];
-  let wrote = false;
+  global.document = makeDocument({ areas: [ediv(['草稿'])] });
+  setSelection(null);
+  tap('');
   try {
     panel.onPick({ id: 't-noop', builtin: true, body: '[TPL]' }, undefined, undefined);
     panel.onPick({ id: 't-noop', builtin: true, body: '[TPL]' }, undefined, {});
-    ok(!wrote, '无桥 onPick 无写入、无抛错');
+    ok(true, '无桥 onPick 无写入、无抛错');
   } catch (e) { ok(false, '无桥 onPick 不应抛错：' + (e && e.message)); }
   const before = store.loadUsage()['t-noop'] || 0;
   ok(before === 0, '无桥 onPick 不涨用量');
 }
 {
-  global.document.activeElement = { tagName: 'BODY' };
-  const ta = makeTextarea('AB', 1);
-  global.document._areas = [ta];
-  global.document.activeElement = { tagName: 'BODY' };
+  const ed = ediv(['AB']);
+  global.document = makeDocument({ areas: [ed], active: bodyEl() });
+  setSelection(ed.childNodes[0]._tn, 1);
+  tap('AB');
   let got = null;
   const tpl = { id: 't-pick-61', builtin: true, body: '[TPL]' };
   const before = store.loadUsage()[tpl.id] || 0;
-  panel.onPick(tpl, staleStore, { setDraft: (v) => { got = v; } });
+  panel.onPick(tpl, NOP_BRIDGE, { setDraft: (v) => { got = v; } });
   ok(got === 'A[TPL]B', '有桥 onPick 保留拼接，实际=' + JSON.stringify(got));
   ok((store.loadUsage()[tpl.id] || 0) === before + 1, '有桥 onPick 用量 +1');
 }
 
-console.log('=== T3: 焦点缓存选中最后摸过的框（多框 + stale-store） ===');
+console.log('=== T8: 行保焦 keepComposerFocus（不抢搜索框） ===');
 {
-  const a = makeTextarea('AAA', 1);
-  const b = makeTextarea('BBB', 2);
-  global.document._areas = [a, b];
-  global.document.activeElement = { tagName: 'BODY' };
-  global.document.dispatch('focusin', { target: b }); // 用户最后在 B 里打字
-  let got = null;
-  panel.insertBody(staleStore, { setDraft: (v) => { got = v; } }, '[TPL]');
-  ok(got === 'BB[TPL]B', '缓存命中 B（含其光标 2），实际=' + JSON.stringify(got));
-}
-
-console.log('=== T7: 悬浮行保焦 / 设置页行去插入 ===');
-{
-  const React = require('react');
-  const TR = require('react-test-renderer');
   global.document = makeDocument();
   let compact = null;
   TR.act(() => { compact = TR.create(React.createElement(panel.TemplateBrowser, { compact: true })); });
   const rows = compact.root.findAll((x) => x.props && x.props['data-dsh-prompt-id']);
   ok(rows.length > 0, '悬浮列表渲染出行，行数=' + rows.length);
-  const allGuarded = rows.every((r) => typeof r.props.onMouseDown === 'function');
-  ok(allGuarded, '悬浮行全部带保焦 onMouseDown');
+  ok(rows.every((r) => r.props.onMouseDown === panel.keepComposerFocus), '悬浮行全部挂 keepComposerFocus');
+}
+{
+  const ed = ediv(['AB']);
+  const aeBody = bodyEl();
+  global.document = makeDocument({ areas: [ed], active: aeBody });
   let prevented = false;
-  rows[0].props.onMouseDown({ preventDefault: () => { prevented = true; } });
-  ok(prevented, 'onMouseDown 确实调 preventDefault（焦点不离开）');
+  panel.keepComposerFocus({ preventDefault: () => { prevented = true; } });
+  ok(prevented, 'mousedown 默认行为被拦（焦点不离开）');
+  ok(ed._focused === true, 'BODY 下焦点送回作曲家');
+}
+{
+  const ed = ediv(['AB']);
+  const aeSearch = { tagName: 'INPUT', getAttribute: () => null, closest: (sel) => (String(sel).indexOf('panel-root') >= 0 ? {} : null) };
+  global.document = makeDocument({ areas: [ed], active: aeSearch });
+  let prevented = false;
+  panel.keepComposerFocus({ preventDefault: () => { prevented = true; } });
+  ok(prevented, '搜索框内同样 preventDefault');
+  ok(ed._focused !== true, '搜索框内不抢焦点（面板不误关）');
+}
 
+console.log('=== T9: 入口按钮 mousedown 同款保焦 ===');
+{
+  let btn = null;
+  TR.act(() => { btn = TR.create(React.createElement(button.EntryButton, { open: false })); });
+  const node = btn.root.find((x) => x.props && x.props['data-dsh-prompt-entry']);
+  ok(node.props.onMouseDown === panel.keepComposerFocus, '入口按钮挂 keepComposerFocus');
+}
+
+console.log('=== T10: 真空即创建 ===');
+{
+  global.document = makeDocument({ areas: [], active: bodyEl() });
+  setSelection(null);
+  tap('');
+  let got = 'unset';
+  const r = panel.insertBody(NOP_BRIDGE, { setDraft: (v) => { got = v; } }, '[TPL]');
+  ok(got === '[TPL]', '两边全空即创建，实际=' + JSON.stringify(got));
+  ok(r === 0, '返回 0');
+}
+
+console.log('=== T11: 行首 0 光标被尊重 ===');
+{
+  const ed = ediv(['AB']);
+  global.document = makeDocument({ areas: [ed], active: ed });
+  setSelection(ed.childNodes[0]._tn, 0);
+  tap('AB');
+  let got = null;
+  panel.insertBody(NOP_BRIDGE, { setDraft: (v) => { got = v; } }, '[TPL]');
+  ok(got === '[TPL]AB', '行首前插非后插，实际=' + JSON.stringify(got));
+}
+
+console.log('=== T12: 弹窗内 editable 被排除 ===');
+{
+  const modalEd = ediv(['弹窗输入'], { modal: true });
+  global.document = makeDocument({ areas: [modalEd], active: bodyEl() });
+  setSelection(null);
+  tap('');
+  let got = 'unset';
+  panel.insertBody(NOP_BRIDGE, { setDraft: (v) => { got = v; } }, '[TPL]');
+  ok(got === '[TPL]', '自家弹窗不被当草稿读，实际=' + JSON.stringify(got));
+}
+
+console.log('=== T13: 末路 textarea 兼容 ===');
+{
+  const ta = { nodeType: 1, tagName: 'TEXTAREA', value: 'AB', selectionStart: 1, closest: () => null };
+  global.document = makeDocument({ areas: [], active: bodyEl(), textareas: [ta] });
+  setSelection(null);
+  tap('');
+  let got = null;
+  panel.insertBody(NOP_BRIDGE, { setDraft: (v) => { got = v; } }, '[TPL]');
+  ok(got === 'A[TPL]B', '史前形态仍拼接，实际=' + JSON.stringify(got));
+}
+
+console.log('=== T14: 设置页行无插入承诺 ===');
+{
+  global.document = makeDocument();
   let full = null;
   TR.act(() => { full = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
   const srows = full.root.findAll((x) => x.props && x.props['data-dsh-prompt-id']);
@@ -201,19 +332,8 @@ console.log('=== T7: 悬浮行保焦 / 设置页行去插入 ===');
   ok(srows.every((r) => String(r.props.title || '').indexOf(zh('insertHint')) < 0), '设置页行标题不承诺插入');
 }
 
-console.log('=== T8: 入口按钮 mousedown 保焦 ===');
-{
-  const React = require('react');
-  const TR = require('react-test-renderer');
-  let btn = null;
-  TR.act(() => { btn = TR.create(React.createElement(button.EntryButton, { open: false })); });
-  const node = btn.root.find((x) => x.props && x.props['data-dsh-prompt-entry']);
-  ok(typeof node.props.onMouseDown === 'function', '入口按钮带保焦 onMouseDown');
-  let prevented = false;
-  node.props.onMouseDown({ preventDefault: () => { prevented = true; } });
-  ok(prevented, '入口按钮 mousedown 调 preventDefault');
-}
-
 delete global.document;
+delete global.window;
+delete global.getSelection;
 if (failures > 0) { console.log('FAILURES: ' + failures); process.exit(1); }
 console.log('ALL PASS: #61');

@@ -65,148 +65,291 @@ interface ModalState {
   t?: PromptTemplate
 }
 
-/** 用户最后一次聚焦过的会话输入框（focusin 缓存，#61）。
- * 为什么需要它：blur 不改变 textarea 的 value / selectionStart，所以“用户最后摸过的输入框”
- * 就是会话输入框的最可信指针 —— 它不受输入桥 store 新鲜度的影响，而旧的 value 全等扫描
- * 在 store 过期时恰恰找不到。配合行/entry 的 mousedown 保焦（焦点根本不离开），形成纵深：
- * 不失焦时走 L0 精确路径；失焦了走这里，仍是观测值而非猜测值。 */
-let lastInputEl: any = null
-let focusTrackArmed = false
-function armInputFocusTrack(): void {
-  if (focusTrackArmed) return
-  focusTrackArmed = true
+/** #61 真根因（宿主源码实证：dsh-client-ui-conversation 包）。
+ * 1) 会话输入框是 Lexical contenteditable div，根本没有 textarea —— 旧的 textarea 扫描全瞎；
+ * 2) useInput 是裸 selector hook（renderer 的 bindSnapshotSelector 产物：裸函数，
+ *    无 getState/getSnapshot/subscribe），只能在组件 render 内调用，事件回调里根本读不到 store。
+ * 两条路全瞎 ⇒ setDraft(模板正文) 整框覆盖（宿主 setDraft 语义即全文替换、光标置尾）。
+ * 真修复只信两样活的东西：
+ * - H（hook 草稿）：render 内合法订阅到的已提交草稿，引用 chip 的存储形精确；
+ * - D（DOM 活读）：点击瞬间 contenteditable 的 innerText 级文本 + getSelection 活光标，
+ *   含 IME 组词中尚未提交的文字。
+ * 合并铁律：看得见的不丢 —— D 非空即信 D（唯二例外：读不到 D 信 H；H 含引用 chip 时信 H 保编码）。 */
+const CHIP_RE = /[\uE100-\uE11D\uFFFC]/
+
+/** render 内订阅到的已提交草稿（面板打开期间由 DraftTap 保持新鲜；设置页无桥，不写）。 */
+let tapDraft = ''
+let tapSeen = false
+
+/** render 内订阅输入桥。只能在 render 里调 useInput(selector)：它是裸 hook，
+ * 事件回调/ effect 里调即抛（这就是 Q3 删掉的分支死因）。调用点只此一处。 */
+export function DraftTap(props: { useInput: any }): any {
+  const react = getReact()
+  if (!react) return null
+  let ok = false
+  let d: any = ''
   try {
-    if (typeof document !== 'undefined' && document && typeof (document as any).addEventListener === 'function') {
-      document.addEventListener('focusin', (e: any) => {
+    d = props.useInput((s: any) => (s && s.draft) || '')
+    ok = true
+  } catch (e) { /* 桥异常时保留上次好值，绝不因订阅失败丢草稿 */ }
+  const useIso = (react as any).useLayoutEffect || react.useEffect
+  useIso(() => { if (ok) { tapDraft = typeof d === 'string' ? d : ''; tapSeen = true } })
+  return null
+}
+
+/** 用户最后摸过的输入元（作曲家 editable 或 textarea，#61 前版只记后者故全瞎）。 */
+let lastFocusEl: any = null
+let focusTrackArmed = false
+let armedDoc: any = null
+function armInputFocusTrack(): void {
+  try {
+    const doc: any = typeof document !== 'undefined' ? document : null
+    if (focusTrackArmed && armedDoc === doc) return
+    focusTrackArmed = true
+    armedDoc = doc
+    if (doc && typeof doc.addEventListener === 'function') {
+      doc.addEventListener('focusin', (e: any) => {
         try {
           const t = e && e.target
-          if (t && t.tagName === 'TEXTAREA' && !(t.closest && t.closest('[data-dsh-prompt-modal]'))) lastInputEl = t
+          if (!t || !t.tagName) return
+          try {
+            if (t.closest && (t.closest('[data-dsh-prompt-modal]') || t.closest('[data-dsh-prompt-modal-root]'))) return
+          } catch (err) { /* ignore */ }
+          if (t.tagName === 'TEXTAREA') { lastFocusEl = t; return }
+          try {
+            if (t.getAttribute && t.getAttribute('contenteditable') === 'true' &&
+              t.closest && t.closest('[data-composer-card]')) lastFocusEl = t
+          } catch (err) { /* ignore */ }
         } catch (err) { /* ignore */ }
       }, true)
     }
   } catch (err) { /* ignore */ }
 }
 
-/** 可见的会话输入候选：全部非弹窗 textarea。故意不做可见性过滤 —— modal 守卫已排除
- * 自己的弹窗输入；宿主备份框的猜测性过滤一旦误杀真输入，代价是整框覆盖，不值得。 */
-function visibleInputAreas(): any[] {
+/** 作曲家可编辑根：宿主 Lexical 编辑器绑定的 contenteditable（自家弹窗已排除）。 */
+function composerRoots(): any[] {
   try {
     if (typeof document === 'undefined' || !(document as any).querySelectorAll) return []
     const out: any[] = []
-    const tas = document.querySelectorAll('textarea')
-    for (let i = 0; i < tas.length; i++) {
-      const ta = tas[i] as any
-      try { if (ta.closest && ta.closest('[data-dsh-prompt-modal]')) continue } catch (e) { /* ignore */ }
-      out.push(ta)
+    const push = (el: any) => {
+      try {
+        if (el.closest && (el.closest('[data-dsh-prompt-modal]') || el.closest('[data-dsh-prompt-modal-root]'))) return
+      } catch (e) { /* ignore */ }
+      if (out.indexOf(el) < 0) out.push(el)
     }
-    // 缓存元素若因查询时机没进扫描，也纳入候选（仍要过“在文档中”检查，防野指针）。
     try {
-      if (lastInputEl && out.indexOf(lastInputEl) < 0) {
-        let connected = true
-        if (typeof lastInputEl.isConnected === 'boolean') connected = lastInputEl.isConnected
-        else if (lastInputEl.ownerDocument && lastInputEl.ownerDocument.contains) {
-          try { connected = lastInputEl.ownerDocument.contains(lastInputEl) } catch (e) { /* ignore */ }
-        }
-        if (connected) out.unshift(lastInputEl)
-      }
+      const scoped = document.querySelectorAll('[data-composer-card] [contenteditable="true"]')
+      for (let i = 0; i < scoped.length; i++) push(scoped[i])
     } catch (e) { /* ignore */ }
+    if (out.length === 0) {
+      try {
+        const all = document.querySelectorAll('[contenteditable="true"]')
+        for (let i = 0; i < all.length; i++) push(all[i])
+      } catch (e) { /* ignore */ }
+    }
     return out
   } catch (e) { return [] }
 }
 
-/** 读光标：精确路径（焦点/缓存命中）尊重 selectionStart（含 0，即行首）；
- * 启发路径（盲采纳）里 0 多半是“从没聚焦过”，此时回退末尾比行首更不意外。 */
-function caretOf(ta: any, textLen: number, exact: boolean): number {
-  try {
-    if (ta && typeof ta.selectionStart === 'number') {
-      if (exact) return ta.selectionStart
-      return ta.selectionStart > 0 ? ta.selectionStart : textLen
-    }
-  } catch (e) { /* ignore */ }
-  return textLen
+const BLOCK_TAGS: Record<string, 1> = {
+  P: 1, DIV: 1, LI: 1, UL: 1, OL: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1,
+  BLOCKQUOTE: 1, PRE: 1, SECTION: 1, ARTICLE: 1, HEADER: 1, FOOTER: 1,
 }
 
-/** 决议当前草稿与插入点（#61 第一性原理重写）。
- * 铁律：只从观测值推导新草稿，按观测直接度排序；任何一环读空都不许产出“正文覆盖全框”。
- * L0 焦点输入框实时值（精确）→ L1 最后聚焦框（精确，blur 不改变值与光标）→
- * L2 输入桥 store（只在“与 DOM 一致”或“DOM 无内容可丢”时采信）→ L3 采纳 DOM 可见框。
- * Q3（#61 定稿）：无 getState 的旧桥不再 render 外直接调用（违反 Rules of Hooks，
- * 抛错被吞即静默空草稿）；DOM 里一个框都没有时才保留最后手段，此时本就无内容可丢。 */
-function resolveDraft(useInput: any): { text: string; caret: number } {
-  const tas = visibleInputAreas()
-  // L0：焦点仍在输入框 → 直接观测。
+/** 读一个可编辑根的纯文本与活光标（同一套块映射，文本与光标同源，绝不错位）。
+ * 文本≈宿主 clipboardText（段落↔\n）；光标=当前 selection 锚点，无选择即末尾。 */
+function readEditable(root: any): { text: string; caret: number } {
+  let text = ''
+  try {
+    const runs: Array<{ node: any; start: number; len: number }> = []
+    const kids: any[] = (root && root.childNodes) ? Array.prototype.slice.call(root.childNodes) : []
+    const pushRun = (s: string, node: any) => {
+      if (!s) return
+      runs.push({ node, start: text.length, len: s.length })
+      text += s
+    }
+    let started = false
+    const hasEl = kids.some((k: any) => k && k.nodeType === 1)
+    if (!hasEl) {
+      pushRun(root.textContent || '', null)
+    } else {
+      for (const k of kids) {
+        if (!k) continue
+        if (k.nodeType === 3) { started = true; pushRun(k.nodeValue || '', k); continue }
+        if (k.nodeType !== 1) continue
+        const tag = String(k.tagName || '').toUpperCase()
+        if (tag === 'BR') { if (started) text += '\n'; else started = true; continue }
+        if (BLOCK_TAGS[tag] === 1) {
+          if (!started) started = true
+          else text += '\n'
+        } else {
+          started = true
+        }
+        // runs 挂到文本节点上（光标锚点 99% 是文本节点）：展开后代文本节点，文本与光标同源
+        try {
+          const stack: any[] = [k]
+          const ordered: any[] = []
+          while (stack.length > 0) {
+            const n = stack.pop()
+            if (!n) continue
+            if (n.nodeType === 3) { ordered.push(n); continue }
+            if (n.nodeType !== 1) continue
+            const ch = n.childNodes ? Array.prototype.slice.call(n.childNodes) : []
+            for (let j = ch.length - 1; j >= 0; j--) stack.push(ch[j])
+          }
+          for (const tn of ordered) pushRun(tn.nodeValue || '', tn)
+        } catch (e) { pushRun(k.textContent || '', k) }
+      }
+    }
+    let caret = text.length
+    try {
+      const g: any = typeof window !== 'undefined' ? window : (globalThis as any)
+      const sel = g && typeof g.getSelection === 'function' ? g.getSelection() : null
+      const an = sel && sel.rangeCount > 0 ? sel.anchorNode : null
+      if (an && root.contains) {
+        let inside = false
+        try { inside = root.contains(an) } catch (e) { /* ignore */ }
+        if (inside) {
+          const ao = (sel && typeof sel.anchorOffset === 'number') ? sel.anchorOffset : 0
+          if (an.nodeType === 3) {
+            for (const r of runs) {
+              if (r.node === an) { caret = r.start + Math.max(0, Math.min(ao, r.len)); break }
+            }
+          } else if (an === root) {
+            const idx = Math.max(0, Math.min(ao, kids.length))
+            // 根锚点：offset=子节点下标 → 落到第 idx 个孩子起的首个 run 行首，之后没有则末尾
+            let hit = -1
+            for (const r of runs) {
+              const ci = r.node ? kids.indexOf(r.node) : -1
+              if (ci >= idx) { hit = r.start; break }
+            }
+            caret = hit >= 0 ? hit : text.length
+          } else {
+            for (const r of runs) {
+              if (r.node === an) { caret = ao > 0 ? r.start + r.len : r.start; break }
+            }
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
+    return { text, caret: Math.max(0, Math.min(caret, text.length)) }
+  } catch (e) { return { text: '', caret: 0 } }
+}
+
+/** 选当前作曲家根：焦点命中的 > 用户最后摸过的 > 首个非空 > 首个。 */
+function pickEditable(): any | null {
+  const roots = composerRoots()
+  if (roots.length === 0) return null
   try {
     if (typeof document !== 'undefined' && document) {
       const ae = (document as any).activeElement as any
-      if (ae && ae.tagName === 'TEXTAREA' && tas.indexOf(ae) >= 0) {
-        const text = ae.value || ''
-        return { text, caret: caretOf(ae, text.length, true) }
-      }
+      if (ae && roots.indexOf(ae) >= 0) return ae
     }
   } catch (e) { /* ignore */ }
-  // L1：用户最后摸过的输入框。
   try {
-    if (lastInputEl && tas.indexOf(lastInputEl) >= 0) {
-      const text = lastInputEl.value || ''
-      return { text, caret: caretOf(lastInputEl, text.length, true) }
-    }
+    if (lastFocusEl && roots.indexOf(lastFocusEl) >= 0) return lastFocusEl
   } catch (e) { /* ignore */ }
-  // L2：输入桥 store —— 只做印证，不做首选。
-  let store = ''
-  let hasStore = false
   try {
-    if (useInput && typeof useInput.getState === 'function') {
-      const st = useInput.getState()
-      store = (st && st.draft) || ''
-      hasStore = true
+    for (const r of roots) {
+      try { if (readEditable(r).text) return r } catch (e) { /* ignore */ }
     }
   } catch (e) { /* ignore */ }
-  if (!hasStore && tas.length === 0) {
-    try {
-      if (useInput && typeof useInput === 'function') {
-        const st = (useInput as any)((s: any) => s)
-        store = (st && st.draft) || ''
-        hasStore = true
-      }
-    } catch (e) { /* ignore */ }
-  }
-  if (hasStore && store) {
-    for (let i = 0; i < tas.length; i++) {
-      try { if ((tas[i].value || '') === store) return { text: store, caret: caretOf(tas[i], store.length, true) } } catch (e) { /* ignore */ }
-    }
-    // store 非空但 DOM 全空 → 采信 store（程序化写入、DOM 未渲染，无可见内容可丢）。
-    let anyContent = false
-    for (let i = 0; i < tas.length; i++) { try { if (tas[i].value) { anyContent = true; break } } catch (e) { /* ignore */ } }
-    if (!anyContent) return { text: store, caret: store.length }
-    // 否则 DOM 有可见内容与 store 矛盾 → 信任用户看得见的东西，往下走 DOM 采纳。
-  }
-  // L3：DOM 采纳 —— 第一个非空框；全空取第一个；一个没有则空串（真空框，插入即创建）。
-  let target: any = null
-  for (let i = 0; i < tas.length; i++) { try { if (tas[i].value) { target = tas[i]; break } } catch (e) { /* ignore */ } }
-  if (!target) target = tas[0] || null
-  if (!target) return { text: '', caret: 0 }
-  const text = target.value || ''
-  return { text, caret: caretOf(target, text.length, false) }
+  return roots[0]
 }
 
-/** 插入正文到当前草稿（光标处优先，否则末尾；不覆盖；自动聚焦）。返回插入前的草稿长度，供调用点记日志。 */
+/** 把焦点送回作曲家（宿主 input.left 自家按钮同款 keepFocus 语义）。 */
+function focusComposer(): void {
+  try {
+    if (typeof document === 'undefined') return
+    const el = pickEditable()
+    if (el && typeof el.focus === 'function') {
+      try { el.focus({ preventScroll: true }) } catch (e2) { try { (el as any).focus() } catch (e3) { /* ignore */ } }
+    }
+  } catch (e) { /* ignore */ }
+}
+
+/** 保焦（行/入口 mousedown）：只拦焦点转移，click 照常；焦点已在面板内（搜索框）
+ * 或编辑器内时绝不抢焦点 —— 抢了会 blur 搜索框，#34 的 hover 抑制一松面板就误关。 */
+export function keepComposerFocus(e: any): void {
+  try { if (e && typeof e.preventDefault === 'function') e.preventDefault() } catch (err) { /* ignore */ }
+  try {
+    if (typeof document === 'undefined') return
+    const ae = (document as any).activeElement as any
+    if (ae && ae.closest && typeof ae.closest === 'function') {
+      try {
+        if (ae.closest('[data-dsh-prompt-panel-root]') || ae.closest('[data-dsh-prompt-modal-root]') ||
+          ae.closest('[data-dsh-prompt-modal]')) return
+      } catch (err) { /* ignore */ }
+    }
+    if (ae && ae.getAttribute && typeof ae.getAttribute === 'function') {
+      try { if (ae.getAttribute('contenteditable') === 'true') return } catch (err) { /* ignore */ }
+    }
+    if (ae && ae.tagName === 'TEXTAREA') return
+    focusComposer()
+  } catch (err) { /* ignore */ }
+}
+
+/** 决议当前草稿与插入点（#61 真修复：H=hook 已提交草稿，D=DOM 活读）。 */
+function resolveDraft(): { text: string; caret: number } {
+  const norm = (s: string) => (s || '').replace(/\r\n?/g, '\n')
+  const H = norm(tapDraft)
+  const root = pickEditable()
+  if (root) {
+    let d = ''
+    let c = 0
+    try {
+      const r = readEditable(root)
+      d = norm(r.text)
+      c = Math.max(0, Math.min(r.caret, d.length))
+    } catch (e) { /* ignore */ }
+    if (!d) {
+      // DOM 读空：编辑器空着（或未渲染）—— H 有就信 H，没有就是真空
+      if (H) return { text: H, caret: H.length }
+      return { text: '', caret: 0 }
+    }
+    if (!H) return { text: d, caret: c }
+    if (H === d) return { text: H, caret: c }
+    // 引用 chip：DOM 显示形≠存储形，信桥保编码（光标只能回末尾，无 chip 读写 API）。
+    if (CHIP_RE.test(H)) return { text: H, caret: H.length }
+    // 其余一切分歧（组词中/桥滞后/跨会话残留）：信看得见的，绝不丢字。
+    return { text: d, caret: c }
+  }
+  if (H) return { text: H, caret: H.length }
+  // 末路：史前 textarea 形态兼容（弹窗输入已排除）。
+  try {
+    if (typeof document !== 'undefined' && (document as any).querySelectorAll) {
+      const tas = (document as any).querySelectorAll('textarea')
+      for (let i = 0; i < tas.length; i++) {
+        const ta = tas[i] as any
+        try {
+          if (ta.closest && (ta.closest('[data-dsh-prompt-modal]') || ta.closest('[data-dsh-prompt-modal-root]'))) continue
+        } catch (e) { /* ignore */ }
+        const v = ta.value || ''
+        if (v) {
+          let p = v.length
+          try { if (typeof ta.selectionStart === 'number' && ta.selectionStart > 0) p = ta.selectionStart } catch (e) { /* ignore */ }
+          return { text: v, caret: p }
+        }
+      }
+    }
+  } catch (e) { /* ignore */ }
+  return { text: '', caret: 0 }
+}
+
+/** 插入正文到当前草稿（光标处优先，否则末尾；不覆盖；自动聚焦）。返回插入前的草稿长度，供调用点记日志。
+ * 注意：宿主 setDraft 语义是全文替换且光标置尾（无光标级写入 API），中部插入后光标回尾是宿主行为，
+ * 不是本函数能定的；验收“光标在插入文本后”在尾插时精确成立。
+ * useInput 只为兼容旧签名保留：真正的桥订阅在 render 内的 DraftTap，事件回调里不再碰它（Q3）。 */
 export function insertBody(useInput: any, inputActions: any, body: string): number {
+  void useInput
   armInputFocusTrack()
-  const r = resolveDraft(useInput)
+  const r = resolveDraft()
   const draft = r.text
   const pos = Math.max(0, Math.min(r.caret, draft.length))
   const newDraft = draft.slice(0, pos) + body + draft.slice(pos)
   if (inputActions && typeof inputActions.setDraft === 'function') inputActions.setDraft(newDraft)
   setTimeout(() => {
-    try {
-      if (typeof document !== 'undefined') {
-        const tas = document.querySelectorAll('textarea')
-        for (let i = 0; i < tas.length; i++) {
-          const ta = tas[i] as HTMLTextAreaElement
-          if (ta.value === newDraft) { ta.focus(); ta.setSelectionRange(pos + body.length, pos + body.length); break }
-        }
-      }
-    } catch (e) { /* ignore */ }
+    try { focusComposer() } catch (e) { /* ignore */ }
   }, 0)
   return draft.length
 }
@@ -692,10 +835,10 @@ export function TemplateBrowser(props: BrowserProps): any {
     const intro = (x.body || '').split('\n')[0].trim()
     // 紧凑（⚡Prompt 浮层）：单行 —— 图钉 + 标题 + 简介 + 操作横排，不再占两行
     if (compact) {
-      // #61 保焦：mousedown 默认行为会把焦点从输入框抢走（click 触发时 activeElement 已不是
-      // textarea，只能走回退链猜草稿 —— 这正是整框覆盖的起点）。preventDefault 只拦焦点转移，
-      // click 照常触发；键盘操作无 mousedown，不受影响；搜索框不在行内，保持可聚焦。
-      const keepFocus = { onMouseDown: (e: any) => { try { if (e && typeof e.preventDefault === 'function') e.preventDefault() } catch (err) { /* ignore */ } } }
+      // #61 保焦（宿主 input.left 自家按钮同款 keepFocus）：mousedown 默认行为会把焦点从
+      // 作曲家抢走；preventDefault 只拦焦点转移，click 照常触发；焦点已在面板搜索框/编辑器内
+      // 时不抢（见 keepComposerFocus）；键盘操作无 mousedown，不受影响。
+      const keepFocus = { onMouseDown: keepComposerFocus }
       return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, minWidth: 0 }, 'data-dsh-prompt-id': x.id, ...keepFocus, onClick: () => handlePick(x), title: labelString(x) + ' · ' + t('insertHint') }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
           h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : 'none', stroke: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : dim, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, [
@@ -743,6 +886,8 @@ export function TemplateBrowser(props: BrowserProps): any {
   // #14：弹窗打开时禁止触发关窗（本地防御 + 全局 gate 双保险，输入时微移动/焦点变化不丢弹窗）
   const rootHover = compact ? { onMouseEnter: () => cancelPanelClose(), onMouseLeave: () => { if (modal || searchFocused || composing) return; schedulePanelClose(150) } } : null
   return h('div', { ref: rootRef, style: panelStyle, ...rootHover }, [
+    // #61 真修复：render 内订阅输入桥（DraftTap，无桥的设置页不挂载）
+    useInput ? h(DraftTap, { key: 'dsh-prompt-draft-tap', useInput }) : null,
     compact ? h('div', { style: headStyle }, [
       h(PromptMark, { size: 15 }),
       h('span', { style: titleStyle }, t('panelTitle')),
@@ -806,13 +951,11 @@ function pickProbe(useInput: any, inputActions: any): void {
         activeKind = (ae && ae.tagName) || 'none'
       }
     } catch (e) { /* ignore */ }
-    let storeChars = -1
+    let storeChars = tapSeen ? tapDraft.length : -1
     let hasSub = 0
     try {
-      if (useInput && typeof useInput.getState === 'function') {
-        const st = useInput.getState()
-        storeChars = ((st && st.draft) || '').length
-      }
+      // 真机实证：useInput 是裸 selector hook，无 getState 也无 subscribe（renderer 现場合成，
+      // 只能 render 内调用）。这里只做形状记录，不断言。
       if (useInput && typeof useInput.subscribe === 'function') hasSub = 1
     } catch (e) { /* ignore */ }
     let actMask = 0

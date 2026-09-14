@@ -1,6 +1,7 @@
 /**
  * dsh-prompt — 模板浏览组件（面板 popover 与设置页共用）
- * #4 交互定稿：tabs（阶段）+ 领域筛选 + 搜索；排序=置顶≤5 → 用量；单击插入（光标处/末尾、不覆盖、自动聚焦）；
+ * #4 交互定稿：tabs（阶段）+ 领域筛选 + 搜索；面板单击插入（光标处/末尾、不覆盖、自动聚焦）；
+ * 设置页为纯管理面（#61）：行点击不执行插入、不涨用量；管理动作只走图钉/编辑/删除/复制按钮。
  * 插入后自动关闭；编辑/删除/新增时保持打开；hover 快捷操作；＋弹窗新增；删除二次确认；预制可复制为自定义。
  * #13 bottom-up：compact 浮层（⚡Prompt 悬浮列表）改 bottom-up——最常用在底部，未使用在顶部；置顶簇在底部；打开自动滚到底部。
  * 设置页（compact=false）保持原 Top-down。
@@ -64,44 +65,136 @@ interface ModalState {
   t?: PromptTemplate
 }
 
-/** 插入正文到当前草稿（光标处优先，否则末尾；不覆盖；自动聚焦）。返回插入前的草稿长度，供调用点记日志。 */
-export function insertBody(useInput: any, inputActions: any, body: string): number {
-  // 草稿以 DOM 真实值为准：事件处理里不能调用 useInput(selector)（hook，只能在 render 内调用，
-  // 在这里调会抛 Invalid hook call → 被 catch 吞掉 → draft 变 '' → setDraft(body) 整框覆盖）。
-  // 顺序：焦点 textarea 真实值 → store getState → DOM 可见 textarea → 空串。
-  let draft = ''
-  let pos = -1
+/** 用户最后一次聚焦过的会话输入框（focusin 缓存，#61）。
+ * 为什么需要它：blur 不改变 textarea 的 value / selectionStart，所以“用户最后摸过的输入框”
+ * 就是会话输入框的最可信指针 —— 它不受输入桥 store 新鲜度的影响，而旧的 value 全等扫描
+ * 在 store 过期时恰恰找不到。配合行/entry 的 mousedown 保焦（焦点根本不离开），形成纵深：
+ * 不失焦时走 L0 精确路径；失焦了走这里，仍是观测值而非猜测值。 */
+let lastInputEl: any = null
+let focusTrackArmed = false
+function armInputFocusTrack(): void {
+  if (focusTrackArmed) return
+  focusTrackArmed = true
   try {
-    if (typeof document !== 'undefined') {
-      const ae = document.activeElement as HTMLTextAreaElement | null
-      if (ae && ae.tagName === 'TEXTAREA' && !(ae.closest && ae.closest('[data-dsh-prompt-modal]'))) {
-        draft = ae.value || ''
-        pos = typeof ae.selectionStart === 'number' ? ae.selectionStart : draft.length
+    if (typeof document !== 'undefined' && document && typeof (document as any).addEventListener === 'function') {
+      document.addEventListener('focusin', (e: any) => {
+        try {
+          const t = e && e.target
+          if (t && t.tagName === 'TEXTAREA' && !(t.closest && t.closest('[data-dsh-prompt-modal]'))) lastInputEl = t
+        } catch (err) { /* ignore */ }
+      }, true)
+    }
+  } catch (err) { /* ignore */ }
+}
+
+/** 可见的会话输入候选：全部非弹窗 textarea。故意不做可见性过滤 —— modal 守卫已排除
+ * 自己的弹窗输入；宿主备份框的猜测性过滤一旦误杀真输入，代价是整框覆盖，不值得。 */
+function visibleInputAreas(): any[] {
+  try {
+    if (typeof document === 'undefined' || !(document as any).querySelectorAll) return []
+    const out: any[] = []
+    const tas = document.querySelectorAll('textarea')
+    for (let i = 0; i < tas.length; i++) {
+      const ta = tas[i] as any
+      try { if (ta.closest && ta.closest('[data-dsh-prompt-modal]')) continue } catch (e) { /* ignore */ }
+      out.push(ta)
+    }
+    // 缓存元素若因查询时机没进扫描，也纳入候选（仍要过“在文档中”检查，防野指针）。
+    try {
+      if (lastInputEl && out.indexOf(lastInputEl) < 0) {
+        let connected = true
+        if (typeof lastInputEl.isConnected === 'boolean') connected = lastInputEl.isConnected
+        else if (lastInputEl.ownerDocument && lastInputEl.ownerDocument.contains) {
+          try { connected = lastInputEl.ownerDocument.contains(lastInputEl) } catch (e) { /* ignore */ }
+        }
+        if (connected) out.unshift(lastInputEl)
+      }
+    } catch (e) { /* ignore */ }
+    return out
+  } catch (e) { return [] }
+}
+
+/** 读光标：精确路径（焦点/缓存命中）尊重 selectionStart（含 0，即行首）；
+ * 启发路径（盲采纳）里 0 多半是“从没聚焦过”，此时回退末尾比行首更不意外。 */
+function caretOf(ta: any, textLen: number, exact: boolean): number {
+  try {
+    if (ta && typeof ta.selectionStart === 'number') {
+      if (exact) return ta.selectionStart
+      return ta.selectionStart > 0 ? ta.selectionStart : textLen
+    }
+  } catch (e) { /* ignore */ }
+  return textLen
+}
+
+/** 决议当前草稿与插入点（#61 第一性原理重写）。
+ * 铁律：只从观测值推导新草稿，按观测直接度排序；任何一环读空都不许产出“正文覆盖全框”。
+ * L0 焦点输入框实时值（精确）→ L1 最后聚焦框（精确，blur 不改变值与光标）→
+ * L2 输入桥 store（只在“与 DOM 一致”或“DOM 无内容可丢”时采信）→ L3 采纳 DOM 可见框。
+ * Q3（#61 定稿）：无 getState 的旧桥不再 render 外直接调用（违反 Rules of Hooks，
+ * 抛错被吞即静默空草稿）；DOM 里一个框都没有时才保留最后手段，此时本就无内容可丢。 */
+function resolveDraft(useInput: any): { text: string; caret: number } {
+  const tas = visibleInputAreas()
+  // L0：焦点仍在输入框 → 直接观测。
+  try {
+    if (typeof document !== 'undefined' && document) {
+      const ae = (document as any).activeElement as any
+      if (ae && ae.tagName === 'TEXTAREA' && tas.indexOf(ae) >= 0) {
+        const text = ae.value || ''
+        return { text, caret: caretOf(ae, text.length, true) }
       }
     }
   } catch (e) { /* ignore */ }
-  if (pos < 0) {
+  // L1：用户最后摸过的输入框。
+  try {
+    if (lastInputEl && tas.indexOf(lastInputEl) >= 0) {
+      const text = lastInputEl.value || ''
+      return { text, caret: caretOf(lastInputEl, text.length, true) }
+    }
+  } catch (e) { /* ignore */ }
+  // L2：输入桥 store —— 只做印证，不做首选。
+  let store = ''
+  let hasStore = false
+  try {
+    if (useInput && typeof useInput.getState === 'function') {
+      const st = useInput.getState()
+      store = (st && st.draft) || ''
+      hasStore = true
+    }
+  } catch (e) { /* ignore */ }
+  if (!hasStore && tas.length === 0) {
     try {
-      if (useInput && typeof useInput.getState === 'function') {
-        const st = useInput.getState()
-        draft = (st && st.draft) || ''
-      } else if (useInput) {
-        // 兼容无 getState 的旧桥：最后手段才尝试直接读（失败即忽略，绝不抛）。
-        const st = useInput((s: any) => s)
-        draft = (st && st.draft) || ''
-      }
-    } catch (e) { /* ignore */ }
-    pos = draft.length
-    try {
-      if (typeof document !== 'undefined') {
-        const tas = document.querySelectorAll('textarea')
-        for (let i = 0; i < tas.length; i++) {
-          const ta = tas[i] as HTMLTextAreaElement
-          if (ta.value === draft) { pos = typeof ta.selectionStart === 'number' ? ta.selectionStart : draft.length; break }
-        }
+      if (useInput && typeof useInput === 'function') {
+        const st = (useInput as any)((s: any) => s)
+        store = (st && st.draft) || ''
+        hasStore = true
       }
     } catch (e) { /* ignore */ }
   }
+  if (hasStore && store) {
+    for (let i = 0; i < tas.length; i++) {
+      try { if ((tas[i].value || '') === store) return { text: store, caret: caretOf(tas[i], store.length, true) } } catch (e) { /* ignore */ }
+    }
+    // store 非空但 DOM 全空 → 采信 store（程序化写入、DOM 未渲染，无可见内容可丢）。
+    let anyContent = false
+    for (let i = 0; i < tas.length; i++) { try { if (tas[i].value) { anyContent = true; break } } catch (e) { /* ignore */ } }
+    if (!anyContent) return { text: store, caret: store.length }
+    // 否则 DOM 有可见内容与 store 矛盾 → 信任用户看得见的东西，往下走 DOM 采纳。
+  }
+  // L3：DOM 采纳 —— 第一个非空框；全空取第一个；一个没有则空串（真空框，插入即创建）。
+  let target: any = null
+  for (let i = 0; i < tas.length; i++) { try { if (tas[i].value) { target = tas[i]; break } } catch (e) { /* ignore */ } }
+  if (!target) target = tas[0] || null
+  if (!target) return { text: '', caret: 0 }
+  const text = target.value || ''
+  return { text, caret: caretOf(target, text.length, false) }
+}
+
+/** 插入正文到当前草稿（光标处优先，否则末尾；不覆盖；自动聚焦）。返回插入前的草稿长度，供调用点记日志。 */
+export function insertBody(useInput: any, inputActions: any, body: string): number {
+  armInputFocusTrack()
+  const r = resolveDraft(useInput)
+  const draft = r.text
+  const pos = Math.max(0, Math.min(r.caret, draft.length))
   const newDraft = draft.slice(0, pos) + body + draft.slice(pos)
   if (inputActions && typeof inputActions.setDraft === 'function') inputActions.setDraft(newDraft)
   setTimeout(() => {
@@ -118,8 +211,10 @@ export function insertBody(useInput: any, inputActions: any, body: string): numb
   return draft.length
 }
 
-/** 点击模板：插入 + 用量 +1 + 面板关闭（并记一条插入事件：只记种类与散列，不记模板名与正文）。 */
+/** 点击模板：插入 + 用量 +1 + 面板关闭（并记一条插入事件：只记种类与散列，不记模板名与正文）。
+ * #61：无写入能力（设置页纯管理面不传输入桥）时直接返回 —— 不插入、不涨用量、不记事件。 */
 export function onPick(t: PromptTemplate, useInput: any, inputActions: any): void {
+  if (!inputActions || typeof inputActions.setDraft !== 'function') return
   const draftChars = insertBody(useInput, inputActions, t.body)
   logEvent('pick.insert', {
     source: 'panel',
@@ -596,7 +691,11 @@ export function TemplateBrowser(props: BrowserProps): any {
     const intro = (x.body || '').split('\n')[0].trim()
     // 紧凑（⚡Prompt 浮层）：单行 —— 图钉 + 标题 + 简介 + 操作横排，不再占两行
     if (compact) {
-      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, minWidth: 0 }, 'data-dsh-prompt-id': x.id, onClick: () => handlePick(x), title: labelString(x) + ' · ' + t('insertHint') }, [
+      // #61 保焦：mousedown 默认行为会把焦点从输入框抢走（click 触发时 activeElement 已不是
+      // textarea，只能走回退链猜草稿 —— 这正是整框覆盖的起点）。preventDefault 只拦焦点转移，
+      // click 照常触发；键盘操作无 mousedown，不受影响；搜索框不在行内，保持可聚焦。
+      const keepFocus = { onMouseDown: (e: any) => { try { if (e && typeof e.preventDefault === 'function') e.preventDefault() } catch (err) { /* ignore */ } } }
+      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, minWidth: 0 }, 'data-dsh-prompt-id': x.id, ...keepFocus, onClick: () => handlePick(x), title: labelString(x) + ' · ' + t('insertHint') }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
           h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : 'none', stroke: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : dim, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, [
             h('path', { d: 'M12 17v5' }),
@@ -611,7 +710,9 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('span', { style: actStyle }, acts),
       ])
     }
-    return h('div', { key: x.id, style: { ...itemStyle, background: itemBg }, 'data-dsh-prompt-id': x.id, onClick: () => handlePick(x), title: labelString(x) + ' · ' + t('insertHint') }, [
+    // 设置页（纯管理面，#61）：行点击不做任何插入动作 —— 无 onClick（故无用量、无关窗），
+    // 标题也不承诺插入，光标保持默认；管理只走行内图钉/编辑/删除/复制按钮。
+    return h('div', { key: x.id, style: { ...itemStyle, cursor: 'default', background: itemBg }, 'data-dsh-prompt-id': x.id, title: labelString(x) }, [
       h('div', { style: { flex: 'none', paddingTop: 2 } }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
           // 图钉（置顶语义）：置顶=橙色实心，未置顶=描边

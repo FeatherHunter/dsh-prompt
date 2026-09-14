@@ -55,6 +55,7 @@
     "test:issue-40": "node scripts/test-issue-40.cjs",
     "test:issue-41": "node scripts/test-issue-41.cjs",
     "test:issue-42": "node scripts/test-issue-42.cjs",
+    "test:issue-61": "node scripts/test-issue-61.cjs",
     "test": "npm run test:modal && npm run test:issue-14"
   },
   "dsh": {

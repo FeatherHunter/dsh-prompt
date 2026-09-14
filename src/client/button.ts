@@ -25,6 +25,9 @@ export function EntryButton(props: any): any {
   return h('button', {
     style, title: tr(lang, STR.entryBtn),
     'data-dsh-prompt-entry': '1',
+    // #61 保焦：click 开面板时不把焦点从输入框抢走（与面板行同理），这样后续行点击
+    // 仍命中焦点输入框精确路径；键盘 Tab+Enter 无 mousedown，不受影响。
+    onMouseDown: (e: any) => { try { if (e && typeof e.preventDefault === 'function') e.preventDefault() } catch (err) { /* ignore */ } },
     // hover 触发：进入即开；离开延迟 150ms 关（列表接管时取消）
     onMouseEnter: () => { cancelPanelClose(); setPanelOpen(true) },
     onMouseLeave: () => { schedulePanelClose(150) },

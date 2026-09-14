@@ -215,6 +215,7 @@ export function insertBody(useInput: any, inputActions: any, body: string): numb
  * #61：无写入能力（设置页纯管理面不传输入桥）时直接返回 —— 不插入、不涨用量、不记事件。 */
 export function onPick(t: PromptTemplate, useInput: any, inputActions: any): void {
   if (!inputActions || typeof inputActions.setDraft !== 'function') return
+  pickProbe(useInput, inputActions)
   const draftChars = insertBody(useInput, inputActions, t.body)
   logEvent('pick.insert', {
     source: 'panel',
@@ -786,6 +787,45 @@ function emitGoSettings(): void { if (goSettingsHandler) goSettingsHandler() }
 
 export function getPresetList(): PromptTemplate[] { return PRESET_TEMPLATES }
 export function getPreset(id: string): PromptTemplate | undefined { return getPresetById(id) }
+
+/** 点击瞬间现场探针（#61 真机仍覆盖：draftChars 全 0，字活在 textarea/store 之外）。
+ * 只记 DOM 计数与桥形状，不记任何正文；位图顺序冻结（见 pick.probe 的 guard）。 */
+const PICK_ACT_NAMES = ['setDraft', 'insert', 'insertText', 'appendText', 'setValue', 'setText', 'focus', 'clear']
+function pickProbe(useInput: any, inputActions: any): void {
+  try {
+    let textareas = -1
+    let activeKind = 'none'
+    let editables = -1
+    try {
+      if (typeof document !== 'undefined') {
+        if (document.querySelectorAll) {
+          textareas = document.querySelectorAll('textarea').length
+          editables = document.querySelectorAll('[contenteditable="true"]').length
+        }
+        const ae = (document as any).activeElement
+        activeKind = (ae && ae.tagName) || 'none'
+      }
+    } catch (e) { /* ignore */ }
+    let storeChars = -1
+    let hasSub = 0
+    try {
+      if (useInput && typeof useInput.getState === 'function') {
+        const st = useInput.getState()
+        storeChars = ((st && st.draft) || '').length
+      }
+      if (useInput && typeof useInput.subscribe === 'function') hasSub = 1
+    } catch (e) { /* ignore */ }
+    let actMask = 0
+    try {
+      if (inputActions) {
+        for (let i = 0; i < PICK_ACT_NAMES.length; i++) {
+          try { if (typeof inputActions[PICK_ACT_NAMES[i]] === 'function') actMask |= (1 << i) } catch (e) { /* ignore */ }
+        }
+      }
+    } catch (e) { /* ignore */ }
+    logEvent('pick.probe', { textareas, activeKind, editables, storeChars, actMask, hasSub })
+  } catch (e) { /* ignore */ }
+}
 
 /** 记一条日志事件。出口只有一个：日志能力装进 globalThis.__dshPromptLog 的那个实例。
  *  走槽而不是 import 的原因：本仓既有回归脚本会把客户端模块逐个转译后单独 require

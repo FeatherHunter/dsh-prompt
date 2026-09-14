@@ -79,11 +79,12 @@ async function drain(cap, home, expectEvent) {
   ok('parseEventListManifest 通过（形状合规）');
   assert(dshLogHost.checkEventCounts(parsed).ok, 'checkEventCounts 通过（自报 counts 与实际条数逐项一致）');
   const names = Object.keys(parsed.events);
-  assert(names.length === 39, `事件条数 39 → 实际 ${names.length}`);
+  assert(names.length === 40, `事件条数 40 → 实际 ${names.length}`);
   const actualKinds = { resident: 0, ondemand: 0, selfmon: 0 };
   for (const n of names) actualKinds[parsed.events[n].kind] += 1;
   // #39 整改加了三条更新能力的宿主侧事件：host.call、update.install.exec、update.route.fail（都属 resident）。
-  eq(actualKinds, { resident: 26, ondemand: 8, selfmon: 5 }, '三类 kind 计数');
+  // #61 加 pick.probe 诊断探针（ondemand debug，只记计数与桥形状）。
+  eq(actualKinds, { resident: 26, ondemand: 9, selfmon: 5 }, '三类 kind 计数');
 
   let fieldBad = 0;
   for (const n of names) if (!dshLogHost.checkEventFields(parsed, n, parsed.events[n].fields).ok) fieldBad += 1;

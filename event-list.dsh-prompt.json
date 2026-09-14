@@ -3,7 +3,7 @@
   "pluginId": "dsh-prompt",
   "counts": {
     "resident": 26,
-    "ondemand": 8,
+    "ondemand": 9,
     "selfmon": 5
   },
   "events": {
@@ -417,6 +417,29 @@
         "hasUseInput",
         "hasInputActions"
       ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "pick.probe": {
+      "level": "debug",
+      "kind": "ondemand",
+      "fields": [
+        "textareas",
+        "activeKind",
+        "editables",
+        "storeChars",
+        "actMask",
+        "hasSub"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "guard": "#61 真机仍覆盖的诊断探针：点击瞬间只记 DOM 计数与桥形状，不记任何正文。textareas=0 且 editables>0 → 宿主输入框不是 textarea；storeChars=0 而用户框里有字 → 桥在点击时滞后；actMask=写 API 位图（位0=setDraft，1=insert，2=insertText，3=appendText，4=setValue，5=setText，6=focus，7=clear）",
       "rules": [
         "R_TOKEN",
         "R_WIN_ABS",

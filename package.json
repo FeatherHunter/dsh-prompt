@@ -33,6 +33,7 @@
     "build": "node scripts/build.mjs",
     "build:client": "tsdown",
     "build:update-host": "node scripts/update/build-host.mjs",
+    "prepare": "npm run build",
     "derive:update-values": "node node_modules/dsh-plugin-update/derive-client-values.mjs --prefix prompt --out src/update/gen/updateClient.derived.js",
     "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck:host",
     "typecheck:host": "tsc -p tsconfig.host.json",

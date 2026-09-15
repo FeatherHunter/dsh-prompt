@@ -572,6 +572,18 @@ export function TemplateBrowser(props: BrowserProps): any {
   const listRef = react.useRef(null as any)
   const highlightState = react.useState(null as string | null)
   const highlightId = highlightState[0]
+  // #74 设置页行折叠：展开态组件局部 useState（存 id 集合），不进 store；
+  // 行此前无 onClick，加点击只做同一行简介显隐（不涨用量、不触发插入、不关窗，#61 管理面语义）。
+  const expandedState = react.useState(new Set<string>())
+  const expanded = expandedState[0]
+  const toggleExpanded = (id: string) => {
+    expandedState[1]((prev: Set<string>) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
   // #34：搜索框交互状态——聚焦/拼音组词期抑制 hover 自动关窗（#14 家族延续）。
   // 中文组词语义：compositionstart→end 整段只算一次输入，期间任何杂散 mouseleave
   //（布局抖动/滚动重命中）都不应 schedulePanelClose(150) 关窗；设置页（compact=false）无 hover 语义，不碰全局门控。
@@ -889,9 +901,11 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('span', { style: usageStyle, title: usageTitle }, String(usageN)),
       ])
     }
-    // 设置页（纯管理面，#61）：行点击不做任何插入动作 —— 无 onClick（故无用量、无关窗），
-    // 标题也不承诺插入，光标保持默认；管理只走行内图钉/编辑/删除/复制按钮。
-    return h('div', { key: x.id, style: { ...itemStyle, cursor: 'default', background: itemBg }, 'data-dsh-prompt-id': x.id, title: labelString(x) }, [
+    // 设置页（纯管理面，#61）：行点击不做任何插入动作 —— #74 折叠除外：
+    // 点击行只切换同一行简介显隐，不涨用量、不触发插入、不关窗；
+    // 管理仍只走行内图钉/编辑/删除/复制按钮（其 onClick 已 stopPropagation，故不触发折叠）。
+    // #74 行默认折叠：简介节点不渲染，单行只显示图钉 + 用量徽标 + 名称 + 标签 + 操作。
+    return h('div', { key: x.id, style: { ...itemStyle, cursor: 'pointer', background: itemBg }, 'data-dsh-prompt-id': x.id, title: labelString(x), onClick: () => toggleExpanded(x.id) }, [
       h('div', { style: { flex: 'none', paddingTop: 2 } }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
           // 图钉（置顶语义）：置顶=橙色实心，未置顶=描边
@@ -906,7 +920,7 @@ export function TemplateBrowser(props: BrowserProps): any {
           h('span', { style: nmStyle }, x.name),
           h('span', { style: tagStyle }, labelString(x)),
         ]),
-        h('span', { style: subStyle }, (x.body || '').slice(0, 44) + '…'),
+        expanded.has(x.id) ? h('span', { style: subStyle }, (x.body || '').slice(0, 44) + '…') : null,
       ]),
       h('div', { style: { flex: 'none', display: 'flex', alignItems: 'center', gap: 4, paddingTop: 2 } }, [acts]),
       // #71 用量徽标（设置页）：行最右（操作按钮之后、最末尾）；paddingTop 与图钉一致，与标题首行对齐，样式不变

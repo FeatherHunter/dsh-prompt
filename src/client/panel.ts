@@ -9,8 +9,9 @@
  * 为统一下底座，智能卡以评分为主键套用同一门公式；设置页（Q2=C）与 /prompt（Q6=A）保留降序为例外。
  * #68 终式（2026-09-15）：悬浮列表改为置顶簇聚底（分区主键→分区内用量升序→同用量 pin 序→末键）；
  * 设置页与 /prompt 忽略置顶、只留用量降序（置顶仅悬浮列表生效）。
- * #23 统一标签：页签/领域行/搜索框的筛选语义统一为标签包含（matchLabel），
- * 自定义页签仍按 builtin 过滤（不是标签）；行内展示完整标签串（labelString）。
+ * #23 统一标签：筛选语义统一为标签包含（matchLabel），行内展示完整标签串（labelString）。
+ * #70 P5a（2026-09-15）：首行页签（全部/执行前/执行中/执行后/自定义）已删；顶部仅剩单行
+ * “范围 × 行动”双维（范围按 builtin：预置仅内置/自定义仅自建，继承旧自定义页签语义；行动按 matchLabel 单选）。
  */
 import type { PromptTemplate } from './templates'
 import { PRESET_TEMPLATES, getPresetById } from './templates'
@@ -52,22 +53,28 @@ export function PromptMark(props: { size?: number }): any {
   ])
 }
 
-const STAGE_TABS = ['all', '执行前', '执行中', '执行后'] as const
-// #70 单行动标签云：第二行不再是写死 DOMAIN_FILTERS（['all', '思考框架', '学习', '工程', '执行'] 已删除，
-// 行定义见 cloudNodes），改为“全部 + 行动词云”。词源方案 A（调查报告 §5 步骤 1）：
+// #70 P5a（2026-09-15）：首行页签已删（STAGE_TABS/tabs/tabNodes/tabState/CUSTOM_TAG 全清，无死代码）。
+// 顶部仅剩单行“范围 × 行动”：行首预置/自定义两个范围钮 + 后接行动词云，无全部钮（两维均以 toggle 回无）。
+// 词源方案 A（调查报告 §5 步骤 1）：
 // allKnownLabels()（预置 23 词 + 在用自定义词，去重保序）去掉非行动词，剩下即云。
 // 去留表（以预置 23 词为基准，去 7 留 16；自定义在用词全部“留”，追加排在预置行动词之后）：
 //   去（7）：思考框架/学习/工程/执行（4 领域）+ 执行前/执行中/执行后（3 阶段）；
-//            另去哨兵 '自定义'（空标签回落词，同时是自定义页签 id，见 CUSTOM_TAG）与 'all'（非标签）；
+//            另去哨兵 '自定义'（空标签回落词；旧自定义页签 id 已删，语义由范围钮继承）与 'all'（非标签）；
 //   留（16，按预置首次出现序）：拆解/检验/归因/决策/理解/路线/概念/考验/审查/测试/重构/解读/启动/固化/记录/复盘；
 //   自定义新词：只要不在“去”集合即留（allKnownLabels 已含在用自定义词，开箱即用；
-//            若自定义词恰与领域/阶段同名则仍被去——此时该词走页签/搜索可达，云不收录，维度纯净优先）。
+//            若自定义词恰与领域/阶段同名则仍被去——此时该词走搜索可达，云不收录，维度纯净优先）。
 // 排序：预置行动词固定首现序（不随用量抖动）+ 自定义词追加；换行 flexWrap（见 cloudRowStyle）。
 const CLOUD_EXCLUDE = ['all', '思考框架', '学习', '工程', '执行', '执行前', '执行中', '执行后', '自定义']
 function actionCloudLabels(): string[] {
   return allKnownLabels().filter((l) => CLOUD_EXCLUDE.indexOf(l) < 0)
 }
-const CUSTOM_TAG = '自定义'
+// #70 P5a 范围维：'all'=无范围（无按钮，初值）/ 'preset'=仅内置 / 'custom'=仅自建。
+// 按 builtin 布尔过滤（不是标签），继承旧 tab=自定义短路语义（旧：tab===CUSTOM_TAG → !x.builtin）。
+const SCOPE_ALL = 'all'
+const SCOPE_PRESET = 'preset'
+const SCOPE_CUSTOM = 'custom'
+const SCOPE_PRESET_LABEL = '预置'
+const SCOPE_CUSTOM_LABEL = '自定义'
 
 export interface BrowserProps {
   compact: boolean
@@ -548,10 +555,11 @@ export function TemplateBrowser(props: BrowserProps): any {
   const lang = langState[0]
   const tickState = react.useState(0)
   const setTick = tickState[1]
-  const tabState = react.useState('all')
-  const tab = tabState[0]
-  // #70：第二行由领域行换成单行动标签云——状态语义同步由“所选领域”改为“所选行动词”，
-  // 变量改名 cloud/cloudState（初值 'all' 不变；单选；悬浮 compact 与设置页共用同一顶部，见 cloudNodes）。
+  // #70 P5a：首行已删，顶部仅剩“范围 × 行动”双维（悬浮 compact 与设置页共用同一顶部，见 cloudNodes）。
+  // 范围 scope：'all'(无范围，初值，无按钮)/'preset'(仅内置)/'custom'(仅自建)，单选 toggle（点已选回无范围）；
+  // 行动 cloud：'all'(无行动，初值，无全部钮)/单标签，单选 toggle（沿用 #70 cloudState + matchLabel）。
+  const scopeState = react.useState(SCOPE_ALL)
+  const scope = scopeState[0]
   const cloudState = react.useState('all')
   const cloud = cloudState[0]
   const qState = react.useState('')
@@ -667,17 +675,16 @@ export function TemplateBrowser(props: BrowserProps): any {
     return () => { on = false; off() }
   }, [])
 
-  // 列表组装（#23）：tab=自定义 → 仅自定义（按 builtin，不过滤标签，#70 终裁：留——test C 段锁定，且自定义模板标签维度不齐）；
-  // 否则按统一标签包含过滤——阶段页签与行动云（#70：原领域行已由云替代）是标签子集的快捷方式，底层同一判断（matchLabel 单选 AND）；
+  // 列表组装（#23 + #70 P5a）：范围 × 行动双维 AND，无全部钮，无短路；
+  // 范围按 builtin 布尔（预置仅内置、自定义仅自建，继承旧 tab=自定义语义：旧短路 if (tab===CUSTOM_TAG) return !x.builtin）；
+  // 行动按统一标签包含（matchLabel 单选）；旧阶段页签（执行前/中/后）无等价 UI，走搜索可达。
   // 搜索框保留全文检索（haystack）兼容。排序（#68）：悬浮置顶簇聚底，设置页忽略置顶只留用量降序。
   const customs = allTemplates().filter((x) => !x.builtin)
   const list = allTemplates().filter((x) => {
-    // #70：tab=自定义 短路保持——直接按 !x.builtin 返回，跳过页签/云的一切 matchLabel 判断；
-    // 云在自定义页签下不生效（与 #23 待确认 1 一致；云是预置行动词的快捷方式，不约束自定义集合）。
-    if (tab === CUSTOM_TAG) return !x.builtin
-    if (tab !== 'all' && !matchLabel(x, tab)) return false
-    // #70：原领域维已由行动云替代——同为“单选 matchLabel”语义，行数不变；
+    // #70 P5a 范围维：builtin 布尔（不是标签）；
     // 云只是面板本地 useState 过滤，/prompt（trigger.ts）与智能卡（smart.ts）走 store 独立检索，不受影响，无需同步。
+    if (scope === SCOPE_PRESET && !x.builtin) return false
+    if (scope === SCOPE_CUSTOM && x.builtin) return false
     if (cloud !== 'all' && !matchLabel(x, cloud)) return false
     return true
   })
@@ -703,7 +710,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       tid = setTimeout(scroll, 30)
     }
     return () => { try { if (raf1) cancelAnimationFrame(raf1); if (raf2) cancelAnimationFrame(raf2); clearTimeout(tid) } catch (e) { /* ignore */ } }
-  }, [compact, tab, cloud, q, filtered.length, sorted.length])
+  }, [compact, scope, cloud, q, filtered.length, sorted.length])
 
   const presetCount = PRESET_TEMPLATES.length
   const customCount = customs.length
@@ -733,14 +740,9 @@ export function TemplateBrowser(props: BrowserProps): any {
   const addBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-specific-accent,#f0a45c)', fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
   const closeBtn: any = { width: 26, height: 26, borderRadius: 7, border: 0, background: 'transparent', color: dim, fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
   const headBtns: any = { display: 'flex', gap: 4, alignItems: 'center' }
-  const tabsStyle: any = { display: 'flex', gap: 4, padding: '4px 8px 0', flexWrap: 'wrap' }
-  const tabBtn = (on: boolean): any => ({
-    padding: '2px 8px', borderRadius: 999, border: line, background: on ? 'var(--dsw-alias-bg-layer-3)' : 'transparent',
-    color: on ? base : muted, cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em',
-  })
-  // #70 云行布局：即原第二行布局（domainRowStyle 改名，值不变；flexWrap 承接自定义词增多时的换行）。
+  // #70 P5a 云行布局（顶部唯一行；flexWrap 承接自定义词增多时的换行）。
   const cloudRowStyle: any = { display: 'flex', gap: 4, padding: '3px 8px 0', flexWrap: 'wrap' }
-  // #70 云按钮：点击手感与 tabBtn 一致（同值复制），但独立函数——禁改 tabBtn（页签共享，#71 地盘），云后续调样式只动这里。
+  // #70 P5a 云按钮（范围钮与行动词共用同一手感；首行 tabBtn 已随页签删除）。
   const cloudBtn = (on: boolean): any => ({
     padding: '2px 8px', borderRadius: 999, border: line, background: on ? 'var(--dsw-alias-bg-layer-3)' : 'transparent',
     color: on ? base : muted, cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em',
@@ -776,9 +778,11 @@ export function TemplateBrowser(props: BrowserProps): any {
     e.stopPropagation()
     const c = copyPresetToCustom(id)
     if (!c) return
-    // 创建反馈：自动置顶（容量允许）→ 切「自定义」tab → 高亮新项 → 滚入视野
+    // 创建反馈：自动置顶（容量允许）→ 切范围「自定义」→ 清行动维（双维 AND 下不清则新项可能被云滤掉；
+    // 旧 tab=自定义短路天然可见，新范围表达需显式清云以保可见）→ 高亮新项 → 滚入视野
     const r = togglePin(c.id)
-    tabState[1](CUSTOM_TAG)
+    scopeState[1](SCOPE_CUSTOM)
+    cloudState[1]('all')
     highlightState[1](c.id)
     refresh()
     setTimeout(() => {
@@ -833,21 +837,16 @@ export function TemplateBrowser(props: BrowserProps): any {
   }
 
   // ── 组装 ──
-  const tabs = [
-    { id: 'all', label: t('tabAll') },
-    { id: '执行前', label: t('tabBefore') },
-    { id: '执行中', label: t('tabDuring') },
-    { id: '执行后', label: t('tabAfter') },
-    { id: CUSTOM_TAG, label: t('tabCustom') },
-  ]
-  const tabNodes = h('div', { style: tabsStyle }, tabs.map((tb) =>
-    h('button', { key: tb.id, style: tabBtn(tab === tb.id), onClick: () => { tabState[1](tb.id); refresh() } }, tb.label),
-  ))
-  // #70 单行动标签云（第二行，悬浮/设置共用同一顶部）：首钮“全部”（t('tabAll')；不用 t('domainAll')='全领域'，云是行动维）+ 行动词云；
-  // 单选：点已选项回 'all'（toggle；原领域行无 toggle，云加 toggle 并在此显式记录）。
-  const cloudNodes = h('div', { style: cloudRowStyle }, ['all', ...actionCloudLabels()].map((c) =>
-    h('button', { key: c, style: cloudBtn(cloud === c), onClick: () => { cloudState[1](cloud === c ? 'all' : c); refresh() } }, c === 'all' ? t('tabAll') : c),
-  ))
+  // #70 P5a 单行“范围 × 行动”（悬浮/设置共用同一顶部）：行首预置/自定义两个范围钮 + 后接行动词云，无全部钮；
+  // 范围单选 toggle（点已选回无范围），行动单选 toggle（点已选回无行动），双维 AND。
+  // 范围钮为Literal中文（预置/自定义），不走 i18n（禁区）；行动词为数据词原文（沿用 #70 维度纯净约定）。
+  const cloudNodes = h('div', { style: cloudRowStyle }, [
+    h('button', { key: 'scope-preset', style: cloudBtn(scope === SCOPE_PRESET), onClick: () => { scopeState[1](scope === SCOPE_PRESET ? SCOPE_ALL : SCOPE_PRESET); refresh() } }, SCOPE_PRESET_LABEL),
+    h('button', { key: 'scope-custom', style: cloudBtn(scope === SCOPE_CUSTOM), onClick: () => { scopeState[1](scope === SCOPE_CUSTOM ? SCOPE_ALL : SCOPE_CUSTOM); refresh() } }, SCOPE_CUSTOM_LABEL),
+    ...actionCloudLabels().map((c) =>
+      h('button', { key: c, style: cloudBtn(cloud === c), onClick: () => { cloudState[1](cloud === c ? 'all' : c); refresh() } }, c),
+    ),
+  ])
   const rows = sorted.map((x) => {
     const pinned = isPinned(x.id)
     const custom = !x.builtin
@@ -941,7 +940,6 @@ export function TemplateBrowser(props: BrowserProps): any {
       h('div', { style: { flex: 1 } }),
       h('button', { style: { ...addBtn, width: 'auto', padding: '0 12px', fontSize: '0.92em' }, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋ ' + t('addShort')),
     ]),
-    tabNodes,
     cloudNodes,
     h('input', {
       style: searchStyle, placeholder: t('searchPh'), value: q, onChange: (e: any) => qState[1](e.target.value),

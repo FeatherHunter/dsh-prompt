@@ -93,15 +93,17 @@ async function main() {
   TR.act(() => { cloudBtnPick.props.onClick(); });
   TR.act(() => {});
   assert(JSON.stringify(rowIds(full).sort()) === JSON.stringify(wantCloud), '设置页云 == matchLabel 集');
-  // 设置页：页签「执行前」== 同名标签集
+  // #70 P5a 置换：首行页签已删（旧「执行前」按钮节点删除，原 UI 断言不可达），集计算保留；等价置换为范围「预置」== builtin 集
   let full2;
   TR.act(() => { full2 = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
-  const tabBtn = byButton(full2, '执行前')[0];
-  assert(!!tabBtn, '页签「执行前」存在');
-  TR.act(() => { tabBtn.props.onClick(); });
-  TR.act(() => {});
+  assert(byButton(full2, '执行前').length === 0, '首行已删：无「执行前」页签钮');
+  assert(byButton(full2, '执行中').length === 0 && byButton(full2, '执行后').length === 0, '首行已删：无阶段页签钮');
   const wantBefore = ids(store.allTemplates().filter((t) => store.matchLabel(t, '执行前')));
-  assert(JSON.stringify(rowIds(full2).sort()) === JSON.stringify(wantBefore), '页签「执行前」== 同名标签集（' + wantBefore.length + ' 条）');
+  assert(wantBefore.length > 0, '旧「执行前」集计算保留（实得 ' + wantBefore.length + ' 条，不走 UI）');
+  TR.act(() => { byButton(full2, '预置')[0].props.onClick(); });
+  TR.act(() => {});
+  const wantPreset = ids(store.allTemplates().filter((t) => t.builtin));
+  assert(JSON.stringify(rowIds(full2).sort()) === JSON.stringify(wantPreset), '范围「预置」== 仅内置集（' + wantPreset.length + ' 条）');
   // /prompt：D7 语义 = 标签包含 OR 全文兼容（超集）：含全部标签命中，且与旧 haystack 行为一致
   const promptHits = trigger.filterPromptTemplates('prompt 执行');
   const hayOnly = store.allTemplates().filter((t) => store.templateHaystack(t).indexOf('执行') >= 0);
@@ -137,9 +139,10 @@ async function main() {
   assert(ids(trigger.filterPromptTemplates('prompt 第一性原理')).includes('fp'), '旧找法：搜名称仍有效');
   let full3;
   TR.act(() => { full3 = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
+  // #70 P5a 置换：旧 tab=自定义短路由新范围表达（范围「自定义」按 builtin，继承旧语义）；按钮文本仍为「自定义」，集计算不变
   TR.act(() => { byButton(full3, '自定义')[0].props.onClick(); });
   TR.act(() => {});
-  assert(rowIds(full3).length === 0 && rowIds(full3).every((id) => !store.getTemplate(id).builtin), '自定义页签按 builtin（空库 0 条）');
+  assert(rowIds(full3).length === 0 && rowIds(full3).every((id) => !store.getTemplate(id).builtin), '范围「自定义」按 builtin（空库 0 条）');
 
   console.log('=== Test #23 B2: 单行动标签云（#70，加法段）===');
   // 云词表（预置 16 行动词固定首现序；自定义在用词追加在后；领域/阶段/哨兵不进云）
@@ -150,7 +153,12 @@ async function main() {
   assert(JSON.stringify(cloudBtns) === JSON.stringify(cloudWant), '云 16 行动词齐且序固定（实得 ' + cloudBtns.join('/') + '）');
   assert(byButton(cloudTree, '思考框架').length === 0 && byButton(cloudTree, '学习').length === 0 && byButton(cloudTree, '工程').length === 0 && byButton(cloudTree, '执行').length === 0, '领域词不进云');
   assert(byButton(cloudTree, '全领域').length === 0, '旧领域行“全领域”按钮已移除');
-  assert(byButton(cloudTree, '全部').length === 2, '页签全 + 云全共存（悬浮/设置共用同一顶部两行）');
+  // #70 P5a：无全部钮（范围无/行动无均以 toggle 回无，不设全部钮）；云行开头为预置+自定义，后接行动词云
+  assert(byButton(cloudTree, '全部').length === 0, 'P5a 无全部钮');
+  assert(!!byButton(cloudTree, '预置')[0] && !!byButton(cloudTree, '自定义')[0], '范围钮预置/自定义存在');
+  const scopeCloudOrder = cloudTree.root.findAll((n) => n.type === 'button').map(textOf).filter((s) => ['预置', '自定义'].concat(cloudWant).indexOf(s) >= 0);
+  assert(scopeCloudOrder[0] === '预置' && scopeCloudOrder[1] === '自定义', '云行开头为预置+自定义（实得 ' + scopeCloudOrder.slice(0, 4).join('/') + '）');
+  assert(JSON.stringify(scopeCloudOrder.slice(2)) === JSON.stringify(cloudWant), '范围钮后接行动词云序不变');
   // 点云任一标签 == matchLabel 集（照抄 B 段三行式；设置页）
   const wantStart = ids(store.allTemplates().filter((t) => store.matchLabel(t, '启动')));
   assert(wantStart.length === 4, '标签「启动」= 4 条预置（实得 ' + wantStart.length + '）');
@@ -187,19 +195,46 @@ async function main() {
   assert(JSON.stringify(wantStar) === JSON.stringify([cloudCustom.id]), '自定义词 matchLabel 集仅自身');
   assert(JSON.stringify(rowIds(cloudCus).sort()) === JSON.stringify(wantStar), '云「观星」== 含自定义的 matchLabel 集');
   try { cloudCus.unmount(); } catch (e) {}
-  // tab=自定义 短路保持：云已选「启动」时切自定义页签，仍展示全部自定义（不叠加云过滤）
+  // #70 P5a 双维叠加（无短路）：范围 × 行动 AND；旧短路断言按等价置换（集计算保留，UI 改为 AND）+ 新增叠加与 toggle 断言
   assert(store.removeCustom(cloudCustom.id) === true, '云 B2 自定义清理');
   const cloudPlain = store.addCustom('云路人', ['闲逛'], '路过正文');
+  const cloudBoth = store.addCustom('云交集', ['启动'], '交集正文');
+  const wantStartAll = ids(store.allTemplates().filter((t) => store.matchLabel(t, '启动')));
+  assert(wantStartAll.length === wantStart.length + 1 && wantStartAll.indexOf(cloudBoth.id) >= 0, '行动「启动」集含 4 预置 + 1 自定义交集（实得 ' + wantStartAll.length + '）');
+  const wantCustomAll = ids(store.allTemplates().filter((t) => !t.builtin));
+  assert(wantCustomAll.length === 2, '自定义集 2 条（路人/交集）');
   let cloudMix;
   TR.act(() => { cloudMix = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
+  // 行动单维：云「启动」== matchLabel 集（含自定义交集）
   TR.act(() => { byButton(cloudMix, '启动')[0].props.onClick(); });
   TR.act(() => {});
-  assert(rowIds(cloudMix).length === wantStart.length, '云「启动」先过滤出 4 条预置');
+  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(wantStartAll), '云「启动」单维 == matchLabel 集（含自定义）');
+  // 叠加：再点范围「自定义」→ 自定义 ∩ 启动 == 仅交集
   TR.act(() => { byButton(cloudMix, '自定义')[0].props.onClick(); });
   TR.act(() => {});
-  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify([cloudPlain.id]), '自定义页签下云不生效（短路，仅自定义）');
+  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify([cloudBoth.id]), '范围自定义 × 行动启动 AND == 仅交集');
+  // 叠加 toggle：再点已选范围「自定义」回无范围 → 回到行动单维
+  TR.act(() => { byButton(cloudMix, '自定义')[0].props.onClick(); });
+  TR.act(() => {});
+  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(wantStartAll), '范围 toggle：再点回无范围，回到行动单维');
+  // 行动 toggle：再点启动回无行动 → 回到全部
+  TR.act(() => { byButton(cloudMix, '启动')[0].props.onClick(); });
+  TR.act(() => {});
+  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(ids(store.allTemplates())), '行动 toggle：再点回无行动，回到全部（' + store.allTemplates().length + ' 条）');
+  // 范围单维：点预置 == 仅内置；再叠启动 == 4 预置（不含自定义交集）
+  TR.act(() => { byButton(cloudMix, '预置')[0].props.onClick(); });
+  TR.act(() => {});
+  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(ids(store.allTemplates().filter((t) => t.builtin))), '范围「预置」单维 == 仅内置');
+  TR.act(() => { byButton(cloudMix, '启动')[0].props.onClick(); });
+  TR.act(() => {});
+  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(wantStart), '范围预置 × 行动启动 AND == 4 预置（不含自定义交集）');
+  // 范围 toggle：再点预置回无 → 回到行动单维（含交集）
+  TR.act(() => { byButton(cloudMix, '预置')[0].props.onClick(); });
+  TR.act(() => {});
+  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(wantStartAll), '范围预置 toggle 回无，回到行动单维');
   try { cloudMix.unmount(); } catch (e) {}
-  assert(store.removeCustom(cloudPlain.id) === true, '云 B2 短路自定义清理');
+  assert(store.removeCustom(cloudPlain.id) === true, '云 B2 叠加路人清理');
+  assert(store.removeCustom(cloudBoth.id) === true, '云 B2 叠加交集清理');
   assert(store.loadCustoms().length === cloudBase, '云 B2 无残留（后段基线干净）');
 
   console.log('=== Test #23 D: 校验矩阵 ===');

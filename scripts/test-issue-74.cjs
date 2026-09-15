@@ -97,6 +97,14 @@ async function main() {
   for (const t of store.allTemplates()) {
     assert(!rowHasText(rowById(full, t.id), introOf(t)), '默认折叠：' + t.id + ' 无简介节点');
   }
+  console.log('=== Test #74 A-aff: 默认折叠指示（▸ + aria-expanded=false + title 提示） ===');
+  for (const t of store.allTemplates()) {
+    const r = rowById(full, t.id);
+    assert(rowHasText(r, '▸'), '默认指示：' + t.id + ' 有 ▸');
+    assert(!rowHasText(r, '▾'), '默认指示：' + t.id + ' 无 ▾');
+    assert(String(r.props['aria-expanded']) === 'false', '默认指示：' + t.id + ' aria-expanded=false');
+    assert(typeof r.props.title === 'string' && r.props.title.indexOf('点击展开/收起简介') >= 0, '默认指示：' + t.id + ' title 含点击展开/收起简介');
+  }
   // 单行仍有名称 + 标签 + 徽标 + 操作（图钉包 + 操作区均含 button）
   assert(rowHasText(rowById(full, 'fp'), fp.name), '折叠单行仍有名称');
   assert(rowHasText(rowById(full, 'fp'), store.labelString(fp)), '折叠单行仍有标签串');
@@ -113,16 +121,30 @@ async function main() {
   TR.act(() => {});
   assert(rowHasText(rowById(full, 'fp'), introOf(fp)), '点行展开：fp 出现简介');
   assert(!rowHasText(rowById(full, 'deep'), introOf(deep)), '只切同一行：deep 仍无简介');
+  assert(rowHasText(rowById(full, 'fp'), '▾'), '展开指示：fp 变 ▾');
+  assert(!rowHasText(rowById(full, 'fp'), '▸'), '展开指示：fp 无 ▸');
+  assert(String(rowById(full, 'fp').props['aria-expanded']) === 'true', '展开指示：fp aria-expanded=true');
+  assert(String(rowById(full, 'fp').props.title).indexOf('点击展开/收起简介') >= 0, '展开指示：fp title 仍含点击展开/收起简介');
+  assert(rowHasText(rowById(full, 'deep'), '▸'), '展开指示：deep 仍 ▸');
+  assert(String(rowById(full, 'deep').props['aria-expanded']) === 'false', '展开指示：deep 仍 aria-expanded=false');
   TR.act(() => { rowById(full, 'fp').props.onClick(); });
   TR.act(() => {});
   assert(!rowHasText(rowById(full, 'fp'), introOf(fp)), '再点收起：fp 简介消失');
+  assert(rowHasText(rowById(full, 'fp'), '▸'), '收起指示：fp 回 ▸');
+  assert(!rowHasText(rowById(full, 'fp'), '▾'), '收起指示：fp 无 ▾');
+  assert(String(rowById(full, 'fp').props['aria-expanded']) === 'false', '收起指示：fp 回 aria-expanded=false');
   TR.act(() => { rowById(full, 'deep').props.onClick(); });
   TR.act(() => {});
   assert(rowHasText(rowById(full, 'deep'), introOf(deep)), '点 deep 展开：deep 出现简介');
   assert(!rowHasText(rowById(full, 'fp'), introOf(fp)), '点 deep 不影响 fp（fp 仍收起）');
+  assert(rowHasText(rowById(full, 'deep'), '▾'), '展开指示：deep 变 ▾');
+  assert(String(rowById(full, 'deep').props['aria-expanded']) === 'true', '展开指示：deep aria-expanded=true');
+  assert(rowHasText(rowById(full, 'fp'), '▸'), '展开指示：fp 仍 ▸');
   TR.act(() => { rowById(full, 'deep').props.onClick(); });
   TR.act(() => {});
   assert(!rowHasText(rowById(full, 'deep'), introOf(deep)), 'deep 再点收起恢复基线');
+  assert(rowHasText(rowById(full, 'deep'), '▸'), '收起指示：deep 回 ▸');
+  assert(String(rowById(full, 'deep').props['aria-expanded']) === 'false', '收起指示：deep 回 aria-expanded=false');
 
   console.log('=== Test #74 C: 徽标仍行末（折叠/展开态一致） ===');
   for (const [label, prep] of [['折叠态', null], ['展开态', 'fp']]) {
@@ -144,6 +166,9 @@ async function main() {
   assert(!!fpC, 'compact 行 fp 存在');
   const cIntro = ((fp.body || '').split('\n')[0].trim());
   assert(rowHasText(fpC, cIntro), 'compact 默认有简介（折叠仅设置页）');
+  assert(!rowHasText(fpC, '▸') && !rowHasText(fpC, '▾'), 'compact 无折叠箭头（一行不改）');
+  assert(fpC.props['aria-expanded'] === undefined, 'compact 无 aria-expanded（一行不改）');
+  assert(String(fpC.props.title || '').indexOf('点击展开/收起简介') < 0, 'compact title 无折叠提示（一行不改）');
   TR.act(() => { rowById(compact, 'fp').props.onClick(); });
   TR.act(() => {});
   assert(rowHasText(rowById(compact, 'fp'), cIntro), 'compact 点击后简介仍在（无折叠行为）');

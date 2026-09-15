@@ -905,7 +905,7 @@ export function TemplateBrowser(props: BrowserProps): any {
     // 点击行只切换同一行简介显隐，不涨用量、不触发插入、不关窗；
     // 管理仍只走行内图钉/编辑/删除/复制按钮（其 onClick 已 stopPropagation，故不触发折叠）。
     // #74 行默认折叠：简介节点不渲染，单行只显示图钉 + 用量徽标 + 名称 + 标签 + 操作。
-    return h('div', { key: x.id, style: { ...itemStyle, cursor: 'pointer', background: itemBg }, 'data-dsh-prompt-id': x.id, title: labelString(x), onClick: () => toggleExpanded(x.id) }, [
+    return h('div', { key: x.id, style: { ...itemStyle, cursor: 'pointer', background: itemBg }, 'data-dsh-prompt-id': x.id, title: labelString(x) + ' · 点击展开/收起简介', 'aria-expanded': expanded.has(x.id) ? 'true' : 'false', onClick: () => toggleExpanded(x.id) }, [
       h('div', { style: { flex: 'none', paddingTop: 2 } }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
           // 图钉（置顶语义）：置顶=橙色实心，未置顶=描边
@@ -917,6 +917,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       ]),
       h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } }, [
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } }, [
+          h('span', { style: { flex: 'none', fontSize: '0.75em', color: dim, width: '1.2em', textAlign: 'center', lineHeight: 1 }, 'aria-hidden': 'true' }, expanded.has(x.id) ? '▾' : '▸'),
           h('span', { style: nmStyle }, x.name),
           h('span', { style: tagStyle }, labelString(x)),
         ]),

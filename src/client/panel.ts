@@ -7,6 +7,8 @@
  * 设置页（compact=false）保持原 Top-down。
  * #22 决议（用户 2026-09-09 裁定）：悬浮列表公式（用量升序→同分置顶贴底→pin 序→预制顺序/createdAt）
  * 为统一下底座，智能卡以评分为主键套用同一门公式；设置页（Q2=C）与 /prompt（Q6=A）保留降序为例外。
+ * #68 终式（2026-09-15）：悬浮列表改为置顶簇聚底（分区主键→分区内用量升序→同用量 pin 序→末键）；
+ * 设置页与 /prompt 忽略置顶、只留用量降序（置顶仅悬浮列表生效）。
  * #23 统一标签：页签/领域行/搜索框的筛选语义统一为标签包含（matchLabel），
  * 自定义页签仍按 builtin 过滤（不是标签）；行内展示完整标签串（labelString）。
  */
@@ -652,7 +654,7 @@ export function TemplateBrowser(props: BrowserProps): any {
 
   // 列表组装（#23）：tab=自定义 → 仅自定义（按 builtin，不过滤标签，见待确认 1）；
   // 否则按统一标签包含过滤——阶段页签与领域行是标签子集的快捷方式，底层同一判断；
-  // 搜索框保留全文检索（haystack）兼容。排序不动（#22：悬浮 bottom-up，设置页降序）。
+  // 搜索框保留全文检索（haystack）兼容。排序（#68）：悬浮置顶簇聚底，设置页忽略置顶只留用量降序。
   const customs = allTemplates().filter((x) => !x.builtin)
   const list = allTemplates().filter((x) => {
     if (tab === CUSTOM_TAG) return !x.builtin
@@ -665,7 +667,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   const filtered = ql
     ? list.filter((x) => templateHaystack(x).indexOf(ql) >= 0)
     : list
-  // 悬浮列表 bottom-up：compact 浮层按用量升序（最常用在底部），设置页保持原置顶→用量降序
+  // 悬浮列表 bottom-up（#68）：compact 浮层置顶簇聚底；设置页忽略置顶、只留用量降序
   const sorted = compact ? sortedTemplatesBottomUp(filtered) : sortedTemplates(filtered)
 
   // bottom-up 浮层：打开 / 过滤变化后自动滚到底部，首屏即见最常用

@@ -16,7 +16,7 @@ import { PRESET_TEMPLATES, getPresetById } from './templates'
 
 
 const MAX_PIN = 5
-const MAX_BODY = 1000
+const MAX_BODY = 10000
 
 /* ── 统一标签约束（#23：#19 R2 上限与校验；#19 R3 单选筛选） ── */
 
@@ -284,18 +284,15 @@ export function templateHaystack(t: PromptTemplate): string {
   return (t.name + ' ' + (t.nameEn || '') + ' ' + (t.body || '') + ' ' + (t.domain || '') + ' ' + (t.stage || '') + ' ' + (t.action || []).join(' ') + ' ' + templateLabels(t).join(' ')).toLowerCase()
 }
 
-/** 排序：置顶（pin 在前）→ 用量计数降序。用量仅供排序，不显示数字。
- *  #22 决议（用户 2026-09-09 裁定）：此降序为设置页与 /prompt 的保留语义——
- *  设置页是管理面（Q2=C），/prompt 的宿主菜单打开即 scrollTop=0 且高亮钉在 index 0，
- *  反转后首屏与回车选中都会变成最不常用（Q6=A）。悬浮列表与智能卡走 bottom-up。 */
+/** 排序（#68 决议 2026-09-15）：设置页与 /prompt 忽略置顶，只按用量计数降序 → 末键。
+ *  置顶仅悬浮列表生效（见 sortedTemplatesBottomUp）。用量仅供排序，不显示数字（显示由 #69/#71 落地）。
+ *  #22 决议中“设置页置顶绝对优先”一句被本票推翻；降序方向本身维持（管理面与菜单首屏例外，见 #22 Q2/Q6）。 */
 export function sortedTemplates(list: PromptTemplate[]): PromptTemplate[] {
   const usage = cache.usage
-  const pinned = cache.pinned
-  const pinIdx = (id: string) => { const i = pinned.indexOf(id); return i < 0 ? MAX_PIN : i }
   return [...list].sort((a, b) => {
-    const pa = pinIdx(a.id), pb = pinIdx(b.id)
-    if (pa !== pb) return pa - pb
-    return (usage[b.id] || 0) - (usage[a.id] || 0)
+    const d = (usage[b.id] || 0) - (usage[a.id] || 0)
+    if (d !== 0) return d
+    return tieBreakOrder(a, b)
   })
 }
 
@@ -311,11 +308,14 @@ export function tieBreakOrder(a: PromptTemplate, b: PromptTemplate): number {
   return aBuilt ? -1 : 1 // 预制在前，自定义在后（同为 0 次时稳定可预期）
 }
 
-/** bottom-up 排序：最常用在底部（DOM 底部 = 视觉底部），未使用在顶部
- *  - 主键：用量升序（0→max，max 最靠底）—— 保证“最常用在底部”绝对可见
- *  - 次键：同用量时置顶靠后（更贴底），置顶内按 pin 顺序
- *  - 末键：预制原始顺序 / 自定义创建时间（稳定可预期）
- *  说明：与设置页的“置顶绝对优先”不同，此处用量优先于置顶，避免低用量置顶把高用量挤到次底部而被误判为“最常用不在底部”。
+/** bottom-up 排序（#68 终式 2026-09-15）：置顶簇在底部聚拢，分区内维持 bottom-up。
+ *  - 一级分区：非置顶在上、置顶在下（置顶簇整体占底部连续段，不再按用量散插）——
+ *    本票推翻 #22“用量主键、置顶只做同分 tie-break”（该式导致不同用量下置顶必散）。
+ *  - 二级：分区内用量升序（0→max，max 最靠底；置顶簇内最常用置顶在非常底部，
+ *    非置顶中最常用紧贴置顶簇之上）。
+ *  - 三级：置顶簇内同用量时按 pin 顺序（维持 #22 原式）。
+ *  - 末键：预制原始顺序 / 自定义创建时间（tieBreakOrder，维持 #22 原式）。
+ *  设置页与 /prompt 不走此函数（走 sortedTemplates，忽略置顶）。
  */
 export function sortedTemplatesBottomUp(list: PromptTemplate[]): PromptTemplate[] {
   const usage = cache.usage
@@ -323,10 +323,10 @@ export function sortedTemplatesBottomUp(list: PromptTemplate[]): PromptTemplate[
   const isPinned = (id: string) => pinned.indexOf(id) >= 0
   const pinIdx = (id: string) => pinned.indexOf(id)
   return [...list].sort((a, b) => {
-    const ua = usage[a.id] || 0, ub = usage[b.id] || 0
-    if (ua !== ub) return ua - ub // 主键升序：少用在上，多用在下
     const ap = isPinned(a.id), bp = isPinned(b.id)
-    if (ap !== bp) return ap ? 1 : -1 // 同用量时置顶靠后（更贴底）
+    if (ap !== bp) return ap ? 1 : -1 // 一级：置顶簇聚底（连续段）
+    const ua = usage[a.id] || 0, ub = usage[b.id] || 0
+    if (ua !== ub) return ua - ub // 二级：分区内用量升序
     if (ap && bp) {
       const pa = pinIdx(a.id), pb = pinIdx(b.id)
       if (pa !== pb) return pa - pb

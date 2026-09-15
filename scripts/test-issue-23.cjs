@@ -86,11 +86,13 @@ async function main() {
   // 设置页：点领域行「执行」
   let full;
   TR.act(() => { full = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
-  const domainBtn = byButton(full, '执行')[0];
-  assert(!!domainBtn, '领域行「执行」按钮存在');
-  TR.act(() => { domainBtn.props.onClick(); });
+  // #70 置换：领域行已由行动云替代（旧「执行」按钮节点删除，原断言不可达），按报告 §3.3 改写模板换成云等价；store 层 want（执行集 7 条）保持不动
+  const wantCloud = ids(store.allTemplates().filter((t) => store.matchLabel(t, '复盘')));
+  const cloudBtnPick = byButton(full, '复盘')[0];
+  assert(!!cloudBtnPick, '云「复盘」按钮存在');
+  TR.act(() => { cloudBtnPick.props.onClick(); });
   TR.act(() => {});
-  assert(JSON.stringify(rowIds(full).sort()) === JSON.stringify(want), '设置页领域行 == matchLabel 集');
+  assert(JSON.stringify(rowIds(full).sort()) === JSON.stringify(wantCloud), '设置页云 == matchLabel 集');
   // 设置页：页签「执行前」== 同名标签集
   let full2;
   TR.act(() => { full2 = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
@@ -138,6 +140,67 @@ async function main() {
   TR.act(() => { byButton(full3, '自定义')[0].props.onClick(); });
   TR.act(() => {});
   assert(rowIds(full3).length === 0 && rowIds(full3).every((id) => !store.getTemplate(id).builtin), '自定义页签按 builtin（空库 0 条）');
+
+  console.log('=== Test #23 B2: 单行动标签云（#70，加法段）===');
+  // 云词表（预置 16 行动词固定首现序；自定义在用词追加在后；领域/阶段/哨兵不进云）
+  const cloudWant = ['拆解', '检验', '归因', '决策', '理解', '路线', '概念', '考验', '审查', '测试', '重构', '解读', '启动', '固化', '记录', '复盘'];
+  let cloudTree;
+  TR.act(() => { cloudTree = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
+  const cloudBtns = cloudTree.root.findAll((n) => n.type === 'button').map(textOf).filter((s) => cloudWant.indexOf(s) >= 0);
+  assert(JSON.stringify(cloudBtns) === JSON.stringify(cloudWant), '云 16 行动词齐且序固定（实得 ' + cloudBtns.join('/') + '）');
+  assert(byButton(cloudTree, '思考框架').length === 0 && byButton(cloudTree, '学习').length === 0 && byButton(cloudTree, '工程').length === 0 && byButton(cloudTree, '执行').length === 0, '领域词不进云');
+  assert(byButton(cloudTree, '全领域').length === 0, '旧领域行“全领域”按钮已移除');
+  assert(byButton(cloudTree, '全部').length === 2, '页签全 + 云全共存（悬浮/设置共用同一顶部两行）');
+  // 点云任一标签 == matchLabel 集（照抄 B 段三行式；设置页）
+  const wantStart = ids(store.allTemplates().filter((t) => store.matchLabel(t, '启动')));
+  assert(wantStart.length === 4, '标签「启动」= 4 条预置（实得 ' + wantStart.length + '）');
+  let cloudFull;
+  TR.act(() => { cloudFull = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
+  TR.act(() => { byButton(cloudFull, '启动')[0].props.onClick(); });
+  TR.act(() => {});
+  assert(JSON.stringify(rowIds(cloudFull).sort()) === JSON.stringify(wantStart), '设置页云「启动」== matchLabel 集');
+  // 同一顶部：悬浮 compact 点同一云词得同一集合
+  let cloudCompact;
+  TR.act(() => { cloudCompact = TR.create(React.createElement(panel.TemplateBrowser, { compact: true })); });
+  TR.act(() => { byButton(cloudCompact, '启动')[0].props.onClick(); });
+  TR.act(() => {});
+  assert(JSON.stringify(rowIds(cloudCompact).sort()) === JSON.stringify(wantStart), '悬浮云「启动」== 同一 matchLabel 集');
+  // 云是更细粒度（不是领域换皮）：「复盘」集是「执行」集的真子集
+  const wantExec = ids(store.allTemplates().filter((t) => store.matchLabel(t, '执行')));
+  const wantRetro = ids(store.allTemplates().filter((t) => store.matchLabel(t, '复盘')));
+  assert(wantRetro.length === 1 && wantRetro.every((id) => wantExec.indexOf(id) >= 0) && wantRetro.length < wantExec.length, '云「复盘」是领域「执行」的真子集（1 vs ' + wantExec.length + '）');
+  // toggle：再点已选项回全部
+  TR.act(() => { byButton(cloudFull, '启动')[0].props.onClick(); });
+  TR.act(() => {});
+  assert(rowIds(cloudFull).length === store.allTemplates().length, '云 toggle：再点回全部（' + store.allTemplates().length + ' 条）');
+  try { cloudTree.unmount(); cloudFull.unmount(); cloudCompact.unmount(); } catch (e) {}
+  // 自定义在用词进云并可滤（追加在末尾）；用完即删，保持后段基线干净
+  const cloudBase = store.loadCustoms().length;
+  const cloudCustom = store.addCustom('云客', ['观星'], '仰望星空正文');
+  let cloudCus;
+  TR.act(() => { cloudCus = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
+  const cusBtns = cloudCus.root.findAll((n) => n.type === 'button').map(textOf).filter((s) => cloudWant.concat(['观星']).indexOf(s) >= 0);
+  assert(cusBtns[cusBtns.length - 1] === '观星', '自定义词追加在云末尾');
+  TR.act(() => { byButton(cloudCus, '观星')[0].props.onClick(); });
+  TR.act(() => {});
+  const wantStar = ids(store.allTemplates().filter((t) => store.matchLabel(t, '观星')));
+  assert(JSON.stringify(wantStar) === JSON.stringify([cloudCustom.id]), '自定义词 matchLabel 集仅自身');
+  assert(JSON.stringify(rowIds(cloudCus).sort()) === JSON.stringify(wantStar), '云「观星」== 含自定义的 matchLabel 集');
+  try { cloudCus.unmount(); } catch (e) {}
+  // tab=自定义 短路保持：云已选「启动」时切自定义页签，仍展示全部自定义（不叠加云过滤）
+  assert(store.removeCustom(cloudCustom.id) === true, '云 B2 自定义清理');
+  const cloudPlain = store.addCustom('云路人', ['闲逛'], '路过正文');
+  let cloudMix;
+  TR.act(() => { cloudMix = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
+  TR.act(() => { byButton(cloudMix, '启动')[0].props.onClick(); });
+  TR.act(() => {});
+  assert(rowIds(cloudMix).length === wantStart.length, '云「启动」先过滤出 4 条预置');
+  TR.act(() => { byButton(cloudMix, '自定义')[0].props.onClick(); });
+  TR.act(() => {});
+  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify([cloudPlain.id]), '自定义页签下云不生效（短路，仅自定义）');
+  try { cloudMix.unmount(); } catch (e) {}
+  assert(store.removeCustom(cloudPlain.id) === true, '云 B2 短路自定义清理');
+  assert(store.loadCustoms().length === cloudBase, '云 B2 无残留（后段基线干净）');
 
   console.log('=== Test #23 D: 校验矩阵 ===');
   let r = store.validateLabels(['复盘', '执行后']);

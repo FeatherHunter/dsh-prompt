@@ -53,7 +53,20 @@ export function PromptMark(props: { size?: number }): any {
 }
 
 const STAGE_TABS = ['all', '执行前', '执行中', '执行后'] as const
-const DOMAIN_FILTERS = ['all', '思考框架', '学习', '工程', '执行'] as const
+// #70 单行动标签云：第二行不再是写死 DOMAIN_FILTERS（['all', '思考框架', '学习', '工程', '执行'] 已删除，
+// 行定义见 cloudNodes），改为“全部 + 行动词云”。词源方案 A（调查报告 §5 步骤 1）：
+// allKnownLabels()（预置 23 词 + 在用自定义词，去重保序）去掉非行动词，剩下即云。
+// 去留表（以预置 23 词为基准，去 7 留 16；自定义在用词全部“留”，追加排在预置行动词之后）：
+//   去（7）：思考框架/学习/工程/执行（4 领域）+ 执行前/执行中/执行后（3 阶段）；
+//            另去哨兵 '自定义'（空标签回落词，同时是自定义页签 id，见 CUSTOM_TAG）与 'all'（非标签）；
+//   留（16，按预置首次出现序）：拆解/检验/归因/决策/理解/路线/概念/考验/审查/测试/重构/解读/启动/固化/记录/复盘；
+//   自定义新词：只要不在“去”集合即留（allKnownLabels 已含在用自定义词，开箱即用；
+//            若自定义词恰与领域/阶段同名则仍被去——此时该词走页签/搜索可达，云不收录，维度纯净优先）。
+// 排序：预置行动词固定首现序（不随用量抖动）+ 自定义词追加；换行 flexWrap（见 cloudRowStyle）。
+const CLOUD_EXCLUDE = ['all', '思考框架', '学习', '工程', '执行', '执行前', '执行中', '执行后', '自定义']
+function actionCloudLabels(): string[] {
+  return allKnownLabels().filter((l) => CLOUD_EXCLUDE.indexOf(l) < 0)
+}
 const CUSTOM_TAG = '自定义'
 
 export interface BrowserProps {
@@ -537,8 +550,10 @@ export function TemplateBrowser(props: BrowserProps): any {
   const setTick = tickState[1]
   const tabState = react.useState('all')
   const tab = tabState[0]
-  const domainState = react.useState('all')
-  const domain = domainState[0]
+  // #70：第二行由领域行换成单行动标签云——状态语义同步由“所选领域”改为“所选行动词”，
+  // 变量改名 cloud/cloudState（初值 'all' 不变；单选；悬浮 compact 与设置页共用同一顶部，见 cloudNodes）。
+  const cloudState = react.useState('all')
+  const cloud = cloudState[0]
   const qState = react.useState('')
   const q = qState[0]
   const modalState = react.useState(null as ModalState | null)
@@ -652,14 +667,18 @@ export function TemplateBrowser(props: BrowserProps): any {
     return () => { on = false; off() }
   }, [])
 
-  // 列表组装（#23）：tab=自定义 → 仅自定义（按 builtin，不过滤标签，见待确认 1）；
-  // 否则按统一标签包含过滤——阶段页签与领域行是标签子集的快捷方式，底层同一判断；
+  // 列表组装（#23）：tab=自定义 → 仅自定义（按 builtin，不过滤标签，#70 终裁：留——test C 段锁定，且自定义模板标签维度不齐）；
+  // 否则按统一标签包含过滤——阶段页签与行动云（#70：原领域行已由云替代）是标签子集的快捷方式，底层同一判断（matchLabel 单选 AND）；
   // 搜索框保留全文检索（haystack）兼容。排序（#68）：悬浮置顶簇聚底，设置页忽略置顶只留用量降序。
   const customs = allTemplates().filter((x) => !x.builtin)
   const list = allTemplates().filter((x) => {
+    // #70：tab=自定义 短路保持——直接按 !x.builtin 返回，跳过页签/云的一切 matchLabel 判断；
+    // 云在自定义页签下不生效（与 #23 待确认 1 一致；云是预置行动词的快捷方式，不约束自定义集合）。
     if (tab === CUSTOM_TAG) return !x.builtin
     if (tab !== 'all' && !matchLabel(x, tab)) return false
-    if (domain !== 'all' && !matchLabel(x, domain)) return false
+    // #70：原领域维已由行动云替代——同为“单选 matchLabel”语义，行数不变；
+    // 云只是面板本地 useState 过滤，/prompt（trigger.ts）与智能卡（smart.ts）走 store 独立检索，不受影响，无需同步。
+    if (cloud !== 'all' && !matchLabel(x, cloud)) return false
     return true
   })
   const ql = q.trim().toLowerCase()
@@ -684,7 +703,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       tid = setTimeout(scroll, 30)
     }
     return () => { try { if (raf1) cancelAnimationFrame(raf1); if (raf2) cancelAnimationFrame(raf2); clearTimeout(tid) } catch (e) { /* ignore */ } }
-  }, [compact, tab, domain, q, filtered.length, sorted.length])
+  }, [compact, tab, cloud, q, filtered.length, sorted.length])
 
   const presetCount = PRESET_TEMPLATES.length
   const customCount = customs.length
@@ -719,7 +738,13 @@ export function TemplateBrowser(props: BrowserProps): any {
     padding: '2px 8px', borderRadius: 999, border: line, background: on ? 'var(--dsw-alias-bg-layer-3)' : 'transparent',
     color: on ? base : muted, cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em',
   })
-  const domainRowStyle: any = { display: 'flex', gap: 4, padding: '3px 8px 0', flexWrap: 'wrap' }
+  // #70 云行布局：即原第二行布局（domainRowStyle 改名，值不变；flexWrap 承接自定义词增多时的换行）。
+  const cloudRowStyle: any = { display: 'flex', gap: 4, padding: '3px 8px 0', flexWrap: 'wrap' }
+  // #70 云按钮：点击手感与 tabBtn 一致（同值复制），但独立函数——禁改 tabBtn（页签共享，#71 地盘），云后续调样式只动这里。
+  const cloudBtn = (on: boolean): any => ({
+    padding: '2px 8px', borderRadius: 999, border: line, background: on ? 'var(--dsw-alias-bg-layer-3)' : 'transparent',
+    color: on ? base : muted, cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em',
+  })
   const searchStyle: any = { margin: '5px 8px 4px', padding: '5px 9px', borderRadius: 8, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: base, fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none' }
   // 固定 360 高度：过滤/搜索时不收缩，鼠标不因高度变化而移出面板而误关；约 10 个单行 item 可见，内部滚动
   // 少量时（≤10）用 flex-end 把内容推到底部，使“最常用在底部”在视觉上贴底
@@ -818,8 +843,10 @@ export function TemplateBrowser(props: BrowserProps): any {
   const tabNodes = h('div', { style: tabsStyle }, tabs.map((tb) =>
     h('button', { key: tb.id, style: tabBtn(tab === tb.id), onClick: () => { tabState[1](tb.id); refresh() } }, tb.label),
   ))
-  const domainNodes = h('div', { style: domainRowStyle }, DOMAIN_FILTERS.map((d) =>
-    h('button', { key: d, style: tabBtn(domain === d), onClick: () => { domainState[1](d); refresh() } }, d === 'all' ? t('domainAll') : d),
+  // #70 单行动标签云（第二行，悬浮/设置共用同一顶部）：首钮“全部”（t('tabAll')；不用 t('domainAll')='全领域'，云是行动维）+ 行动词云；
+  // 单选：点已选项回 'all'（toggle；原领域行无 toggle，云加 toggle 并在此显式记录）。
+  const cloudNodes = h('div', { style: cloudRowStyle }, ['all', ...actionCloudLabels()].map((c) =>
+    h('button', { key: c, style: cloudBtn(cloud === c), onClick: () => { cloudState[1](cloud === c ? 'all' : c); refresh() } }, c === 'all' ? t('tabAll') : c),
   ))
   const rows = sorted.map((x) => {
     const pinned = isPinned(x.id)
@@ -915,7 +942,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       h('button', { style: { ...addBtn, width: 'auto', padding: '0 12px', fontSize: '0.92em' }, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋ ' + t('addShort')),
     ]),
     tabNodes,
-    domainNodes,
+    cloudNodes,
     h('input', {
       style: searchStyle, placeholder: t('searchPh'), value: q, onChange: (e: any) => qState[1](e.target.value),
       // #34 IME 安全：聚焦即抑制 hover 关窗（含取消已挂起的 150ms 计时，见 setHoverCloseSuppressed），

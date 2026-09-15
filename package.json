@@ -52,11 +52,13 @@
     "test:host-deps": "node scripts/test-host-deps.cjs",
     "test:log": "node scripts/test-log.cjs",
     "test:issue-39": "node scripts/test-issue-39.cjs",
+    "test:issue-56": "node scripts/test-issue-56.cjs",
     "test:issue-40": "node scripts/test-issue-40.cjs",
     "test:issue-41": "node scripts/test-issue-41.cjs",
     "test:issue-42": "node scripts/test-issue-42.cjs",
     "test:issue-61": "node scripts/test-issue-61.cjs",
     "test:issue-66": "node scripts/test-issue-66.cjs",
+    "test:issue-59": "node scripts/test-issue-59.cjs",
     "test": "npm run test:modal && npm run test:issue-14"
   },
   "dsh": {

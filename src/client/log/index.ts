@@ -77,6 +77,28 @@ export interface StartLogDeps {
 let current: LogFacade | null = null
 const subscribers = new Set<() => void>()
 
+/**
+ * 默认存储的安全求值（#59）：`typeof localStorage` 在「属性访问就抛」的环境下
+ * （隐私模式 / 企业策略拦截）一样会抛 —— `typeof` 只对「未声明变量」安全，
+ * 对「getter 一碰就抛」不安全。所以整段求值必须包在 `try` 里，失败回 `null`
+ * （日志能力降级，整壳继续起；包内 `dsh-log` 对 `null` 本来就是无存储语义）。
+ *
+ * 落点取舍（#59 分诊口径 + #53 约束）：只住本文件内部，不新建 `src/client/storage.ts`
+ * —— 本仓每个回归脚本都在 `scripts` 下的 `.rt-tmp` 系列目录里手写要转译的模块清单，往被普遍加载的
+ * 路径上加一条 import 边会让既有脚本整批红（#53 实测 15 条里红 9 条）。`smartstore.ts` /
+ * `updauto.ts` 的 4 处同类访问本来就在 `try` 里（降级值 `false` / `null` / `''` / `false`
+ * 保持不变），为避免两套写法漂移刻意不收拢到一处共享封装 —— 本函数只保这一处爆点。
+ */
+function resolveDefaultStorage(): Storage | null {
+  try {
+    const s = (globalThis as any).localStorage as Storage | null | undefined
+    if (typeof s === 'undefined' || s === null) return null
+    return s
+  } catch (e) {
+    return null
+  }
+}
+
 function notify(): void {
   subscribers.forEach((fn) => {
     try {
@@ -124,7 +146,7 @@ export function startLog(deps: StartLogDeps = {}): LogFacade {
     {
       host,
       timer: deps.timer ?? null,
-      storage: deps.storage ?? (typeof localStorage !== 'undefined' ? localStorage : null),
+      storage: deps.storage ?? resolveDefaultStorage(),
       broadcastLogSwitch: channel ? () => { try { channel.postMessage({ on: clientLog.logSwitch.enabled }) } catch (e) { /* ignore */ } } : null,
     },
     { pluginId: 'dsh-prompt', eventList: manifest },

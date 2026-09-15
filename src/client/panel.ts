@@ -17,7 +17,7 @@ import { PRESET_TEMPLATES, getPresetById } from './templates'
 import {
   allTemplates, sortedTemplates, sortedTemplatesBottomUp, templateLabels, labelString, matchLabel,
   allKnownLabels, normalizeLabels, validateLabels, isPinned, togglePin, canPinMore,
-  addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, templateHaystack, MAX_BODY,
+  addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, loadUsage, templateHaystack, MAX_BODY,
   ensureLoaded, subscribeStore,
 } from './store'
 import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './state'
@@ -835,6 +835,10 @@ export function TemplateBrowser(props: BrowserProps): any {
     const itemBg = highlightId === x.id ? 'var(--dsw-alias-interactive-bg-hover)' : undefined
     // 简介 = body 首行（一句话），标题之后跟随 —— 单行显示
     const intro = (x.body || '').split('\n')[0].trim()
+    // #71 行内用量徽标：读 store 现有缓存（排序语义不动，只读展示）
+    const usageN = (loadUsage()[x.id] || 0)
+    const usageTitle = '已使用' + usageN + '次'
+    const usageStyle: any = { flex: 'none', fontSize: '0.75em', color: 'var(--dsw-alias-label-tertiary)', minWidth: '4ch', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap' }
     // 紧凑（⚡Prompt 浮层）：单行 —— 图钉 + 标题 + 简介 + 操作横排，不再占两行
     if (compact) {
       // #61 保焦（宿主 input.left 自家按钮同款 keepFocus）：mousedown 默认行为会把焦点从
@@ -848,6 +852,8 @@ export function TemplateBrowser(props: BrowserProps): any {
             h('path', { d: 'M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z' }),
           ]),
         ]),
+        // #71 用量徽标：紧跟图钉、标题之前，行 flex 中 pin 后首个 flex:none 元素
+        h('span', { style: usageStyle, title: usageTitle }, String(usageN)),
         h('span', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' } }, [
           h('span', { style: { flex: 'none', fontSize: '0.95em', color: base, fontWeight: 600, whiteSpace: 'nowrap' } }, x.name),
           h('span', { style: { flex: '0 1 auto', minWidth: 0, fontSize: '0.8em', color: muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, labelString(x)),
@@ -868,6 +874,8 @@ export function TemplateBrowser(props: BrowserProps): any {
           ]),
         ]),
       ]),
+      // #71 用量徽标（设置页）：同样紧跟图钉、标题之前，行 flex 中 pin 后首个 flex:none；paddingTop 与图钉一致，与标题首行对齐
+      h('span', { style: { ...usageStyle, paddingTop: 2 }, title: usageTitle }, String(usageN)),
       h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } }, [
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } }, [
           h('span', { style: nmStyle }, x.name),

@@ -447,6 +447,71 @@ async function drain(cap, home, expectEvent) {
   assert(storeRes.status === 200 && storeRes.body && storeRes.body.ok === true, '业务路由未受影响（GET /store 仍 200）');
   delete process.env.DSH_HOME;
 
+  /* ── 15) ENUM 值域基线（#57）：清单声明真执行，只收窄不放宽 ── */
+  const gateMod = await import(pathToFileURL(path.join(ROOT, 'lib', 'log', 'gate.js')).href);
+  const enumGate = gateMod.createEventGate(manifest, { pluginId: 'dsh-prompt' });
+  // 清单是唯一真值：顶层 valueDomain 与 host.call.fail 的 ENUM 声明都在（上游 dsh-log 仍解析通过见第 1 节）。
+  assert(typeof manifest.valueDomain?.enumPattern === 'string', '清单顶层 valueDomain.enumPattern 存在（唯一真值）');
+  eq(manifest.valueDomain.enumMaxLength, 32, '清单顶层 valueDomain.enumMaxLength 为 32（与 MAX_FIELD_CHARS 对齐）');
+  assert(manifest.events['host.call.fail']?.codes?.includes('ENUM'), 'host.call.fail 已补 ENUM 声明（原缺口：攻击示例用的正是这一位）');
+  // 正常取值逐字不受影响（只收窄的回归证据：电话名 / 机器码 / 路由 / 指纹全过）。
+  eq(enumGate.filter('host.call', { method: 'prompt.updateStatus', latencyMs: 7, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' }).fields,
+    { method: 'prompt.updateStatus', latencyMs: 7, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' },
+    'ENUM 正常值逐字通过：host.call');
+  eq(enumGate.filter('host.call.fail', { method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt' }).fields,
+    { method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt' },
+    'ENUM 正常值逐字通过：host.call.fail');
+  eq(enumGate.filter('update.install.exec', { route: 'cli-process', ok: true, exitCode: 0, durationMs: 12, pluginId: 'dsh-prompt' }).fields,
+    { route: 'cli-process', ok: true, exitCode: 0, durationMs: 12, pluginId: 'dsh-prompt' },
+    'ENUM 正常值逐字通过：update.install.exec');
+  eq(enumGate.filter('update.install.exec', { route: 'none', ok: false, durationMs: 0, pluginId: 'dsh-prompt' }).fields,
+    { route: 'none', ok: false, durationMs: 0, pluginId: 'dsh-prompt' },
+    'ENUM 正常值逐字通过：route:none（无配方路径，无 exitCode 键）');
+  eq(enumGate.filter('update.route.fail', { route: '/_dsh/dsh-prompt/update/status', reason: 'check-expired', errorHash: 'deadbeef' }).fields,
+    { route: '/_dsh/dsh-prompt/update/status', reason: 'check-expired', errorHash: 'deadbeef' },
+    'ENUM 正常值逐字通过：update.route.fail（含 30 字符路由）');
+  eq(enumGate.filter('panel.open', { mode: 'compact', rows: 3 }).fields,
+    { mode: 'compact', rows: 3 },
+    'ENUM 正常值逐字通过：panel.open');
+  eq(enumGate.filter('pick.insert', { source: 'panel', templateKind: 'preset', idHash: 'deadbeef', draftChars: 12 }).fields,
+    { source: 'panel', templateKind: 'preset', idHash: 'deadbeef', draftChars: 12 },
+    'ENUM 正常值逐字通过：pick.insert');
+  eq(enumGate.filter('smart.card.miss', { reason: 'suppressed', draftChars: 5 }).fields,
+    { reason: 'suppressed', draftChars: 5 },
+    'ENUM 正常值逐字通过：smart.card.miss');
+  eq(enumGate.filter('store.snapshot.fail', { reason: 'http-fail', latencyMs: 12 }).fields,
+    { reason: 'http-fail', latencyMs: 12 },
+    'ENUM 正常值逐字通过：store.snapshot.fail');
+  eq(enumGate.filter('host.route.fail', { route: '/_dsh/dsh-prompt/store', method: 'GET', status: 404, errorHash: 'deadbeef' }).fields,
+    { route: '/_dsh/dsh-prompt/store', method: 'GET', status: 404, errorHash: 'deadbeef' },
+    'ENUM 正常值逐字通过：host.route.fail');
+  eq(enumGate.filter('host.bridge.reject', { reason: 'untrusted-host' }).fields,
+    { reason: 'untrusted-host' },
+    'ENUM 正常值逐字通过：host.bridge.reject');
+  eq(enumGate.filter('app.boot', { hasReact: true, lang: 'zh', entryCount: 5 }).fields,
+    { hasReact: true, lang: 'zh', entryCount: 5 },
+    'ENUM 正常值逐字通过：app.boot');
+  eq(enumGate.filter('bridge.call.fail', { phone: 'dsh-prompt.logBatch', kind: 'bridge-error' }).fields,
+    { phone: 'dsh-prompt.logBatch', kind: 'bridge-error' },
+    'ENUM 正常值逐字通过：bridge.call.fail');
+  // Hash 与 ENUM 复合：非十六进制原文先散列，散出的指纹仍符合形状（两层不漂移）。
+  const hashEnum = enumGate.filter('update.route.fail', { route: '/_dsh/dsh-prompt/update/status', reason: 'check-expired', errorHash: 'C:\\Users\\someone\\secret' }).fields;
+  assert(/^[0-9a-f]{8}$/.test(String(hashEnum.errorHash)), 'Hash 先于 ENUM：错误原文先成 8 位指纹，指纹仍过形状');
+  // 攻击：CJK 正文（含空格/标点）不进日志，丢弃该字段并计数（与未声明字段同一套行为）。
+  const atk = enumGate.filter('host.call.fail', { method: '请把这段提示词正文塞进日志', kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
+  eq('method' in atk.fields, false, 'CJK 正文不进日志：ENUM 形状不匹配即丢弃该字段');
+  eq(atk.fields.kind, 'update-status', '同条里正常字段不受牵连');
+  assert(enumGate.stats.droppedFields >= 1, 'ENUM 丢弃计数在涨（与未声明字段同一套计数）');
+  // 超长（>32）不截断留痕，直接丢弃（防 32 字符部分泄漏）。
+  const longAtk = enumGate.filter('host.call', { method: 'a'.repeat(40), latencyMs: 7, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' });
+  eq('method' in longAtk.fields, false, '超长标识符不截断留痕，直接丢弃');
+  // 具名规则先于值域：token 先换 R_TOKEN 再过形状，仍能落盘（既有行为不丢）。
+  eq(enumGate.filter('host.bridge.reject', { reason: 'ghp_abcdefgh12345678' }).fields.reason, 'R_TOKEN', 'R_TOKEN 换名后仍符合 ENUM 形状（既有 scrub 行为 preserved）');
+  // 残余风险如实：纯 ASCII 标识符形状的模板名能过闸门形状（完全保证只在桥侧四事件的语义表里，见 safe-values.ts；本断言把边界钉住，免得后人误读形状为语义）。
+  eq(enumGate.filter('update.route.fail', { route: 'my-template-v3', reason: 'check-expired', errorHash: 'deadbeef' }).fields.route, 'my-template-v3', '标识符形状模板名能过闸门形状（残余风险，桥侧语义表兜住）');
+  // 非 ENUM 事件不收窄：既有可用性未动。
+  eq(enumGate.filter('host.log.export', { ok: true, bytes: 12, fallback: false, date: '2026-09-12' }).fields.date, '2026-09-12', '非 ENUM 事件不受形状约束（只收窄 ENUM）');
+
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* 清理失败不影响结论 */ }
   console.log(failures === 0 ? '=== Test log PASS ===' : `=== Test log FAIL（${failures} 项）===`);
   process.exit(failures === 0 ? 0 : 1);

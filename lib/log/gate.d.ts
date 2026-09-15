@@ -35,7 +35,10 @@ export const MAX_FIELD_CHARS: number
 export const HASH_RE: RegExp
 export const MANIFEST_FAIL_EVENT: string
 export const RULE_TABLE: Array<[string, RegExp]>
+export const ENUM_VALUE_PATTERN_SRC: string
+export const ENUM_VALUE_MAX: number
+export const ENUM_VALUE_RE: RegExp
 
 export function hash8(value: unknown): string
-export function summarizeManifest(raw: unknown, pluginId?: string): { ok: boolean; reason: string; table: Map<string, { level: string; kind: string; fields: string[] }> | null }
+export function summarizeManifest(raw: unknown, pluginId?: string): { ok: boolean; reason: string; table: Map<string, { level: string; kind: string; fields: string[]; hasEnum: boolean }> | null; enumPattern?: string; enumMaxLength?: number }
 export function createEventGate(raw: unknown, options?: EventGateOptions): EventGate

@@ -1,6 +1,6 @@
-// 回归测试 #71: 行内用量徽标（#69 决议落地）
-// 验收映射（#71 Brief）：
-//  A) 位置：用量徽标紧跟图钉、标题之前，行 flex 中 pin 后首个 flex:none 元素（compact 单行 + 设置页两行）
+// 回归测试 #71: 行内用量徽标（P5b 行最右决议落地，推翻 #69 图钉右侧旧决议）
+// 验收映射（#71 Brief P5b）：
+//  A) 位置：用量徽标在行最右侧（操作按钮之后、最末尾），行最后一个直属元素（compact 单行 + 设置页两行复用同一规则）
 //  B) 样式：font-size 0.75em、颜色 var(--dsw-alias-label-tertiary)、min-width 4ch、text-align right、
 //     font-variant-numeric tabular-nums + font-feature-settings tnum、title=已使用 N 次、white-space nowrap
 //  C) 设置页与标题首行对齐（badge 与图钉同 paddingTop，行 flex-start 顶部对齐）
@@ -54,12 +54,15 @@ const textOfNode = (n) => {
 };
 const findBadgeKid = (row) => {
   const kids = directKids(row);
-  return { kids, badge: kids.find((k) => k.props && typeof k.props.title === 'string' && /^已使用 \d+ 次$/.test(k.props.title)), idx: kids.findIndex((k) => k.props && typeof k.props.title === 'string' && /^已使用 \d+ 次$/.test(k.props.title)) };
+  const matches = kids.filter((k) => k.props && typeof k.props.title === 'string' && /^已使用 \d+ 次$/.test(k.props.title));
+  const badge = matches.length > 0 ? matches[matches.length - 1] : undefined;
+  const idx = badge ? kids.lastIndexOf(badge) : -1;
+  return { kids, badge, idx };
 };
 function checkBadgeStyle(badge, ctx) {
   assert(!!badge, ctx + '：徽标存在（title=已使用 N 次）');
   const s = badge.props.style || {};
-  assert(s.flex === 'none', ctx + '：徽标 flex:none（行flex中pin后首个flex:none）');
+  assert(s.flex === 'none', ctx + '：徽标 flex:none（行最末尾 flex:none）');
   assert(s.fontSize === '0.75em', ctx + '：徽标 font-size 0.75em（实得 ' + s.fontSize + '）');
   assert(s.color === 'var(--dsw-alias-label-tertiary)', ctx + '：徽标颜色 tertiary（实得 ' + s.color + '）');
   assert(s.minWidth === '4ch', ctx + '：徽标 min-width 4ch（实得 ' + s.minWidth + '）');
@@ -99,27 +102,24 @@ async function main() {
   assert(!!fpRow, 'compact 行 fp 存在');
   {
     const { kids, badge, idx } = findBadgeKid(fpRow);
-    assert(kids.length >= 4, 'compact 行直属子元素 >=4（图钉+徽标+标题区+操作）实得 ' + kids.length);
+    assert(kids.length >= 4, 'compact 行直属子元素 >=4（图钉+标题区+操作+徽标）实得 ' + kids.length);
     assert(kids[0] && kids[0].type === 'button', 'compact 行首个直属元素是图钉 button');
     const n = checkBadgeStyle(badge, 'compact fp');
     assert(n === 3, 'compact fp 徽标数字=3（实得 ' + n + '）');
-    assert(idx === 1, 'compact 徽标是 pin 后首个（直属索引1）实得 ' + idx);
-    // pin 后首个 flex:none 即徽标：索引0(pin button flex:none) 之后第一个 flex:none 必须是徽标
-    let firstFlexNoneAfterPin = -1;
-    for (let i = 1; i < kids.length; i++) {
-      const st = (kids[i].props && kids[i].props.style) || {};
-      if (st.flex === 'none') { firstFlexNoneAfterPin = i; break; }
-    }
-    assert(firstFlexNoneAfterPin === idx, 'compact pin 后首个 flex:none 即徽标');
-    // 标题在徽标之后
+    assert(idx === kids.length - 1, 'compact 徽标在行最末尾（直属末索引）实得 ' + idx + ' / ' + (kids.length - 1));
+    assert(kids[kids.length - 1] === badge, 'compact 行最后一个直属元素即徽标');
+    // 徽标之前是操作区：末二元素含 button（操作按钮）
+    const actsHasBtn = (() => { try { return kids[kids.length - 2].findAll((x) => x.type === 'button', { deep: true }).length > 0; } catch (e) { return false; } })();
+    assert(actsHasBtn, 'compact 徽标紧跟操作区之后');
+    // 标题在徽标之前
     const titleNode = fpRow.findAll((x) => x.children && Array.isArray(x.children) && x.children.length === 1 && x.children[0] === store.getTemplate('fp').name, { deep: true })[0];
     assert(!!titleNode, 'compact 标题仍在行内');
     assert(((titleNode.props && titleNode.props.style) || {}).whiteSpace === 'nowrap', 'compact 标题 whiteSpace nowrap');
-    // 标题容器在徽标之后
+    // 标题容器在徽标之前
     const titleContainerIdx = kids.findIndex((k) => {
       try { return k.findAll((x) => x.children && x.children[0] === store.getTemplate('fp').name, { deep: true }).length > 0; } catch (e) { return false; }
     });
-    assert(titleContainerIdx > idx, 'compact 标题区在徽标之后');
+    assert(titleContainerIdx >= 0 && titleContainerIdx < idx, 'compact 标题区在徽标之前');
   }
   {
     const deepRow = rowById(compact, 'deep');
@@ -141,19 +141,17 @@ async function main() {
   assert(!!fpFull, '设置页行 fp 存在');
   {
     const { kids, badge, idx } = findBadgeKid(fpFull);
-    assert(kids.length >= 4, '设置页行直属子元素 >=4（图钉包+徽标+内容+操作）实得 ' + kids.length);
+    assert(kids.length >= 4, '设置页行直属子元素 >=4（图钉包+内容+操作+徽标）实得 ' + kids.length);
     // 首个是图钉包 div（含 button）
     const firstHasPin = (() => { try { return kids[0].findAll((x) => x.type === 'button', { deep: true }).length > 0; } catch (e) { return false; } })();
     assert(firstHasPin, '设置页行首个直属元素是图钉包');
     const n = checkBadgeStyle(badge, '设置页 fp');
     assert(n === 3, '设置页 fp 徽标数字=3');
-    assert(idx === 1, '设置页徽标是 pin 后首个（直属索引1）实得 ' + idx);
-    let firstFlexNoneAfterPin = -1;
-    for (let i = 1; i < kids.length; i++) {
-      const st = (kids[i].props && kids[i].props.style) || {};
-      if (st.flex === 'none') { firstFlexNoneAfterPin = i; break; }
-    }
-    assert(firstFlexNoneAfterPin === idx, '设置页 pin 后首个 flex:none 即徽标');
+    assert(idx === kids.length - 1, '设置页徽标在行最末尾（直属末索引）实得 ' + idx + ' / ' + (kids.length - 1));
+    assert(kids[kids.length - 1] === badge, '设置页行最后一个直属元素即徽标');
+    // 徽标之前是操作区：末二元素含 button（操作按钮）
+    const fullActsHasBtn = (() => { try { return kids[kids.length - 2].findAll((x) => x.type === 'button', { deep: true }).length > 0; } catch (e) { return false; } })();
+    assert(fullActsHasBtn, '设置页徽标紧跟操作区之后');
     // 与标题首行对齐：徽标与图钉包同 paddingTop（行 flex-start 顶部对齐）
     const badgePad = (badge.props.style || {}).paddingTop;
     const pinPad = ((kids[0].props && kids[0].props.style) || {}).paddingTop;

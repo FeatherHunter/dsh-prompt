@@ -837,7 +837,7 @@ export function TemplateBrowser(props: BrowserProps): any {
     const intro = (x.body || '').split('\n')[0].trim()
     // #71 行内用量徽标：读 store 现有缓存（排序语义不动，只读展示）
     const usageN = (loadUsage()[x.id] || 0)
-    const usageTitle = '已使用' + usageN + '次'
+    const usageTitle = '已使用 ' + usageN + ' 次'
     const usageStyle: any = { flex: 'none', fontSize: '0.75em', color: 'var(--dsw-alias-label-tertiary)', minWidth: '4ch', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap' }
     // 紧凑（⚡Prompt 浮层）：单行 —— 图钉 + 标题 + 简介 + 操作横排，不再占两行
     if (compact) {

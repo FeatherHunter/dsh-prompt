@@ -2,7 +2,7 @@
 // 验收映射（#71 Brief）：
 //  A) 位置：用量徽标紧跟图钉、标题之前，行 flex 中 pin 后首个 flex:none 元素（compact 单行 + 设置页两行）
 //  B) 样式：font-size 0.75em、颜色 var(--dsw-alias-label-tertiary)、min-width 4ch、text-align right、
-//     font-variant-numeric tabular-nums + font-feature-settings tnum、title=已使用N次、white-space nowrap
+//     font-variant-numeric tabular-nums + font-feature-settings tnum、title=已使用 N 次、white-space nowrap
 //  C) 设置页与标题首行对齐（badge 与图钉同 paddingTop，行 flex-start 顶部对齐）
 //  D) 用量取值读 store 现有缓存（loadUsage），排序语义不动
 //  E) 超长标题 ellipsis 不换行（badge 不挤爆行，标题 nowrap + 容器裁剪）
@@ -54,10 +54,10 @@ const textOfNode = (n) => {
 };
 const findBadgeKid = (row) => {
   const kids = directKids(row);
-  return { kids, badge: kids.find((k) => k.props && typeof k.props.title === 'string' && /^已使用\d+次$/.test(k.props.title)), idx: kids.findIndex((k) => k.props && typeof k.props.title === 'string' && /^已使用\d+次$/.test(k.props.title)) };
+  return { kids, badge: kids.find((k) => k.props && typeof k.props.title === 'string' && /^已使用 \d+ 次$/.test(k.props.title)), idx: kids.findIndex((k) => k.props && typeof k.props.title === 'string' && /^已使用 \d+ 次$/.test(k.props.title)) };
 };
 function checkBadgeStyle(badge, ctx) {
-  assert(!!badge, ctx + '：徽标存在（title=已使用N次）');
+  assert(!!badge, ctx + '：徽标存在（title=已使用 N 次）');
   const s = badge.props.style || {};
   assert(s.flex === 'none', ctx + '：徽标 flex:none（行flex中pin后首个flex:none）');
   assert(s.fontSize === '0.75em', ctx + '：徽标 font-size 0.75em（实得 ' + s.fontSize + '）');
@@ -70,7 +70,7 @@ function checkBadgeStyle(badge, ctx) {
   assert(s.whiteSpace === 'nowrap', ctx + '：徽标 white-space nowrap');
   const n = Number(textOfNode(badge));
   assert(String(n) === textOfNode(badge).trim(), ctx + '：徽标文本为数字（实得 ' + JSON.stringify(textOfNode(badge)) + '）');
-  assert(badge.props.title === '已使用' + n + '次', ctx + '：徽标 title=已使用N次（实得 ' + badge.props.title + '）');
+  assert(badge.props.title === '已使用 ' + n + ' 次', ctx + '：徽标 title=已使用 N 次（实得 ' + badge.props.title + '）');
   return n;
 }
 

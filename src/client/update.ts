@@ -608,9 +608,17 @@ export function UpdateEntry(props?: any): any {
     }, value),
   ])
 
+  /**
+   * 弹窗标题必须带插件名：自动弹窗不经设置页（#41，shell.overlay 全局一份），用户否则不知道
+   * 是谁要升级。标题 = 包名（跨语言不变，与 cordis.patch.yml / PLUGIN_ID 同值）+ 本地化页面名
+   * （与设置导航同名，STR.sectionName）+ 动作（STR.updateEntry）。入口按钮的文案保持只是
+   * 「检查更新」（回归脚本按精确相等认它），只有这只弹窗的标题带名。
+   */
+  const dialogTitle = 'dsh-prompt · ' + t('sectionName') + ' · ' + t('updateEntry')
+
   const children: any[] = [
     h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 } }, [
-      h('span', { key: 'title', style: { fontSize: 14, fontWeight: 600, color: TOK.labelPrimary } }, t('updateEntry')),
+      h('span', { key: 'title', 'data-dsh-prompt-update-title': '', style: { fontSize: 14, fontWeight: 600, color: TOK.labelPrimary } }, dialogTitle),
       h('button', {
         key: 'close', type: 'button', 'data-dsh-prompt-update-action': 'close', 'aria-label': t('updateClose'),
         onClick: close, style: { ...btn(false), padding: '4px 10px' },

@@ -125,7 +125,9 @@ export function DraftTap(props: { useInput: any }): any {
 let lastFocusEl: any = null
 let focusTrackArmed = false
 let armedDoc: any = null
-function armInputFocusTrack(): void {
+/** #76：挂输入区事件监听（focusin 记最后摸过的框、selectionchange 采落点）。
+ *  插件启动即调用一次 —— 采样必须早于用户打字。 */
+export function armInputFocusTrack(): void {
   try {
     const doc: any = typeof document !== 'undefined' ? document : null
     if (focusTrackArmed && armedDoc === doc) return
@@ -144,10 +146,55 @@ function armInputFocusTrack(): void {
             if (t.getAttribute && t.getAttribute('contenteditable') === 'true' &&
               t.closest && t.closest('[data-composer-card]')) lastFocusEl = t
           } catch (err) { /* ignore */ }
+          sampleCaret() // 焦点刚回到作曲家（键盘操作、点回输入框）也补一次采样，别只等 selectionchange
         } catch (err) { /* ignore */ }
       }, true)
+      // #76：作曲家持有焦点时，用户每一次移动光标（打字、方向键、鼠标点）都会触发
+      // selectionchange —— 在那里留下"编辑时的最后落点"。点击面板行时作曲家多半已失焦，
+      // 失焦后的活选择可能被浏览器归一化到块边界（真机实证：落点跑到上一行末尾）。
+      doc.addEventListener('selectionchange', () => { sampleCaret() })
     }
+    sampleCaret() // 挂上就先采一次：面板悬停时用户早已打完字，别等下一次 selectionchange
   } catch (err) { /* ignore */ }
+}
+
+/** 编辑期落点采样：#76 的落点权威之一（另一个是"作曲家持焦点时的活读"）。 */
+interface CaretSample { root: any; text: string; caret: number }
+let caretSample: CaretSample | null = null
+
+/** 作曲家是否持有焦点（根自身或根内元素是 activeElement）。 */
+function composerFocused(root: any): boolean {
+  try {
+    if (typeof document === 'undefined' || !root) return false
+    const ae: any = (document as any).activeElement
+    if (!ae) return false
+    if (ae === root) return true
+    try { return !!(root.contains && root.contains(ae)) } catch (e) { return false }
+  } catch (e) { return false }
+}
+
+/** 采样一次落点。只在作曲家持有焦点时写 —— 失焦后选择可能已被归一化，
+ *  那种值不是"用户意图"，不能覆盖编辑期的采样。
+ *  先做 O(1) 预检再查 DOM：selectionchange 是全页级的，页面里任何输入框动光标都会触发，
+ *  热点路径上不能每次都去 querySelectorAll。 */
+function sampleCaret(): void {
+  try {
+    if (typeof document === 'undefined') return
+    const ae: any = (document as any).activeElement
+    if (!ae) return
+    let editable = false
+    try { editable = ae.isContentEditable === true } catch (e) { editable = false }
+    if (!editable) {
+      try { editable = !!(ae.getAttribute && ae.getAttribute('contenteditable') === 'true') } catch (e) { editable = false }
+    }
+    if (!editable) return
+    for (const r of composerRoots()) {
+      if (!composerFocused(r)) continue // 同一套"根自身或根内元素持有焦点"判定，不另写一遍
+      const read = readEditable(r)
+      caretSample = { root: r, text: read.text, caret: read.caret }
+      return
+    }
+  } catch (e) { /* ignore */ }
 }
 
 /** 作曲家可编辑根：宿主 Lexical 编辑器绑定的 contenteditable（自家弹窗已排除）。 */
@@ -180,27 +227,61 @@ const BLOCK_TAGS: Record<string, 1> = {
   BLOCKQUOTE: 1, PRE: 1, SECTION: 1, ARTICLE: 1, HEADER: 1, FOOTER: 1,
 }
 
+/** 把 caret（from 里的下标）映射到 to 里的同义位置。
+ *  两份草稿的可见字符完全一致（调用方已保证），差异只在换行 —— 落点靠两件事定位：
+ *  1) 光标前有多少个可见字符（唯一的锚点）；
+ *  2) 光标相对换行的侧向：紧跟着一个可见字符 ⇒ 落点属于"那一行"，目标处整段跨过换行，
+ *     别停在空行上；否则（光标后面是换行/文末）⇒ 只按左侧已有的换行数跨，保住"行尾"语义。
+ *  from === to 时是恒等映射。 */
+function mapCaret(from: string, caret: number, to: string): number {
+  const end = Math.max(0, Math.min(caret, from.length))
+  let visible = 0
+  let newlinesBefore = 0
+  for (let i = 0; i < end; i++) {
+    if (from.charCodeAt(i) === 10) newlinesBefore++
+    else { visible++; newlinesBefore = 0 }
+  }
+  const beforeVisible = end < from.length && from.charCodeAt(end) !== 10
+  let j = 0
+  let seen = 0
+  while (j < to.length && seen < visible) {
+    if (to.charCodeAt(j) === 10) j++
+    else { seen++; j++ }
+  }
+  let run = 0
+  while (j + run < to.length && to.charCodeAt(j + run) === 10) run++
+  const cross = beforeVisible ? run : Math.min(newlinesBefore, run)
+  return Math.max(0, Math.min(j + cross, to.length))
+}
+
 /** 读一个可编辑根的纯文本与活光标（同一套块映射，文本与光标同源，绝不错位）。
- * 文本≈宿主 clipboardText（段落↔\n，空段落即空行）；光标=当前 selection 锚点，无选择即末尾。 */
+ * 文本≈宿主 clipboardText（段落↔\n，空段落即空行）；光标=当前 selection 锚点，无选择即末尾。
+ * 元素锚点按宿主自己的规则解：offset 是该元素子节点下标 —— 越过末子节点 → 元素末尾，
+ * 否则 → 该子节点的起点（#76；旧实现"取首个 run 的起或末"会把块边界的落点翻到上一行）。 */
 function readEditable(root: any): { text: string; caret: number } {
   let text = ''
   try {
-    const runs: Array<{ node: any; start: number; len: number; top: number }> = []
+    const runs: Array<{ node: any; start: number; len: number }> = []
+    const bounds = new Map<any, { start: number; end: number }>()   // 元素节点 → 其内容区间
+    const childStart = new Map<any, number>()                       // 元素节点 → 内容起点（含分隔后）
     const kids: any[] = (root && root.childNodes) ? Array.prototype.slice.call(root.childNodes) : []
-    let curTop = -1
-    const pushRun = (s: string, node: any, top?: number) => {
+    const pushRun = (s: string, node: any) => {
       if (!s) return
-      runs.push({ node, start: text.length, len: s.length, top: typeof top === 'number' ? top : curTop })
+      runs.push({ node, start: text.length, len: s.length })
       text += s
+    }
+    const elementKids = (el: any): any[] => {
+      try { return el && el.childNodes ? Array.prototype.slice.call(el.childNodes) : [] } catch (e) { return [] }
     }
     const hasEl = kids.some((k: any) => k && k.nodeType === 1)
     if (!hasEl) {
-      pushRun(root.textContent || '', null, -1)
+      pushRun(root.textContent || '', null)
     } else {
       // #76：递归走完整棵子树 —— 旧代码只看直接子节点的 BR/块边界，
       // 段落内的软换行（BR）与嵌套块的边界全被吞，读数直接聚成一段。
       // 规则：块前分隔；BR 与空块强制占一行（空段落即空行，连续换行不折叠）；
-      // 文本与光标仍同源（runs 逐文本节点记录并记住顶层下标），末尾残留的分隔截掉。
+      // 文本与光标仍同源（runs 记文本节点、bounds 记元素区间、childStart 记子节点起点，
+      // 全部在同一次遍历里落账），末尾残留的分隔截掉。
       const sep = () => {
         if (text.length === 0) return
         if (text.charCodeAt(text.length - 1) !== 10) text += '\n'
@@ -209,28 +290,35 @@ function readEditable(root: any): { text: string; caret: number } {
         if (text.length === 0) return
         text += '\n'
       }
-      const walkList = (list: any[]) => {
-        for (const k of list) {
-          if (!k) continue
-          if (k.nodeType === 3) { pushRun(k.nodeValue || '', k); continue }
-          if (k.nodeType !== 1) continue
-          const tag = String(k.tagName || '').toUpperCase()
-          if (tag === 'BR') { forceBreak(); continue }
-          let ch: any[] = []
-          try { ch = k.childNodes ? Array.prototype.slice.call(k.childNodes) : [] } catch (e) { ch = [] }
-          if (BLOCK_TAGS[tag] === 1) {
-            sep()
-            const before = text.length
-            walkList(ch)
-            if (text.length === before) forceBreak() // 空块仍占一行（空行保留）
-          } else if (ch.length === 0) {
-            try { pushRun(k.textContent || '', k) } catch (e) { /* ignore */ }
+      /** 走一个元素节点：记 bounds 与 childStart，再递归其子节点。 */
+      const walkElement = (el: any) => {
+        const tag = String((el && el.tagName) || '').toUpperCase()
+        const ch = elementKids(el)
+        if (BLOCK_TAGS[tag] === 1) {
+          sep()
+          const start = text.length
+          childStart.set(el, start)
+          for (const c of ch) walkNode(c)
+          bounds.set(el, { start, end: text.length })
+          if (text.length === start) forceBreak() // 空块仍占一行（空行保留）
+        } else {
+          if (ch.length === 0) {
+            try { pushRun(el.textContent || '', el) } catch (e) { /* ignore */ }
           } else {
-            walkList(ch)
+            childStart.set(el, text.length)
+            for (const c of ch) walkNode(c)
           }
         }
       }
-      for (let i = 0; i < kids.length; i++) { curTop = i; walkList([kids[i]]) }
+      const walkNode = (k: any) => {
+        if (!k) return
+        if (k.nodeType === 3) { childStart.set(k, text.length); pushRun(k.nodeValue || '', k); return }
+        if (k.nodeType !== 1) return
+        if (String(k.tagName || '').toUpperCase() === 'BR') { childStart.set(k, text.length); forceBreak(); return }
+        walkElement(k)
+      }
+      for (const c of kids) walkNode(c)
+      bounds.set(root, { start: 0, end: text.length })
       text = text.replace(/\n+$/, '')
     }
     let caret = text.length
@@ -243,31 +331,32 @@ function readEditable(root: any): { text: string; caret: number } {
         try { inside = root.contains(an) } catch (e) { /* ignore */ }
         if (inside) {
           const ao = (sel && typeof sel.anchorOffset === 'number') ? sel.anchorOffset : 0
-          if (an.nodeType === 3) {
-            for (const r of runs) {
-              if (r.node === an) { caret = r.start + Math.max(0, Math.min(ao, r.len)); break }
-            }
-          } else if (an === root) {
-            const idx = Math.max(0, Math.min(ao, kids.length))
-            // 根锚点：offset=子节点下标 → 落到第 idx 个孩子起的首个 run 行首，之后没有则末尾
-            // runs 记住了各自的顶层下标（含嵌套），无下标的退到旧的 indexOf 比对
-            let hit = -1
-            for (const r of runs) {
-              const ci = (typeof r.top === 'number' && r.top >= 0) ? r.top : (r.node ? kids.indexOf(r.node) : -1)
-              if (ci >= idx) { hit = r.start; break }
-            }
-            caret = hit >= 0 ? hit : text.length
-          } else {
-            // 元素锚点：命中自身快照，或包住该 run 的祖先元素（ao>0 取首个 run 末，近似块尾）
-            for (const r of runs) {
-              let hitEl = r.node === an
-              if (!hitEl) {
-                try { hitEl = !!(an as any).contains && (an as any).contains(r.node) } catch (e) { hitEl = false }
-              }
-              if (hitEl) { caret = ao > 0 ? r.start + r.len : r.start; break }
-            }
-          }
+          const hit = anchorToOffset(an, ao)
+          if (typeof hit === 'number' && hit >= 0) caret = hit
         }
+      }
+      // 锚点 → 文本偏移：文本节点直接查 run；元素节点按子节点下标（宿主同款规则）
+      function anchorToOffset(an: any, ao: number): number {
+        if (an && an.nodeType === 3) {
+          for (const r of runs) if (r.node === an) return r.start + Math.max(0, Math.min(ao, r.len))
+          return -1
+        }
+        const b = bounds.get(an)
+        if (b) {
+          const ch = elementKids(an)
+          if (ao >= ch.length) return b.end
+          const cs = childStart.get(ch[ao])
+          if (typeof cs === 'number' && cs >= 0) return cs
+          return b.end
+        }
+        // 兜底（非本次遍历命中的元素）：包住的首个 run
+        for (const r of runs) {
+          if (r.node === an) return ao > 0 ? r.start + r.len : r.start
+        }
+        for (const r of runs) {
+          try { if (an && an.contains && an.contains(r.node)) return ao > 0 ? r.start + r.len : r.start } catch (e) { /* ignore */ }
+        }
+        return -1
       }
     } catch (e) { /* ignore */ }
     return { text, caret: Math.max(0, Math.min(caret, text.length)) }
@@ -309,6 +398,8 @@ function focusComposer(): void {
 /** 保焦（行/入口 mousedown）：只拦焦点转移，click 照常；焦点已在面板内（搜索框）
  * 或编辑器内时绝不抢焦点 —— 抢了会 blur 搜索框，#34 的 hover 抑制一松面板就误关。 */
 export function keepComposerFocus(e: any): void {
+  // #76：mousedown 是"用户落点"的最后一个可信时刻（还没失焦）——先采一次再谈保焦
+  sampleCaret()
   try { if (e && typeof e.preventDefault === 'function') e.preventDefault() } catch (err) { /* ignore */ }
   try {
     if (typeof document === 'undefined') return
@@ -327,52 +418,54 @@ export function keepComposerFocus(e: any): void {
   } catch (err) { /* ignore */ }
 }
 
-/** 决议当前草稿与插入点（#61 真修复：H=hook 已提交草稿，D=DOM 活读）。 */
-function resolveDraft(): { text: string; caret: number } {
+/** 决议当前草稿与插入点（#61 真修复 + #76 落点与换行保真）。
+ *  H=宿主模型草稿（render 内订阅，宿主自己的 clipboard 投影），D=点击瞬间的 DOM 活读。
+ *  文本：#76 —— 可见字符一致、只有换行形态有别时，信 H。理由在宿主源码里：setDraft 按 \n
+ *  切段、段间补一个 \n，模型才是行结构的真值；DOM 只是渲染表象（空块、装饰器、末尾 BR
+ *  都可能凭空多出或吞掉换行）。真机日志实证过 H 与 D 长度分歧（D 少 1–9 字符）。
+ *  落点：作曲家持焦点 → 活读（看得见的）；已失焦 → 编辑期采样（selectionchange 留下）；
+ *  都没有 → 活读兜底。真机实证失焦后选择会被归一化到上一行末尾，字就插错了行。 */
+function resolveDraft(): { text: string; caret: number; caretSrc: string } {
   const norm = (s: string) => (s || '').replace(/\r\n?/g, '\n')
   const H = norm(tapDraft)
   const root = pickEditable()
   if (root) {
     let d = ''
-    let c = 0
+    let live = -1
     try {
       const r = readEditable(root)
       d = norm(r.text)
-      c = Math.max(0, Math.min(r.caret, d.length))
+      live = Math.max(0, Math.min(r.caret, d.length))
     } catch (e) { /* ignore */ }
+    let caret = live
+    // 作曲家持焦点 → 活读可信（用户看得见光标在那）；已失焦 → 活读只算"未经确认"（浏览器
+    // 可能已把选择归一化到块边界），诊断上单独记 live-blur，好让真机日志能一眼分开。
+    let caretSrc = composerFocused(root) ? 'live' : 'live-blur'
+    if (live < 0) { caret = d.length; caretSrc = 'end' }
+    // 采样只对"同一个作曲家根"有意义：换了会话/换了输入根，旧采样就是别人的落点。
+    if (!composerFocused(root) && caretSample && caretSample.root === root) {
+      caret = mapCaret(norm(caretSample.text), caretSample.caret, d || norm(caretSample.text))
+      caretSrc = 'sample'
+    }
     if (!d) {
       // DOM 读空：编辑器空着（或未渲染）—— H 有就信 H，没有就是真空
-      if (H) return { text: H, caret: H.length }
-      return { text: '', caret: 0 }
+      // 落点被顶到 H 末尾，来源如实记 'end'（别让诊断字段说谎）
+      if (H) return { text: H, caret: H.length, caretSrc: 'end' }
+      return { text: '', caret: 0, caretSrc }
     }
-    if (!H) return { text: d, caret: c }
-    if (H === d) return { text: H, caret: c }
-    // #76 换行护栏：同内容仅换行有别时，读数漏掉的换行不再反杀桥草稿 ——
-    // 取换行多的一方；纯末尾差异信桥（段落末尾 BR 可能是渲染残留），内部差异信换行多的。
-    // 注：到这里 H 与 d 必不相等（相等已在上面返回），无需再包一层判断。
-    const stripNewlines = (s: string) => s.replace(/\n/g, '')
-    if (stripNewlines(H) === stripNewlines(d)) {
-      const tailOnly = (a: string, b: string) =>
-        a.length > b.length && a.indexOf(b) === 0 && /^\n*$/.test(a.slice(b.length))
-      if (tailOnly(H, d) || tailOnly(d, H)) return { text: H, caret: Math.max(0, Math.min(c, H.length)) }
-      const countNewlines = (s: string) => (s.match(/\n/g) || []).length
-      if (countNewlines(H) > countNewlines(d)) {
-        // 把 DOM 光标映射回桥坐标：按非换行字符数对齐
-        let wantKept = 0
-        const lim = Math.max(0, Math.min(c, d.length))
-        for (let i = 0; i < lim; i++) { if (d.charCodeAt(i) !== 10) wantKept++ }
-        let j = 0
-        let kept = 0
-        while (j < H.length && kept < wantKept) { if (H.charCodeAt(j) !== 10) kept++; j++ }
-        return { text: H, caret: Math.max(0, Math.min(j, H.length)) }
-      }
-    }
+    if (!H) return { text: d, caret, caretSrc }
+    if (H === d) return { text: H, caret, caretSrc }
     // 引用 chip：DOM 显示形≠存储形，信桥保编码（光标只能回末尾，无 chip 读写 API）。
-    if (CHIP_RE.test(H)) return { text: H, caret: H.length }
+    if (CHIP_RE.test(H)) return { text: H, caret: H.length, caretSrc: 'end' }
+    // #76 换行权威：可见字符一模一样、只有换行形态不同 → 信宿主模型 H，
+    // 落点按"换行前/换行后"逐位对齐映射过去（见 mapCaret），不乱改行号。
+    if (H.replace(/\n/g, '') === d.replace(/\n/g, '')) {
+      return { text: H, caret: mapCaret(d, caret, H), caretSrc }
+    }
     // 其余一切分歧（组词中/桥滞后/跨会话残留）：信看得见的，绝不丢字。
-    return { text: d, caret: c }
+    return { text: d, caret, caretSrc }
   }
-  if (H) return { text: H, caret: H.length }
+  if (H) return { text: H, caret: H.length, caretSrc: 'end' }
   // 末路：史前 textarea 形态兼容（弹窗输入已排除）。
   try {
     if (typeof document !== 'undefined' && (document as any).querySelectorAll) {
@@ -386,13 +479,18 @@ function resolveDraft(): { text: string; caret: number } {
         if (v) {
           let p = v.length
           try { if (typeof ta.selectionStart === 'number' && ta.selectionStart > 0) p = ta.selectionStart } catch (e) { /* ignore */ }
-          return { text: v, caret: p }
+          return { text: v, caret: p, caretSrc: 'legacy' }
         }
       }
     }
   } catch (e) { /* ignore */ }
-  return { text: '', caret: 0 }
+  return { text: '', caret: 0, caretSrc: 'none' }
 }
+
+/** 上一次决议的落点诊断（只记数字与来源枚举，不记正文）：供 pick.insert 落盘。
+ *  模块级暂存是刻意的诊断槽（同文件 tapDraft / lastFocusEl 同款）—— insertBody 的返回值
+ *  被既有调用点与回归当作"插入前草稿长度"用，不能改签名去顺带回传这份诊断。 */
+let lastInsertProbe: { caret: number; caretSrc: string; draftLines: number } = { caret: 0, caretSrc: 'none', draftLines: 0 }
 
 /** 插入正文到当前草稿（光标处优先，否则末尾；不覆盖；自动聚焦）。返回插入前的草稿长度，供调用点记日志。
  * 注意：宿主 setDraft 语义是全文替换且光标置尾（无光标级写入 API），中部插入后光标回尾是宿主行为，
@@ -404,6 +502,7 @@ export function insertBody(useInput: any, inputActions: any, body: string): numb
   const r = resolveDraft()
   const draft = r.text
   const pos = Math.max(0, Math.min(r.caret, draft.length))
+  lastInsertProbe = { caret: pos, caretSrc: r.caretSrc, draftLines: draft.length === 0 ? 0 : draft.split('\n').length }
   const newDraft = draft.slice(0, pos) + body + draft.slice(pos)
   if (inputActions && typeof inputActions.setDraft === 'function') inputActions.setDraft(newDraft)
   setTimeout(() => {
@@ -413,7 +512,8 @@ export function insertBody(useInput: any, inputActions: any, body: string): numb
 }
 
 /** 点击模板：插入 + 用量 +1 + 面板关闭（并记一条插入事件：只记种类与散列，不记模板名与正文）。
- * #61：无写入能力（设置页纯管理面不传输入桥）时直接返回 —— 不插入、不涨用量、不记事件。 */
+ * #61：无写入能力（设置页纯管理面不传输入桥）时直接返回 —— 不插入、不涨用量、不记事件。
+ * #76：多记落点与落点来源（纯数字与枚举），真机再报错位时能一眼看出是活读、采样还是兜底。 */
 export function onPick(t: PromptTemplate, useInput: any, inputActions: any): void {
   if (!inputActions || typeof inputActions.setDraft !== 'function') return
   pickProbe(useInput, inputActions)
@@ -423,6 +523,9 @@ export function onPick(t: PromptTemplate, useInput: any, inputActions: any): voi
     templateKind: t.builtin ? 'preset' : 'custom',
     idHash: t.id,
     draftChars,
+    caret: lastInsertProbe.caret,
+    caretSrc: lastInsertProbe.caretSrc,
+    draftLines: lastInsertProbe.draftLines,
   })
   bumpUsage(t.id)
   setPanelOpen(false)

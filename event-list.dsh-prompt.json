@@ -91,12 +91,16 @@
         "source",
         "templateKind",
         "idHash",
-        "draftChars"
+        "draftChars",
+        "caret",
+        "caretSrc",
+        "draftLines"
       ],
       "codes": [
         "ENUM",
         "H_ID"
       ],
+      "guard": "#76 追加落点诊断：caret=实际插入点下标、draftLines=插入前草稿行数、caretSrc=落点来源。全都不是正文（数字与短枚举），真机再报错位时一眼看出是活读(live)、编辑期采样(sample)、兜底末尾(end/none)还是史前 textarea(legacy)",
       "rules": [
         "R_TOKEN",
         "R_WIN_ABS",

@@ -2,7 +2,7 @@
  * dsh-prompt — client 入口（v1 常规模式 + v1.1 智能模式）
  * 装配：input.left 入口按钮 / input.overlay 面板浮层 / settings.section 配置页（直属设置面板）/ inputTriggers /prompt 触发源（#9）/ shell.overlay 智能悬浮卡（#10）
  */
-import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler } from './panel'
+import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler, armInputFocusTrack } from './panel'
 import { EntryButton } from './button'
 import { SettingsPage } from './settings'
 import { UpdateEntry } from './update'
@@ -117,6 +117,11 @@ export function apply(ctx: ClientContext): void {
   log.log('app.boot', { hasReact: !!getReact(), lang: getLang(), entryCount: 6 })
   // #20：client 启动即拉 host 快照（失败 warn + 内存默认，不阻塞装配）
   ctx.effect(() => { ensureLoaded().catch(() => undefined) }, 'dsh-prompt: store load')
+  // #76：启动即挂落点采样（selectionchange / focusin）。必须早于用户打字 ——
+  // 只在点击时才挂监听的话，"用户编辑期的最后落点"根本没人记，失焦后的漂移就无从纠正。
+  // 不走 ctx.effect：这两个监听是页面生命周期级的、只挂一次（内部有幂等闩），没有按会话
+  // 拆装语义，包一层 effect 只会得到一个假的 teardown。
+  armInputFocusTrack()
   // 入口按钮（input.left；开合状态跟随面板）
   ctx.effect(() => ctx.slots.inject('conversation.input.left', () =>
     ctx.slots.register({ name: 'conversation.input.left', id: 'dsh-prompt-entry', order: 10, label: () => 'dsh-prompt' },

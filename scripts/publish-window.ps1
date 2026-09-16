@@ -32,6 +32,20 @@ $Host.UI.RawUI.WindowTitle = 'DSH npm 发布窗口'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
+# ── 结果落盘（#77 发布实测补丁）：上一次（0.1.11）的失败形态是「窗口看着像成了、registry 上却没有」，
+#    而 Agent 拿不到窗口输出，只能靠用户复述。现在两样都写进包目录（`.tmp-*` 已被 .gitignore 忽略）：
+#      · 转录：整窗文本（原生命令的 stdout 不一定抓得到，聊胜于无）；
+#      · 状态 JSON：退出码 / 版本 / 目录 —— 这一份是权威判据，Agent 直接读它。
+$PublishLog = Join-Path $PackageDir ('.tmp-publish-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
+$PublishStatus = Join-Path $PackageDir '.tmp-publish-status.json'
+try {
+    Remove-Item $PublishStatus -Force -ErrorAction SilentlyContinue
+    Start-Transcript -Path $PublishLog -Force | Out-Null
+    Write-Host ('转录文件: ' + $PublishLog)
+} catch {
+    Write-Host ('（转录没开起来，不影响发布：' + $_.Exception.Message + '）')
+}
+
 Write-Host ''
 Write-Host '============================================================'
 Write-Host '  DSH npm 发布窗口（Agent 已启动，由你完成 2FA 审批）'
@@ -75,14 +89,35 @@ if ($LASTEXITCODE -ne 0 -or -not $whoami) {
 }
 
 npm publish --registry=https://registry.npmjs.org
+$publishExit = $LASTEXITCODE
 
 Write-Host ''
 Write-Host '============================================================'
-Write-Host ('发布命令已结束，退出码: ' + $LASTEXITCODE)
-if ($LASTEXITCODE -eq 0) {
+Write-Host ('发布命令已结束，退出码: ' + $publishExit)
+if ($publishExit -eq 0) {
     Write-Host '  上方出现 "+ <包名>@<版本>" 即为发布成功'
+    Write-Host '  （Agent 还会自己去 registry 查一遍版本表，以那边为准）'
 } else {
     Write-Host '  发布失败——请把本窗口内容完整告知 Agent'
 }
 Write-Host '============================================================'
+
+# 权威判据落盘：Agent 读这一份，不必等用户复述窗口内容。
+$ver = ''
+try { $ver = (& npm pkg get version 2>$null | Out-String).Trim().Trim('"') } catch { $ver = 'unknown' }
+try {
+    $status = [ordered]@{
+        exitCode = $publishExit
+        version  = $ver
+        dir      = $PackageDir
+        log      = $PublishLog
+        at       = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+    } | ConvertTo-Json
+    Set-Content -Path $PublishStatus -Value $status -Encoding UTF8
+    Write-Host ('状态文件: ' + $PublishStatus)
+} catch {
+    Write-Host ('（状态文件没写成：' + $_.Exception.Message + '）')
+}
+try { Stop-Transcript | Out-Null } catch { }
+
 Read-Host '按回车关闭窗口'

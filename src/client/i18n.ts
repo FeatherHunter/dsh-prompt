@@ -18,6 +18,8 @@ export function tr(lang: Lang, m: I18NMap): string {
 
 export const STR = {
   panelTitle: { zh: 'Prompt', en: 'Prompt' },
+  // #77：设置页那一块模板列表默认收起，头行整行是开关 —— 这一个是它的 title / 可点提示。
+  templatesToggleHint: { zh: '点击展开/收起模板列表', en: 'Click to expand or collapse the template list' },
   // #53：本插件在设置面板里的页面名 —— 配置页头行左侧与 settings.section 的 label 共用这一份
   sectionName: { zh: '提示词模板', en: 'Prompt Templates' },
   entryBtn: { zh: 'Prompt', en: 'Prompt' },

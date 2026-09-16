@@ -305,7 +305,9 @@ export function SettingsPage(props: any): any {
       }),
     ]),
     logGroup,
-    h(TemplateBrowser, { key: 'list', compact: false }),
+    // #77：这一块默认收起（只渲染「💡 Prompt 预制 24 · 自定义 n ▸」一行），点头行才展开 chips / 搜索框 / 列表 ——
+    // 24 条预置 + 自定义行不再把整页撑得很长。悬浮面板（compact）不受影响。
+    h(TemplateBrowser, { key: 'list', compact: false, collapsible: true }),
     // 存储说明讲的是"模板存在哪"，所以它跟着模板区走（不再与日志说明贴在一起形成两段灰字连读）。
     h('div', { key: 'storage', style: noteStyle }, t('storageNote')),
     h(AuthorPlugins, { key: 'more', lang }),

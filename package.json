@@ -59,6 +59,9 @@
     "test:issue-42": "node scripts/test-issue-42.cjs",
     "test:issue-61": "node scripts/test-issue-61.cjs",
     "test:issue-66": "node scripts/test-issue-66.cjs",
+    "test:issue-71": "node scripts/test-issue-71.cjs",
+    "test:issue-74": "node scripts/test-issue-74.cjs",
+    "test:issue-77": "node scripts/test-issue-77.cjs",
     "test:issue-59": "node scripts/test-issue-59.cjs",
     "test": "npm run test:modal && npm run test:issue-14"
   },

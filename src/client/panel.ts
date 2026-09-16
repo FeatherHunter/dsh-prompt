@@ -82,6 +82,12 @@ export interface BrowserProps {
   compact: boolean
   inputActions?: any
   useInput?: any
+  /**
+   * #77：可折叠（只对 `compact: false` 生效，且必须显式传 true）。
+   * 收起态只渲染头行 —— chips 过滤行 / 搜索框 / 模板行**整个不渲染**，设置页高度不再被
+   * 24 条预置 + 自定义行撑开；点头行展开。不传 = 今天的行为一字不动（既有挂载点与回归脚本都是这样）。
+   */
+  collapsible?: boolean
 }
 
 interface ModalState {
@@ -703,6 +709,15 @@ export function TemplateBrowser(props: BrowserProps): any {
   const q = qState[0]
   const modalState = react.useState(null as ModalState | null)
   const modal = modalState[0]
+  /**
+   * #77 设置页折叠（默认收起）：只渲染头行，列表整块不挂载。
+   * 只认「compact 为假 + 调用方显式给了 collapsible」——悬浮面板永远是展开的，
+   * 不传这个 prop 的挂载（含全部既有回归脚本）行为一字不动。
+   */
+  const collapsible = !compact && !!props.collapsible
+  const listOpenState = react.useState(false)
+  const listOpen = listOpenState[0]
+  const showList = !collapsible || listOpen
   const posState = react.useState(null as { left: number; bottom: number } | null)
   const pos = posState[0]
   const rootRef = react.useRef(null as any)
@@ -1087,14 +1102,48 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('button', { style: addBtn, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋'),
         h('button', { style: closeBtn, title: t('close'), onClick: () => setPanelOpen(false) }, '×'),
       ]),
-    ]) : h('div', { style: headStyle }, [
+    ]) : h('div', {
+      // #77：可折叠时整行就是开关（cursor / aria-expanded / title / role 四条可点线索齐）；
+      // 折叠状态只在组件局部 useState 里，不进 store、不落 localStorage。
+      style: collapsible ? { ...headStyle, cursor: 'pointer' } : headStyle,
+      ...(collapsible ? {
+        role: 'button',
+        tabIndex: 0,
+        'aria-expanded': showList ? 'true' : 'false',
+        title: t('templatesToggleHint'),
+        'data-dsh-prompt-templates-toggle': '',
+        onClick: () => listOpenState[1](!listOpen),
+        onKeyDown: (e: any) => {
+          if (!e) return
+          if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+            if (typeof e.preventDefault === 'function') e.preventDefault()
+            listOpenState[1](!listOpen)
+          }
+        },
+      } : null),
+    }, [
       h(PromptMark, { size: 15 }),
       h('span', { style: titleStyle }, t('panelTitle')),
+      // 收起态这一行就是全部信息：预制 / 自定义条数（与悬浮面板头行同式同键）。
+      h('span', { style: { fontSize: '0.85em', color: dim, marginLeft: 6 } }, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
       h('div', { style: { flex: 1 } }),
-      h('button', { style: { ...addBtn, width: 'auto', padding: '0 12px', fontSize: '0.92em' }, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋ ' + t('addShort')),
+      collapsible
+        ? h('span', {
+          key: 'caret', 'aria-hidden': 'true',
+          style: { fontSize: '1em', color: dim, marginRight: 6, display: 'inline-block', transform: showList ? 'rotate(90deg)' : 'none' },
+        }, '›')
+        : null,
+      h('button', {
+        style: { ...addBtn, width: 'auto', padding: '0 12px', fontSize: '0.92em' }, title: t('add'),
+        // 收起态也留着「新增」：点它只开新增弹窗，**不**顺手把列表展开（stopPropagation）。
+        onClick: (e: any) => {
+          if (e && typeof e.stopPropagation === 'function') e.stopPropagation()
+          modalState[1]({ kind: 'add' })
+        },
+      }, '＋ ' + t('addShort')),
     ]),
-    cloudNodes,
-    h('input', {
+    showList ? cloudNodes : null,
+    showList ? h('input', {
       style: searchStyle, placeholder: t('searchPh'), value: q, onChange: (e: any) => qState[1](e.target.value),
       // #34 IME 安全：聚焦即抑制 hover 关窗（含取消已挂起的 150ms 计时，见 setHoverCloseSuppressed），
       // blur/组词结束同步释放（effect 会再对账一遍）；组词结束补提交一次最终值（部分浏览器 end 不带 onChange）。
@@ -1106,8 +1155,8 @@ export function TemplateBrowser(props: BrowserProps): any {
         try { const v = e && e.target && typeof e.target.value === 'string' ? e.target.value : null; if (v !== null) qState[1](v) } catch (err) { /* ignore */ }
         if (compact && !modal && !searchFocused) setHoverCloseSuppressed(false)
       },
-    }),
-    listNode,
+    }) : null,
+    showList ? listNode : null,
     footer,
     modalNode,
   ])

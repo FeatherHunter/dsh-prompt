@@ -88,6 +88,20 @@ const jsonText = (n) => {
   walk(n);
   return acc.join('');
 };
+/** 在 toJSON() 出来的树里按谓词找第一个节点（含自身）。 */
+const jsonFind = (n, pred) => {
+  if (n == null) return undefined;
+  if (Array.isArray(n)) {
+    for (const x of n) { const hit = jsonFind(x, pred); if (hit) return hit; }
+    return undefined;
+  }
+  if (typeof n === 'string') return undefined;
+  if (n.props && pred(n)) return n;
+  if (n.children) {
+    for (const c of n.children) { const hit = jsonFind(c, pred); if (hit) return hit; }
+  }
+  return undefined;
+};
 
 async function main() {
   const presetN = store.allTemplates().length - store.loadCustoms().length;
@@ -173,6 +187,36 @@ async function main() {
     ok(withToggle.length === 1, '含折叠头行的模板区在顶层仍只占一块');
     ok(jsonText(kids[5]).indexOf('作者其他插件') >= 0 || jsonText(kids[5]).length > 0, '末块仍是原先那一块（引流区没被挤走）');
     p2.unmount();
+  }
+
+  console.log('=== H: 视觉一致性 —— 模板区是与相邻卡片同款的卡片（不是一条裸行） ===');
+  {
+    const p3 = TR.create(React.createElement(settings.SettingsPage, {}));
+    const kids3 = p3.toJSON().children;
+    const listCard = kids3[3];
+    // 与上面两张卡（智能推荐 / 诊断日志）逐条对账：外壳的三个量必须一致。
+    for (const idx of [1, 2]) {
+      ok(listCard.props.style.border === kids3[idx].props.style.border,
+        '与第 ' + idx + ' 张卡边框一致（' + listCard.props.style.border + '）');
+      ok(listCard.props.style.borderRadius === kids3[idx].props.style.borderRadius,
+        '与第 ' + idx + ' 张卡圆角一致（' + listCard.props.style.borderRadius + '）');
+      ok(listCard.props.style.margin === kids3[idx].props.style.margin,
+        '与第 ' + idx + ' 张卡外边距一致（' + listCard.props.style.margin + '）');
+    }
+    ok(listCard.type === 'section', '模板区是 <section> 卡片（与其它卡同一种元素）');
+    // 内容左轨对齐：卡片内边距 6px + 浏览器自带 8px = 14px = 其它卡片的 14px。
+    const padL = parseInt(String(listCard.props.style.padding).split(' ')[1], 10);
+    ok(padL === 6, '卡片内边距 6px（6 + 浏览器自带 8 = 14px，与其它卡的内容左轨对齐）');
+    const head = jsonFind(listCard, (n) => n.props['data-dsh-prompt-templates-toggle'] !== undefined);
+    ok(!!head, '卡片里就是那个可折叠头行');
+    ok(String(head.props.style.borderBottom) === 'none', '收起态头行没有孤立的底部分隔线');
+    // 展开箭头在整行最右（按钮之后），不再夹在摘要与按钮之间。
+    const kidTexts = (head.children || []).filter((c) => c && typeof c === 'object');
+    const last = kidTexts[kidTexts.length - 1];
+    ok(!!last && Array.isArray(last.children) && last.children[0] === '›', '展开箭头排在整行最右（最后一个子元素）');
+    const btnIdx = kidTexts.findIndex((c) => c.type === 'button');
+    ok(btnIdx >= 0 && btnIdx < kidTexts.length - 1, '「＋ 新增」按钮在箭头之前');
+    p3.unmount();
   }
 
   console.log(failures === 0 ? 'ALL PASS: #77 设置页模板列表可折叠区域' : 'FAILURES: ' + failures);

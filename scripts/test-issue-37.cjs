@@ -263,7 +263,7 @@ eq(hasCheckbox(kids[1]), true, '智能开关仍是 checkbox');
 eq(txt(kids[2]).indexOf(STR.logGroup.zh) >= 0, true, '第 2 块是「诊断日志」组');
 eq([STR.logExport.zh, STR.logCopyPath.zh, STR.logClear.zh].every((s) => txt(kids[2]).indexOf(s) >= 0), true, '日志三入口都在组内（导出 / 复制路径 / 清空）');
 eq(txt(kids[2]).indexOf(STR.logWhere.zh) >= 0, true, '组内有落点行（等宽字体，不再写尖括号）');
-eq(kids[3].type, 'div', '第 3 块是模板浏览列表');
+eq(kids[3].type, 'section', '#77：第 3 块是模板浏览列表（已是有壳的卡片，不再是裸 div）');
 eq(!kids[3].props['data-dsh-prompt-more'], true, '第 3 块不是引流区');
 eq(txt(kids[4]), STR.storageNote.zh, '第 4 块是存储说明（跟模板区走，文案一字不动）');
 eq(kids[5].props['data-dsh-prompt-more'], '', '第 5 块（页面底部）是引流区');

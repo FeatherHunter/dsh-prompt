@@ -1105,7 +1105,10 @@ export function TemplateBrowser(props: BrowserProps): any {
     ]) : h('div', {
       // #77：可折叠时整行就是开关（cursor / aria-expanded / title / role 四条可点线索齐）；
       // 折叠状态只在组件局部 useState 里，不进 store、不落 localStorage。
-      style: collapsible ? { ...headStyle, cursor: 'pointer' } : headStyle,
+      // 收起态**不留底部分隔线**：下面什么都没有，一条孤线会让这一行看着像被截断的卡片。
+      style: collapsible
+        ? { ...headStyle, cursor: 'pointer', borderBottom: showList ? line : 'none' }
+        : headStyle,
       ...(collapsible ? {
         role: 'button',
         tabIndex: 0,
@@ -1127,12 +1130,6 @@ export function TemplateBrowser(props: BrowserProps): any {
       // 收起态这一行就是全部信息：预制 / 自定义条数（与悬浮面板头行同式同键）。
       h('span', { style: { fontSize: '0.85em', color: dim, marginLeft: 6 } }, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
       h('div', { style: { flex: 1 } }),
-      collapsible
-        ? h('span', {
-          key: 'caret', 'aria-hidden': 'true',
-          style: { fontSize: '1em', color: dim, marginRight: 6, display: 'inline-block', transform: showList ? 'rotate(90deg)' : 'none' },
-        }, '›')
-        : null,
       h('button', {
         style: { ...addBtn, width: 'auto', padding: '0 12px', fontSize: '0.92em' }, title: t('add'),
         // 收起态也留着「新增」：点它只开新增弹窗，**不**顺手把列表展开（stopPropagation）。
@@ -1141,6 +1138,17 @@ export function TemplateBrowser(props: BrowserProps): any {
           modalState[1]({ kind: 'add' })
         },
       }, '＋ ' + t('addShort')),
+      // 展开箭头放在**整行最右**（卡片级 disclosure 的常规位置）：它不再夹在摘要与按钮之间，
+      // 而是与右上角那枚 ✕ / 图标同一列逻辑 —— 一眼看出「这张卡可以展开」。
+      collapsible
+        ? h('span', {
+          key: 'caret', 'aria-hidden': 'true',
+          style: {
+            fontSize: '1em', color: dim, marginLeft: 8, flex: 'none', display: 'inline-block',
+            transform: showList ? 'rotate(90deg)' : 'none',
+          },
+        }, '›')
+        : null,
     ]),
     showList ? cloudNodes : null,
     showList ? h('input', {

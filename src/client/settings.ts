@@ -53,16 +53,23 @@ function SettingRow(props: any): any {
   return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 0' } }, kids)
 }
 
+/**
+ * 组卡片外壳：边框 + 圆角 + 组外边距。**一处定义**，SettingGroup 与「模板列表」那张卡共用
+ * （#77 收尾：模板区此前是一条裸行，夹在两张有壳的卡片之间显得格格不入 —— 现在它也是卡片）。
+ * `pad` 可覆盖内边距：内嵌自带 padding 的组件时用更小的值把内容左轨配平到 14px。
+ */
+const cardStyle = (pad: string): any => ({
+  border: '1px solid ' + TOK.border, borderRadius: 12, padding: pad, margin: '14px 0 4px',
+  display: 'flex', flexDirection: 'column', fontFamily: TOK.font,
+})
+
 /** 一组：卡片 + 组标题，组内元素由调用方给，间距由这里统一。 */
 function SettingGroup(props: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
   return h('section', {
-    style: {
-      border: '1px solid ' + TOK.border, borderRadius: 12, padding: '2px 14px 12px', margin: '14px 0 4px',
-      display: 'flex', flexDirection: 'column', fontFamily: TOK.font,
-    },
+    style: cardStyle(props.pad || '2px 14px 12px'),
   }, [
     props.title ? h('div', {
       key: 'title',
@@ -305,9 +312,12 @@ export function SettingsPage(props: any): any {
       }),
     ]),
     logGroup,
-    // #77：这一块默认收起（只渲染「💡 Prompt 预制 24 · 自定义 n ▸」一行），点头行才展开 chips / 搜索框 / 列表 ——
-    // 24 条预置 + 自定义行不再把整页撑得很长。悬浮面板（compact）不受影响。
-    h(TemplateBrowser, { key: 'list', compact: false, collapsible: true }),
+    // #77：模板区是一张**与上面两张卡、下面那张卡同款的卡片**（此前它是一条裸行，没有壳，
+    // 夹在「诊断日志」与「作者其他插件」之间显得格格不入）。折叠态只露出卡片头行，点开才是完整列表。
+    // pad 取 4px 6px 8px：内嵌浏览器自带 8px 内边距，6 + 8 = 14px，与其它三张卡的内容左轨对齐。
+    h(SettingGroup, { key: 'list', pad: '4px 6px 8px' }, [
+      h(TemplateBrowser, { key: 'browser', compact: false, collapsible: true }),
+    ]),
     // 存储说明讲的是"模板存在哪"，所以它跟着模板区走（不再与日志说明贴在一起形成两段灰字连读）。
     h('div', { key: 'storage', style: noteStyle }, t('storageNote')),
     h(AuthorPlugins, { key: 'more', lang }),

@@ -81,7 +81,8 @@ export const STR = {
   moreDescPalette: { zh: '38 款长时间编程护眼配色，一键换上', en: '38 eye-friendly palettes for long coding sessions, applied in one click' },
   moreDescPrompt: { zh: '本面板自己：24 条常用提示模板随手点，不用来回复制粘贴', en: 'This panel itself: 24 everyday prompt templates at hand — no more copy-paste round trips' },
   moreDescCompanion: { zh: '聊天机器人的伴侣插件：扫码或填凭据就把飞书、微信等 9 路聊天接进来', en: 'Companion plugin for chat bots: bring in 9 chat channels such as Feishu and WeChat by scanning a code or filling in credentials' },
-  storageNote: { zh: '自定义模板与使用次数保存在 DSH 缓存目录（卸载重装保留）；历史 localStorage 数据不再读取。', en: 'Custom templates and usage live in the DSH cache dir (kept across reinstall); legacy localStorage data is no longer read.' },
+  // 注：原「自定义模板与使用次数保存在 DSH 缓存目录…」那句界面文案已按作者决定删除 —— 它摆在
+  // 两张卡片之间像一句游离的声明，而说明的对象就是上面那张模板卡，不再单独占一行。
   // 地图 #45 / #51：配置页的日志开关 + 导出 + 清空三个入口（文案写明「错误与告警始终记录」）
   logToggle: { zh: '调试日志', en: 'Debug log' },
   logToggleHint: { zh: '默认关。关只停信息与调试两级，错误与告警始终记录；开关以宿主为准，刷新后仍读宿主那份。', en: 'Off by default. Off stops only info and debug, while errors and warnings are always recorded; the host is authoritative and the value survives a refresh.' },

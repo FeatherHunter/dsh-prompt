@@ -38,7 +38,7 @@ function eq(a, b, msg) {
 function stripComments(src) {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').split(/\r?\n/).map((l) => l.replace(/\/\/.*$/, '')).join('\n');
 }
-/** 再剥字符串：界面文案里可以写「localStorage」字样（如 i18n 的 storageNote），那不是存取。 */
+/** 再剥字符串：界面文案里可以写「localStorage」字样（历史上那句存储说明就是），那不是存取。 */
 function stripCode(src) {
   return stripComments(src)
     .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")

@@ -3,7 +3,8 @@
 //  1) 右上角两个图标按钮：🌟 → 仓库首页、💬 → ISSUE 列表页（不是 issues/new），双语 aria-label，新标签页打开；
 //  2) 悬停 / 键盘聚焦出气泡，mouseleave / blur / Esc 收（气泡走顶层 portal，无 DOM 环境内联回退）；
 //  3) 底部四行引流区：slug→URL 映射与顺序、中英双语描述、整行可点；
-//  4) 不动的东西：智能开关 / storageNote / 模板列表顺序与行为一字不动；旧的一行文字链接不再渲染（同一入口不留两处）。
+//  4) 不动的东西：智能开关 / 模板列表顺序与行为一字不动；旧的一行文字链接不再渲染（同一入口不留两处）。
+//  5) #77 收尾：那句存储说明已按作者决定删除（页面顶层 6 → 5 块），模板区改成一张卡片。
 const fs = require('node:fs');
 const path = require('node:path');
 let ts;
@@ -236,7 +237,7 @@ const kids = tree.children;
 // ⇒ 顶层又回到 6 块，入口不再是独立的一块。四条保证一条不减，只是入口换了住处。
 const hasCheckbox = (node) => !!(node && ((node.props && node.props.type === 'checkbox')
   || (Array.isArray(node.children) && node.children.some(hasCheckbox))));
-eq(kids.length, 6, '设置页顶层六块：#60 身份行（含更新入口）/ 智能推荐组 / 诊断日志组 / 模板列表 / 存储说明 / 引流区');
+eq(kids.length, 5, '设置页顶层五块：#60 身份行（含更新入口）/ 智能推荐组 / 诊断日志组 / 模板列表卡 / 引流区');
 eq(jsonAnchors(kids[0]).map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '第 0 块是右上角两个按钮（顺序：🌟 仓库、💬 ISSUE）');
 eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 0 块左边有插件名字');
 // #60 追加交付 A：入口与两个图标**同一行、同一父节点**，且排在两个图标之前 —— 三条都是可判定的。
@@ -265,8 +266,9 @@ eq([STR.logExport.zh, STR.logCopyPath.zh, STR.logClear.zh].every((s) => txt(kids
 eq(txt(kids[2]).indexOf(STR.logWhere.zh) >= 0, true, '组内有落点行（等宽字体，不再写尖括号）');
 eq(kids[3].type, 'section', '#77：第 3 块是模板浏览列表（已是有壳的卡片，不再是裸 div）');
 eq(!kids[3].props['data-dsh-prompt-more'], true, '第 3 块不是引流区');
-eq(txt(kids[4]), STR.storageNote.zh, '第 4 块是存储说明（跟模板区走，文案一字不动）');
-eq(kids[5].props['data-dsh-prompt-more'], '', '第 5 块（页面底部）是引流区');
+// 那句存储说明已按作者决定删除：#20 与 #37 原先钉着的「第 4 块 = 存储说明」随之撤掉，
+// 页面的灰字连读问题不再存在（模板卡自己是一张卡，说明不再孤悬在两张卡之间）。
+eq(kids[4].props['data-dsh-prompt-more'], '', '第 4 块（页面底部）是引流区');
 // #53 回归：panel.ts 头行两处内联灯泡 SVG 换成 logo.ts 的 promptMark 后，设置页头行必须照旧（标志 + Prompt + 新增）
 const browser = mount(React.createElement(panel.TemplateBrowser, { compact: false }));
 eq(browser.root.findAll((x) => x.type === 'svg').length >= 1, true, '#53：模板列表头行仍有标志 svg');

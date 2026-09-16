@@ -318,8 +318,8 @@ export function SettingsPage(props: any): any {
     h(SettingGroup, { key: 'list', pad: '4px 6px 8px' }, [
       h(TemplateBrowser, { key: 'browser', compact: false, collapsible: true }),
     ]),
-    // 存储说明讲的是"模板存在哪"，所以它跟着模板区走（不再与日志说明贴在一起形成两段灰字连读）。
-    h('div', { key: 'storage', style: noteStyle }, t('storageNote')),
+    // 存储说明那句（原「自定义模板与使用次数保存在 DSH 缓存目录…」）已按作者决定删除：
+    // 它孤零零悬在两张卡之间，说的是上面那张模板卡的事，却谁也不属于。
     h(AuthorPlugins, { key: 'more', lang }),
   ])
 }

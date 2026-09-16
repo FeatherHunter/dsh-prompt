@@ -178,14 +178,15 @@ async function main() {
     plain.unmount();
   }
 
-  console.log('=== G: #37/#40 的结构断言不破（顶层 6 块，模板区仍是一块） ===');
+  console.log('=== G: #37/#40 的结构断言不破（顶层 5 块，模板区仍是一块） ===');
   {
     const p2 = TR.create(React.createElement(settings.SettingsPage, {}));
     const kids = p2.toJSON().children;
-    ok(kids.length === 6, '设置页顶层仍是 6 块（实际 ' + kids.length + '）');
+    ok(kids.length === 5, '设置页顶层 5 块（那句存储说明删除后由 6 → 5，实际 ' + kids.length + '）');
     const withToggle = kids.filter((k) => jsonText(k).indexOf(zh('panelTitle')) >= 0 && jsonText(k).indexOf(zh('presetCount')) >= 0);
     ok(withToggle.length === 1, '含折叠头行的模板区在顶层仍只占一块');
-    ok(jsonText(kids[5]).indexOf('作者其他插件') >= 0 || jsonText(kids[5]).length > 0, '末块仍是原先那一块（引流区没被挤走）');
+    ok(jsonText(kids[4]).indexOf('作者其他插件') >= 0 || jsonText(kids[4]).length > 0, '末块仍是原先那一块（引流区没被挤走）');
+    ok(jsonText(p2.toJSON()).indexOf('DSH 缓存目录') < 0, '那句存储说明不再出现在页面上');
     p2.unmount();
   }
 

@@ -304,7 +304,7 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
   const page = await mount(React.createElement(settings.SettingsPage, {}));
   await flush();
   const kids = page.toJSON().children;
-  eq(kids.length, 6, '设置页顶层六块（#60-A：入口并进身份行，不再单独成块）');
+  eq(kids.length, 5, '设置页顶层五块（#60-A：入口并进身份行，不再单独成块；那句存储说明已删）');
   // #60 追加交付 A（用户第二次真机反馈「检查更新和版本号和 star 的按钮在一起」）：入口与两个图标
   // 同一行、同一父节点，顺序在图标之前。变异判据：把它挪回独立的一块 / 挪到图标之后 ⇒ 下面几条当场变红。
   eq(jsonAnchors(kids[0]).length, 2, '#37 的右上角两个图标按钮原样在第 0 块（顺序不变）');

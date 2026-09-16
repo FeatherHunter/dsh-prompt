@@ -2,7 +2,7 @@
 // 覆盖验收标准（不依赖 host 进程；host 未部署时 client 应 fail-soft 用内存默认）：
 //  1) 旧 localStorage 键不再被读取（源码级断言：store.ts 不含四键字符串）
 //  2) 同步 API 语义保持（add/update/remove/copy/bump/pin/sort，内存缓存）
-//  3) 设置页行为提示文案存在（i18n storageNote zh/en + settings 引用）
+//  3) 设置页那句存储说明已按作者决定删除（i18n / settings 都不再出现）
 //  4) host 半契约存在（lib/index.js：domain dsh_prompt v0 + 三表 + global lastUsed + 路由前缀 + 热重载单例）
 const fs = require('node:fs');
 const path = require('node:path');
@@ -86,12 +86,19 @@ const bottomUp = store.sortedTemplatesBottomUp([a, b]).map((x) => x.id);
 if (bottomUp[bottomUp.length - 1] !== b.id) fail('sortedTemplatesBottomUp 高频应在底部');
 ok('双排序标尺保持（Top-down 高频在上 / bottom-up 高频在下）');
 
-// ── 3) 设置页提示文案 ──
+// ── 3) 设置页提示文案：那句存储说明已按作者决定删除（反向断言，防止悄悄回来） ──
+// 判据落在**代码**上、不落在注释上：注释里为后人留着「它为什么被删」的记录，不该因此变红。
+function stripComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').split(/\r?\n/).map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+}
 const i18nSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'client', 'i18n.ts'), 'utf8');
-if (!i18nSrc.includes('storageNote')) fail('i18n 缺少 storageNote');
-const settingsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'client', 'settings.ts'), 'utf8');
-if (!settingsSrc.includes('storageNote')) fail('settings 未引用 storageNote');
-ok('设置页行为提示文案存在（i18n.storageNote + settings 引用）');
+const i18nCode = stripComments(i18nSrc);
+if (i18nCode.includes('storageNote')) fail('i18n 里那句存储说明应已删除（storageNote）');
+if (i18nCode.includes('DSH 缓存目录')) fail('i18n 里那句存储说明应已删除（文案本身）');
+const settingsCode = stripComments(fs.readFileSync(path.join(__dirname, '..', 'src', 'client', 'settings.ts'), 'utf8'));
+if (settingsCode.includes('storageNote')) fail('settings 不应再引用那句存储说明');
+if (settingsCode.includes('DSH 缓存目录')) fail('设置页不应再渲染那句存储说明');
+ok('设置页那句存储说明已删除（i18n 与 settings 的代码里都不再有它）');
 
 // ── 4) host 半契约（源码级，import 目标只在 DSH host 运行时解析，此处不断言可加载） ──
 const hostSrc = fs.readFileSync(path.join(__dirname, '..', 'lib', 'index.js'), 'utf8');

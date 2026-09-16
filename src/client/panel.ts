@@ -181,49 +181,57 @@ const BLOCK_TAGS: Record<string, 1> = {
 }
 
 /** 读一个可编辑根的纯文本与活光标（同一套块映射，文本与光标同源，绝不错位）。
- * 文本≈宿主 clipboardText（段落↔\n）；光标=当前 selection 锚点，无选择即末尾。 */
+ * 文本≈宿主 clipboardText（段落↔\n，空段落即空行）；光标=当前 selection 锚点，无选择即末尾。 */
 function readEditable(root: any): { text: string; caret: number } {
   let text = ''
   try {
-    const runs: Array<{ node: any; start: number; len: number }> = []
+    const runs: Array<{ node: any; start: number; len: number; top: number }> = []
     const kids: any[] = (root && root.childNodes) ? Array.prototype.slice.call(root.childNodes) : []
-    const pushRun = (s: string, node: any) => {
+    let curTop = -1
+    const pushRun = (s: string, node: any, top?: number) => {
       if (!s) return
-      runs.push({ node, start: text.length, len: s.length })
+      runs.push({ node, start: text.length, len: s.length, top: typeof top === 'number' ? top : curTop })
       text += s
     }
-    let started = false
     const hasEl = kids.some((k: any) => k && k.nodeType === 1)
     if (!hasEl) {
-      pushRun(root.textContent || '', null)
+      pushRun(root.textContent || '', null, -1)
     } else {
-      for (const k of kids) {
-        if (!k) continue
-        if (k.nodeType === 3) { started = true; pushRun(k.nodeValue || '', k); continue }
-        if (k.nodeType !== 1) continue
-        const tag = String(k.tagName || '').toUpperCase()
-        if (tag === 'BR') { if (started) text += '\n'; else started = true; continue }
-        if (BLOCK_TAGS[tag] === 1) {
-          if (!started) started = true
-          else text += '\n'
-        } else {
-          started = true
-        }
-        // runs 挂到文本节点上（光标锚点 99% 是文本节点）：展开后代文本节点，文本与光标同源
-        try {
-          const stack: any[] = [k]
-          const ordered: any[] = []
-          while (stack.length > 0) {
-            const n = stack.pop()
-            if (!n) continue
-            if (n.nodeType === 3) { ordered.push(n); continue }
-            if (n.nodeType !== 1) continue
-            const ch = n.childNodes ? Array.prototype.slice.call(n.childNodes) : []
-            for (let j = ch.length - 1; j >= 0; j--) stack.push(ch[j])
-          }
-          for (const tn of ordered) pushRun(tn.nodeValue || '', tn)
-        } catch (e) { pushRun(k.textContent || '', k) }
+      // #76：递归走完整棵子树 —— 旧代码只看直接子节点的 BR/块边界，
+      // 段落内的软换行（BR）与嵌套块的边界全被吞，读数直接聚成一段。
+      // 规则：块前分隔；BR 与空块强制占一行（空段落即空行，连续换行不折叠）；
+      // 文本与光标仍同源（runs 逐文本节点记录并记住顶层下标），末尾残留的分隔截掉。
+      const sep = () => {
+        if (text.length === 0) return
+        if (text.charCodeAt(text.length - 1) !== 10) text += '\n'
       }
+      const forceBreak = () => {
+        if (text.length === 0) return
+        text += '\n'
+      }
+      const walkList = (list: any[]) => {
+        for (const k of list) {
+          if (!k) continue
+          if (k.nodeType === 3) { pushRun(k.nodeValue || '', k); continue }
+          if (k.nodeType !== 1) continue
+          const tag = String(k.tagName || '').toUpperCase()
+          if (tag === 'BR') { forceBreak(); continue }
+          let ch: any[] = []
+          try { ch = k.childNodes ? Array.prototype.slice.call(k.childNodes) : [] } catch (e) { ch = [] }
+          if (BLOCK_TAGS[tag] === 1) {
+            sep()
+            const before = text.length
+            walkList(ch)
+            if (text.length === before) forceBreak() // 空块仍占一行（空行保留）
+          } else if (ch.length === 0) {
+            try { pushRun(k.textContent || '', k) } catch (e) { /* ignore */ }
+          } else {
+            walkList(ch)
+          }
+        }
+      }
+      for (let i = 0; i < kids.length; i++) { curTop = i; walkList([kids[i]]) }
+      text = text.replace(/\n+$/, '')
     }
     let caret = text.length
     try {
@@ -242,15 +250,21 @@ function readEditable(root: any): { text: string; caret: number } {
           } else if (an === root) {
             const idx = Math.max(0, Math.min(ao, kids.length))
             // 根锚点：offset=子节点下标 → 落到第 idx 个孩子起的首个 run 行首，之后没有则末尾
+            // runs 记住了各自的顶层下标（含嵌套），无下标的退到旧的 indexOf 比对
             let hit = -1
             for (const r of runs) {
-              const ci = r.node ? kids.indexOf(r.node) : -1
+              const ci = (typeof r.top === 'number' && r.top >= 0) ? r.top : (r.node ? kids.indexOf(r.node) : -1)
               if (ci >= idx) { hit = r.start; break }
             }
             caret = hit >= 0 ? hit : text.length
           } else {
+            // 元素锚点：命中自身快照，或包住该 run 的祖先元素（ao>0 取首个 run 末，近似块尾）
             for (const r of runs) {
-              if (r.node === an) { caret = ao > 0 ? r.start + r.len : r.start; break }
+              let hitEl = r.node === an
+              if (!hitEl) {
+                try { hitEl = !!(an as any).contains && (an as any).contains(r.node) } catch (e) { hitEl = false }
+              }
+              if (hitEl) { caret = ao > 0 ? r.start + r.len : r.start; break }
             }
           }
         }
@@ -333,6 +347,26 @@ function resolveDraft(): { text: string; caret: number } {
     }
     if (!H) return { text: d, caret: c }
     if (H === d) return { text: H, caret: c }
+    // #76 换行护栏：同内容仅换行有别时，读数漏掉的换行不再反杀桥草稿 ——
+    // 取换行多的一方；纯末尾差异信桥（段落末尾 BR 可能是渲染残留），内部差异信换行多的。
+    // 注：到这里 H 与 d 必不相等（相等已在上面返回），无需再包一层判断。
+    const stripNewlines = (s: string) => s.replace(/\n/g, '')
+    if (stripNewlines(H) === stripNewlines(d)) {
+      const tailOnly = (a: string, b: string) =>
+        a.length > b.length && a.indexOf(b) === 0 && /^\n*$/.test(a.slice(b.length))
+      if (tailOnly(H, d) || tailOnly(d, H)) return { text: H, caret: Math.max(0, Math.min(c, H.length)) }
+      const countNewlines = (s: string) => (s.match(/\n/g) || []).length
+      if (countNewlines(H) > countNewlines(d)) {
+        // 把 DOM 光标映射回桥坐标：按非换行字符数对齐
+        let wantKept = 0
+        const lim = Math.max(0, Math.min(c, d.length))
+        for (let i = 0; i < lim; i++) { if (d.charCodeAt(i) !== 10) wantKept++ }
+        let j = 0
+        let kept = 0
+        while (j < H.length && kept < wantKept) { if (H.charCodeAt(j) !== 10) kept++; j++ }
+        return { text: H, caret: Math.max(0, Math.min(j, H.length)) }
+      }
+    }
     // 引用 chip：DOM 显示形≠存储形，信桥保编码（光标只能回末尾，无 chip 读写 API）。
     if (CHIP_RE.test(H)) return { text: H, caret: H.length }
     // 其余一切分歧（组词中/桥滞后/跨会话残留）：信看得见的，绝不丢字。

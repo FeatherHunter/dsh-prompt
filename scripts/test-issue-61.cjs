@@ -321,15 +321,27 @@ console.log('=== T13: 末路 textarea 兼容 ===');
   ok(got === 'A[TPL]B', '史前形态仍拼接，实际=' + JSON.stringify(got));
 }
 
-console.log('=== T14: 设置页行无插入承诺 ===');
+console.log('=== T14: 设置页行无插入承诺（#74 起行点击只做简介显隐） ===');
 {
   global.document = makeDocument();
   let full = null;
   TR.act(() => { full = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
-  const srows = full.root.findAll((x) => x.props && x.props['data-dsh-prompt-id']);
-  ok(srows.length > 0, '设置页渲染出行，行数=' + srows.length);
-  ok(srows.every((r) => typeof r.props.onClick !== 'function'), '设置页行无 onClick（不行插入）');
-  ok(srows.every((r) => String(r.props.title || '').indexOf(zh('insertHint')) < 0), '设置页行标题不承诺插入');
+  const srows = () => full.root.findAll((x) => x.props && x.props['data-dsh-prompt-id']);
+  ok(srows().length > 0, '设置页渲染出行，行数=' + srows().length);
+  // #61 管理面语义保留：标题仍不承诺插入。
+  ok(srows().every((r) => String(r.props.title || '').indexOf(zh('insertHint')) < 0), '设置页行标题不承诺插入');
+  // #74 行折叠：行点击只切换同一行简介显隐（不涨用量、不触发插入、不关窗）——
+  // 旧断言「行无 onClick」已是过去式，改为断言真实契约：点一行只翻转它自己的 aria-expanded。
+  const id = srows()[0].props['data-dsh-prompt-id'];
+  const expOf = (r) => r.props['aria-expanded'];
+  ok(expOf(srows()[0]) === 'false', '默认折叠（aria-expanded=false）');
+  TR.act(() => { srows()[0].props.onClick(); });
+  const expanded = srows().filter((r) => r.props['data-dsh-prompt-id'] === id)[0];
+  ok(expOf(expanded) === 'true', '点一行只展开这一行（aria-expanded=true）');
+  ok(srows().filter((r) => r.props['data-dsh-prompt-id'] !== id).every((r) => expOf(r) === 'false'), '其他行不受影响');
+  TR.act(() => { expanded.props.onClick(); });
+  const back = srows().filter((r) => r.props['data-dsh-prompt-id'] === id)[0];
+  ok(expOf(back) === 'false', '再点收回（简介显隐可来回切）');
 }
 
 delete global.document;

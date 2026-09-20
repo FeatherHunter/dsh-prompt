@@ -14,7 +14,19 @@ Your ⭐ means the world to me.
 
 </div>
 
-<h2 align="center"><sub>INSTALL</sub><br>Install</h2>
+<!-- Read by two surfaces: the GitHub repo page, and the awesome plugin market's detail page.
+     The market drops every bit of raw HTML (markdown only), so headings are `##` and images are
+     `![]()`; the outer `<div align="center">` only centers things on GitHub and being dropped on
+     the market costs nothing. Run `npm run test:marketplace` after editing — it replays the
+     market's own renderer locally. The other two market-side declarations live elsewhere: the
+     root `screenshots.json` (detail-page shots, order = display order) and `package.json`'s
+     `repository` (links the npm package to this repo: download counts, "installable from npm"). -->
+
+<div align="center">
+
+## Install <sub>INSTALL</sub>
+
+</div>
 
 <div align="center">
 
@@ -45,12 +57,14 @@ Zero config: install and go, remove and it's gone.
 
 **👇 A new button left of the input box means success.**
 
-<img src="../assets/readme/01-install-ready.png" width="720" alt="Prompt button left of the input box after install" style="border:1px solid #30363d;border-radius:6px">
+![Prompt button left of the input box after install](../assets/readme/01-install-ready.png)
 
 </div>
 
+### Advanced: no global install, stale updates, let AI do it
+
 <details>
-<summary>Advanced: no global install, stale updates, let AI do it</summary>
+<summary>Show commands</summary>
 
 Examples use the web profile — **DSH Desktop users, replace every `--profile web` with `--profile desktop`**.
 
@@ -79,7 +93,11 @@ dsh plugin --profile web update dsh-prompt   # upgrade
 dsh plugin --profile web remove dsh-prompt   # uninstall
 ```
 
-<h2 align="center"><sub>SUPPORTED DSH</sub><br>Supported DSH versions</h2>
+<div align="center">
+
+## Supported DSH versions <sub>SUPPORTED DSH</sub>
+
+</div>
 
 Developed and verified against **DSH CLI `0.1.5-rc.1`** and **DSH Desktop `2.0.9`**.<br>
 Lower DSH versions are not verified — they install fine, but running correctly is not guaranteed; issues are welcome.
@@ -92,7 +110,11 @@ dsh.cli = 0.1.5-rc.1
 dsh.desktop = 2.0.9
 ```
 
-<h2 align="center"><sub>PROMPT BUTTON</sub><br>Way 1 · Prompt button</h2>
+<div align="center">
+
+## Way 1 · Prompt button <sub>PROMPT BUTTON</sub>
+
+</div>
 
 <div align="center">
 
@@ -102,11 +124,15 @@ Most-used sinks to the bottom, closest to the button.
 
 **👇 The panel looks like this.**
 
-<img src="../assets/readme/02-panel-button.png" width="640" alt="Prompt button hover panel with phase filters and template list" style="border:1px solid #30363d;border-radius:6px">
+![Prompt button hover panel with phase filters and template list](../assets/readme/02-panel-button.png)
 
 </div>
 
-<h2 align="center"><sub>TRIGGER</sub><br>Way 2 · /prompt trigger</h2>
+<div align="center">
+
+## Way 2 · /prompt trigger <sub>TRIGGER</sub>
+
+</div>
 
 <div align="center">
 
@@ -117,11 +143,15 @@ Half a name works too: `/prompt retro`.<br>
 
 **👇 Type half, candidates narrow down.**
 
-<img src="../assets/readme/03-trigger-prompt.png" width="640" alt="/prompt trigger: filtered candidate list" style="border:1px solid #30363d;border-radius:6px">
+![`/prompt` trigger: filtered candidate list](../assets/readme/03-trigger-prompt.png)
 
 </div>
 
-<h2 align="center"><sub>SMART CARD</sub><br>Way 3 · Smart suggestion card</h2>
+<div align="center">
+
+## Way 3 · Smart suggestion card <sub>SMART CARD</sub>
+
+</div>
 
 <div align="center">
 
@@ -130,7 +160,11 @@ On by default, one toggle to silence; local word table only, no network.
 
 </div>
 
-<h2 align="center"><sub>TEMPLATES</sub><br>Gallery</h2>
+<div align="center">
+
+## Gallery <sub>TEMPLATES</sub>
+
+</div>
 
 <div align="center">
 
@@ -140,11 +174,15 @@ Clone to custom to tweak.
 
 **👇 All 24 on one settings page.**
 
-<img src="../assets/readme/05-templates-gallery.png" width="640" alt="Gallery: 24 preset templates on the settings page" style="border:1px solid #30363d;border-radius:6px">
+![Gallery: 24 preset templates on the settings page](../assets/readme/05-templates-gallery.png)
 
 </div>
 
-<h2 align="center"><sub>CUSTOM</sub><br>Customize & manage</h2>
+<div align="center">
+
+## Customize & manage <sub>CUSTOM</sub>
+
+</div>
 
 <div align="center">
 
@@ -154,11 +192,15 @@ Separate storage — upgrades never eat yours.
 
 **👇 The new-template dialog.**
 
-<img src="../assets/readme/06-custom-manage.png" width="640" alt="Custom management: new custom template dialog" style="border:1px solid #30363d;border-radius:6px">
+![Custom management: new custom template dialog](../assets/readme/06-custom-manage.png)
 
 </div>
 
-<h2 align="center"><sub>PRIVACY</sub><br>Privacy</h2>
+<div align="center">
+
+## Privacy <sub>PRIVACY</sub>
+
+</div>
 
 <div align="center">
 
@@ -176,10 +218,16 @@ When you are troubleshooting, the plugin can write a structured log to `<DSH hom
 - **No automatic cleanup**: one file per day, no rotation, no deletion. The "清空日志" button deletes every log file (two-step confirmation).
 - A failing log pipeline never breaks the plugin: an unwritable directory degrades to the system temp directory, and a second failure stops writing entirely with a single warning on stderr.
 
-<h2 align="center"><sub>FAQ</sub><br>FAQ</h2>
+<div align="center">
 
-<details open>
-<summary>Still the old version after updating?</summary>
+## FAQ <sub>FAQ</sub>
+
+</div>
+
+### Still the old version after updating?
+
+<details>
+<summary>Show answer</summary>
 
 Install once from the official registry (desktop users: swap `--profile web` for `--profile desktop`):
 
@@ -193,8 +241,10 @@ Web: restart and hard-refresh (Ctrl+F5).
 
 </details>
 
+### No Prompt button after install?
+
 <details>
-<summary>No Prompt button after install?</summary>
+<summary>Show answer</summary>
 
 Check the plugin went into your entry's profile (wrong profile = silent no-op).<br>
 Desktop app → `--profile desktop`; web service → `--profile web`.<br>
@@ -202,15 +252,21 @@ Then restart that entry once.
 
 </details>
 
+### Where are custom templates stored? Uploaded anywhere?
+
 <details>
-<summary>Where are custom templates stored? Uploaded anywhere?</summary>
+<summary>Show answer</summary>
 
 Local browser storage, never uploaded.<br>
 Switching browsers or wiping data loses them — back up favorites.
 
 </details>
 
-<h2 align="center"><sub>MORE</sub><br>More from the author</h2>
+<div align="center">
+
+## More from the author <sub>MORE</sub>
+
+</div>
 
 <div align="center">
 
@@ -233,7 +289,11 @@ MIT © FeatherHunter
 
 </div>
 
-<h2 align="center"><sub>THANKS</sub><br>Thanks</h2>
+<div align="center">
+
+## Thanks <sub>THANKS</sub>
+
+</div>
 
 <div align="left">
 

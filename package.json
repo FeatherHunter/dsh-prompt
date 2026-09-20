@@ -63,6 +63,7 @@
     "test:issue-74": "node scripts/test-issue-74.cjs",
     "test:issue-77": "node scripts/test-issue-77.cjs",
     "test:issue-59": "node scripts/test-issue-59.cjs",
+    "test:marketplace": "node scripts/check-marketplace-readme.mjs",
     "test": "npm run test:modal && npm run test:issue-14"
   },
   "dsh": {
@@ -85,6 +86,7 @@
     "@types/node": "^26.5.0",
     "dsh-plugin-update": "0.1.1",
     "esbuild": "^0.28.2",
+    "marked": "^18.0.9",
     "react": "^18.3.1",
     "react-test-renderer": "^18.3.1",
     "tsdown": "^0.22.14",
@@ -92,8 +94,12 @@
     "unrun": "^0.3.1"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FeatherHunter/dsh-prompt.git"
+  },
   "dependencies": {
-    "@deepseek-ai/dsh-storage-domain": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-storage-domain": "^0.1.5-rc.1",
     "dsh-log": "^0.2.1",
     "zod": "^4.5.4"
   }

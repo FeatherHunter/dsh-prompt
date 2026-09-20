@@ -16,7 +16,18 @@
 
 </div>
 
-<h2 align="center"><sub>INSTALL</sub><br>安装</h2>
+<!-- 本 README 同时供两个地方读：GitHub 仓库页，以及 awesome 插件市场的详情页正文。
+     市场那侧会丢弃全部原始 HTML（只认 markdown），所以标题用 `##`、图片用 `![]()`，
+     外层 `<div align="center">` 只负责 GitHub 上的居中，在市场那侧被丢掉也不影响阅读。
+     改完跑 `npm run test:marketplace` 体检（它会用上游同一套规则预演市场那一侧）。
+     市场侧另外两处声明不在这里：根目录 `screenshots.json`（详情页截图，顺序即展示顺序）、
+     `package.json` 的 `repository`（把 npm 包认到本仓，决定下载量与「可从 npm 安装」）。 -->
+
+<div align="center">
+
+## 安装 <sub>INSTALL</sub>
+
+</div>
 
 <div align="center">
 
@@ -49,12 +60,14 @@ dsh plugin --profile desktop add dsh-prompt@0.1.12 --registry https://registry.n
 
 **👇 装完重启，输入框左侧多出这枚按钮就是成功。**
 
-<img src="assets/readme/01-install-ready.png" width="720" alt="安装成功后输入框左侧的 Prompt 按钮" style="border:1px solid #30363d;border-radius:6px">
+![安装成功后输入框左侧的 Prompt 按钮](assets/readme/01-install-ready.png)
 
 </div>
 
+### 进阶安装：免全局、更新不生效、交给 AI
+
 <details>
-<summary>进阶安装：免全局、更新不生效、交给 AI</summary>
+<summary>展开命令</summary>
 
 下面命令以 web profile 为例——**DSH Desktop 桌面应用用户请把所有 `--profile web` 换成 `--profile desktop`**。
 
@@ -83,7 +96,11 @@ dsh plugin --profile web update dsh-prompt   # 升级
 dsh plugin --profile web remove dsh-prompt   # 卸载
 ```
 
-<h2 align="center"><sub>SUPPORTED DSH</sub><br>支持的 DSH 版本</h2>
+<div align="center">
+
+## 支持的 DSH 版本 <sub>SUPPORTED DSH</sub>
+
+</div>
 
 开发与验证基线：**DSH CLI `0.1.5-rc.1`** · **DSH Desktop `2.0.9`**。<br>
 比基线更低的 DSH 版本未验证——装得上，但能不能跑对不保证；遇到了问题欢迎[提 ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)。
@@ -96,7 +113,11 @@ dsh.cli = 0.1.5-rc.1
 dsh.desktop = 2.0.9
 ```
 
-<h2 align="center"><sub>PROMPT BUTTON</sub><br>入口一 · Prompt 按钮</h2>
+<div align="center">
+
+## 入口一 · Prompt 按钮 <sub>PROMPT BUTTON</sub>
+
+</div>
 
 <div align="center">
 
@@ -106,11 +127,15 @@ dsh.desktop = 2.0.9
 
 **👇 按钮一点，面板长这样。**
 
-<img src="assets/readme/02-panel-button.png" width="640" alt="Prompt 按钮悬浮面板：阶段筛选与模板列表" style="border:1px solid #30363d;border-radius:6px">
+![Prompt 按钮悬浮面板：阶段筛选与模板列表](assets/readme/02-panel-button.png)
 
 </div>
 
-<h2 align="center"><sub>TRIGGER</sub><br>入口二 · /prompt 触发源</h2>
+<div align="center">
+
+## 入口二 · /prompt 触发源 <sub>TRIGGER</sub>
+
+</div>
 
 <div align="center">
 
@@ -120,11 +145,15 @@ dsh.desktop = 2.0.9
 
 **👇 输一半，候选自动收窄。**
 
-<img src="assets/readme/03-trigger-prompt.png" width="640" alt="/prompt 触发源：输入过滤后的候选列表" style="border:1px solid #30363d;border-radius:6px">
+![`/prompt` 触发源：输入过滤后的候选列表](assets/readme/03-trigger-prompt.png)
 
 </div>
 
-<h2 align="center"><sub>SMART CARD</sub><br>入口三 · 智能悬浮卡</h2>
+<div align="center">
+
+## 入口三 · 智能悬浮卡 <sub>SMART CARD</sub>
+
+</div>
 
 <div align="center">
 
@@ -134,7 +163,11 @@ dsh.desktop = 2.0.9
 
 </div>
 
-<h2 align="center"><sub>TEMPLATES</sub><br>模板一览</h2>
+<div align="center">
+
+## 模板一览 <sub>TEMPLATES</sub>
+
+</div>
 
 <div align="center">
 
@@ -144,11 +177,15 @@ dsh.desktop = 2.0.9
 
 **👇 24 条全貌在设置页一次看完。**
 
-<img src="assets/readme/05-templates-gallery.png" width="640" alt="模板一览：设置页中的 24 条预制模板" style="border:1px solid #30363d;border-radius:6px">
+![模板一览：设置页中的 24 条预制模板](assets/readme/05-templates-gallery.png)
 
 </div>
 
-<h2 align="center"><sub>CUSTOM</sub><br>自定义与管理</h2>
+<div align="center">
+
+## 自定义与管理 <sub>CUSTOM</sub>
+
+</div>
 
 <div align="center">
 
@@ -158,11 +195,15 @@ dsh.desktop = 2.0.9
 
 **👇 新增弹窗长这样，填完点添加。**
 
-<img src="assets/readme/06-custom-manage.png" width="640" alt="自定义管理：新增自定义模板弹窗" style="border:1px solid #30363d;border-radius:6px">
+![自定义管理：新增自定义模板弹窗](assets/readme/06-custom-manage.png)
 
 </div>
 
-<h2 align="center"><sub>PRIVACY</sub><br>隐私</h2>
+<div align="center">
+
+## 隐私 <sub>PRIVACY</sub>
+
+</div>
 
 <div align="center">
 
@@ -180,10 +221,16 @@ dsh.desktop = 2.0.9
 - **不自动清理**：日志按天一个文件，不轮转也不自动删除；「清空日志」按钮删掉全部日志文件（两步确认）。
 - 日志能力失败不影响插件本身：目录写不进去时自动降级到系统临时目录，再失败就彻底不落盘，只往 stderr 告警一次。
 
-<h2 align="center"><sub>FAQ</sub><br>常见问题</h2>
+<div align="center">
 
-<details open>
-<summary>更新之后还是旧版本？</summary>
+## 常见问题 <sub>FAQ</sub>
+
+</div>
+
+### 更新之后还是旧版本？
+
+<details>
+<summary>展开回答</summary>
 
 先显式指定官方源装一次（desktop 用户把 `--profile web` 换成 `--profile desktop`）：
 
@@ -196,8 +243,10 @@ dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs
 
 </details>
 
+### 装完没看到 Prompt 按钮？
+
 <details>
-<summary>装完没看到 Prompt 按钮？</summary>
+<summary>展开回答</summary>
 
 先确认插件装进了当前入口对应的 profile（装错等于没装）。<br>
 桌面应用对应 `--profile desktop`，web 服务对应 `--profile web`。<br>
@@ -205,23 +254,31 @@ dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs
 
 </details>
 
+### 自定义模板与用量存在哪？会上传吗？
+
 <details>
-<summary>自定义模板与用量存在哪？会上传吗？</summary>
+<summary>展开回答</summary>
 
 存在本地浏览器，不上传。<br>
 换浏览器或清数据会丢，常用模板备一份正文。
 
 </details>
 
+### 有英文文档吗？截图为什么是中文？
+
 <details>
-<summary>有英文文档吗？截图为什么是中文？</summary>
+<summary>展开回答</summary>
 
 有，见 [English](docs/README.en.md)。
 截图首版中英共用一套，后续补英文截图。
 
 </details>
 
-<h2 align="center"><sub>MORE</sub><br>作者的其他作品</h2>
+<div align="center">
+
+## 作者的其他作品 <sub>MORE</sub>
+
+</div>
 
 <div align="center">
 
@@ -244,7 +301,11 @@ MIT © FeatherHunter
 
 </div>
 
-<h2 align="center"><sub>THANKS</sub><br>致谢</h2>
+<div align="center">
+
+## 致谢 <sub>THANKS</sub>
+
+</div>
 
 <div align="left">
 

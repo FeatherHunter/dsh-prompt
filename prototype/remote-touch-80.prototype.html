@@ -108,6 +108,32 @@
   .dock .dl{font-size:14px; color:var(--accent); white-space:nowrap;}
   .dock button{min-height:64px; min-width:140px; font-size:17px; font-weight:700; border-radius:12px;
     border:1px solid var(--accent); background:#241d08; color:var(--txt); cursor:pointer;}
+  /* A-v2 定稿方向：向上展开 + 近全屏 + 横竖屏 + TAB 沉底 */
+  .simbar{display:flex; gap:10px; align-items:center; margin-bottom:12px; color:var(--muted); font-size:15px;}
+  .remote-frame{border:2px solid var(--line); border-radius:18px; padding:14px; background:#0b0d13;
+    max-width:1100px; margin:0 auto; display:flex; flex-direction:column; gap:10px;}
+  .remote-frame.port{max-width:470px;}
+  .panel-full{background:var(--panel); border:1px solid var(--accent); border-radius:14px; padding:14px;
+    display:flex; flex-direction:column; min-height:560px;}
+  .pf-head{display:flex; align-items:center; gap:12px; margin-bottom:10px;}
+  .pf-head b{font-size:20px;}
+  .pf-head span{color:var(--muted); font-size:14px; flex:1;}
+  .pf-x{width:52px; height:52px; border-radius:10px; border:1px solid var(--line); background:var(--panel2);
+    color:var(--txt); font-size:22px; cursor:pointer;}
+  .grid.g-land{grid-template-columns:repeat(4,1fr);}
+  .grid.g-port{grid-template-columns:repeat(3,1fr);}
+  .grid.g-land .card, .grid.g-port .card{min-height:118px; font-size:18px; padding:14px;}
+  .bottomtabs{display:flex; gap:10px; overflow-x:auto; margin-top:12px; padding:12px 4px 4px;
+    border-top:1px solid var(--line);}
+  .bottomtabs .chip{flex:none;}
+  .pager.mini button{min-height:56px; min-width:104px; font-size:17px;}
+  .mockbar{display:flex; gap:10px; align-items:stretch;}
+  .mockinput{flex:1; background:#0e1016; border:1px solid var(--line); border-radius:12px;
+    padding:14px; color:var(--muted); display:flex; align-items:center;}
+  .mockprompt{background:var(--accent); color:var(--accent-ink); font-weight:800; border-radius:12px;
+    padding:14px 18px; position:relative; min-height:64px; display:flex; align-items:center; font-size:18px;}
+  .anchor-arrow{position:absolute; bottom:calc(100% + 8px); right:0; font-size:13px; color:var(--accent);
+    white-space:nowrap; font-weight:400;}
   /* 状态面板 */
   details.state{margin-top:16px; background:#0e1016; border:1px solid var(--line); border-radius:12px;
     padding:12px 16px; font-size:15px;}
@@ -169,11 +195,11 @@ var DATA = [
   ["c1","周报生成（自定义）","自定义·总结",19,1],["c2","例会纪要（自定义）","自定义·记录",6,0],["c3","英文邮件润色（自定义）","自定义·润色",2,0]
 ];
 var BODIES = {snapshot:"把会话至今的关键信息按「目的地/约束/已确认/待决/雾区」五类逐条列出……",codereview:"先给总体结论，再按严重程度排序输出，每个问题附修改建议……",retro:"整体步骤回顾 / 资料工具 / 困难 / 可复用经验 / 重来一次……",plan:"明确步骤 / 时间安排 / 资源工具 / 交付验收 / 风险应对……",blindspot:"遗漏变量 / 风险盲区 / 前置决策 / 3分钟检查清单……",c1:"把本周工作按 STAR 整理成周报……",deep:"本质是什么 / 常见误解 / 正反证据 / 边界 / 判断……",explain:"一句话功能 / 执行流程 / 设计取舍 / 潜在问题……",concept:"一句话定义 / 相近概念对比 / 不适用边界 / 练习场景……",fivewhys:"连续追问五个为什么，区分根本原因与表层触发……",testdesign:"正常路径 / 边界极端 / 异常处理 / 并发幂等……"};
-var NAMES = {A:"大卡网格分页",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
+var NAMES = {A:"大卡网格分页 v2·定稿方向",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
 var ORDER = ["A","B","C","D","E"];
 /* ---------- 内存状态（无持久化，刷新即重置） ---------- */
 var S = {variant:"A", filter:"全部", query:"", page:0, step:1, wizDomain:null, wizAction:null,
-  selId:"snapshot", lastPick:"（尚未点击）", taps:0, pickSteps:{A:1,B:1,C:3,D:2,E:1}};
+  selId:"snapshot", orient:"landscape", lastPick:"（尚未点击）", taps:0, pickSteps:{A:1,B:1,C:3,D:2,E:1}};
 function $(s,r){return (r||document).querySelector(s);}
 function $all(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
 function domainOf(t){var l=t[2]; if(l.indexOf("思考框架")===0)return "思考框架"; if(l.indexOf("学习")===0)return "学习"; if(l.indexOf("工程")===0)return "工程"; if(l.indexOf("执行")===0)return "执行"; return "自定义";}
@@ -207,7 +233,7 @@ function stateBlock(v,extra){
   return "<details class='state' open><summary>状态外显（"+v+" · 每次点击后更新）</summary><table id='state-"+v+"'>"+stateRows(v,extra)+"</table></details>";
 }
 function renderStates(){
-  ORDER.forEach(function(v){var t=$("#state-"+v); if(t)t.innerHTML=stateRows(v,v==="A"?[["页码",(S.page+1)+" / "+Math.max(1,Math.ceil(filtered().length/8))]]:v==="C"?[["向导进度","步骤 "+S.step+" / 3 · 场景:"+(S.wizDomain||"—")+" · 动作:"+(S.wizAction||"—")]]:v==="D"?[["已选预览",S.selId]]:[]);});
+  ORDER.forEach(function(v){var t=$("#state-"+v); if(t)t.innerHTML=stateRows(v,v==="A"?aExtra():v==="C"?[["向导进度","步骤 "+S.step+" / 3 · 场景:"+(S.wizDomain||"—")+" · 动作:"+(S.wizAction||"—")]]:v==="D"?[["已选预览",S.selId]]:[]);});
   var lbl=$("#swLabel"); if(lbl)lbl.textContent=S.variant+" — "+NAMES[S.variant];
   $all("#switcher [data-v]").forEach(function(b){b.className=b.getAttribute("data-v")===S.variant?"cur":"";});
 }
@@ -216,18 +242,35 @@ function chipRow(filters){
   return "<div class='chiprow'>"+filters.map(function(f){
     return "<button class='chip' data-f='"+f+"' aria-pressed='"+(S.filter===f)+"'>"+f+"</button>";}).join("")+"</div>";
 }
+function aExtra(){
+  var f=filtered(), per=12, pages=Math.max(1,Math.ceil(f.length/per));
+  var land=S.orient!=="portrait";
+  return [["方向",land?"横屏":"竖屏"],["布局",(land?"4 列 × 3 行":"3 列 × 4 行")+"（每页 12 张）"],
+    ["锚点","⚡Prompt 按钮向上展开（bottom = 按钮顶 + 8px，沿用 panel.ts:785 公式）"],
+    ["TAB 位置","底部沉底（拇指可达）"],["页码",(S.page+1)+" / "+pages]];
+}
 function renderA(){
-  var f=filtered(), per=8, pages=Math.max(1,Math.ceil(f.length/per));
+  var f=filtered(), per=12, pages=Math.max(1,Math.ceil(f.length/per));
   if(S.page>=pages)S.page=pages-1;
   var items=f.slice(S.page*per,S.page*per+per);
-  return "<div class='vtitle'><span class='tag'>A</span><h2>大卡网格分页</h2></div>"+
-  "<p class='vdesc'>一屏 8 张大卡（标题 20px+），翻页代替滚屏：远程下整页切换比连续滚更少误触。点卡即插入（1 步）。代价：找偏僻模板要翻页。</p>"+
-  "<div class='stage'>"+chipRow(["全部","思考框架","学习","工程","执行","预置","自定义"])+
-  "<div class='grid'>"+items.map(function(t){
-    return "<button class='bigbtn card' data-pick='"+t[0]+"'>"+t[1]+"<small>"+t[2]+"</small><span class='use'>"+(t[4]?"📌".repeat(0)+"用量"+t[3]+(t[4]?" · 置顶":""):"")+"</span></button>";}).join("")+"</div>"+
-  "<div class='pager'><button id='pgPrev' "+(S.page===0?"disabled":"")+">◀ 上一页</button>"+
+  var land=S.orient!=="portrait";
+  return "<div class='vtitle'><span class='tag'>A</span><h2>大卡网格分页 v2 · 定稿方向</h2></div>"+
+  "<p class='vdesc'>用户 21:56 定调：A + 从 ⚡Prompt 按钮<b>向上展开</b> + 近全屏 + 横屏 4×3 / 竖屏 3×4 + <b>TAB 标签沉底</b>。点卡即插入（1 步）。先用顶上两个按钮模拟 UU 远端横/竖屏，看网格与底部 TAB 的变化。</p>"+
+  "<div class='simbar'><span>UU远端方向模拟：</span>"+
+  "<button class='chip' data-orient='landscape' aria-pressed='"+land+"'>横屏 4×3</button>"+
+  "<button class='chip' data-orient='portrait' aria-pressed='"+(!land)+"'>竖屏 3×4</button></div>"+
+  "<div class='stage'><div class='remote-frame "+(land?"land":"port")+"'>"+
+  "<div class='panel-full'><div class='pf-head'><b>⚡ Prompt 模板</b><span>"+f.length+" 项 · 第 "+(S.page+1)+"/"+pages+" 页</span><button class='pf-x' title='关闭（原型里不关）'>×</button></div>"+
+  "<input class='searchbox' id='q' placeholder='搜索…' value='"+S.query.replace(/"/g,"&quot;")+"'>"+
+  "<div class='grid "+(land?"g-land":"g-port")+"'>"+items.map(function(t){
+    return "<button class='bigbtn card' data-pick='"+t[0]+"'>"+t[1]+"<small>"+t[2]+"</small><span class='use'>用量"+t[3]+(t[4]?" · 置顶":"")+"</span></button>";}).join("")+"</div>"+
+  "<div class='bottomtabs'>"+["全部","思考框架","学习","工程","执行","预置","自定义"].map(function(x){
+    return "<button class='chip' data-f='"+x+"' aria-pressed='"+(S.filter===x)+"'>"+x+"</button>";}).join("")+"</div>"+
+  "<div class='pager mini'><button id='pgPrev' "+(S.page===0?"disabled":"")+">◀ 上一页</button>"+
   "<div class='dots'>"+Array(pages).fill(0).map(function(_,i){return "<i class='"+(i===S.page?"on":"")+"'></i>";}).join("")+"</div>"+
-  "<button id='pgNext' "+(S.page>=pages-1?"disabled":"")+">下一页 ▶</button></div></div>"+stateBlock("A",[["页码",(S.page+1)+" / "+pages]]);
+  "<button id='pgNext' "+(S.page>=pages-1?"disabled":"")+">下一页 ▶</button></div></div>"+
+  "<div class='mockbar'><div class='mockinput'>输入消息…（UU远端对话框，示意）</div><div class='mockprompt'>⚡ Prompt<span class='anchor-arrow'>▲ 面板从此按钮向上展开</span></div></div>"+
+  "</div></div>"+stateBlock("A",aExtra());
 }
 function renderB(){
   var f=filtered();
@@ -289,6 +332,7 @@ function current(){return ({A:renderA,B:renderB,C:renderC,D:renderD,E:renderE})[
 function renderMain(){$("#main").innerHTML="<section class='variant active'>"+current()+"</section>";bind();}
 function bind(){
   $all("[data-f]").forEach(function(b){b.onclick=function(){S.filter=b.getAttribute("data-f");S.page=0;renderMain();renderStates();};});
+  $all("[data-orient]").forEach(function(b){b.onclick=function(){S.orient=b.getAttribute("data-orient");renderMain();renderStates();};});
   $all("[data-pick]").forEach(function(b){b.onclick=function(){pick(b.getAttribute("data-pick"),S.variant);renderMain();};});
   $all("[data-sel]").forEach(function(b){b.onclick=function(e){e.stopPropagation();S.selId=b.getAttribute("data-sel");renderMain();renderStates();};});
   var q=$("#q"); if(q){q.oninput=function(){S.query=q.value;S.page=0;

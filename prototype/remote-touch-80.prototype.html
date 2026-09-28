@@ -135,13 +135,21 @@
   .iconbtn[aria-pressed="true"]{border-color:var(--accent); color:var(--accent);}
   /* (v10: 搜索悬浮卡取消，改行内顶起；TAB 改双行方形横滚，见下) */
   .remote-frame.port .pager-bar .pgbtn{min-width:80px; min-height:80px; font-size:16px;}
-  .remote-frame.port .pager-bar .iconbtn{width:80px; min-height:80px;}
+  .remote-frame.port .pager-bar{display:grid; grid-template-columns:1fr 1fr 1fr;
+    grid-template-areas:"tabs tabs tabs" "prev search next"; align-items:stretch;}
+  .remote-frame.port .pager-bar #pgPrev{grid-area:prev;}
+  .remote-frame.port .pager-bar #pgNext{grid-area:next;}
+  .remote-frame.port .pager-bar .iconbtn{grid-area:search; width:100%; min-height:80px;}
+  .remote-frame.port .bottomtabs-inbar{grid-area:tabs; grid-template-rows:none; grid-auto-flow:row;
+    grid-template-columns:repeat(auto-fit,minmax(64px,1fr)); overflow:visible;}
+  .remote-frame.port .tab2{height:60px;}
+  .remote-frame.port .grid .card{font-size:16px;}
   .pager-bar{display:flex; gap:10px; align-items:stretch; margin-top:auto; border-top:1px solid var(--line); padding-top:12px;}
   .pager-bar .pgbtn{flex:none; min-height:104px; min-width:104px; font-size:19px; font-weight:700; line-height:1.3;
     border-radius:12px; cursor:pointer; border:1px solid var(--line); background:var(--panel2); color:var(--txt);}
   .pager-bar .pgbtn:disabled{opacity:.35; cursor:default;}
-  .bottomtabs-inbar{flex:1; display:grid; grid-template-rows:repeat(2,68px); grid-auto-columns:74px;
-    grid-auto-flow:column; gap:8px; overflow-x:auto; align-content:center; min-width:0; padding:4px 2px;}
+  .bottomtabs-inbar{flex:1; display:grid; grid-template-rows:repeat(2,68px); grid-auto-columns:1fr;
+    grid-auto-flow:column; gap:8px; overflow:hidden; align-content:center; align-items:stretch; min-width:0; padding:4px 2px;}
   .tab2{min-width:0; min-height:0; font-size:15px; line-height:1.25; border-radius:14px; cursor:pointer;
     border:1px solid var(--line); background:#171b27; color:var(--txt); padding:4px 6px;}
   .tab2[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:700;}
@@ -214,11 +222,11 @@ var DATA = [
   ["c1","周报生成（自定义）","自定义·总结",19,1],["c2","例会纪要（自定义）","自定义·记录",6,0],["c3","英文邮件润色（自定义）","自定义·润色",2,0]
 ];
 var BODIES = {snapshot:"把会话至今的关键信息按「目的地/约束/已确认/待决/雾区」五类逐条列出……",codereview:"先给总体结论，再按严重程度排序输出，每个问题附修改建议……",retro:"整体步骤回顾 / 资料工具 / 困难 / 可复用经验 / 重来一次……",plan:"明确步骤 / 时间安排 / 资源工具 / 交付验收 / 风险应对……",blindspot:"遗漏变量 / 风险盲区 / 前置决策 / 3分钟检查清单……",c1:"把本周工作按 STAR 整理成周报……",deep:"本质是什么 / 常见误解 / 正反证据 / 边界 / 判断……",explain:"一句话功能 / 执行流程 / 设计取舍 / 潜在问题……",concept:"一句话定义 / 相近概念对比 / 不适用边界 / 练习场景……",fivewhys:"连续追问五个为什么，区分根本原因与表层触发……",testdesign:"正常路径 / 边界极端 / 异常处理 / 并发幂等……"};
-var NAMES = {A:"大卡网格分页 v10·定稿方向",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
+var NAMES = {A:"大卡网格分页 v11·自适应定稿",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
 var ORDER = ["A","B","C","D","E"];
 /* ---------- 内存状态（无持久化，刷新即重置） ---------- */
 var S = {variant:"A", filter:"全部", query:"", page:0, step:1, wizDomain:null, wizAction:null,
-  selId:"snapshot", orient:"landscape", searchOpen:false, panelOpen:true, lastPick:"（尚未点击）", taps:0, pickSteps:{A:1,B:1,C:3,D:2,E:1}};
+  selId:"snapshot", orient:"landscape", searchOpen:false, panelOpen:true, fit:null, _per:0, lastPick:"（尚未点击）", taps:0, pickSteps:{A:1,B:1,C:3,D:2,E:1}};
 function $(s,r){return (r||document).querySelector(s);}
 function $all(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
 function domainOf(t){var l=t[2]; if(l.indexOf("思考框架")===0)return "思考框架"; if(l.indexOf("学习")===0)return "学习"; if(l.indexOf("工程")===0)return "工程"; if(l.indexOf("执行")===0)return "执行"; return "自定义";}
@@ -256,28 +264,47 @@ function renderStates(){
   var lbl=$("#swLabel"); if(lbl)lbl.textContent=S.variant+" — "+NAMES[S.variant];
   $all("#switcher [data-v]").forEach(function(b){b.className=b.getAttribute("data-v")===S.variant?"cur":"";});
 }
+/* 先量后画：实测面板/底栏/搜索行高度，推导行列与每页张数，零滚动。rAF 后执行，数字变化才重绘。 */
+function computeFit(){
+  if(S.variant!=="A")return;
+  var panel=document.getElementById("panelFull");
+  if(!panel)return;
+  var bar=document.getElementById("pagerBar");
+  var sr=document.getElementById("searchRow");
+  var gridH=panel.clientHeight-(bar?bar.offsetHeight:0)-(sr?sr.offsetHeight:0)-30;
+  var land=S.orient!=="portrait";
+  var cols=land?4:3, rows=land?3:4;
+  while(rows>1&&gridH/rows<100)rows--;
+  var per=cols*rows;
+  var cardW=Math.max(0,Math.floor((panel.clientWidth-30-(cols-1)*14)/cols));
+  S.fit={panelW:panel.clientWidth,panelH:panel.clientHeight,gridH:gridH,cols:cols,rows:rows,per:per,cardW:cardW,cardH:Math.max(0,Math.floor(gridH/rows))};
+  if(S._per!==per){S._per=per;S.page=0;renderMain();return;}
+  renderStates();
+}
 /* ---------- 各变体渲染 ---------- */
 function chipRow(filters){
   return "<div class='chiprow'>"+filters.map(function(f){
     return "<button class='chip' data-f='"+f+"' aria-pressed='"+(S.filter===f)+"'>"+f+"</button>";}).join("")+"</div>";
 }
 function aExtra(){
-  var f=filtered(), per=12, pages=Math.max(1,Math.ceil(f.length/per));
+  var f=filtered(), per=(S._per||12), pages=Math.max(1,Math.ceil(f.length/per));
   if(S.page>=pages)S.page=pages-1;
   var land=S.orient!=="portrait";
   var items=f.slice(S.page*per,S.page*per+per);
   var cols=land?4:3;
   var sparse=items.length>0&&items.length<=cols;
-  return [["方向",land?"横屏":"竖屏"],["布局",(land?"4 列 × 3 行":"3 列 × 4 行")+"（每页 12 张）"],
-    ["面板",S.panelOpen?"展开中":"已关闭"],
+  var fit=S.fit;
+  return [["方向",land?"横屏":"竖屏"],["面板",fit?(fit.panelW+" × "+fit.panelH+"px"):"测量中…"],
+    ["划分",fit?("卡片区 "+fit.gridH+"px → "+fit.cols+" 列 × "+fit.rows+" 行 = "+fit.per+" 张/页，卡约 "+fit.cardW+"×"+fit.cardH+"px"):"计算中…"],
+    ["面板状态",S.panelOpen?"展开中":"已关闭"],
     ["锚点","Prompt 按钮向上展开（bottom = 按钮顶 + 8px，沿用 panel.ts:785 公式）"],
-    ["TAB","底栏双行方形钮（68px），超宽横滚"],
-    ["搜索",S.searchOpen?"行内展开（紧贴底栏上方，内容上推）":"收起（开合走底栏搜索键）"],
-    ["稀疏页",(sparse||items.length<per)?"卡片拉伸填满，无空白（正方形让位）":"满页正方形卡"],
+    ["TAB",land?"底栏双行方形钮（等分填满，无滚动）":"TAB 独占一行自适应换行 + 下方三键"],
+    ["搜索",S.searchOpen?"行内展开（紧贴底栏上方，内容上推，重算划分）":"收起（开合走底栏搜索键）"],
+    ["稀疏页",(sparse||items.length<per)?"卡片拉伸填满，无空白":"满页"],
     ["页码",(S.page+1)+" / "+pages]];
 }
 function renderA(){
-  var f=filtered(), per=12, pages=Math.max(1,Math.ceil(f.length/per));
+  var f=filtered(), per=(S._per||12), pages=Math.max(1,Math.ceil(f.length/per));
   if(S.page>=pages)S.page=pages-1;
   var items=f.slice(S.page*per,S.page*per+per);
   var land=S.orient!=="portrait";
@@ -286,22 +313,22 @@ function renderA(){
   var gridStyle=sparse?("grid-template-columns:repeat("+items.length+",1fr);"):"";
   var cards=items.length===0?"<div style='color:var(--muted);padding:24px;font-size:18px'>无匹配模板，换个词或点 TAB 试试。</div>":items.map(function(t){
     return "<button class='bigbtn card' data-pick='"+t[0]+"'>"+t[1]+"<small>"+t[2]+"</small><span class='use'>用量"+t[3]+(t[4]?" · 置顶":"")+"</span></button>";}).join("");
-  var searchHtml2=S.searchOpen?("<div class='searchrow'><input class='searchbox' id='q' placeholder='输入关键词过滤…' value='"+S.query.replace(/"/g,"&quot;")+"'></div>"):"";
+  var searchHtml2=S.searchOpen?("<div class='searchrow' id='searchRow'><input class='searchbox' id='q' placeholder='输入关键词过滤…' value='"+S.query.replace(/"/g,"&quot;")+"'></div>"):"";
   var tabsHtml=["全部","思考框架","学习","工程","执行","预置","自定义"].map(function(x){
     return "<button class='tab2' data-f='"+x+"' aria-pressed='"+(S.filter===x)+"'>"+x+"</button>";}).join("");
   var searchBtnHtml="<button class='iconbtn' data-search-toggle aria-pressed='"+S.searchOpen+"' title='搜索'><svg width='34' height='34' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg></button>";
   var panelInner;
   if(S.panelOpen){
-    panelInner="<div class='panel-full'><button class='panel-x' data-close-panel title='关闭悬浮列表'>×</button>"+
+    panelInner="<div class='panel-full' id='panelFull'><button class='panel-x' data-close-panel title='关闭悬浮列表'>×</button>"+
     "<div class='grid "+(land?"g-land":"g-port")+(sparse?" sparse":"")+"' style='"+gridStyle+"'>"+cards+"</div>"+searchHtml2+
-    "<div class='pager-bar'><button class='pgbtn' id='pgPrev' "+(S.page===0?"disabled":"")+">◀ 上一页</button>"+
+    "<div class='pager-bar' id='pagerBar'><button class='pgbtn' id='pgPrev' "+(S.page===0?"disabled":"")+">◀ 上一页</button>"+
     "<div class='bottomtabs-inbar'>"+tabsHtml+"</div>"+searchBtnHtml+
     "<button class='pgbtn' id='pgNext' "+(S.page>=pages-1?"disabled":"")+">下一页 ▶</button></div></div>";
   }else{
     panelInner="<div class='panel-closed'><span>悬浮列表已关闭（原型演示开关）</span><button class='bigbtn reopen-btn' data-open-panel>重新打开面板</button></div>";
   }
-  return "<div class='vtitle'><span class='tag'>A</span><h2>大卡网格分页 v10 · 定稿方向</h2></div>"+
-  "<p class='vdesc'>用户 23:09 定调 v10：面板自带<b>关闭 ×</b>（右上角独立钉位，关后点底栏 Prompt 钮或重开键回来）；搜索改<b>行内顶起</b>（紧贴底栏上方，把内容往上推，不悬浮，开合走搜索键）；TAB 改<b>双行方形横滚</b>（68px 方钮两行，超宽左滑右滑）；面板定高（满页一屏、开搜索内滚）。点卡即插入（1 步）。</p>"+
+  return "<div class='vtitle'><span class='tag'>A</span><h2>大卡网格分页 v11 · 自适应定稿</h2></div>"+
+  "<p class='vdesc'>v11 自适应（先量后画）：面板高度取视口，JS 实测面板/底栏/搜索行 → 推导行列（横屏 4×3、竖屏 3×4，卡高不足 100px 自动减行保触控），卡片等分拉伸，零滚动；竖屏底栏改两层（TAB 独占行自适应换行 + 翻页/搜索三键）；实测数字见状态面板。点卡即插入（1 步）。</p>"+
   "<div class='simbar'><span>UU远端方向模拟：</span>"+
   "<button class='chip' data-orient='landscape' aria-pressed='"+land+"'>横屏 4×3</button>"+
   "<button class='chip' data-orient='portrait' aria-pressed='"+(!land)+"'>竖屏 3×4</button></div>"+
@@ -366,7 +393,7 @@ function renderE(){
 }
 /* ---------- 主渲染 + 事件 ---------- */
 function current(){return ({A:renderA,B:renderB,C:renderC,D:renderD,E:renderE})[S.variant]();}
-function renderMain(){$("#main").innerHTML="<section class='variant active'>"+current()+"</section>";bind();}
+function renderMain(){$("#main").innerHTML="<section class='variant active'>"+current()+"</section>";bind();if(S.variant==="A"){if(typeof requestAnimationFrame!=="undefined")requestAnimationFrame(computeFit);else computeFit();}}
 function bind(){
   $all("[data-f]").forEach(function(b){b.onclick=function(){S.filter=b.getAttribute("data-f");S.page=0;renderMain();renderStates();};});
   $all("[data-orient]").forEach(function(b){b.onclick=function(){S.orient=b.getAttribute("data-orient");renderMain();renderStates();};});
@@ -407,7 +434,8 @@ function init(){
     this.setAttribute("aria-pressed",String(!open)); this.textContent="状态面板："+(open?"关":"开");
     $all("details.state").forEach(function(d){d.open=!open;});};
   function vp(){var el=$("#vp"); if(el)el.textContent=window.innerWidth+" × "+window.innerHeight+"（H1 上限≈宽-16）";}
-  window.addEventListener("resize",vp); vp();
+  window.addEventListener("resize",vp);
+  window.addEventListener("resize",function(){if(S.variant==="A")computeFit();}); vp();
   var tall=$("#tall"); /* B 自动滚底呼应 bottom-up */
 }
 document.addEventListener("DOMContentLoaded",init);

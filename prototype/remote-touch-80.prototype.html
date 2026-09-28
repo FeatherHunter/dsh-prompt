@@ -114,7 +114,12 @@
     max-width:1100px; margin:0 auto; display:flex; flex-direction:column; gap:10px;}
   .remote-frame.port{max-width:470px;}
   .panel-full{background:var(--panel); border:1px solid var(--accent); border-radius:14px; padding:14px;
-    display:flex; flex-direction:column; min-height:560px;}
+    display:flex; flex-direction:column; height:min(860px, calc(100vh - 40px)); min-height:560px; position:relative;}
+  .panel-x{position:absolute; top:-22px; right:-10px; width:52px; height:52px; border-radius:50%; z-index:6;
+    border:1px solid var(--accent); background:var(--panel2); color:var(--accent); font-size:24px; cursor:pointer;}
+  .panel-closed{border:1px dashed var(--line); border-radius:14px; padding:40px 20px; display:flex;
+    flex-direction:column; gap:16px; align-items:center; justify-content:center; color:var(--muted); min-height:300px;}
+  .reopen-btn{min-height:72px; font-size:20px; font-weight:700; padding:12px 28px;}
   .searchrow{display:flex; gap:10px; margin-bottom:14px;}
   .searchrow .searchbox{margin-bottom:0; flex:1; min-width:0;}
   .pf-x{flex:none; width:64px; height:64px; align-self:center; border-radius:12px; border:1px solid var(--line); background:var(--panel2);
@@ -122,32 +127,30 @@
   .grid.g-land{grid-template-columns:repeat(4,1fr);}
   .grid.g-port{grid-template-columns:repeat(3,1fr);}
   .grid.g-land .card, .grid.g-port .card{min-height:0; aspect-ratio:1/0.85; font-size:18px; padding:14px;}
-  .panel-full .grid{flex:1; align-content:stretch; grid-auto-rows:1fr;}
+  .panel-full .grid{flex:1; min-height:0; overflow:auto; align-content:stretch; grid-auto-rows:1fr;}
   .grid.sparse .card{aspect-ratio:auto;}
   .iconbtn{flex:none; width:104px; min-height:104px; align-self:center; border-radius:12px;
     border:1px solid var(--line); background:var(--panel2); color:var(--txt); cursor:pointer;
     display:flex; align-items:center; justify-content:center;}
   .iconbtn[aria-pressed="true"]{border-color:var(--accent); color:var(--accent);}
-  .panel-full{position:relative;}
-  .search-float{position:absolute; left:14px; right:14px; bottom:150px; z-index:5; background:#0e1016;
-    border:1px solid var(--accent); border-radius:14px; padding:16px 14px 14px; box-shadow:0 10px 30px rgba(0,0,0,.5);}
-  .search-float input{width:100%; min-height:64px; font-size:20px; border-radius:10px; padding:12px 16px;
-    background:#14161c; border:1px solid var(--line); color:var(--txt);}
-  .search-float .float-x{position:absolute; top:-22px; right:-10px; width:48px; height:48px; border-radius:50%;
-    border:1px solid var(--accent); background:var(--panel2); color:var(--accent); font-size:22px; cursor:pointer;}
+  /* (v10: 搜索悬浮卡取消，改行内顶起；TAB 改双行方形横滚，见下) */
   .remote-frame.port .pager-bar .pgbtn{min-width:80px; min-height:80px; font-size:16px;}
   .remote-frame.port .pager-bar .iconbtn{width:80px; min-height:80px;}
   .pager-bar{display:flex; gap:10px; align-items:stretch; margin-top:auto; border-top:1px solid var(--line); padding-top:12px;}
   .pager-bar .pgbtn{flex:none; min-height:104px; min-width:104px; font-size:19px; font-weight:700; line-height:1.3;
     border-radius:12px; cursor:pointer; border:1px solid var(--line); background:var(--panel2); color:var(--txt);}
   .pager-bar .pgbtn:disabled{opacity:.35; cursor:default;}
-  .bottomtabs-inbar{flex:1; display:flex; gap:10px; overflow-x:auto; align-items:center; min-width:0; padding:4px 2px;}
-  .bottomtabs-inbar .chip{flex:none;}
+  .bottomtabs-inbar{flex:1; display:grid; grid-template-rows:repeat(2,68px); grid-auto-columns:74px;
+    grid-auto-flow:column; gap:8px; overflow-x:auto; align-content:center; min-width:0; padding:4px 2px;}
+  .tab2{min-width:0; min-height:0; font-size:15px; line-height:1.25; border-radius:14px; cursor:pointer;
+    border:1px solid var(--line); background:#171b27; color:var(--txt); padding:4px 6px;}
+  .tab2[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:700;}
   .mockbar{display:flex; gap:10px; align-items:stretch;}
   .mockinput{flex:1; background:#0e1016; border:1px solid var(--line); border-radius:12px;
     padding:14px; color:var(--muted); display:flex; align-items:center;}
   .mockprompt{background:var(--accent); color:var(--accent-ink); font-weight:800; border-radius:12px;
-    padding:14px 18px; position:relative; min-height:64px; display:flex; align-items:center; font-size:18px;}
+    padding:14px 18px; position:relative; min-height:64px; display:flex; align-items:center; gap:8px; font-size:18px; cursor:pointer;}
+  .mockprompt svg{flex:none;}
   .anchor-arrow{position:absolute; bottom:calc(100% + 8px); right:0; font-size:13px; color:var(--accent);
     white-space:nowrap; font-weight:400;}
   /* 状态面板 */
@@ -211,11 +214,11 @@ var DATA = [
   ["c1","周报生成（自定义）","自定义·总结",19,1],["c2","例会纪要（自定义）","自定义·记录",6,0],["c3","英文邮件润色（自定义）","自定义·润色",2,0]
 ];
 var BODIES = {snapshot:"把会话至今的关键信息按「目的地/约束/已确认/待决/雾区」五类逐条列出……",codereview:"先给总体结论，再按严重程度排序输出，每个问题附修改建议……",retro:"整体步骤回顾 / 资料工具 / 困难 / 可复用经验 / 重来一次……",plan:"明确步骤 / 时间安排 / 资源工具 / 交付验收 / 风险应对……",blindspot:"遗漏变量 / 风险盲区 / 前置决策 / 3分钟检查清单……",c1:"把本周工作按 STAR 整理成周报……",deep:"本质是什么 / 常见误解 / 正反证据 / 边界 / 判断……",explain:"一句话功能 / 执行流程 / 设计取舍 / 潜在问题……",concept:"一句话定义 / 相近概念对比 / 不适用边界 / 练习场景……",fivewhys:"连续追问五个为什么，区分根本原因与表层触发……",testdesign:"正常路径 / 边界极端 / 异常处理 / 并发幂等……"};
-var NAMES = {A:"大卡网格分页 v9·定稿方向",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
+var NAMES = {A:"大卡网格分页 v10·定稿方向",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
 var ORDER = ["A","B","C","D","E"];
 /* ---------- 内存状态（无持久化，刷新即重置） ---------- */
 var S = {variant:"A", filter:"全部", query:"", page:0, step:1, wizDomain:null, wizAction:null,
-  selId:"snapshot", orient:"landscape", searchOpen:false, lastPick:"（尚未点击）", taps:0, pickSteps:{A:1,B:1,C:3,D:2,E:1}};
+  selId:"snapshot", orient:"landscape", searchOpen:false, panelOpen:true, lastPick:"（尚未点击）", taps:0, pickSteps:{A:1,B:1,C:3,D:2,E:1}};
 function $(s,r){return (r||document).querySelector(s);}
 function $all(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
 function domainOf(t){var l=t[2]; if(l.indexOf("思考框架")===0)return "思考框架"; if(l.indexOf("学习")===0)return "学习"; if(l.indexOf("工程")===0)return "工程"; if(l.indexOf("执行")===0)return "执行"; return "自定义";}
@@ -266,9 +269,10 @@ function aExtra(){
   var cols=land?4:3;
   var sparse=items.length>0&&items.length<=cols;
   return [["方向",land?"横屏":"竖屏"],["布局",(land?"4 列 × 3 行":"3 列 × 4 行")+"（每页 12 张）"],
-    ["锚点","⚡Prompt 按钮向上展开（bottom = 按钮顶 + 8px，沿用 panel.ts:785 公式）"],
-    ["TAB 位置","底栏合一：上一页 + 横滚 TAB + 🔍 + 下一页"],
-    ["搜索",S.searchOpen?"悬浮卡展开（内容与底栏之间）":"收起为底栏搜索按钮（不占行）"],
+    ["面板",S.panelOpen?"展开中":"已关闭"],
+    ["锚点","Prompt 按钮向上展开（bottom = 按钮顶 + 8px，沿用 panel.ts:785 公式）"],
+    ["TAB","底栏双行方形钮（68px），超宽横滚"],
+    ["搜索",S.searchOpen?"行内展开（紧贴底栏上方，内容上推）":"收起（开合走底栏搜索键）"],
     ["稀疏页",(sparse||items.length<per)?"卡片拉伸填满，无空白（正方形让位）":"满页正方形卡"],
     ["页码",(S.page+1)+" / "+pages]];
 }
@@ -282,21 +286,27 @@ function renderA(){
   var gridStyle=sparse?("grid-template-columns:repeat("+items.length+",1fr);"):"";
   var cards=items.length===0?"<div style='color:var(--muted);padding:24px;font-size:18px'>无匹配模板，换个词或点 TAB 试试。</div>":items.map(function(t){
     return "<button class='bigbtn card' data-pick='"+t[0]+"'>"+t[1]+"<small>"+t[2]+"</small><span class='use'>用量"+t[3]+(t[4]?" · 置顶":"")+"</span></button>";}).join("");
-  var searchHtml=S.searchOpen?("<div class='search-float'><button class='float-x' id='qClose' title='关闭搜索'>×</button><input id='q' placeholder='输入关键词过滤…' value='"+S.query.replace(/"/g,"&quot;")+"'></div>"):"";
-  return "<div class='vtitle'><span class='tag'>A</span><h2>大卡网格分页 v9 · 定稿方向</h2></div>"+
-  "<p class='vdesc'>用户 23:01+23:05 定调 v9：搜索键 <b>104px 方形 + SVG 放大镜</b>（竖屏 80px）；点开后输入框是<b>悬浮卡</b>，夹在内容与底栏之间，× 独立钉在卡片右上角（不跟输入框）；稀疏页卡片拉伸填满、无空白。点卡即插入（1 步）。</p>"+
+  var searchHtml2=S.searchOpen?("<div class='searchrow'><input class='searchbox' id='q' placeholder='输入关键词过滤…' value='"+S.query.replace(/"/g,"&quot;")+"'></div>"):"";
+  var tabsHtml=["全部","思考框架","学习","工程","执行","预置","自定义"].map(function(x){
+    return "<button class='tab2' data-f='"+x+"' aria-pressed='"+(S.filter===x)+"'>"+x+"</button>";}).join("");
+  var searchBtnHtml="<button class='iconbtn' data-search-toggle aria-pressed='"+S.searchOpen+"' title='搜索'><svg width='34' height='34' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg></button>";
+  var panelInner;
+  if(S.panelOpen){
+    panelInner="<div class='panel-full'><button class='panel-x' data-close-panel title='关闭悬浮列表'>×</button>"+
+    "<div class='grid "+(land?"g-land":"g-port")+(sparse?" sparse":"")+"' style='"+gridStyle+"'>"+cards+"</div>"+searchHtml2+
+    "<div class='pager-bar'><button class='pgbtn' id='pgPrev' "+(S.page===0?"disabled":"")+">◀ 上一页</button>"+
+    "<div class='bottomtabs-inbar'>"+tabsHtml+"</div>"+searchBtnHtml+
+    "<button class='pgbtn' id='pgNext' "+(S.page>=pages-1?"disabled":"")+">下一页 ▶</button></div></div>";
+  }else{
+    panelInner="<div class='panel-closed'><span>悬浮列表已关闭（原型演示开关）</span><button class='bigbtn reopen-btn' data-open-panel>重新打开面板</button></div>";
+  }
+  return "<div class='vtitle'><span class='tag'>A</span><h2>大卡网格分页 v10 · 定稿方向</h2></div>"+
+  "<p class='vdesc'>用户 23:09 定调 v10：面板自带<b>关闭 ×</b>（右上角独立钉位，关后点底栏 Prompt 钮或重开键回来）；搜索改<b>行内顶起</b>（紧贴底栏上方，把内容往上推，不悬浮，开合走搜索键）；TAB 改<b>双行方形横滚</b>（68px 方钮两行，超宽左滑右滑）；面板定高（满页一屏、开搜索内滚）。点卡即插入（1 步）。</p>"+
   "<div class='simbar'><span>UU远端方向模拟：</span>"+
   "<button class='chip' data-orient='landscape' aria-pressed='"+land+"'>横屏 4×3</button>"+
   "<button class='chip' data-orient='portrait' aria-pressed='"+(!land)+"'>竖屏 3×4</button></div>"+
-  "<div class='stage'><div class='remote-frame "+(land?"land":"port")+"'>"+
-  "<div class='panel-full'>"+
-  "<div class='grid "+(land?"g-land":"g-port")+(sparse?" sparse":"")+"' style='"+gridStyle+"'>"+cards+"</div>"+searchHtml+
-  "<div class='pager-bar'><button class='pgbtn' id='pgPrev' "+(S.page===0?"disabled":"")+">◀ 上一页</button>"+
-  "<div class='bottomtabs-inbar'>"+["全部","思考框架","学习","工程","执行","预置","自定义"].map(function(x){
-    return "<button class='chip' data-f='"+x+"' aria-pressed='"+(S.filter===x)+"'>"+x+"</button>";}).join("")+"</div>"+
-  "<button class='iconbtn' data-search-toggle aria-pressed='"+S.searchOpen+"' title='搜索'><svg width='34' height='34' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg></button>"+
-  "<button class='pgbtn' id='pgNext' "+(S.page>=pages-1?"disabled":"")+">下一页 ▶</button></div></div>"+
-  "<div class='mockbar'><div class='mockinput'>输入消息…（UU远端对话框，示意）</div><div class='mockprompt'>⚡ Prompt<span class='anchor-arrow'>▲ 面板从此按钮向上展开</span></div></div>"+
+  "<div class='stage'><div class='remote-frame "+(land?"land":"port")+"'>"+panelInner+
+  "<div class='mockbar'><div class='mockinput'>输入消息…（UU远端对话框，示意）</div><div class='mockprompt' data-open-panel title='点此重开面板'><svg width='20' height='20' viewBox='0 0 24 24' fill='currentColor'><path d='M13 2L4 14h6l-1 8 9-12h-6z'/></svg>Prompt<span class='anchor-arrow'>▲ 面板从此按钮向上展开</span></div></div>"+
   "</div></div>"+stateBlock("A",aExtra());
 }
 function renderB(){
@@ -360,6 +370,8 @@ function renderMain(){$("#main").innerHTML="<section class='variant active'>"+cu
 function bind(){
   $all("[data-f]").forEach(function(b){b.onclick=function(){S.filter=b.getAttribute("data-f");S.page=0;renderMain();renderStates();};});
   $all("[data-orient]").forEach(function(b){b.onclick=function(){S.orient=b.getAttribute("data-orient");renderMain();renderStates();};});
+  $all("[data-close-panel]").forEach(function(b){b.onclick=function(){S.panelOpen=false;renderMain();renderStates();};});
+  $all("[data-open-panel]").forEach(function(b){b.onclick=function(){S.panelOpen=true;renderMain();renderStates();};});
   $all("[data-pick]").forEach(function(b){b.onclick=function(){pick(b.getAttribute("data-pick"),S.variant);renderMain();};});
   $all("[data-sel]").forEach(function(b){b.onclick=function(e){e.stopPropagation();S.selId=b.getAttribute("data-sel");renderMain();renderStates();};});
   var q=$("#q"); if(q){q.oninput=function(){S.query=q.value;S.page=0;

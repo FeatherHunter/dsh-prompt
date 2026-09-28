@@ -124,10 +124,19 @@
   .grid.g-land .card, .grid.g-port .card{min-height:0; aspect-ratio:1/0.85; font-size:18px; padding:14px;}
   .panel-full .grid{flex:1; align-content:stretch; grid-auto-rows:1fr;}
   .grid.sparse .card{aspect-ratio:auto;}
-  .iconbtn{flex:none; width:64px; min-height:64px; align-self:center; border-radius:12px;
-    border:1px solid var(--line); background:var(--panel2); color:var(--txt); font-size:24px; cursor:pointer;}
+  .iconbtn{flex:none; width:104px; min-height:104px; align-self:center; border-radius:12px;
+    border:1px solid var(--line); background:var(--panel2); color:var(--txt); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;}
   .iconbtn[aria-pressed="true"]{border-color:var(--accent); color:var(--accent);}
+  .panel-full{position:relative;}
+  .search-float{position:absolute; left:14px; right:14px; bottom:150px; z-index:5; background:#0e1016;
+    border:1px solid var(--accent); border-radius:14px; padding:16px 14px 14px; box-shadow:0 10px 30px rgba(0,0,0,.5);}
+  .search-float input{width:100%; min-height:64px; font-size:20px; border-radius:10px; padding:12px 16px;
+    background:#14161c; border:1px solid var(--line); color:var(--txt);}
+  .search-float .float-x{position:absolute; top:-22px; right:-10px; width:48px; height:48px; border-radius:50%;
+    border:1px solid var(--accent); background:var(--panel2); color:var(--accent); font-size:22px; cursor:pointer;}
   .remote-frame.port .pager-bar .pgbtn{min-width:80px; min-height:80px; font-size:16px;}
+  .remote-frame.port .pager-bar .iconbtn{width:80px; min-height:80px;}
   .pager-bar{display:flex; gap:10px; align-items:stretch; margin-top:auto; border-top:1px solid var(--line); padding-top:12px;}
   .pager-bar .pgbtn{flex:none; min-height:104px; min-width:104px; font-size:19px; font-weight:700; line-height:1.3;
     border-radius:12px; cursor:pointer; border:1px solid var(--line); background:var(--panel2); color:var(--txt);}
@@ -202,7 +211,7 @@ var DATA = [
   ["c1","周报生成（自定义）","自定义·总结",19,1],["c2","例会纪要（自定义）","自定义·记录",6,0],["c3","英文邮件润色（自定义）","自定义·润色",2,0]
 ];
 var BODIES = {snapshot:"把会话至今的关键信息按「目的地/约束/已确认/待决/雾区」五类逐条列出……",codereview:"先给总体结论，再按严重程度排序输出，每个问题附修改建议……",retro:"整体步骤回顾 / 资料工具 / 困难 / 可复用经验 / 重来一次……",plan:"明确步骤 / 时间安排 / 资源工具 / 交付验收 / 风险应对……",blindspot:"遗漏变量 / 风险盲区 / 前置决策 / 3分钟检查清单……",c1:"把本周工作按 STAR 整理成周报……",deep:"本质是什么 / 常见误解 / 正反证据 / 边界 / 判断……",explain:"一句话功能 / 执行流程 / 设计取舍 / 潜在问题……",concept:"一句话定义 / 相近概念对比 / 不适用边界 / 练习场景……",fivewhys:"连续追问五个为什么，区分根本原因与表层触发……",testdesign:"正常路径 / 边界极端 / 异常处理 / 并发幂等……"};
-var NAMES = {A:"大卡网格分页 v7·定稿方向",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
+var NAMES = {A:"大卡网格分页 v9·定稿方向",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
 var ORDER = ["A","B","C","D","E"];
 /* ---------- 内存状态（无持久化，刷新即重置） ---------- */
 var S = {variant:"A", filter:"全部", query:"", page:0, step:1, wizDomain:null, wizAction:null,
@@ -259,7 +268,7 @@ function aExtra(){
   return [["方向",land?"横屏":"竖屏"],["布局",(land?"4 列 × 3 行":"3 列 × 4 行")+"（每页 12 张）"],
     ["锚点","⚡Prompt 按钮向上展开（bottom = 按钮顶 + 8px，沿用 panel.ts:785 公式）"],
     ["TAB 位置","底栏合一：上一页 + 横滚 TAB + 🔍 + 下一页"],
-    ["搜索",S.searchOpen?"输入框展开":"收起为 🔍 按钮（平时不占行）"],
+    ["搜索",S.searchOpen?"悬浮卡展开（内容与底栏之间）":"收起为底栏搜索按钮（不占行）"],
     ["稀疏页",(sparse||items.length<per)?"卡片拉伸填满，无空白（正方形让位）":"满页正方形卡"],
     ["页码",(S.page+1)+" / "+pages]];
 }
@@ -273,19 +282,19 @@ function renderA(){
   var gridStyle=sparse?("grid-template-columns:repeat("+items.length+",1fr);"):"";
   var cards=items.length===0?"<div style='color:var(--muted);padding:24px;font-size:18px'>无匹配模板，换个词或点 TAB 试试。</div>":items.map(function(t){
     return "<button class='bigbtn card' data-pick='"+t[0]+"'>"+t[1]+"<small>"+t[2]+"</small><span class='use'>用量"+t[3]+(t[4]?" · 置顶":"")+"</span></button>";}).join("");
-  var searchHtml=S.searchOpen?("<div class='searchrow'><input class='searchbox' id='q' placeholder='搜索…' value='"+S.query.replace(/"/g,"&quot;")+"'><button class='pf-x' id='qClose' title='收起搜索'>×</button></div>"):"";
-  return "<div class='vtitle'><span class='tag'>A</span><h2>大卡网格分页 v7 · 定稿方向</h2></div>"+
-  "<p class='vdesc'>用户 22:52+22:58 定调 v7：<b>稀疏页无空白</b>（不满页时卡片拉伸填满）；<b>搜索平时收起为 🔍 按钮</b>（不独占一行，点开才出输入框）；竖屏点顶部“竖屏 3×4”看（窄屏翻页键自动缩到 80px 方形）。点卡即插入（1 步）。</p>"+
+  var searchHtml=S.searchOpen?("<div class='search-float'><button class='float-x' id='qClose' title='关闭搜索'>×</button><input id='q' placeholder='输入关键词过滤…' value='"+S.query.replace(/"/g,"&quot;")+"'></div>"):"";
+  return "<div class='vtitle'><span class='tag'>A</span><h2>大卡网格分页 v9 · 定稿方向</h2></div>"+
+  "<p class='vdesc'>用户 23:01+23:05 定调 v9：搜索键 <b>104px 方形 + SVG 放大镜</b>（竖屏 80px）；点开后输入框是<b>悬浮卡</b>，夹在内容与底栏之间，× 独立钉在卡片右上角（不跟输入框）；稀疏页卡片拉伸填满、无空白。点卡即插入（1 步）。</p>"+
   "<div class='simbar'><span>UU远端方向模拟：</span>"+
   "<button class='chip' data-orient='landscape' aria-pressed='"+land+"'>横屏 4×3</button>"+
   "<button class='chip' data-orient='portrait' aria-pressed='"+(!land)+"'>竖屏 3×4</button></div>"+
   "<div class='stage'><div class='remote-frame "+(land?"land":"port")+"'>"+
-  "<div class='panel-full'>"+searchHtml+
-  "<div class='grid "+(land?"g-land":"g-port")+(sparse?" sparse":"")+"' style='"+gridStyle+"'>"+cards+"</div>"+
+  "<div class='panel-full'>"+
+  "<div class='grid "+(land?"g-land":"g-port")+(sparse?" sparse":"")+"' style='"+gridStyle+"'>"+cards+"</div>"+searchHtml+
   "<div class='pager-bar'><button class='pgbtn' id='pgPrev' "+(S.page===0?"disabled":"")+">◀ 上一页</button>"+
   "<div class='bottomtabs-inbar'>"+["全部","思考框架","学习","工程","执行","预置","自定义"].map(function(x){
     return "<button class='chip' data-f='"+x+"' aria-pressed='"+(S.filter===x)+"'>"+x+"</button>";}).join("")+"</div>"+
-  "<button class='iconbtn' data-search-toggle aria-pressed='"+S.searchOpen+"' title='搜索'>🔍</button>"+
+  "<button class='iconbtn' data-search-toggle aria-pressed='"+S.searchOpen+"' title='搜索'><svg width='34' height='34' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg></button>"+
   "<button class='pgbtn' id='pgNext' "+(S.page>=pages-1?"disabled":"")+">下一页 ▶</button></div></div>"+
   "<div class='mockbar'><div class='mockinput'>输入消息…（UU远端对话框，示意）</div><div class='mockprompt'>⚡ Prompt<span class='anchor-arrow'>▲ 面板从此按钮向上展开</span></div></div>"+
   "</div></div>"+stateBlock("A",aExtra());

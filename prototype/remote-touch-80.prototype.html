@@ -115,14 +115,13 @@
   .remote-frame.port{max-width:470px;}
   .panel-full{background:var(--panel); border:1px solid var(--accent); border-radius:14px; padding:14px;
     display:flex; flex-direction:column; min-height:560px;}
-  .pf-head{display:flex; align-items:center; gap:12px; margin-bottom:10px;}
-  .pf-head b{font-size:20px;}
-  .pf-head span{color:var(--muted); font-size:14px; flex:1;}
-  .pf-x{width:52px; height:52px; border-radius:10px; border:1px solid var(--line); background:var(--panel2);
-    color:var(--txt); font-size:22px; cursor:pointer;}
+  .searchrow{display:flex; gap:10px; margin-bottom:14px;}
+  .searchrow .searchbox{margin-bottom:0; flex:1; min-width:0;}
+  .pf-x{flex:none; width:64px; height:64px; align-self:center; border-radius:12px; border:1px solid var(--line); background:var(--panel2);
+    color:var(--txt); font-size:26px; cursor:pointer;}
   .grid.g-land{grid-template-columns:repeat(4,1fr);}
   .grid.g-port{grid-template-columns:repeat(3,1fr);}
-  .grid.g-land .card, .grid.g-port .card{min-height:118px; font-size:18px; padding:14px;}
+  .grid.g-land .card, .grid.g-port .card{min-height:0; aspect-ratio:1/0.85; font-size:18px; padding:14px;}
   .bottomtabs{display:flex; gap:10px; overflow-x:auto; margin-top:12px; padding:12px 4px 4px;
     border-top:1px solid var(--line);}
   .bottomtabs .chip{flex:none;}
@@ -195,7 +194,7 @@ var DATA = [
   ["c1","周报生成（自定义）","自定义·总结",19,1],["c2","例会纪要（自定义）","自定义·记录",6,0],["c3","英文邮件润色（自定义）","自定义·润色",2,0]
 ];
 var BODIES = {snapshot:"把会话至今的关键信息按「目的地/约束/已确认/待决/雾区」五类逐条列出……",codereview:"先给总体结论，再按严重程度排序输出，每个问题附修改建议……",retro:"整体步骤回顾 / 资料工具 / 困难 / 可复用经验 / 重来一次……",plan:"明确步骤 / 时间安排 / 资源工具 / 交付验收 / 风险应对……",blindspot:"遗漏变量 / 风险盲区 / 前置决策 / 3分钟检查清单……",c1:"把本周工作按 STAR 整理成周报……",deep:"本质是什么 / 常见误解 / 正反证据 / 边界 / 判断……",explain:"一句话功能 / 执行流程 / 设计取舍 / 潜在问题……",concept:"一句话定义 / 相近概念对比 / 不适用边界 / 练习场景……",fivewhys:"连续追问五个为什么，区分根本原因与表层触发……",testdesign:"正常路径 / 边界极端 / 异常处理 / 并发幂等……"};
-var NAMES = {A:"大卡网格分页 v2·定稿方向",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
+var NAMES = {A:"大卡网格分页 v3·定稿方向",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
 var ORDER = ["A","B","C","D","E"];
 /* ---------- 内存状态（无持久化，刷新即重置） ---------- */
 var S = {variant:"A", filter:"全部", query:"", page:0, step:1, wizDomain:null, wizAction:null,
@@ -255,13 +254,12 @@ function renderA(){
   var items=f.slice(S.page*per,S.page*per+per);
   var land=S.orient!=="portrait";
   return "<div class='vtitle'><span class='tag'>A</span><h2>大卡网格分页 v2 · 定稿方向</h2></div>"+
-  "<p class='vdesc'>用户 21:56 定调：A + 从 ⚡Prompt 按钮<b>向上展开</b> + 近全屏 + 横屏 4×3 / 竖屏 3×4 + <b>TAB 标签沉底</b>。点卡即插入（1 步）。先用顶上两个按钮模拟 UU 远端横/竖屏，看网格与底部 TAB 的变化。</p>"+
+  "<p class='vdesc'>用户 22:33 定调 v3：远程模式下<b>去头栏标题</b>、× 并到<b>搜索栏右侧</b>、卡片<b>偏正方形</b>更饱满占更大空间。点卡即插入（1 步）。顶上按钮模拟 UU 远端横/竖屏。</p>"+
   "<div class='simbar'><span>UU远端方向模拟：</span>"+
   "<button class='chip' data-orient='landscape' aria-pressed='"+land+"'>横屏 4×3</button>"+
   "<button class='chip' data-orient='portrait' aria-pressed='"+(!land)+"'>竖屏 3×4</button></div>"+
   "<div class='stage'><div class='remote-frame "+(land?"land":"port")+"'>"+
-  "<div class='panel-full'><div class='pf-head'><b>⚡ Prompt 模板</b><span>"+f.length+" 项 · 第 "+(S.page+1)+"/"+pages+" 页</span><button class='pf-x' title='关闭（原型里不关）'>×</button></div>"+
-  "<input class='searchbox' id='q' placeholder='搜索…' value='"+S.query.replace(/"/g,"&quot;")+"'>"+
+  "<div class='panel-full'><div class='searchrow'><input class='searchbox' id='q' placeholder='搜索…' value='"+S.query.replace(/"/g,"&quot;")+"'><button class='pf-x' title='关闭（原型里不关）'>×</button></div>"+
   "<div class='grid "+(land?"g-land":"g-port")+"'>"+items.map(function(t){
     return "<button class='bigbtn card' data-pick='"+t[0]+"'>"+t[1]+"<small>"+t[2]+"</small><span class='use'>用量"+t[3]+(t[4]?" · 置顶":"")+"</span></button>";}).join("")+"</div>"+
   "<div class='bottomtabs'>"+["全部","思考框架","学习","工程","执行","预置","自定义"].map(function(x){

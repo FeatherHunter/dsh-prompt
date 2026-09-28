@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<!--
+  PROTOTYPE — 抛弃式原型，不进 main（Issue #80，part of #78）。
+  设计问题：“手机横屏 + UU远程 + 4K投屏下，对话框 Prompt 大触控列表应该长什么样？”
+  分支判定：/prototype UI 分支 sub-shape B（本仓是 DSH 插件、无 Web 路由，
+  故“同一路由”降级为单文件 + ?variant=A/B/C/D/E + 底部悬浮切换条）。
+  运行：双击本文件即看（无构建、无依赖、无持久化，状态全在内存）。
+  定稿后另起实现票落地，本文件只进 throwaway 分支。
+  Plan one-liner: "Five radically different remote-big-touch list variants, switchable via ?variant=, in one throwaway file."
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROTOTYPE #80 — 远程大触控列表 5 变体</title>
+<style>
+  :root{
+    --bg:#14161c; --panel:#1e2230; --panel2:#262c40; --line:#3a4160;
+    --txt:#f2f4fb; --muted:#a7aec7; --accent:#f0a45c; --accent-ink:#1a1a1e;
+    --danger:#e06c75; --ok:#7fd08a; --proto:#b388ff;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; font-size:18px;}
+  .proto-banner{background:#241d3d; border-bottom:2px dashed var(--proto); color:#d9ccff;
+    padding:10px 18px; font-size:15px; line-height:1.5;}
+  .proto-banner b{color:var(--proto);}
+  header.app{padding:18px 22px 6px; max-width:1400px; margin:0 auto;}
+  header.app h1{font-size:24px; margin:0 0 6px;}
+  header.app p{margin:4px 0; color:var(--muted); font-size:15px;}
+  .vp-read{display:inline-block; background:#0e1016; border:1px solid var(--line); border-radius:8px;
+    padding:4px 12px; font-variant-numeric:tabular-nums; color:var(--ok); font-size:15px;}
+  .toolbar{max-width:1400px; margin:10px auto 0; padding:0 22px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;}
+  .toolbar button{min-height:52px; padding:10px 18px; font-size:16px; border-radius:10px; cursor:pointer;
+    border:1px solid var(--line); background:var(--panel2); color:var(--txt);}
+  .toolbar button[aria-pressed="true"]{border-color:var(--accent); color:var(--accent);}
+  main{max-width:1400px; margin:0 auto; padding:14px 22px 140px;}
+  .variant{display:none;}
+  .variant.active{display:block;}
+  .vtitle{display:flex; align-items:baseline; gap:14px; margin:8px 0 4px;}
+  .vtitle h2{margin:0; font-size:22px;}
+  .vtitle .tag{background:var(--accent); color:var(--accent-ink); font-weight:700; border-radius:8px;
+    padding:2px 12px; font-size:16px;}
+  .vdesc{color:var(--muted); font-size:15px; margin:0 0 12px; max-width:1000px;}
+  .stage{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; min-height:420px;}
+  /* 通用大触控基线：一切可点 ≥56px */
+  .bigbtn{min-height:64px; font-size:19px; border-radius:12px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--txt); padding:12px 18px; cursor:pointer; text-align:left;}
+  .bigbtn:active{transform:scale(.985); border-color:var(--accent);}
+  .chiprow{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
+  .chip{min-height:56px; padding:10px 20px; font-size:17px; border-radius:999px; cursor:pointer;
+    border:1px solid var(--line); background:#171b27; color:var(--txt);}
+  .chip[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:700;}
+  .searchbox{width:100%; min-height:64px; font-size:20px; border-radius:12px; padding:12px 18px;
+    background:#0e1016; border:1px solid var(--line); color:var(--txt); margin-bottom:14px;}
+  /* A: 大卡网格分页 */
+  .grid{display:grid; grid-template-columns:repeat(4,1fr); gap:14px;}
+  @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr);}}
+  .card{min-height:150px; display:flex; flex-direction:column; justify-content:space-between; gap:8px;
+    padding:16px; font-size:20px; font-weight:700;}
+  .card small{font-weight:400; font-size:14px; color:var(--muted);}
+  .card .use{font-size:13px; color:var(--accent);}
+  .pager{display:flex; align-items:center; justify-content:space-between; margin-top:16px; gap:12px;}
+  .pager button{min-height:64px; min-width:120px; font-size:19px; border-radius:12px; cursor:pointer;
+    border:1px solid var(--line); background:var(--panel2); color:var(--txt);}
+  .pager button:disabled{opacity:.35; cursor:default;}
+  .dots{display:flex; gap:10px;}
+  .dots i{width:16px; height:16px; border-radius:50%; background:#3a4160; display:block;}
+  .dots i.on{background:var(--accent);}
+  /* B: 加高大行 */
+  .talllist{display:flex; flex-direction:column; gap:12px; max-height:520px; overflow:auto; padding-right:4px;}
+  .tallrow{min-height:88px; display:flex; align-items:center; gap:14px; padding:12px 18px; font-size:21px;}
+  .tallrow .nm{flex:1; font-weight:700;}
+  .tallrow .lb{font-size:14px; color:var(--muted); font-weight:400;}
+  .tallrow .pin{font-size:15px; color:var(--accent);}
+  /* C: 向导 */
+  .steps{display:flex; gap:8px; margin-bottom:16px;}
+  .steps span{flex:1; text-align:center; padding:12px 6px; border-radius:10px; background:#171b27;
+    border:1px solid var(--line); font-size:16px; color:var(--muted); min-height:56px;}
+  .steps span.on{background:var(--accent); color:var(--accent-ink); font-weight:700; border-color:var(--accent);}
+  .steps span.done{border-color:var(--ok); color:var(--ok);}
+  .wizgrid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px;}
+  .wizgrid .bigbtn{min-height:96px; font-size:22px; font-weight:700; text-align:center;}
+  .wiznav{display:flex; gap:12px; margin-top:16px;}
+  .wiznav button{flex:1;}
+  /* D: 主从+预览 */
+  .master{display:grid; grid-template-columns:220px 1fr 340px; gap:14px;}
+  @media(max-width:1000px){.master{grid-template-columns:180px 1fr;} .preview{grid-column:1/-1;}}
+  .rail{display:flex; flex-direction:column; gap:10px;}
+  .rail button{min-height:72px; font-size:18px; font-weight:700;}
+  .rail button[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+  .midlist{display:flex; flex-direction:column; gap:10px; max-height:520px; overflow:auto;}
+  .midlist button{min-height:72px; font-size:19px;}
+  .midlist button.sel{border-color:var(--accent); box-shadow:0 0 0 2px var(--accent) inset;}
+  .preview{background:#171b27; border:1px solid var(--line); border-radius:12px; padding:18px;
+    display:flex; flex-direction:column; gap:10px;}
+  .preview h3{margin:0; font-size:22px;}
+  .preview pre{white-space:pre-wrap; font-size:14px; color:var(--muted); max-height:260px; overflow:auto;
+    background:#0e1016; padding:10px; border-radius:8px; margin:0;}
+  .insert-btn{min-height:88px; font-size:24px; font-weight:800; text-align:center;
+    background:var(--accent); color:var(--accent-ink); border:0;}
+  /* E: 命令面板+dock */
+  .palette .searchbox{min-height:84px; font-size:24px; text-align:center;}
+  .resgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  .resgrid button{min-height:76px; font-size:19px; font-weight:700; text-align:center;}
+  .dock{position:sticky; bottom:0; margin-top:16px; background:#0e1016; border:1px solid var(--accent);
+    border-radius:14px; padding:12px; display:flex; gap:10px; align-items:center; overflow-x:auto;}
+  .dock .dl{font-size:14px; color:var(--accent); white-space:nowrap;}
+  .dock button{min-height:64px; min-width:140px; font-size:17px; font-weight:700; border-radius:12px;
+    border:1px solid var(--accent); background:#241d08; color:var(--txt); cursor:pointer;}
+  /* 状态面板 */
+  details.state{margin-top:16px; background:#0e1016; border:1px solid var(--line); border-radius:12px;
+    padding:12px 16px; font-size:15px;}
+  details.state summary{cursor:pointer; font-weight:700; color:var(--ok); min-height:44px; font-size:16px;}
+  details.state table{border-collapse:collapse; width:100%; margin-top:8px;}
+  details.state td{border-top:1px solid #242a40; padding:7px 8px; vertical-align:top;}
+  details.state td.k{color:var(--muted); width:150px;}
+  .strike{color:var(--danger); font-weight:700;}
+  .good{color:var(--ok); font-weight:700;}
+  /* 底部悬浮切换条：高对比 pill，与被评设计明显区分 */
+  #switcher{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:99999;
+    background:#000; border:2px solid var(--proto); border-radius:999px; padding:8px 10px;
+    display:flex; gap:6px; align-items:center; box-shadow:0 8px 30px rgba(0,0,0,.6);}
+  #switcher button{min-width:56px; min-height:56px; border-radius:50%; border:1px solid #555;
+    background:#222; color:#fff; font-size:18px; font-weight:800; cursor:pointer;}
+  #switcher button.cur{background:var(--proto); border-color:var(--proto); color:#111;}
+  #switcher .sw-label{color:#fff; font-size:14px; padding:0 10px; white-space:nowrap; max-width:300px;
+    overflow:hidden; text-overflow:ellipsis;}
+  footer.note{max-width:1400px; margin:0 auto; padding:0 22px 40px; color:var(--muted); font-size:14px;}
+</style>
+</head>
+<body>
+<div class="proto-banner">🧪 <b>PROTOTYPE</b> —— 抛弃式原型（#80），不进 main · 无持久化（刷新即重置）· 点按全走 click（不依赖 hover）· 当前分支备选见底部悬浮条（←/→ 键也可切，输入框聚焦时除外）</div>
+<header class="app">
+  <h1>远程大触控列表 · 5 变体（#80 待拍板）</h1>
+  <p>设计问题：手机横屏 + UU远程 + 4K投屏下，对话框 Prompt 列表应该长什么样？硬线：<b>1 次点击可用、2 次到任何功能</b> · 一屏看清大部分提示词 · 大触控目标。</p>
+  <p>视口实测（H1 钳制依据）：<span class="vp-read" id="vp">—</span> · 数据：24 条预置实名 + 3 条假自定义 + 假用量/置顶（演示 bottom-up 聚底）</p>
+</header>
+<div class="toolbar">
+  <button id="toggleState" aria-pressed="true">状态面板：开</button>
+  <span style="color:var(--muted);font-size:14px">以原型视觉做评判时可先关掉状态面板，只看布局与字号。</span>
+</div>
+<main id="main"></main>
+
+<nav id="switcher" aria-label="原型变体切换（非被评设计的一部分）">
+  <button id="swPrev" title="上一个（←）">◀</button>
+  <button data-v="A">A</button><button data-v="B">B</button><button data-v="C">C</button><button data-v="D">D</button><button data-v="E">E</button>
+  <span class="sw-label" id="swLabel"></span>
+  <button id="swNext" title="下一个（→）">▶</button>
+</nav>
+<footer class="note">原型约束自检：H1 视口钳制内放大 · H2 click 闭环（hover 150ms 自动关默认关闭）· H3 单容器内滚封顶。C 变体“一步一屏”天然超 2 步，状态面板里如实标 ✗，供拍板时看代价。</footer>
+
+<script>
+"use strict";
+/* ---------- 数据（抄 templates.ts 实名 24 条 + 3 条假自定义；用量/置顶为假，仅演示排序） ---------- */
+var DATA = [
+  ["fp","第一性原理拆解","思考框架·执行前·拆解",12,0],["socratic","苏格拉底式追问","思考框架·执行前·检验",9,0],
+  ["deep","深度多维分析","思考框架·执行前·归因",15,0],["adversarial","对抗式审查","思考框架·执行前·检验",4,0],
+  ["decision","决策博弈分析","思考框架·执行前·决策",7,0],["premortem","事前验尸","思考框架·执行前·决策",2,0],
+  ["feynman","费曼技巧","思考框架·执行后·理解",11,0],["fivewhys","五个为什么","思考框架·执行中·归因",14,0],
+  ["mece","MECE 拆解","思考框架·执行前·拆解",6,0],["bias","认知偏差检查","思考框架·执行前·检验",3,0],
+  ["learnpath","学习路线设计","学习·执行前·路线",5,0],["concept","概念澄清","学习·执行前·概念",13,0],
+  ["quiz","AI 反向考验","学习·执行后·考验",8,0],["codereview","代码审查","工程·执行前·审查",22,1],
+  ["testdesign","测试用例设计","工程·执行中·测试",10,0],["refactor","重构方案","工程·执行中·重构",5,0],
+  ["explain","解释代码","工程·执行中·解读",16,0],["blindspot","盲区检查","执行·执行前·启动",18,1],
+  ["snapshot","零丢失快照","执行·执行中·固化",25,1],["kickoff","任务启动","执行·执行前·启动",9,0],
+  ["prototype","原型验证","执行·执行前·启动",7,0],["plan","执行计划","执行·执行前·启动",20,1],
+  ["deviation","记录偏离","执行·执行中·记录",1,0],["retro","过程复盘","执行·执行后·复盘",17,1],
+  ["c1","周报生成（自定义）","自定义·总结",19,1],["c2","例会纪要（自定义）","自定义·记录",6,0],["c3","英文邮件润色（自定义）","自定义·润色",2,0]
+];
+var BODIES = {snapshot:"把会话至今的关键信息按「目的地/约束/已确认/待决/雾区」五类逐条列出……",codereview:"先给总体结论，再按严重程度排序输出，每个问题附修改建议……",retro:"整体步骤回顾 / 资料工具 / 困难 / 可复用经验 / 重来一次……",plan:"明确步骤 / 时间安排 / 资源工具 / 交付验收 / 风险应对……",blindspot:"遗漏变量 / 风险盲区 / 前置决策 / 3分钟检查清单……",c1:"把本周工作按 STAR 整理成周报……",deep:"本质是什么 / 常见误解 / 正反证据 / 边界 / 判断……",explain:"一句话功能 / 执行流程 / 设计取舍 / 潜在问题……",concept:"一句话定义 / 相近概念对比 / 不适用边界 / 练习场景……",fivewhys:"连续追问五个为什么，区分根本原因与表层触发……",testdesign:"正常路径 / 边界极端 / 异常处理 / 并发幂等……"};
+var NAMES = {A:"大卡网格分页",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
+var ORDER = ["A","B","C","D","E"];
+/* ---------- 内存状态（无持久化，刷新即重置） ---------- */
+var S = {variant:"A", filter:"全部", query:"", page:0, step:1, wizDomain:null, wizAction:null,
+  selId:"snapshot", lastPick:"（尚未点击）", taps:0, pickSteps:{A:1,B:1,C:3,D:2,E:1}};
+function $(s,r){return (r||document).querySelector(s);}
+function $all(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
+function domainOf(t){var l=t[2]; if(l.indexOf("思考框架")===0)return "思考框架"; if(l.indexOf("学习")===0)return "学习"; if(l.indexOf("工程")===0)return "工程"; if(l.indexOf("执行")===0)return "执行"; return "自定义";}
+function isCustom(t){return t[0][0]==="c";}
+function filtered(){
+  var q=S.query.trim().toLowerCase();
+  return DATA.filter(function(t){
+    if(S.filter==="预置"&&isCustom(t))return false;
+    if(S.filter==="自定义"&&!isCustom(t))return false;
+    if(["思考框架","学习","工程","执行"].indexOf(S.filter)>=0&&domainOf(t)!==S.filter)return false;
+    if(q&&(t[1]+" "+t[2]).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  }).sort(function(a,b){return (a[4]-b[4])||((a[3]===1?1:0)-(b[3]===1?1:0));})
+  .sort(function(a,b){return ((a[4]?1:0)-(b[4]?1:0));}); /* 置顶簇聚底：置顶沉底，分区内用量升序 */
+}
+function pick(id,via){S.lastPick=id+"（经"+via+"）"; S.taps++; renderStates();}
+function stateRows(v,extra){
+  var f=filtered();
+  var steps=S.pickSteps[v];
+  var ok2=steps<=2;
+  var rows=[["当前变体",v+" — "+NAMES[v]],["过滤",S.filter],["搜索词",S.query||"（空）"],
+    ["可见/总数",f.length+" / "+DATA.length],["上一次点击",S.lastPick],["累计点击",String(S.taps)],
+    ["到插入步数",steps+" 步 "+(ok2?"✅≤2":"<span class='strike'>✗ 超2步</span>")],
+    ["H1 视口钳制","<span class='good'>✅</span> 面板宽≤vw-16，列表内滚封顶（见 #79 H1）"],
+    ["H2 click闭环","<span class='good'>✅</span> 全点按可用，无 hover 开合（见 #79 H2）"],
+    ["H3 内滚封顶","<span class='good'>✅</span> 单滚动容器，面板外框不动（见 #79 H3）"]];
+  (extra||[]).forEach(function(r){rows.splice(6,0,r);});
+  return rows.map(function(r){return "<tr><td class='k'>"+r[0]+"</td><td>"+r[1]+"</td></tr>";}).join("");
+}
+function stateBlock(v,extra){
+  return "<details class='state' open><summary>状态外显（"+v+" · 每次点击后更新）</summary><table id='state-"+v+"'>"+stateRows(v,extra)+"</table></details>";
+}
+function renderStates(){
+  ORDER.forEach(function(v){var t=$("#state-"+v); if(t)t.innerHTML=stateRows(v,v==="A"?[["页码",(S.page+1)+" / "+Math.max(1,Math.ceil(filtered().length/8))]]:v==="C"?[["向导进度","步骤 "+S.step+" / 3 · 场景:"+(S.wizDomain||"—")+" · 动作:"+(S.wizAction||"—")]]:v==="D"?[["已选预览",S.selId]]:[]);});
+  var lbl=$("#swLabel"); if(lbl)lbl.textContent=S.variant+" — "+NAMES[S.variant];
+  $all("#switcher [data-v]").forEach(function(b){b.className=b.getAttribute("data-v")===S.variant?"cur":"";});
+}
+/* ---------- 各变体渲染 ---------- */
+function chipRow(filters){
+  return "<div class='chiprow'>"+filters.map(function(f){
+    return "<button class='chip' data-f='"+f+"' aria-pressed='"+(S.filter===f)+"'>"+f+"</button>";}).join("")+"</div>";
+}
+function renderA(){
+  var f=filtered(), per=8, pages=Math.max(1,Math.ceil(f.length/per));
+  if(S.page>=pages)S.page=pages-1;
+  var items=f.slice(S.page*per,S.page*per+per);
+  return "<div class='vtitle'><span class='tag'>A</span><h2>大卡网格分页</h2></div>"+
+  "<p class='vdesc'>一屏 8 张大卡（标题 20px+），翻页代替滚屏：远程下整页切换比连续滚更少误触。点卡即插入（1 步）。代价：找偏僻模板要翻页。</p>"+
+  "<div class='stage'>"+chipRow(["全部","思考框架","学习","工程","执行","预置","自定义"])+
+  "<div class='grid'>"+items.map(function(t){
+    return "<button class='bigbtn card' data-pick='"+t[0]+"'>"+t[1]+"<small>"+t[2]+"</small><span class='use'>"+(t[4]?"📌".repeat(0)+"用量"+t[3]+(t[4]?" · 置顶":""):"")+"</span></button>";}).join("")+"</div>"+
+  "<div class='pager'><button id='pgPrev' "+(S.page===0?"disabled":"")+">◀ 上一页</button>"+
+  "<div class='dots'>"+Array(pages).fill(0).map(function(_,i){return "<i class='"+(i===S.page?"on":"")+"'></i>";}).join("")+"</div>"+
+  "<button id='pgNext' "+(S.page>=pages-1?"disabled":"")+">下一页 ▶</button></div></div>"+stateBlock("A",[["页码",(S.page+1)+" / "+pages]]);
+}
+function renderB(){
+  var f=filtered();
+  return "<div class='vtitle'><span class='tag'>B</span><h2>加高大行列表</h2></div>"+
+  "<p class='vdesc'>单列 88px 高大行，bottom-up：最常用的沉底、打开自动滚到底，首屏即见常用。点行即插入（1 步）。代价：一屏只见约 6 行，冷门模板要上翻。</p>"+
+  "<div class='stage'><input class='searchbox' id='q' placeholder='搜索模板（中文组词期不关窗）…' value='"+S.query.replace(/"/g,"&quot;")+"'>"+
+  chipRow(["全部","预置","自定义"])+
+  "<div class='talllist' id='tall'>"+f.map(function(t){
+    return "<button class='bigbtn tallrow' data-pick='"+t[0]+"'><span class='nm'>"+t[1]+"<br><span class='lb'>"+t[2]+" · 用量"+t[3]+"</span></span>"+(t[4]?"<span class='pin'>📌置顶</span>":"")+"<span>›</span></button>";}).join("")+"</div></div>"+stateBlock("B");
+}
+function renderC(){
+  var stepBody="";
+  if(S.step===1){
+    stepBody="<div class='wizgrid'>"+["思考框架","学习","工程","执行"].map(function(d){
+      return "<button class='bigbtn' data-wd='"+d+"'>"+d+"</button>";}).join("")+"</div>";
+  }else if(S.step===2){
+    var acts={}; DATA.forEach(function(t){if(!S.wizDomain||domainOf(t)===S.wizDomain){t[2].split("·").forEach(function(a){acts[a]=1;});}});
+    var keys=Object.keys(acts).filter(function(a){return ["思考框架","学习","工程","执行"].indexOf(a)<0;});
+    stepBody="<div class='wizgrid'>"+keys.map(function(a){return "<button class='bigbtn' data-wa='"+a+"'>"+a+"</button>";}).join("")+"</div>";
+  }else{
+    var f=DATA.filter(function(t){
+      if(S.wizDomain&&domainOf(t)!==S.wizDomain)return false;
+      if(S.wizAction&&t[2].indexOf(S.wizAction)<0)return false;
+      return true;});
+    stepBody="<div class='wizgrid'>"+f.map(function(t){return "<button class='bigbtn' data-pick='"+t[0]+"'>"+t[1]+"</button>";}).join("")+"</div>";
+  }
+  return "<div class='vtitle'><span class='tag'>C</span><h2>向导一步一屏</h2></div>"+
+  "<p class='vdesc'>场景 → 需求 → 模板，每屏只有 2~4 个巨型选项，远程误触率最低。但全程 3~4 步，<b>违反“2 次到任何功能”</b>——状态里标 ✗，看你是否愿为防误触买单。</p>"+
+  "<div class='stage'><div class='steps'><span class='"+(S.step===1?"on":"done")+"'>1 场景</span><span class='"+(S.step===2?"on":S.step>2?"done":"")+"'>2 需求</span><span class='"+(S.step===3?"on":"")+"'>3 模板</span></div>"+
+  stepBody+"<div class='wiznav'><button class='bigbtn' id='wizBack' "+(S.step===1?"disabled":"")+">◀ 上一步</button><button class='bigbtn' id='wizReset'>↺ 重来</button></div></div>"+
+  stateBlock("C",[["向导进度","步骤 "+S.step+" / 3 · 场景:"+(S.wizDomain||"—")+" · 动作:"+(S.wizAction||"—")]]);
+}
+function renderD(){
+  var cats=["全部","思考框架","学习","工程","执行","自定义"];
+  var f=filtered(); if(S.filter==="预置"||S.filter==="自定义"){} /* 复用顶部 filter，选择不同的 rail 即改 filter */
+  var sel=DATA.filter(function(t){return t[0]===S.selId;})[0]||f[0];
+  return "<div class='vtitle'><span class='tag'>D</span><h2>主从分栏 + 预览</h2></div>"+
+  "<p class='vdesc'>左=分类轨，中=大行，右=正文预览 + 巨型插入键。点中行只预览（不插入），看准再按插入（2 步）。代价：横屏宽度被三栏吃掉，字不能再大。</p>"+
+  "<div class='stage'><div class='master'><div class='rail'>"+cats.map(function(c){
+    return "<button class='bigbtn' data-f='"+c+"' aria-pressed='"+(S.filter===c||(c==="全部"&&["全部","预置"].indexOf(S.filter)>=0))+"'>"+c+"</button>";}).join("")+"</div>"+
+  "<div class='midlist'>"+f.map(function(t){
+    return "<button class='bigbtn' data-sel='"+t[0]+"' data-pick2='"+t[0]+"' class='"+(sel&&t[0]===sel[0]?"sel":"")+"'>"+t[1]+"<br><small style='color:var(--muted);font-size:14px;font-weight:400'>"+t[2]+"</small></button>";}).join("")+"</div>"+
+  "<div class='preview'><h3>"+(sel?sel[1]:"—")+"</h3><div style='color:var(--muted);font-size:14px'>"+(sel?sel[2]:"")+"</div><pre>"+(sel?(BODIES[sel[0]]||"（正文预览占位：点插入后写入对话输入框）"):"")+"</pre><button class='bigbtn insert-btn' data-pick='"+(sel?sel[0]:"")+"'>插入 ⏎</button></div>"+
+  "</div></div>"+stateBlock("D",[["已选预览",S.selId]]);
+}
+function renderE(){
+  var q=S.query.trim().toLowerCase();
+  var f=DATA.filter(function(t){return !q||(t[1]+" "+t[2]).toLowerCase().indexOf(q)>=0;})
+    .sort(function(a,b){return b[3]-a[3];});
+  var dock=DATA.slice().sort(function(a,b){return b[3]-a[3];}).slice(0,6);
+  return "<div class='vtitle'><span class='tag'>E</span><h2>搜索面板 + 常用坞</h2></div>"+
+  "<p class='vdesc'>顶部巨型搜索（远程下打字即过滤），结果 3 列大按钮点即插入（1 步）；底部常用坞 6 个最常用常驻，零搜索零翻页直达。代价：依赖输入法在 UU 远端跟手。</p>"+
+  "<div class='stage palette'><input class='searchbox' id='q' placeholder='🔍 点这里打字，结果即时过滤…' value='"+S.query.replace(/"/g,"&quot;")+"'>"+
+  "<div class='resgrid'>"+f.slice(0,12).map(function(t){return "<button class='bigbtn' data-pick='"+t[0]+"'>"+t[1]+"</button>";}).join("")+"</div>"+
+  "<div class='dock'><span class='dl'>⚓ 常用坞</span>"+dock.map(function(t){return "<button data-pick='"+t[0]+"'>"+t[1]+"</button>";}).join("")+"</div></div>"+stateBlock("E");
+}
+/* ---------- 主渲染 + 事件 ---------- */
+function current(){return ({A:renderA,B:renderB,C:renderC,D:renderD,E:renderE})[S.variant]();}
+function renderMain(){$("#main").innerHTML="<section class='variant active'>"+current()+"</section>";bind();}
+function bind(){
+  $all("[data-f]").forEach(function(b){b.onclick=function(){S.filter=b.getAttribute("data-f");S.page=0;renderMain();renderStates();};});
+  $all("[data-pick]").forEach(function(b){b.onclick=function(){pick(b.getAttribute("data-pick"),S.variant);renderMain();};});
+  $all("[data-sel]").forEach(function(b){b.onclick=function(e){e.stopPropagation();S.selId=b.getAttribute("data-sel");renderMain();renderStates();};});
+  var q=$("#q"); if(q){q.oninput=function(){S.query=q.value;S.page=0;
+    if(S.variant==="E"){var pos=q.selectionStart; renderMain(); var nq=$("#q"); if(nq){nq.focus(); try{nq.setSelectionRange(pos,pos);}catch(e){}} }
+    renderStates();};}
+  var pp=$("#pgPrev"),pn=$("#pgNext");
+  if(pp)pp.onclick=function(){if(S.page>0){S.page--;renderMain();renderStates();}};
+  if(pn)pn.onclick=function(){S.page++;renderMain();renderStates();};
+  var wb=$("#wizBack"); if(wb)wb.onclick=function(){if(S.step>1){S.step--;renderMain();renderStates();}};
+  var wr=$("#wizReset"); if(wr)wr.onclick=function(){S.step=1;S.wizDomain=null;S.wizAction=null;renderMain();renderStates();};
+  $all("[data-wd]").forEach(function(b){b.onclick=function(){S.wizDomain=b.getAttribute("data-wd");S.step=2;S.taps++;renderMain();};});
+  $all("[data-wa]").forEach(function(b){b.onclick=function(){S.wizAction=b.getAttribute("data-wa");S.step=3;S.taps++;renderMain();};});
+}
+function setVariant(v,push){
+  if(ORDER.indexOf(v)<0)v="A";
+  S.variant=v; S.page=0;
+  try{var u=new URL(location.href); u.searchParams.set("variant",v); history.replaceState(null,"",u.toString());}catch(e){}
+  renderMain(); renderStates();
+}
+function init(){
+  try{var v=new URL(location.href).searchParams.get("variant"); if(v&&ORDER.indexOf(v)>=0)S.variant=v;}catch(e){}
+  renderMain(); renderStates();
+  $all("#switcher [data-v]").forEach(function(b){b.onclick=function(){setVariant(b.getAttribute("data-v"));};});
+  $("#swPrev").onclick=function(){setVariant(ORDER[(ORDER.indexOf(S.variant)+ORDER.length-1)%ORDER.length]);};
+  $("#swNext").onclick=function(){setVariant(ORDER[(ORDER.indexOf(S.variant)+1)%ORDER.length]);};
+  document.addEventListener("keydown",function(e){
+    var t=e.target; if(t&&(t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.isContentEditable))return;
+    if(e.key==="ArrowLeft")$("#swPrev").click(); if(e.key==="ArrowRight")$("#swNext").click();});
+  $("#toggleState").onclick=function(){
+    var open=this.getAttribute("aria-pressed")==="true";
+    this.setAttribute("aria-pressed",String(!open)); this.textContent="状态面板："+(open?"关":"开");
+    $all("details.state").forEach(function(d){d.open=!open;});};
+  function vp(){var el=$("#vp"); if(el)el.textContent=window.innerWidth+" × "+window.innerHeight+"（H1 上限≈宽-16）";}
+  window.addEventListener("resize",vp); vp();
+  var tall=$("#tall"); /* B 自动滚底呼应 bottom-up */
+}
+document.addEventListener("DOMContentLoaded",init);
+</script>
+</body>
+</html>

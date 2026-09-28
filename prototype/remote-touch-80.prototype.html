@@ -122,7 +122,12 @@
   .grid.g-land{grid-template-columns:repeat(4,1fr);}
   .grid.g-port{grid-template-columns:repeat(3,1fr);}
   .grid.g-land .card, .grid.g-port .card{min-height:0; aspect-ratio:1/0.85; font-size:18px; padding:14px;}
-  .panel-full .grid{flex:1; align-content:start;}
+  .panel-full .grid{flex:1; align-content:stretch; grid-auto-rows:1fr;}
+  .grid.sparse .card{aspect-ratio:auto;}
+  .iconbtn{flex:none; width:64px; min-height:64px; align-self:center; border-radius:12px;
+    border:1px solid var(--line); background:var(--panel2); color:var(--txt); font-size:24px; cursor:pointer;}
+  .iconbtn[aria-pressed="true"]{border-color:var(--accent); color:var(--accent);}
+  .remote-frame.port .pager-bar .pgbtn{min-width:80px; min-height:80px; font-size:16px;}
   .pager-bar{display:flex; gap:10px; align-items:stretch; margin-top:auto; border-top:1px solid var(--line); padding-top:12px;}
   .pager-bar .pgbtn{flex:none; min-height:104px; min-width:104px; font-size:19px; font-weight:700; line-height:1.3;
     border-radius:12px; cursor:pointer; border:1px solid var(--line); background:var(--panel2); color:var(--txt);}
@@ -197,11 +202,11 @@ var DATA = [
   ["c1","周报生成（自定义）","自定义·总结",19,1],["c2","例会纪要（自定义）","自定义·记录",6,0],["c3","英文邮件润色（自定义）","自定义·润色",2,0]
 ];
 var BODIES = {snapshot:"把会话至今的关键信息按「目的地/约束/已确认/待决/雾区」五类逐条列出……",codereview:"先给总体结论，再按严重程度排序输出，每个问题附修改建议……",retro:"整体步骤回顾 / 资料工具 / 困难 / 可复用经验 / 重来一次……",plan:"明确步骤 / 时间安排 / 资源工具 / 交付验收 / 风险应对……",blindspot:"遗漏变量 / 风险盲区 / 前置决策 / 3分钟检查清单……",c1:"把本周工作按 STAR 整理成周报……",deep:"本质是什么 / 常见误解 / 正反证据 / 边界 / 判断……",explain:"一句话功能 / 执行流程 / 设计取舍 / 潜在问题……",concept:"一句话定义 / 相近概念对比 / 不适用边界 / 练习场景……",fivewhys:"连续追问五个为什么，区分根本原因与表层触发……",testdesign:"正常路径 / 边界极端 / 异常处理 / 并发幂等……"};
-var NAMES = {A:"大卡网格分页 v6·定稿方向",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
+var NAMES = {A:"大卡网格分页 v7·定稿方向",B:"加高大行列表",C:"向导一步一屏",D:"主从分栏+预览",E:"搜索面板+常用坞"};
 var ORDER = ["A","B","C","D","E"];
 /* ---------- 内存状态（无持久化，刷新即重置） ---------- */
 var S = {variant:"A", filter:"全部", query:"", page:0, step:1, wizDomain:null, wizAction:null,
-  selId:"snapshot", orient:"landscape", lastPick:"（尚未点击）", taps:0, pickSteps:{A:1,B:1,C:3,D:2,E:1}};
+  selId:"snapshot", orient:"landscape", searchOpen:false, lastPick:"（尚未点击）", taps:0, pickSteps:{A:1,B:1,C:3,D:2,E:1}};
 function $(s,r){return (r||document).querySelector(s);}
 function $all(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
 function domainOf(t){var l=t[2]; if(l.indexOf("思考框架")===0)return "思考框架"; if(l.indexOf("学习")===0)return "学习"; if(l.indexOf("工程")===0)return "工程"; if(l.indexOf("执行")===0)return "执行"; return "自定义";}
@@ -246,28 +251,41 @@ function chipRow(filters){
 }
 function aExtra(){
   var f=filtered(), per=12, pages=Math.max(1,Math.ceil(f.length/per));
+  if(S.page>=pages)S.page=pages-1;
   var land=S.orient!=="portrait";
+  var items=f.slice(S.page*per,S.page*per+per);
+  var cols=land?4:3;
+  var sparse=items.length>0&&items.length<=cols;
   return [["方向",land?"横屏":"竖屏"],["布局",(land?"4 列 × 3 行":"3 列 × 4 行")+"（每页 12 张）"],
     ["锚点","⚡Prompt 按钮向上展开（bottom = 按钮顶 + 8px，沿用 panel.ts:785 公式）"],
-    ["TAB 位置","底部沉底（拇指可达）"],["页码",(S.page+1)+" / "+pages]];
+    ["TAB 位置","底栏合一：上一页 + 横滚 TAB + 🔍 + 下一页"],
+    ["搜索",S.searchOpen?"输入框展开":"收起为 🔍 按钮（平时不占行）"],
+    ["稀疏页",(sparse||items.length<per)?"卡片拉伸填满，无空白（正方形让位）":"满页正方形卡"],
+    ["页码",(S.page+1)+" / "+pages]];
 }
 function renderA(){
   var f=filtered(), per=12, pages=Math.max(1,Math.ceil(f.length/per));
   if(S.page>=pages)S.page=pages-1;
   var items=f.slice(S.page*per,S.page*per+per);
   var land=S.orient!=="portrait";
-  return "<div class='vtitle'><span class='tag'>A</span><h2>大卡网格分页 v2 · 定稿方向</h2></div>"+
-  "<p class='vdesc'>用户 22:52 定调 v6：末页不满时底栏<b>贴底不往上走</b>（网格区 flex:1 吸掉空隙 + 底栏 margin-top:auto）。其余同 v5。点卡即插入（1 步）。</p>"+
+  var cols=land?4:3;
+  var sparse=items.length>0&&items.length<=cols;
+  var gridStyle=sparse?("grid-template-columns:repeat("+items.length+",1fr);"):"";
+  var cards=items.length===0?"<div style='color:var(--muted);padding:24px;font-size:18px'>无匹配模板，换个词或点 TAB 试试。</div>":items.map(function(t){
+    return "<button class='bigbtn card' data-pick='"+t[0]+"'>"+t[1]+"<small>"+t[2]+"</small><span class='use'>用量"+t[3]+(t[4]?" · 置顶":"")+"</span></button>";}).join("");
+  var searchHtml=S.searchOpen?("<div class='searchrow'><input class='searchbox' id='q' placeholder='搜索…' value='"+S.query.replace(/"/g,"&quot;")+"'><button class='pf-x' id='qClose' title='收起搜索'>×</button></div>"):"";
+  return "<div class='vtitle'><span class='tag'>A</span><h2>大卡网格分页 v7 · 定稿方向</h2></div>"+
+  "<p class='vdesc'>用户 22:52+22:58 定调 v7：<b>稀疏页无空白</b>（不满页时卡片拉伸填满）；<b>搜索平时收起为 🔍 按钮</b>（不独占一行，点开才出输入框）；竖屏点顶部“竖屏 3×4”看（窄屏翻页键自动缩到 80px 方形）。点卡即插入（1 步）。</p>"+
   "<div class='simbar'><span>UU远端方向模拟：</span>"+
   "<button class='chip' data-orient='landscape' aria-pressed='"+land+"'>横屏 4×3</button>"+
   "<button class='chip' data-orient='portrait' aria-pressed='"+(!land)+"'>竖屏 3×4</button></div>"+
   "<div class='stage'><div class='remote-frame "+(land?"land":"port")+"'>"+
-  "<div class='panel-full'><div class='searchrow'><input class='searchbox' id='q' placeholder='搜索…' value='"+S.query.replace(/"/g,"&quot;")+"'><button class='pf-x' title='关闭（原型里不关）'>×</button></div>"+
-  "<div class='grid "+(land?"g-land":"g-port")+"'>"+items.map(function(t){
-    return "<button class='bigbtn card' data-pick='"+t[0]+"'>"+t[1]+"<small>"+t[2]+"</small><span class='use'>用量"+t[3]+(t[4]?" · 置顶":"")+"</span></button>";}).join("")+"</div>"+
+  "<div class='panel-full'>"+searchHtml+
+  "<div class='grid "+(land?"g-land":"g-port")+(sparse?" sparse":"")+"' style='"+gridStyle+"'>"+cards+"</div>"+
   "<div class='pager-bar'><button class='pgbtn' id='pgPrev' "+(S.page===0?"disabled":"")+">◀ 上一页</button>"+
   "<div class='bottomtabs-inbar'>"+["全部","思考框架","学习","工程","执行","预置","自定义"].map(function(x){
     return "<button class='chip' data-f='"+x+"' aria-pressed='"+(S.filter===x)+"'>"+x+"</button>";}).join("")+"</div>"+
+  "<button class='iconbtn' data-search-toggle aria-pressed='"+S.searchOpen+"' title='搜索'>🔍</button>"+
   "<button class='pgbtn' id='pgNext' "+(S.page>=pages-1?"disabled":"")+">下一页 ▶</button></div></div>"+
   "<div class='mockbar'><div class='mockinput'>输入消息…（UU远端对话框，示意）</div><div class='mockprompt'>⚡ Prompt<span class='anchor-arrow'>▲ 面板从此按钮向上展开</span></div></div>"+
   "</div></div>"+stateBlock("A",aExtra());
@@ -336,8 +354,10 @@ function bind(){
   $all("[data-pick]").forEach(function(b){b.onclick=function(){pick(b.getAttribute("data-pick"),S.variant);renderMain();};});
   $all("[data-sel]").forEach(function(b){b.onclick=function(e){e.stopPropagation();S.selId=b.getAttribute("data-sel");renderMain();renderStates();};});
   var q=$("#q"); if(q){q.oninput=function(){S.query=q.value;S.page=0;
-    if(S.variant==="E"){var pos=q.selectionStart; renderMain(); var nq=$("#q"); if(nq){nq.focus(); try{nq.setSelectionRange(pos,pos);}catch(e){}} }
+    var pos=q.selectionStart; renderMain(); var nq=$("#q"); if(nq){nq.focus(); try{nq.setSelectionRange(pos,pos);}catch(e){}}
     renderStates();};}
+  var qc=$("#qClose"); if(qc)qc.onclick=function(){S.searchOpen=false;S.query="";renderMain();renderStates();};
+  $all("[data-search-toggle]").forEach(function(b){b.onclick=function(){S.searchOpen=!S.searchOpen; if(!S.searchOpen)S.query=""; renderMain(); renderStates(); var nq=$("#q"); if(nq)nq.focus();};});
   var pp=$("#pgPrev"),pn=$("#pgNext");
   if(pp)pp.onclick=function(){if(S.page>0){S.page--;renderMain();renderStates();}};
   if(pn)pn.onclick=function(){S.page++;renderMain();renderStates();};

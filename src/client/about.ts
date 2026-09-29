@@ -48,8 +48,9 @@ const tipStyle: any = {
   boxShadow: 'var(--dsw-shadow-lv3)', fontFamily: 'var(--dsw-font-family)', fontSize: 12, lineHeight: 1.55,
 }
 const moreCardStyle: any = {
-  display: 'flex', flexDirection: 'column', gap: 2, margin: '12px 4px 4px', padding: '10px 12px',
-  border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 10, fontFamily: 'var(--dsw-font-family)',
+  // 与 SettingGroup 同轨：左右 margin 归零（此前 4px 导致与上方卡片左右错位）、同圆角 12、内容左轨 14px。
+  display: 'flex', flexDirection: 'column', gap: 2, margin: '12px 0 4px', padding: '10px 14px',
+  border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 12, fontFamily: 'var(--dsw-font-family)',
 }
 const moreTitleStyle: any = { fontSize: '0.9em', fontWeight: 600, color: 'var(--dsw-alias-label-secondary)', paddingBottom: 4 }
 const moreRowStyle: any = {

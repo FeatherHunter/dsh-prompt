@@ -12,6 +12,14 @@ import { getReact, TemplateBrowser } from './panel'
 import { SettingsHeaderLinks, AuthorPlugins } from './about'
 import { UpdateEntry } from './update'
 import { isSmartEnabled, setSmartEnabled } from './smartstore'
+import {
+  getRemotePrefs, subscribeRemote, ensureRemoteLoaded,
+  setRemoteEnabled, setRemoteFont, setRemoteControl, setRemoteOrientation,
+  getRemotePersistState,
+  type RemoteFontTier, type RemoteOrientationPref,
+} from './remote'
+import { remoteFontScale } from './remoteView'
+import { setSystemOrientation, isSystemOrientation } from './systemOrientation'
 import { getLang, tr, STR } from './i18n'
 
 /** 取日志能力（装在槽里的那个实例）；能力缺席时返回 null，界面据此走「不可用」分支，不静默。 */
@@ -168,6 +176,11 @@ export function SettingsPage(props: any): any {
   const h = react.createElement
   const smartState = react.useState(isSmartEnabled())
   const smartOn = smartState[0]
+  // #82 远程偏好（总闸 + 字号/控件三档）：内存真相来源，host 快照到达后更新。
+  const remoteState = react.useState(getRemotePrefs())
+  const remote = remoteState[0]
+  const persistState = react.useState(getRemotePersistState())
+  const remotePersist = persistState[0]
   const log = logCap()
   const logOnState = react.useState(log ? !!log.getSwitch().enabled : false)
   const logOn = logOnState[0]
@@ -194,6 +207,44 @@ export function SettingsPage(props: any): any {
     return cap.subscribe(() => {
       try { logOnState[1](!!cap.getSwitch().enabled) } catch (e) { /* ignore */ }
     })
+  }, [])
+  // #82 远程偏好：启动拉 host 快照；变更经订阅刷新（含持久化失败明示位）。
+  react.useEffect(() => {
+    try { ensureRemoteLoaded().catch(() => undefined) } catch (e) { /* ignore */ }
+    return subscribeRemote(() => {
+      try {
+        remoteState[1](getRemotePrefs())
+        persistState[1](getRemotePersistState())
+      } catch (e) { /* ignore */ }
+    })
+  }, [])
+  // #82 配置键直达的落点：打开设置页后滚动到远程段（globalThis 钩子供 remote.openRemoteSettings 调用）。
+  // 2026-09-29：自家设置弹窗同样挂载本组件；卸载时只清自己注册的钩子，不清别人的（多实例共存）。
+  react.useEffect(() => {
+    let mine: (() => void) | null = null
+    try {
+      const g = globalThis as any
+      mine = () => {
+        try {
+          const go = g.__dshPromptGoSettings
+          if (typeof go === 'function') go()
+        } catch (e) { /* ignore */ }
+        setTimeout(() => {
+          try {
+            if (typeof document === 'undefined') return
+            const el = document.querySelector('[data-dsh-prompt-remote-section]')
+            if (el && typeof (el as any).scrollIntoView === 'function') (el as any).scrollIntoView({ block: 'start' })
+          } catch (e) { /* ignore */ }
+        }, 300)
+      }
+      g.__dshPromptGoRemoteSettings = mine
+    } catch (e) { /* ignore */ }
+    return () => {
+      try {
+        const g = globalThis as any
+        if (mine && g.__dshPromptGoRemoteSettings === mine) delete g.__dshPromptGoRemoteSettings
+      } catch (e) { /* ignore */ }
+    }
   }, [])
 
   const onToggleLog = async (next: boolean): Promise<void> => {
@@ -267,6 +318,158 @@ export function SettingsPage(props: any): any {
 
   const noteStyle: any = { fontFamily: TOK.font, fontSize: 12, lineHeight: 1.65, color: TOK.labelTertiary, paddingTop: 8 }
 
+  // #82 远程段（三档按钮组：小/中/大单选，当前档实心高亮）
+  const tierControl = (
+    current: RemoteFontTier,
+    onPick: (v: RemoteFontTier) => void,
+    testId: string,
+  ): any => {
+    const tiers: RemoteFontTier[] = ['small', 'medium', 'large']
+    const labelOf = (v: RemoteFontTier): string =>
+      v === 'small' ? t('remoteTierSmall') : v === 'large' ? t('remoteTierLarge') : t('remoteTierMedium')
+    return h('div', { style: { display: 'flex', gap: 6 }, 'data-dsh-prompt-remote-tiers': testId }, tiers.map((v) =>
+      h('button', {
+        key: v,
+        type: 'button',
+        'data-dsh-prompt-tier': v,
+        'aria-pressed': current === v ? 'true' : 'false',
+        style: {
+          fontFamily: TOK.font, fontSize: 12, padding: '5px 12px', borderRadius: 8, cursor: 'pointer',
+          border: '1px solid ' + TOK.border,
+          background: current === v ? TOK.accent : 'transparent',
+          color: current === v ? '#fff' : TOK.labelPrimary,
+        },
+        onClick: () => { onPick(v) },
+      }, labelOf(v)),
+    ))
+  }
+
+  // 去宿主化方向偏好控件：自动/横屏锁定/竖屏锁定三档单选（纯插件，持久化）
+  // 锁定档背后先调 OS 真切（本插件 host 半自实现），busy 期禁用防连点。
+  const orientationControl = (
+    current: RemoteOrientationPref,
+    onPick: (v: RemoteOrientationPref) => void,
+    busy: boolean,
+  ): any => {
+    const opts: RemoteOrientationPref[] = ['auto', 'landscape', 'portrait']
+    const labelOf = (v: RemoteOrientationPref): string =>
+      v === 'auto' ? t('remoteOrientationAuto') : v === 'landscape' ? t('remoteOrientationLandscape') : t('remoteOrientationPortrait')
+    return h('div', { style: { display: 'flex', gap: 6 }, 'data-dsh-prompt-remote-orientation': '1' }, opts.map((v) =>
+      h('button', {
+        key: v,
+        type: 'button',
+        disabled: !!busy,
+        'data-dsh-prompt-orientation': v,
+        'aria-pressed': current === v ? 'true' : 'false',
+        style: {
+          fontFamily: TOK.font, fontSize: 12, padding: '5px 12px', borderRadius: 8, cursor: busy ? 'wait' : 'pointer',
+          border: '1px solid ' + TOK.border,
+          background: current === v ? TOK.accent : 'transparent',
+          color: current === v ? '#fff' : TOK.labelPrimary,
+          opacity: busy ? 0.6 : 1,
+        },
+        onClick: () => { if (!busy) onPick(v) },
+      }, labelOf(v)),
+    ))
+  }
+
+  // 方向偏好 OS 真切态：busy 防连点，note 记失败回落（成功静默，偏好高亮即是）。
+  const orientBusyState = react.useState(false)
+  const orientBusy = orientBusyState[0]
+  const orientNoteState = react.useState('')
+  const orientNote = orientNoteState[0]
+  const onPickOrientation = (v: RemoteOrientationPref): void => {
+    if (v === 'auto' || orientBusy) {
+      if (v === 'auto' && !orientBusy) {
+        const next = setRemoteOrientation('auto')
+        remoteState[1]({ ...next })
+        persistState[1](getRemotePersistState())
+        orientNoteState[1]('')
+      }
+      return
+    }
+    if (!isSystemOrientation(v)) return
+    orientBusyState[1](true)
+    orientNoteState[1](t('remoteOrientationBusy'))
+    setSystemOrientation(v).then(
+      (r) => {
+        // fail-soft：自家锁定恒落地（当次有效 + 持久化）；OS 成败只决定 note。
+        const next = setRemoteOrientation(v)
+        remoteState[1]({ ...next })
+        persistState[1](getRemotePersistState())
+        orientNoteState[1](r.ok ? '' : t('remoteOrientationOsFail').replace('{code}', r.error.code))
+        orientBusyState[1](false)
+      },
+      () => {
+        const next = setRemoteOrientation(v)
+        remoteState[1]({ ...next })
+        persistState[1](getRemotePersistState())
+        orientNoteState[1](t('remoteOrientationOsFail').replace('{code}', 'unknown'))
+        orientBusyState[1](false)
+      },
+    )
+  }
+
+  const remoteGroup = h('section', {
+    key: 'remote',
+    style: cardStyle('2px 14px 12px'),
+    'data-dsh-prompt-remote-section': '1',
+  }, [
+    h('div', {
+      key: 'title',
+      style: { fontSize: 12, fontWeight: 600, color: TOK.labelSecondary, padding: '12px 0 0', letterSpacing: 0.2 },
+    }, t('remoteGroup')),
+    // 总闸：默认关；开=大、关=小；去宿主化后恒可用，不因任何外部能力 disabled。
+    h(SettingRow, {
+      key: 'remote-switch',
+      label: t('remoteToggle'),
+      description: t('remoteToggleHint'),
+      control: h(Check, {
+        checked: !!remote.enabled,
+        'data-dsh-prompt-remote-toggle': '1',
+        onChange: (e: any) => {
+          const on = !!e.target.checked
+          const next = setRemoteEnabled(on)
+          remoteState[1]({ ...next })
+          persistState[1](getRemotePersistState())
+        },
+      }),
+    }),
+    h(SettingRow, {
+      key: 'remote-font',
+      label: t('remoteFont'),
+      description: t('remoteFontHint'),
+      control: tierControl(remote.font, (v) => {
+        const next = setRemoteFont(v)
+        remoteState[1]({ ...next })
+        persistState[1](getRemotePersistState())
+      }, 'font'),
+    }),
+    h(SettingRow, {
+      key: 'remote-control',
+      label: t('remoteControl'),
+      description: t('remoteControlHint'),
+      control: tierControl(remote.control, (v) => {
+        const next = setRemoteControl(v)
+        remoteState[1]({ ...next })
+        persistState[1](getRemotePersistState())
+      }, 'control'),
+    }),
+    // 方向偏好（真切整机优先的本插件闭环）：自动跟视口；锁定先调 OS，真切失败回落自家锁定并明示。
+    h(SettingRow, {
+      key: 'remote-orientation',
+      label: t('remoteOrientation'),
+      description: t('remoteOrientationHint'),
+      control: orientationControl((remote as any).orientation || 'auto', onPickOrientation, orientBusy),
+    }),
+    orientNote
+      ? h('div', { key: 'remote-orientation-note', style: noteStyle, 'data-dsh-prompt-orientation-note': '1' }, orientNote)
+      : null,
+    remotePersist.failed
+      ? h('div', { key: 'remote-persist-note', style: noteStyle }, t('remotePersistFail'))
+      : null,
+  ])
+
   const logGroup = h(SettingGroup, { key: 'log', title: t('logGroup') }, [
     h(SettingRow, {
       key: 'log-switch',
@@ -298,7 +501,11 @@ export function SettingsPage(props: any): any {
   if (note) logGroup.props.children.push(h('div', { key: 'log-note', style: noteStyle }, note))
 
   // #37：旧的一行文字链接（⛭ GitHub 仓库 / ⚠ 反馈故障）已由顶部右上角两个图标按钮取代，不再保留第二处入口。
-  return h('div', { style: { padding: 4, display: 'flex', flexDirection: 'column' } }, [
+  // 三档全局跟随（2026-09-29 用户拍板）：字号档缩放本插件配置面所有文字。
+  // 用 CSS zoom（字符串写法防 React 补 px）：Chromium 系（DSH web/桌面）生效，整体等比，
+  // 与 palette 无关；控件档不管此处（管远程面板与入口热区）。
+  const settingsZoom = String(remoteFontScale(remote.font))
+  return h('div', { style: { padding: 4, display: 'flex', flexDirection: 'column', zoom: settingsZoom } }, [
     // #60 追加交付 A 的位置修正（第二次真机反馈）：更新入口**不再是独立的一块**，而是交给身份行，
     // 与 🌟 / 💬 同一行、排在这两个图标之前 —— 用户原话「检查更新和版本号和 star 的按钮在一起」。
     // 于是这一页的顶层块从 7 块回到 6 块：身份行带着入口一起当第 0 块。
@@ -311,6 +518,7 @@ export function SettingsPage(props: any): any {
         control: h(Check, { checked: smartOn, onChange: (e: any) => { const on = e.target.checked; smartState[1](on); setSmartEnabled(on); logEvent('settings.smart.toggle', { on }) } }),
       }),
     ]),
+    remoteGroup,
     logGroup,
     // #77：模板区是一张**与上面两张卡、下面那张卡同款的卡片**（此前它是一条裸行，没有壳，
     // 夹在「诊断日志」与「作者其他插件」之间显得格格不入）。折叠态只露出卡片头行，点开才是完整列表。

@@ -27,8 +27,10 @@ const MODULES = [
   ['smartstore.ts', []],
   ['words.ts', []],
   ['match.ts', ['./templates', './store', './words']],
-  ['panel.ts', ['./templates', './store', './state', './i18n', './smartstore']],
-  ['smart.ts', ['./templates', './store', './words', './match', './panel', './smartstore', './i18n']],
+  ['remote.ts', []],
+  ['remoteView.ts', []],
+  ['panel.ts', ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView']],
+  ['smart.ts', ['./templates', './store', './words', './match', './panel', './smartstore', './remote', './remoteView', './i18n']],
 ];
 for (const [f, deps] of MODULES) {
   let js = ts.transpileModule(fs.readFileSync(SRC(f), 'utf8'), {

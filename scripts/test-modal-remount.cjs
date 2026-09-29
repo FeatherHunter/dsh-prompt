@@ -6,13 +6,17 @@ try { ts = require('typescript') } catch (e) { ts = require('D:/0Tools/DSHDeskto
 const DIR = path.join(__dirname, '.rt-tmp');
 fs.mkdirSync(DIR, { recursive: true });
 const PANEL_TS = path.resolve(process.argv[2] || path.join(__dirname, '..', 'src', 'client', 'panel.ts'));
+const REMOTE_TS = path.join(__dirname, '..', 'src', 'client', 'remote.ts');
+const REMOTEVIEW_TS = path.join(__dirname, '..', 'src', 'client', 'remoteView.ts');
 const MODULES = [
   ['templates.ts', path.join(__dirname, '..', 'src', 'client', 'templates.ts'), []],
   ['store.ts', path.join(__dirname, '..', 'src', 'client', 'store.ts'), ['./templates']],
   ['state.ts', path.join(__dirname, '..', 'src', 'client', 'state.ts'), []],
   ['i18n.ts', path.join(__dirname, '..', 'src', 'client', 'i18n.ts'), []],
   ['smartstore.ts', path.join(__dirname, '..', 'src', 'client', 'smartstore.ts'), []],
-  ['panel.cjs', PANEL_TS, ['./templates', './store', './state', './i18n', './smartstore']],
+  ['remote.cjs', REMOTE_TS, []],
+  ['remoteView.cjs', REMOTEVIEW_TS, []],
+  ['panel.cjs', PANEL_TS, ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView']],
 ];
 for (const [outName, srcPath, deps] of MODULES) {
   let src = fs.readFileSync(srcPath, 'utf8');

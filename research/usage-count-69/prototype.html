@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#69 用量数字落点原型（1/23/123/1234 不撑布局）</title>
+<style>
+  :root {
+    --base: #22242a;
+    --muted: #6b7280;
+    --dim: #9aa0ab;
+    --line: 1px solid #e2e4e9;
+    --menu: #ffffff;
+    --layer3: #f2f3f5;
+    --accent: #f0a45c;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; color: var(--base); background: #eceef1; margin: 0; padding: 24px; }
+  .page { max-width: 1060px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .card { background: var(--menu); border: var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 18px; }
+  .card h2 { font-size: 16px; margin: 0 0 6px; }
+  .card p { font-size: 13px; color: var(--muted); margin: 6px 0; }
+  .verdict { border-left: 4px solid var(--accent); padding-left: 12px; }
+  .toolbar { display: flex; gap: 8px; align-items: center; margin: 10px 0 4px; flex-wrap: wrap; }
+  .toolbar button { border: var(--line); background: var(--layer3); border-radius: 999px; padding: 3px 12px; cursor: pointer; font-size: 13px; }
+  .toolbar button.on { background: var(--base); color: #fff; border-color: var(--base); }
+  .sim-label { font-size: 12px; color: var(--dim); margin: 14px 0 6px; }
+  /* —— 悬浮列表仿真（compact=true：宽 560，单行） —— */
+  .compact-sim { width: 560px; max-width: 100%; border: var(--line); border-radius: 12px; background: var(--menu); overflow: hidden; }
+  .compact-row { display: flex; gap: 6px; border-radius: 8px; cursor: default; align-items: center; padding: 3px 6px; min-width: 0; }
+  .compact-row + .compact-row { border-top: 1px dashed #eef0f3; }
+  .pin { flex: none; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; color: var(--dim); }
+  .pin.on { color: var(--accent); }
+  .ctitle-wrap { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; overflow: hidden; }
+  .ctitle { flex: none; font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .clabel { flex: 0 1 auto; min-width: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cintro { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .acts { flex: none; display: flex; gap: 4px; }
+  .acts span { border: var(--line); border-radius: 999px; font-size: 12px; color: var(--dim); padding: 1px 8px; white-space: nowrap; }
+  /* —— 设置页仿真（compact=false：自然高度，两行） —— */
+  .full-sim { border: var(--line); border-radius: 12px; background: var(--menu); padding: 6px 8px; }
+  .full-row { display: flex; gap: 6px; padding: 4px 2px; align-items: flex-start; min-width: 0; }
+  .full-row + .full-row { border-top: 1px dashed #eef0f3; }
+  .pincol { flex: none; padding-top: 2px; }
+  .ftext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .fline1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .fname { flex: none; font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ftag { flex: none; font-size: 11px; color: var(--muted); background: var(--layer3); border: 1px solid #dfe2e8; padding: 0 7px; border-radius: 999px; line-height: 15px; white-space: nowrap; }
+  .fsub { font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* —— 用量徽标（候选定稿样式，三方案共用同一视觉） —— */
+  .usage {
+    flex: none;
+    display: inline-block;
+    min-width: 4ch;
+    text-align: right;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    white-space: nowrap;
+  }
+  .opt-b .usage { color: var(--muted); }
+  .badge-pos { font-size: 12px; color: var(--accent); border: 1px dashed var(--accent); border-radius: 6px; padding: 0 6px; }
+  table.spec { border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  table.spec td, table.spec th { border: 1px solid #e2e4e9; padding: 4px 10px; text-align: left; }
+  .foot { font-size: 12px; color: var(--dim); }
+  .hl { background: #fff7ec; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>#69 用量数字落点原型（悬浮 + 设置两面复用同一落点）</h1>
+  <div class="sub">约束：等宽 tabular-nums、固定宽度（4ch）右对齐、不撑布局不换行；hover 显示完整次数；数字仅展示不改排序。点击顶部按钮可把四档用量一起切换，直观验证位宽稳定性。</div>
+
+  <div class="card">
+    <h2>交互验证</h2>
+    <p>下面三个方案的每一行徽标都会跟随切换。观察点：切换 1→23→123→1234 时标题与操作区是否左右抖动、是否换行。</p>
+    <div class="toolbar" id="countBar">
+      <span style="font-size:13px;color:var(--muted)">用量档：</span>
+      <button data-n="1" class="on">1</button>
+      <button data-n="23">23</button>
+      <button data-n="123">123</button>
+      <button data-n="1234">1234</button>
+      <span style="font-size:13px;color:var(--muted)">（点选后三方案同步变化）</span>
+    </div>
+  </div>
+
+  <div class="card" id="optA">
+    <h2>方案 A：图钉右 · 标题前 <span class="badge-pos">推荐</span></h2>
+    <p>徽标紧跟图钉、标题之前；悬浮与设置同一规则（行 flex 中 pin 后的第一个 flex:none 元素；设置页与标题首行对齐）。左侧有感最强，四档纵向右对齐成一列。</p>
+    <div class="sim-label">悬浮列表仿真（560px 单行，含超长标题截断行）</div>
+    <div class="compact-sim">
+      <div class="compact-row"><span class="pin on">📌</span><span class="usage" data-u title="已使用 1 次">1</span><span class="ctitle-wrap"><span class="ctitle">第一性原理拆解</span><span class="clabel">思考框架/执行前/拆解</span><span class="cintro">把问题拆到不可再分的第一因再重组</span></span><span class="acts"><span>复制</span></span></div>
+      <div class="compact-row"><span class="pin">📍</span><span class="usage" data-u title="已使用 1 次">1</span><span class="ctitle-wrap"><span class="ctitle">代码审查</span><span class="clabel">工程/执行前/审查</span><span class="cintro">按清单逐项过代码并给出可落地意见</span></span><span class="acts"><span>复制</span></span></div>
+      <div class="compact-row"><span class="pin on">📌</span><span class="usage" data-u title="已使用 1 次">1</span><span class="ctitle-wrap"><span class="ctitle">过程复盘</span><span class="clabel">执行/执行后/复盘</span><span class="cintro">记录偏离、沉淀下次可复用的动作</span></span><span class="acts"><span>编辑</span><span>删除</span></span></div>
+      <div class="compact-row"><span class="pin">📍</span><span class="usage" data-u title="已使用 1 次">1</span><span class="ctitle-wrap"><span class="ctitle">超长自定义模板名称测试截断是否正常工作</span><span class="clabel">自定义超长标签词/第二个标签</span><span class="cintro">这一行简介也很长，用来验证徽标存在时省略号仍然正常工作不换行</span></span><span class="acts"><span>编辑</span><span>删除</span></span></div>
+    </div>
+    <div class="sim-label">设置页仿真（自然高度，两行）</div>
+    <div class="full-sim">
+      <div class="full-row"><div class="pincol"><span class="pin on">📌</span></div><div style="flex:none;padding-top:2px"><span class="usage" data-u title="已使用 1 次">1</span></div><div class="ftext"><div class="fline1"><span class="fname">第一性原理拆解</span><span class="ftag">思考框架/执行前/拆解</span></div><span class="fsub">把问题拆到不可再分的第一因再重组…</span></div><div class="acts"><span>复制</span></div></div>
+      <div class="full-row"><div class="pincol"><span class="pin">📍</span></div><div style="flex:none;padding-top:2px"><span class="usage" data-u title="已使用 1 次">1</span></div><div class="ftext"><div class="fline1"><span class="fname">代码审查</span><span class="ftag">工程/执行前/审查</span></div><span class="fsub">按清单逐项过代码并给出可落地意见…</span></div><div class="acts"><span>复制</span></div></div>
+      <div class="full-row"><div class="pincol"><span class="pin on">📌</span></div><div style="flex:none;padding-top:2px"><span class="usage" data-u title="已使用 1 次">1</span></div><div class="ftext"><div class="fline1"><span class="fname">过程复盘</span><span class="ftag">执行/执行后/复盘</span></div><span class="fsub">记录偏离、沉淀下次可复用的动作…</span></div><div class="acts"><span>编辑</span><span>删除</span></div></div>
+      <div class="full-row"><div class="pincol"><span class="pin">📍</span></div><div style="flex:none;padding-top:2px"><span class="usage" data-u title="已使用 1 次">1</span></div><div class="ftext"><div class="fline1"><span class="fname">超长自定义模板名称测试截断是否正常工作</span><span class="ftag">自定义超长标签词/第二个标签</span></div><span class="fsub">这一行简介也很长，用来验证徽标存在时省略号仍然正常工作不换行…</span></div><div class="acts"><span>编辑</span><span>删除</span></div></div>
+    </div>
+  </div>
+
+  <div class="card opt-b" id="optB">
+    <h2>方案 B：标题后 · 标签前（对照）</h2>
+    <p>标题保持最左，徽标跟标题走。缺点：标题长短不一，徽标纵向对不齐成锯齿列；超长标题会把徽标挤出可视区（标题 flex:none + 省略仅作用于简介时更明显）。</p>
+    <div class="sim-label">悬浮列表仿真</div>
+    <div class="compact-sim">
+      <div class="compact-row"><span class="pin on">📌</span><span class="ctitle-wrap"><span class="ctitle">第一性原理拆解</span><span class="usage" data-u title="已使用 1 次">1</span><span class="clabel">思考框架/执行前/拆解</span><span class="cintro">把问题拆到不可再分的第一因再重组</span></span><span class="acts"><span>复制</span></span></div>
+      <div class="compact-row"><span class="pin">📍</span><span class="ctitle-wrap"><span class="ctitle">代码审查</span><span class="usage" data-u title="已使用 1 次">1</span><span class="clabel">工程/执行前/审查</span><span class="cintro">按清单逐项过代码并给出可落地意见</span></span><span class="acts"><span>复制</span></span></div>
+      <div class="compact-row"><span class="pin on">📌</span><span class="ctitle-wrap"><span class="ctitle">过程复盘</span><span class="usage" data-u title="已使用 1 次">1</span><span class="clabel">执行/执行后/复盘</span><span class="cintro">记录偏离、沉淀下次可复用的动作</span></span><span class="acts"><span>编辑</span><span>删除</span></span></div>
+      <div class="compact-row"><span class="pin">📍</span><span class="ctitle-wrap"><span class="ctitle">超长自定义模板名称测试截断是否正常工作</span><span class="usage" data-u title="已使用 1 次">1</span><span class="clabel">自定义超长标签词/第二个标签</span><span class="cintro">超长标题把徽标顶到右侧，纵向完全对不齐</span></span><span class="acts"><span>编辑</span><span>删除</span></span></div>
+    </div>
+    <div class="sim-label">设置页仿真</div>
+    <div class="full-sim">
+      <div class="full-row"><div class="pincol"><span class="pin on">📌</span></div><div class="ftext"><div class="fline1"><span class="fname">第一性原理拆解</span><span class="usage" data-u title="已使用 1 次">1</span><span class="ftag">思考框架/执行前/拆解</span></div><span class="fsub">把问题拆到不可再分的第一因再重组…</span></div><div class="acts"><span>复制</span></div></div>
+      <div class="full-row"><div class="pincol"><span class="pin">📍</span></div><div class="ftext"><div class="fline1"><span class="fname">超长自定义模板名称测试截断是否正常工作</span><span class="usage" data-u title="已使用 1 次">1</span><span class="ftag">自定义超长标签词/第二个标签</span></div><span class="fsub">标题越长徽标越靠右，扫读困难…</span></div><div class="acts"><span>编辑</span><span>删除</span></div></div>
+    </div>
+  </div>
+
+  <div class="card" id="optC">
+    <h2>方案 C：行右 · 操作区前（对照）</h2>
+    <p>徽标贴右侧操作区，标题区零干扰。缺点：左侧无感（扫标题时余光扫不到用量）；右侧本已拥挤（编辑/删除/复制），再加一列数字更挤；与“左侧有感”票面要求直接冲突。</p>
+    <div class="sim-label">悬浮列表仿真</div>
+    <div class="compact-sim">
+      <div class="compact-row"><span class="pin on">📌</span><span class="ctitle-wrap"><span class="ctitle">第一性原理拆解</span><span class="clabel">思考框架/执行前/拆解</span><span class="cintro">把问题拆到不可再分的第一因再重组</span></span><span class="usage" data-u title="已使用 1 次">1</span><span class="acts"><span>复制</span></span></div>
+      <div class="compact-row"><span class="pin">📍</span><span class="ctitle-wrap"><span class="ctitle">代码审查</span><span class="clabel">工程/执行前/审查</span><span class="cintro">按清单逐项过代码并给出可落地意见</span></span><span class="usage" data-u title="已使用 1 次">1</span><span class="acts"><span>复制</span></span></div>
+      <div class="compact-row"><span class="pin on">📌</span><span class="ctitle-wrap"><span class="ctitle">过程复盘</span><span class="clabel">执行/执行后/复盘</span><span class="cintro">记录偏离、沉淀下次可复用的动作</span></span><span class="usage" data-u title="已使用 1 次">1</span><span class="acts"><span>编辑</span><span>删除</span></span></div>
+      <div class="compact-row"><span class="pin">📍</span><span class="ctitle-wrap"><span class="ctitle">超长自定义模板名称测试截断是否正常工作</span><span class="clabel">自定义超长标签词/第二个标签</span><span class="cintro">标题再长也不影响右侧数字列</span></span><span class="usage" data-u title="已使用 1 次">1</span><span class="acts"><span>编辑</span><span>删除</span></span></div>
+    </div>
+    <div class="sim-label">设置页仿真</div>
+    <div class="full-sim">
+      <div class="full-row"><div class="pincol"><span class="pin on">📌</span></div><div class="ftext"><div class="fline1"><span class="fname">第一性原理拆解</span><span class="ftag">思考框架/执行前/拆解</span></div><span class="fsub">把问题拆到不可再分的第一因再重组…</span></div><div style="flex:none;display:flex;align-items:center;gap:4px;padding-top:2px"><span class="usage" data-u title="已使用 1 次">1</span></div><div class="acts"><span>复制</span></div></div>
+      <div class="full-row"><div class="pincol"><span class="pin">📍</span></div><div class="ftext"><div class="fline1"><span class="fname">过程复盘</span><span class="ftag">执行/执行后/复盘</span></div><span class="fsub">记录偏离、沉淀下次可复用的动作…</span></div><div style="flex:none;display:flex;align-items:center;gap:4px;padding-top:2px"><span class="usage" data-u title="已使用 1 次">1</span></div><div class="acts"><span>编辑</span><span>删除</span></div></div>
+    </div>
+  </div>
+
+  <div class="card verdict">
+    <h2>拟定稿（待拍板）：方案 A</h2>
+    <p>落点：图钉右 · 标题前；悬浮 + 设置两面复用同一规则（pin 后的第一个 flex:none 元素）。</p>
+    <table class="spec">
+      <tr><th>项</th><th>定稿值</th></tr>
+      <tr><td>落点</td><td>图钉右侧、标题之前（两面同一规则）</td></tr>
+      <tr><td>字号</td><td>0.75em（小于标题 0.95/0.98，大致与勋章标签 0.7 同级、略大保证可读）</td></tr>
+      <tr><td>颜色</td><td>tertiary dim（与简介同色，不抢标题；B 方案曾试 secondary，扫读太重，弃）</td></tr>
+      <tr><td>宽度</td><td>min-width: 4ch，text-align: right，覆盖 1/23/123/1234 四档不撑布局</td></tr>
+      <tr><td>等宽</td><td>font-variant-numeric: tabular-nums + font-feature-settings: "tnum"</td></tr>
+      <tr><td>hover</td><td>title="已使用 N 次"（显示完整次数；数字本身即完整值，hover 作语义补足）</td></tr>
+      <tr><td>不换行</td><td>white-space: nowrap；flex:none，挤压由标题/简介的 ellipsis 吸收</td></tr>
+      <tr><td>设置页对齐</td><td>与标题首行对齐（padding-top 与 pin 列同 2px 起步）</td></tr>
+    </table>
+    <p class="foot">拍板后 #71 按此表实现；若选 B/C，#71 落点与对齐行同步替换，样式表其余行不变。四档截图见本页各方案仿真（切换顶部用量档验证）。</p>
+  </div>
+</div>
+<script>
+  var bar = document.getElementById('countBar');
+  bar.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button[data-n]') : null;
+    if (!b) return;
+    var n = b.getAttribute('data-n');
+    var btns = bar.querySelectorAll('button[data-n]');
+    for (var i = 0; i < btns.length; i++) btns[i.classList ? 'classList' : 'x'] && btns[i].classList.toggle('on', btns[i] === b);
+    var els = document.querySelectorAll('[data-u]');
+    for (var j = 0; j < els.length; j++) { els[j].textContent = n; els[j].setAttribute('title', '已使用 ' + n + ' 次'); }
+  });
+</script>
+</body>
+</html>

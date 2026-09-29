@@ -23,6 +23,11 @@ import {
   ensureLoaded, subscribeStore,
 } from './store'
 import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './state'
+import { getRemotePrefs, subscribeRemote, ensureRemoteLoaded } from './remote'
+import {
+  deriveRemoteOrientation, resolveRemoteOrientation, computeRemoteView, remoteTagOptions, remoteFontScale,
+  type RemoteOrientation,
+} from './remoteView'
 import { getLang, tr, STR, type Lang } from './i18n'
 import { setSmartInput } from './smartstore'
 export function getReact(): any {
@@ -546,7 +551,7 @@ export const PANEL_Z = 9999
 export const MODAL_Z = 11000
 // ── 弹窗组件（模块级稳定类型：内联函数组件会在父组件每次重渲染时被整体卸载重建 → 输入内容丢失）──
 const modalMaskStyle: any = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: MODAL_Z }
-const modalCardStyle: any = { width: 460, background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, fontFamily: 'var(--dsw-font-family)', color: 'var(--dsw-alias-label-primary)' }
+const modalCardStyle: any = { width: 460, background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))', backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))', border: '1px solid var(--dsw-alias-border-inverted)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, fontFamily: 'var(--dsw-font-family)', color: 'var(--dsw-alias-label-primary)' }
 const modalFieldStyle: any = { width: '100%', background: 'var(--dsw-alias-bg-layer-3)', border: '1px solid var(--dsw-alias-border-l1)', color: 'var(--dsw-alias-label-primary)', borderRadius: 8, padding: '8px 10px', fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none', boxSizing: 'border-box' }
 const modalBtnsStyle: any = { display: 'flex', justifyContent: 'flex-end', gap: 8 }
 const modalBtn = (primary?: boolean, danger?: boolean): any => ({ padding: '6px 14px', borderRadius: 8, border: primary ? 0 : '1px solid var(--dsw-alias-border-l1)', background: primary ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-bg-layer-3)', color: primary ? '#1a1a1e' : (danger ? 'var(--dsw-specific-danger,#e06c75)' : 'var(--dsw-alias-label-primary)'), cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em' })
@@ -556,6 +561,9 @@ function TemplateModal(props: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
+  // 新增弹窗同样跟字号档（卡面 em 全跟；父级重渲染即刷新，无需订阅）。
+  const uiScale = remoteFontScale(getRemotePrefs().font as any)
+  const cardStyleScaled: any = { ...modalCardStyle, fontSize: 'calc(1em * ' + uiScale + ')' }
   const editing = props.kind === 'edit' && !!props.tpl
   const s1 = react.useState(editing ? props.tpl.name : '')
   const name = s1[0]; const setName = s1[1]
@@ -584,10 +592,30 @@ function TemplateModal(props: any): any {
     props.onOk && props.onOk({ name: nm, labels: checked.labels, body: bd })
   }
   const known = allKnownLabels()
+  // 远程模式标签网格（2026-09-29 用户拍板）：原生 datalist 下拉又小又不可样式化，远程下换成
+  // 正方形大格单选网格（字形跟字号档走卡根 em，格尺寸由列宽定、永为正方形）；输入框保留供新词与拼音。
+  const labelGridOn = getRemotePrefs().enabled
+  const labelGridStyle: any = {
+    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(4.5em, 1fr))',
+    gap: '0.5em', marginTop: '0.5em',
+  }
+  const labelCellStyle = (on: boolean): any => ({
+    aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    textAlign: 'center', padding: '0.25em', borderRadius: '0.6em', cursor: 'pointer',
+    border: 'thin solid var(--dsw-alias-border-l1)', overflow: 'hidden',
+    background: on ? 'var(--dsw-specific-accent,#f0a45c)' : 'transparent',
+    color: on ? '#1a1a1e' : 'var(--dsw-alias-label-primary)',
+    fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em', fontWeight: on ? 700 : 500,
+    lineHeight: 1.25, overflowWrap: 'break-word',
+  })
+  const toggleGridLabel = (w: string): void => {
+    if (labels.indexOf(w) >= 0) setLabels(labels.filter((x) => x !== w))
+    else setLabels(normalizeLabels([...labels, w]))
+  }
   const chipStyle: any = { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.85em', color: 'var(--dsw-alias-label-primary)', background: 'var(--dsw-alias-bg-layer-3)', border: '1px solid var(--dsw-alias-border-l2)', padding: '1px 4px 1px 9px', borderRadius: 999, whiteSpace: 'nowrap' }
   const chipXStyle: any = { border: 0, background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', cursor: 'pointer', fontSize: '1em', lineHeight: 1, padding: '0 2px', fontFamily: 'var(--dsw-font-family)' }
   return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
-    h('div', { style: modalCardStyle }, [
+    h('div', { style: { ...cardStyleScaled, width: 'min(640px, 94vw)', maxHeight: '92vh', overflowY: 'auto' } }, [
       h('h3', { style: { fontSize: '1.08em', margin: 0 } }, editing ? props.t('editTitle') : props.t('addTitle')),
       h('input', { style: modalFieldStyle, placeholder: props.t('namePh'), value: name, onChange: (e: any) => setName(e.target.value) }),
       h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } }, labels.map((l: string) =>
@@ -600,11 +628,19 @@ function TemplateModal(props: any): any {
         style: modalFieldStyle, placeholder: props.t('labelsPh'), value: labelInput,
         onChange: (e: any) => setLabelInput(e.target.value),
         onKeyDown: (e: any) => { if (e.key === 'Enter') { e.preventDefault(); commitInput() } },
-        list: 'dsh-prompt-labels',
+        list: labelGridOn ? undefined : 'dsh-prompt-labels',
       }),
-      h('datalist', { id: 'dsh-prompt-labels' }, known.map((w: string) => h('option', { key: w, value: w }))),
+      labelGridOn ? null : h('datalist', { id: 'dsh-prompt-labels' }, known.map((w: string) => h('option', { key: w, value: w }))),
+      labelGridOn ? h('div', { style: labelGridStyle, 'data-dsh-prompt-label-grid': '1' }, known.map((w: string) => {
+        const on = labels.indexOf(w) >= 0
+        return h('button', {
+          key: w, type: 'button', style: labelCellStyle(on),
+          'data-dsh-prompt-label-cell': '1', 'aria-pressed': on ? 'true' : 'false', title: w,
+          onClick: () => toggleGridLabel(w),
+        }, w)
+      })) : null,
       h('div', { style: { fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)' } }, props.t('labelsHint')),
-      h('textarea', { style: { ...modalFieldStyle, height: 110, resize: 'vertical' }, placeholder: props.t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),
+      h('textarea', { style: { ...modalFieldStyle, height: 200, resize: 'vertical' }, placeholder: props.t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),
       err ? h('div', { style: { fontSize: '0.92em', color: 'var(--dsw-specific-danger,#e06c75)' } }, props.t(err as keyof typeof STR)) : null,
       h('div', { style: modalBtnsStyle }, [
         h('button', { style: modalBtn(), onClick: props.onCancel }, props.t('cancel')),
@@ -619,8 +655,10 @@ function ConfirmDelete(props: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
+  const uiScale = remoteFontScale(getRemotePrefs().font as any)
+  const cardStyleScaled: any = { ...modalCardStyle, fontSize: 'calc(1em * ' + uiScale + ')' }
   return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
-    h('div', { style: modalCardStyle }, [
+    h('div', { style: cardStyleScaled }, [
       h('h3', { style: { fontSize: '1.08em', margin: 0 } }, props.t('delTitle')),
       h('div', { style: { fontSize: '0.96em', color: 'var(--dsw-alias-label-tertiary)' } }, props.t('delMsg') + '「' + props.tpl.name + '」' + props.t('delUnrecover')),
       h('div', { style: modalBtnsStyle }, [
@@ -724,6 +762,11 @@ export function TemplateBrowser(props: BrowserProps): any {
   const listRef = react.useRef(null as any)
   const highlightState = react.useState(null as string | null)
   const highlightId = highlightState[0]
+  // #88 行强调态（父级持 id，避免 hooks 进 map）：hover=鼠标悬停/键盘进焦，pressed=鼠标按下/触屏按住统一态（Pointer+Mouse 双轨，不做独立 long-press 计时）。
+  const hoverState = react.useState(null as string | null)
+  const hoverId = hoverState[0]
+  const pressedState = react.useState(null as string | null)
+  const pressedId = pressedState[0]
   // #74 设置页行折叠：展开态组件局部 useState（存 id 集合），不进 store；
   // 行此前无 onClick，加点击只做同一行简介显隐（不涨用量、不触发插入、不关窗，#61 管理面语义）。
   const expandedState = react.useState(new Set<string>())
@@ -743,6 +786,24 @@ export function TemplateBrowser(props: BrowserProps): any {
   const searchFocused = focusState[0]
   const compState = react.useState(false)
   const composing = compState[0]
+  // #83 远程大列表本体（只动 TemplateBrowser 分支）：总闸开=大、关=小，零中间态。
+  // 独立选中/查询/页码/搜索展开态（远程标签域只留全部+在用动态词，与悬浮云互不串扰）。
+  const remoteSelState = react.useState(null as string | null)
+  const remoteSelected = remoteSelState[0]
+  const remoteQState = react.useState('')
+  const remoteQ = remoteQState[0]
+  const remotePageState = react.useState(0)
+  const remotePage = remotePageState[0]
+  const remoteSearchState = react.useState(false)
+  const remoteSearchOpen = remoteSearchState[0]
+  const remoteFocusState = react.useState(false)
+  const remoteSearchFocused = remoteFocusState[0]
+  const remoteCompState = react.useState(false)
+  const remoteComposing = remoteCompState[0]
+  const orientState = react.useState('landscape' as RemoteOrientation)
+  const remoteOrient = orientState[0]
+  const remoteTickState = react.useState(0)
+  void remoteTickState[0]
 
   // 面板打开事件（#49）：只记形态与条数，不记模板名与搜索词。
   react.useEffect(() => {
@@ -823,10 +884,10 @@ export function TemplateBrowser(props: BrowserProps): any {
   // deps 用 !!modal 避免对象身份抖动；onCancel/onOk/输入框处理器中同步清门控以消除 effect 下一帧前的竞态窗口
   react.useEffect(() => {
     if (!compact) return
-    if (modal || searchFocused || composing) setHoverCloseSuppressed(true)
+    if (modal || searchFocused || composing || remoteSearchFocused || remoteComposing) setHoverCloseSuppressed(true)
     else setHoverCloseSuppressed(false)
     return () => { setHoverCloseSuppressed(false) }
-  }, [compact, !!modal, searchFocused, composing])
+  }, [compact, !!modal, searchFocused, composing, remoteSearchFocused, remoteComposing])
 
   const refresh = () => setTick((n: number) => n + 1)
   const t = (k: keyof typeof STR) => tr(lang, STR[k])
@@ -838,6 +899,40 @@ export function TemplateBrowser(props: BrowserProps): any {
     const off = subscribeStore(() => { if (on) refresh() })
     return () => { on = false; off() }
   }, [])
+
+  // #83 远程偏好订阅 + 方向偏好（去宿主化：视口推导为 auto 档的输入，锁定档直接覆盖，不读宿主）。
+  react.useEffect(() => {
+    let on = true
+    try { ensureRemoteLoaded().then(() => { if (on) remoteTickState[1]((n: number) => n + 1) }, () => undefined) } catch (e) { /* ignore */ }
+    let off: (() => void) | null = null
+    try { off = subscribeRemote(() => { if (on) remoteTickState[1]((n: number) => n + 1) }) } catch (e) { /* ignore */ }
+    return () => { on = false; try { if (off) off() } catch (e) { /* ignore */ } }
+  }, [])
+  // 视口方向（auto 档的输入）：只存视口推导值，最终方向由方向偏好解析（锁定覆盖）。
+  react.useEffect(() => {
+    if (!compact) return
+    const update = (): void => {
+      try {
+        const w = (globalThis as any).window
+        const iw = w && typeof w.innerWidth === 'number' ? w.innerWidth : (typeof window !== 'undefined' ? (window as any).innerWidth : undefined)
+        const ih = w && typeof w.innerHeight === 'number' ? w.innerHeight : (typeof window !== 'undefined' ? (window as any).innerHeight : undefined)
+        if (typeof iw === 'number' && typeof ih === 'number') orientState[1](deriveRemoteOrientation(iw, ih))
+      } catch (e) { /* ignore */ }
+    }
+    update()
+    try {
+      const w = (globalThis as any).window
+      if (w && typeof w.addEventListener === 'function') {
+        w.addEventListener('resize', update)
+        return () => { try { w.removeEventListener('resize', update) } catch (e) { /* ignore */ } }
+      }
+      if (typeof window !== 'undefined' && typeof (window as any).addEventListener === 'function') {
+        (window as any).addEventListener('resize', update)
+        return () => { try { (window as any).removeEventListener('resize', update) } catch (e) { /* ignore */ } }
+      }
+    } catch (e) { /* ignore */ }
+    return () => undefined
+  }, [compact])
 
   // 列表组装（#23 + #70 P6a）：整行单选互斥，无短路，无双维 AND；
   // null=全部/无选择=不过滤；预置/自定义按 builtin 布尔（继承旧 tab=自定义语义：旧短路 if (tab===CUSTOM_TAG) return !x.builtin）；
@@ -860,6 +955,38 @@ export function TemplateBrowser(props: BrowserProps): any {
   // 悬浮列表 bottom-up（#68）：compact 浮层置顶簇聚底；设置页忽略置顶、只留用量降序
   const sorted = compact ? sortedTemplatesBottomUp(filtered) : sortedTemplates(filtered)
 
+  // #83 远程大列表数据（纯视图模型输入输出；排序与匹配复用既有收敛点，不另起第二套）。
+  // 标签域收敛为全部加在用动态词单选（预置与自定义平权，走 matchLabel 单选包含）。
+  const remotePrefs = getRemotePrefs()
+  const isRemoteBig = compact && !!remotePrefs.enabled
+  const remoteOptions = remoteTagOptions(allKnownLabels())
+  const remoteListBase = allTemplates().filter((x) => {
+    if (remoteSelected === null) return true
+    return matchLabel(x, remoteSelected)
+  })
+  const remoteQl = remoteQ.trim().toLowerCase()
+  const remoteFiltered = remoteQl
+    ? remoteListBase.filter((x) => templateHaystack(x).indexOf(remoteQl) >= 0)
+    : remoteListBase
+  const remoteSorted = sortedTemplatesBottomUp(remoteFiltered)
+  // 最终方向：方向偏好锁定覆盖视口推导（去宿主化，纯插件）。
+  const remotePref = (remotePrefs as any).orientation || 'auto'
+  const remoteFinalOrient: RemoteOrientation = remotePref === 'landscape' || remotePref === 'portrait'
+    ? remotePref
+    : remoteOrient
+  const remoteView = computeRemoteView({
+    ids: remoteSorted.map((x) => x.id),
+    page: remotePage,
+    orientation: remoteFinalOrient,
+    enabled: !!remotePrefs.enabled,
+    font: (remotePrefs.font as any),
+    control: (remotePrefs.control as any),
+    hostCaps: { hasSystemOrientation: false, hasSystemFont: false, hasStableOpen: false },
+    searchOpen: remoteSearchOpen,
+  })
+  const remoteById = new Map(remoteSorted.map((x) => [x.id, x]))
+  const remoteUsage = loadUsage()
+
   // bottom-up 浮层：打开 / 过滤变化后自动滚到底部，首屏即见最常用
   // 使用双 rAF + setTimeout 兜底，确保在 fixed 定位与 flex 布局完成后再滚动；对短列表（无滚动）也保持在底部
   react.useEffect(() => {
@@ -879,6 +1006,10 @@ export function TemplateBrowser(props: BrowserProps): any {
   const presetCount = PRESET_TEMPLATES.length
   const customCount = customs.length
 
+  // 三档全局跟随（2026-09-29 用户拍板：字号档缩放本插件一切 UI 文字的基准，不分远程开关；
+  // 常规小列表/新增弹窗/删除确认)，与 palette 无关；关=小列表照常用，只是字号跟档走。
+  const uiFontScale = remoteFontScale(getRemotePrefs().font as any)
+
   // ── 样式（DSH 主题变量）──
   const base = 'var(--dsw-alias-label-primary)'
   const muted = 'var(--dsw-alias-label-secondary)'
@@ -890,10 +1021,14 @@ export function TemplateBrowser(props: BrowserProps): any {
         // #35：未定位前隐藏——宁可晚一帧出现，也不闪现在屏幕左下角
         visibility: pos ? 'visible' : 'hidden',
         zIndex: PANEL_Z, width: 560,
-        display: 'flex', flexDirection: 'column',
-        background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',
+        display: 'flex', flexDirection: 'column',        // #88 不透明兜底：宿主 --dsw-specific-menu 为玻璃半透明时面板跟着透，行文字被底层盖住。
+        // 可读性必须建在不透明层上，故优先别名层实色（宿主保证不透明），menu 只作回退；backgroundColor 同链确保 shorthand 被覆盖后仍 opaque。
+        background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+        backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+        border: '1px solid var(--dsw-alias-border-inverted)',
         borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)', overflow: 'hidden',
-        fontFamily: 'var(--dsw-font-family)', fontSize: 'var(--dsw-font-markdown-base-font-size)', color: base,
+        // 常规小列表同样跟字号档（calc 相对缩放，子项 em 全跟；宽 560/高 360 布局量不动）。
+        fontFamily: 'var(--dsw-font-family)', fontSize: 'calc(var(--dsw-font-markdown-base-font-size) * ' + uiFontScale + ')', color: base,
       }
     : {
         display: 'flex', flexDirection: 'column', gap: 6, padding: '6px 8px',
@@ -917,7 +1052,10 @@ export function TemplateBrowser(props: BrowserProps): any {
   const listStyle: any = compact
     ? { overflow: 'auto', padding: '2px 2px 8px', height: 360, display: 'flex', flexDirection: 'column', justifyContent: sorted.length <= 10 ? 'flex-end' : 'flex-start' }
     : { padding: '2px 2px 8px' } // 设置页：自然高度，由宿主设置面板整页滚动
-  const itemStyle: any = { display: 'flex', gap: 6, borderRadius: 8, cursor: 'pointer', alignItems: compact ? 'center' : 'flex-start', padding: compact ? '3px 6px' : '4px 2px' }
+  const itemStyle: any = { display: 'flex', gap: 6, borderRadius: 8, cursor: 'pointer', alignItems: compact ? 'center' : 'flex-start', padding: compact ? '3px 6px' : '4px 2px', transition: 'background-color .12s ease' }
+  // #88 行强调 token（沿用仓内既有语义，不新造色）：hover=交互 hover，pressed=交互 active 回退层 3（比 hover 深一档）。
+  const ROW_HOVER_BG = 'var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-layer-2, rgba(255,255,255,.06)))'
+  const ROW_PRESSED_BG = 'var(--dsw-alias-interactive-bg-active, var(--dsw-alias-bg-layer-3))'
   const pinStyle = (on: boolean): any => ({ flex: 'none', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 0, background: 'transparent', borderRadius: 6 })
   const nmStyle: any = { flex: 'none', minWidth: 0, fontSize: '0.98em', color: base, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
   const subStyle: any = { display: 'block', fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
@@ -999,6 +1137,290 @@ export function TemplateBrowser(props: BrowserProps): any {
     }
   }
 
+  // REMOTE-BIG-LIST-START (#83 大列表十二槽本体：只动 TemplateBrowser 分支)
+  // 远程开=大列表分支：固定十二槽、虚线空位、搜索收起行内顶起、标签双行横滚、
+  // 置顶聚底复用既有排序、卡面标题加简介各一行、底栏大翻页与搜索同栏、字号控件三档乘数。
+  // 定位取锚点上方全部可用高度、宽度近全宽；内部以相对单位随面板缩放。
+  if (isRemoteBig) {
+    const remoteCols = remoteView.cols
+    const remoteRows = remoteView.rows
+    const remoteFontScale = remoteView.fontScale
+    const remoteControlScale = remoteView.controlScale
+    const remoteThin = 'thin solid var(--dsw-alias-border-l1)'
+    const remotePanelStyle: any = {
+      position: 'fixed',
+      left: '1%', right: '1%', top: '1%',
+      bottom: (pos && typeof pos.bottom === 'number') ? pos.bottom : '1%',
+      zIndex: PANEL_Z,
+      display: 'flex', flexDirection: 'column',
+      overflow: 'hidden',
+      background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+      backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+      border: remoteThin,
+      borderRadius: '0.75em',
+      fontFamily: 'var(--dsw-font-family)',
+      fontSize: 'calc(1em * ' + remoteFontScale + ')',
+      color: base,
+    }
+    const remoteMetaStyle: any = { fontSize: '0.85em', color: dim, whiteSpace: 'nowrap' }
+    const remoteCloseStyle: any = {
+      marginLeft: 'auto', flex: 'none',
+      width: '2.5em', height: '2.5em', borderRadius: '50%',
+      border: remoteThin, background: 'transparent', color: dim,
+      fontSize: '1em', lineHeight: 1, cursor: 'pointer',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }
+    const remoteGridStyle: any = {
+      flex: '1 1 auto', minHeight: '0', minWidth: '0',
+      display: 'grid',
+      gridTemplateColumns: 'repeat(' + remoteCols + ', minmax(0, 1fr))',
+      gridTemplateRows: 'repeat(' + remoteRows + ', minmax(0, 1fr))',
+      gap: '0.75em', padding: '0.75em', overflow: 'hidden', alignContent: 'stretch',
+    }
+    const remoteCardStyle = (custom: boolean, pinned: boolean, hover: boolean, pressed: boolean): any => ({
+      minWidth: '0', minHeight: '0', overflow: 'hidden',
+      // 苹果式信息层级（2026-09-29 卡片重排）：内容顶对齐，空位只剩底边一小截；
+      // 自上而下=元信息行（徽标+用量）→ 标题 → 简介，一眼三段。
+      display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: '0.3em',
+      padding: '0.75em', borderRadius: '0.75em',
+      // 预置 / 自建 / 置顶三态可辨（只用主题变量，跟随深浅色与 palette，不硬编码）：
+      // 置顶=accent 粗边，自建=layer-2 底区别于预置 layer-3，按压/悬停复用 #88 行语义。
+      border: pinned ? '0.14em solid var(--dsw-specific-accent,#f0a45c)' : remoteThin,
+      background: pressed
+        ? ROW_PRESSED_BG
+        : hover
+          ? ROW_HOVER_BG
+          : (custom ? 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-3))' : 'var(--dsw-alias-bg-layer-3)'),
+      outline: pressed ? '0.07em solid var(--dsw-alias-border-l1)' : undefined,
+      color: base,
+      cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', textAlign: 'left',
+      fontSize: '1em', lineHeight: 1.3,
+      transition: 'background-color .12s ease, transform .08s ease, filter .08s ease',
+      transform: pressed ? 'scale(.98)' : undefined,
+    })
+    const remoteCardTitle: any = {
+      fontSize: '1.02em', fontWeight: 700, color: base,
+      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 'none',
+    }
+    // 简介全文展示（2026-09-29 用户拍板：2 行 clamp 取消，卡内能放多少放多少；
+    // 超长由卡片底边硬裁，不跳高——面板高度本就由锚点固定，页内卡等高由 grid 保证）。
+    const remoteCardIntro: any = {
+      fontSize: '0.85em', color: muted,
+      whiteSpace: 'normal', overflow: 'hidden', overflowWrap: 'break-word',
+      flex: '1 1 auto', minHeight: 0, lineHeight: 1.4,
+    }
+    // 种类徽标：预置 / 自建一眼可辨（palette 下仍可辨：只用主题变量）。
+    const remoteKindBadge = (custom: boolean): any => ({
+      flex: 'none', fontSize: '0.72em', fontWeight: 700,
+      color: custom ? 'var(--dsw-specific-accent,#f0a45c)' : muted,
+      border: '0.07em solid ' + (custom ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-border-l2)'),
+      padding: '0 0.4em', borderRadius: 999, lineHeight: 1.35, whiteSpace: 'nowrap',
+    })
+    const remoteCardUse = (pinnedCard: boolean): any => ({
+      fontSize: '0.78em', color: pinnedCard ? 'var(--dsw-specific-accent,#f0a45c)' : dim, flex: 'none',
+      fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontWeight: pinnedCard ? 700 : 400,
+    })
+    // 元信息行：标题弹性占满 + 徽标 + 用量 + 动作键同行，简介独享剩余高度。
+    const remoteCardMeta: any = {
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4em',
+      flex: 'none', minWidth: '0',
+    }
+    // 卡片动作键（2026-09-29 用户拍板：图标换成文字键——“编辑/复制”明示比✎好认；
+    // 细边框胶囊 + 次级灰字，不抢戏；最小高度跟控件档、字形跟字号档）。
+    // 自建=编辑进编辑页，预置只读故=复制为自建；点动作只办事不插入（handleEdit/handleCopy 内已 stopPropagation）。
+    const remoteCardAct: any = {
+      flex: 'none', alignSelf: 'center', padding: '0.35em 0.75em',
+      minHeight: 'calc(1.8em * ' + remoteControlScale + ')',
+      borderRadius: 999, border: '0.07em solid var(--dsw-alias-border-l2)',
+      background: 'transparent',
+      color: muted, cursor: 'pointer', fontSize: '0.78em', fontWeight: 600, lineHeight: 1.4,
+      whiteSpace: 'nowrap',
+    }
+    const remoteEmptyStyle: any = {
+      minWidth: '0', minHeight: '0',
+      border: 'thin dashed var(--dsw-alias-border-l2)', borderRadius: '0.75em',
+      background: 'transparent',
+    }
+    const remoteSearchRowStyle: any = {
+      display: 'flex', gap: '0.5em', padding: '0 0.75em 0.5em', flex: 'none',
+    }
+    const remoteSearchInputStyle: any = {
+      flex: '1 1 auto', minWidth: '0',
+      padding: '0.6em 0.75em', borderRadius: '0.6em', border: remoteThin,
+      background: 'var(--dsw-alias-bg-layer-3)', color: base,
+      fontFamily: 'var(--dsw-font-family)', fontSize: '1em', outline: 'none',
+    }
+    const remoteBarStyle: any = {
+      display: 'flex', gap: '0.5em', alignItems: 'stretch',
+      padding: '0.5em 0.75em 0.75em', borderTop: remoteThin,
+      flex: 'none', flexWrap: 'wrap',
+    }
+    const remoteBtnStyle = (enabledBtn: boolean): any => ({
+      flex: 'none', minWidth: '4em',
+      minHeight: 'calc(3em * ' + remoteControlScale + ')',
+      padding: '0.5em 0.75em', borderRadius: '0.6em', border: remoteThin,
+      background: enabledBtn ? 'var(--dsw-alias-bg-layer-3)' : 'transparent',
+      color: enabledBtn ? base : dim,
+      cursor: enabledBtn ? 'pointer' : 'default',
+      opacity: enabledBtn ? 1 : 0.45,
+      fontFamily: 'var(--dsw-font-family)', fontSize: '1em', fontWeight: 700,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    })
+    const remoteTagsWrap: any = {
+      flex: '1 1 auto', minWidth: '40%',
+      display: 'grid', gridTemplateRows: 'repeat(2, auto)', gridAutoFlow: 'column',
+      gridAutoColumns: 'minmax(4em, auto)', gap: '0.4em',
+      overflowX: 'auto', overflowY: 'hidden', alignContent: 'center', padding: '0.15em',
+    }
+    const remoteTagBtn = (on: boolean): any => ({
+      minWidth: '0', padding: '0.45em 0.6em', borderRadius: '0.4em', border: remoteThin,
+      background: on ? 'var(--dsw-specific-accent,#f0a45c)' : 'transparent',
+      color: on ? '#1a1a1e' : muted,
+      cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.9em',
+      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+    })
+    const remoteNoteStyle: any = {
+      flex: 'none', padding: '0 0.75em 0.6em',
+      fontSize: '0.85em', color: dim, whiteSpace: 'nowrap',
+      overflow: 'hidden', textOverflow: 'ellipsis',
+    }
+    const remoteHover = compact
+      ? { onMouseEnter: () => cancelPanelClose(), onMouseLeave: () => { if (modal || remoteSearchFocused || remoteComposing) return; schedulePanelClose(150) } }
+      : null
+    const remoteSlots = remoteView.slots.map((s) => {
+      if (s.kind === 'empty') {
+        return h('div', { key: 'empty-' + s.order, style: remoteEmptyStyle, 'data-dsh-prompt-remote-empty': '1', 'aria-hidden': 'true' })
+      }
+      const tpl = remoteById.get(s.id)
+      if (!tpl) return h('div', { key: 'empty-' + s.order, style: remoteEmptyStyle, 'data-dsh-prompt-remote-empty': '1', 'aria-hidden': 'true' })
+      // 简介取正文全文（空白压成单空格），卡内自然流排、底边硬裁——全面展示，高度不跳。
+      const intro = (tpl.body || '').split(/\s+/).filter((x) => !!x).join(' ')
+      const usageN = remoteUsage[tpl.id] || 0
+      const pinned = isPinned(tpl.id)
+      const custom = !tpl.builtin
+      // 悬停/按压视觉反馈（复用 #88 行语义：hover 高亮、pressed 加深+微缩；触屏长按即保持 pressed）。
+      const cardHover = hoverId === tpl.id
+      const cardPressed = pressedId === tpl.id
+      const cardInteract = {
+        onMouseEnter: () => hoverState[1](tpl.id),
+        onMouseLeave: () => { hoverState[1](null); pressedState[1]((cur: string | null) => (cur === tpl.id ? null : cur)) },
+        onMouseDown: (e: any) => { keepComposerFocus(e); pressedState[1](tpl.id) },
+        onMouseUp: () => pressedState[1](null),
+        onPointerDown: () => pressedState[1](tpl.id),
+        onPointerUp: () => pressedState[1](null),
+        onPointerCancel: () => pressedState[1](null),
+        onFocus: () => hoverState[1](tpl.id),
+        onBlur: () => hoverState[1](null),
+      }
+      return h('button', {
+        key: tpl.id, style: remoteCardStyle(custom, pinned, cardHover, cardPressed),
+        'data-dsh-prompt-remote-card': '1', 'data-dsh-prompt-id': tpl.id,
+        title: labelString(tpl),
+        onClick: () => { pressedState[1](null); handlePick(tpl) },
+        ...cardInteract,
+      }, [
+        h('span', { style: remoteCardMeta }, [
+          h('span', { style: { ...remoteCardTitle, flex: '1 1 auto', minWidth: 0 } }, tpl.name),
+          h('span', { style: remoteKindBadge(custom) }, custom ? '自建' : '预置'),
+          h('span', { style: remoteCardUse(pinned) }, '用量' + usageN + (pinned ? ' ★' : '')),
+          h('button', {
+            type: 'button', style: remoteCardAct,
+            title: custom ? t('edit') : t('copy'),
+            'aria-label': custom ? t('edit') : t('copy'),
+            'data-dsh-prompt-remote-act': custom ? 'edit' : 'copy',
+            onMouseDown: keepComposerFocus,
+            onClick: (e: any) => { if (custom) handleEdit(e, tpl); else handleCopy(e, tpl.id) },
+          }, custom ? t('edit') : t('copy')),
+        ]),
+        h('span', { style: remoteCardIntro }, intro),
+      ])
+    })
+    const remoteTagNodes = remoteOptions.map((label) => {
+      const on = (remoteSelected === null && label === '全部') || remoteSelected === label
+      return h('button', {
+        key: label, style: remoteTagBtn(on),
+        'aria-pressed': on ? 'true' : 'false',
+        onMouseDown: keepComposerFocus,
+        onClick: () => {
+          const next = on ? null : (label === '全部' ? null : label)
+          remoteSelState[1](next)
+          remotePageState[1](0)
+          refresh()
+        },
+      }, label)
+    })
+    const remoteSearchToggle = (): void => {
+      const next = !remoteSearchOpen
+      remoteSearchState[1](next)
+      if (!next) {
+        remoteQState[1]('')
+        remotePageState[1](0)
+      }
+      refresh()
+    }
+    return h('div', {
+      ref: rootRef, style: remotePanelStyle, ...remoteHover,
+      'data-dsh-prompt-remote-panel': '1',
+      'data-dsh-prompt-remote-orient': remoteView.orientation,
+      'data-dsh-prompt-remote-font': String(remotePrefs.font),
+      'data-dsh-prompt-remote-control': String(remotePrefs.control),
+      'data-dsh-prompt-remote-orientation-pref': String(remotePref),
+    }, [
+      useInput ? h(DraftTap, { key: 'dsh-prompt-draft-tap', useInput }) : null,
+      // 头栏已删（2026-09-29 用户拍板：不要标题栏），面板顶边即网格。
+      h('div', { style: remoteGridStyle, 'data-dsh-prompt-remote-grid': '1' }, remoteSlots),
+      remoteSearchOpen ? h('div', { style: remoteSearchRowStyle }, [
+        h('input', {
+          style: remoteSearchInputStyle, placeholder: t('searchPh'), value: remoteQ,
+          'data-dsh-prompt-remote-search-input': '1',
+          onChange: (e: any) => { remoteQState[1](e.target.value); remotePageState[1](0); refresh() },
+          onFocus: () => { remoteFocusState[1](true); if (compact) setHoverCloseSuppressed(true) },
+          onBlur: () => { remoteFocusState[1](false); if (compact && !remoteComposing && !modal) setHoverCloseSuppressed(false) },
+          onCompositionStart: () => { remoteCompState[1](true); if (compact) setHoverCloseSuppressed(true) },
+          onCompositionEnd: (e: any) => {
+            remoteCompState[1](false)
+            try { const v = e && e.target && typeof e.target.value === 'string' ? e.target.value : null; if (v !== null) { remoteQState[1](v); remotePageState[1](0) } } catch (err) { /* ignore */ }
+            if (compact && !modal && !remoteSearchFocused) setHoverCloseSuppressed(false)
+          },
+        }),
+      ]) : null,
+      h('div', { style: remoteBarStyle }, [
+        h('button', {
+          style: remoteBtnStyle(remoteView.bottomBar.hasPrev),
+          disabled: !remoteView.bottomBar.hasPrev,
+          'data-dsh-prompt-remote-prev': '1',
+          onMouseDown: keepComposerFocus,
+          onClick: () => { if (remoteView.bottomBar.hasPrev) { remotePageState[1](remoteView.page - 1); refresh() } },
+        }, '◀ 上一页'),
+        h('div', { style: remoteTagsWrap, 'data-dsh-prompt-remote-tags': '1' }, remoteTagNodes),
+        h('button', {
+          style: remoteBtnStyle(true),
+          'data-dsh-prompt-remote-search': '1',
+          'aria-pressed': remoteSearchOpen ? 'true' : 'false',
+          title: t('searchPh'),
+          onMouseDown: keepComposerFocus,
+          onClick: remoteSearchToggle,
+        }, '🔍 搜索'),
+        h('button', {
+          style: remoteBtnStyle(remoteView.bottomBar.hasNext),
+          disabled: !remoteView.bottomBar.hasNext,
+          'data-dsh-prompt-remote-next': '1',
+          onMouseDown: keepComposerFocus,
+          onClick: () => { if (remoteView.bottomBar.hasNext) { remotePageState[1](remoteView.page + 1); refresh() } },
+        }, '下一页 ▶'),
+        h('span', { style: { ...remoteMetaStyle, alignSelf: 'center', flex: 'none' }, 'data-dsh-prompt-remote-page': '1' }, remoteView.bottomBar.pageText),
+        h('button', {
+          style: { ...remoteCloseStyle, alignSelf: 'center' }, title: t('close'),
+          'data-dsh-prompt-remote-close': '1',
+          onMouseDown: keepComposerFocus,
+          onClick: () => setPanelOpen(false),
+        }, '×'),
+      ]),
+      modalNode,
+    ])
+  }
+  // REMOTE-BIG-LIST-END
+
   // ── 组装 ──
   // #70 P6a 整行单选互斥（悬浮/设置共用同一顶部）：[全部][预置][自定义]+行动词同行，所有 pill 同属 selected 单选互斥；
   // 点已选项回 null（toggle）；点他项直接切换（天然清他维，不存在叠加）。
@@ -1022,7 +1444,11 @@ export function TemplateBrowser(props: BrowserProps): any {
       : h('span', { style: actStyle }, [
           h('button', { style: actBtn(), onClick: (e: any) => handleCopy(e, x.id) }, t('copy')),
         ])
-    const itemBg = highlightId === x.id ? 'var(--dsw-alias-interactive-bg-hover)' : undefined
+    // #88 三态优先级：pressed（按下/长按统一）> hover（含键盘进焦）> 复制高亮；常态 transparent。
+    const isPressed = pressedId === x.id
+    const isHover = hoverId === x.id
+    const itemBg = isPressed ? ROW_PRESSED_BG : isHover ? ROW_HOVER_BG : highlightId === x.id ? ROW_HOVER_BG : undefined
+    const itemOutline = isPressed ? '1px solid var(--dsw-alias-border-l1)' : undefined
     // 简介 = body 首行（一句话），标题之后跟随 —— 单行显示
     const intro = (x.body || '').split('\n')[0].trim()
     // #71 行内用量徽标：读 store 现有缓存（排序语义不动，只读展示）
@@ -1034,8 +1460,19 @@ export function TemplateBrowser(props: BrowserProps): any {
       // #61 保焦（宿主 input.left 自家按钮同款 keepFocus）：mousedown 默认行为会把焦点从
       // 作曲家抢走；preventDefault 只拦焦点转移，click 照常触发；焦点已在面板搜索框/编辑器内
       // 时不抢（见 keepComposerFocus）；键盘操作无 mousedown，不受影响。
-      const keepFocus = { onMouseDown: keepComposerFocus }
-      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, minWidth: 0 }, 'data-dsh-prompt-id': x.id, ...keepFocus, onClick: () => handlePick(x), title: labelString(x) + ' · ' + t('insertHint') }, [
+      // #88：保焦与 pressed 合一（先保焦再置 pressed）；hover/pressed 经 Pointer+Mouse 双轨统一，长按即保持 pressed，不另起计时器。
+      const rowInteract = {
+        onMouseEnter: () => hoverState[1](x.id),
+        onMouseLeave: () => { hoverState[1](null); pressedState[1]((cur: string | null) => (cur === x.id ? null : cur)) },
+        onMouseDown: (e: any) => { keepComposerFocus(e); pressedState[1](x.id) },
+        onMouseUp: () => pressedState[1](null),
+        onPointerDown: () => pressedState[1](x.id),
+        onPointerUp: () => pressedState[1](null),
+        onPointerCancel: () => pressedState[1](null),
+        onFocus: () => hoverState[1](x.id),
+        onBlur: () => hoverState[1](null),
+      }
+      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, outline: itemOutline, minWidth: 0 }, 'data-dsh-prompt-id': x.id, ...rowInteract, onClick: () => handlePick(x), title: labelString(x) + ' · ' + t('insertHint') }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
           h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : 'none', stroke: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : dim, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, [
             h('path', { d: 'M12 17v5' }),

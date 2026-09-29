@@ -2,7 +2,7 @@
   "version": 1,
   "pluginId": "dsh-prompt",
   "counts": {
-    "resident": 26,
+    "resident": 33,
     "ondemand": 9,
     "selfmon": 5
   },
@@ -146,6 +146,138 @@
       "kind": "resident",
       "fields": [
         "on"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "settings.remote.toggle": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "on",
+        "font",
+        "control"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "settings.remote.font": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "on",
+        "font",
+        "control"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "settings.remote.control": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "on",
+        "font",
+        "control"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "settings.remote.orientation": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "on",
+        "orientation"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "system.orientation.get": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "ok",
+        "orientation",
+        "source",
+        "code"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "system.orientation.set": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "ok",
+        "orientation",
+        "code"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "remote.direct.open": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "method",
+        "ok"
+      ],
+      "codes": [
+        "ENUM"
       ],
       "rules": [
         "R_TOKEN",

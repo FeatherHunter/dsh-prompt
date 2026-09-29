@@ -65,6 +65,8 @@
     "test:issue-82": "node scripts/test-issue-82.cjs",
     "test:issue-82-host": "node scripts/test-issue-82-host.cjs",
     "test:issue-83": "node scripts/test-issue-83.cjs",
+    "test:issue-86-host": "node scripts/test-issue-86-host.cjs",
+    "test:issue-86": "node scripts/test-issue-86.cjs",
     "test:issue-89": "node scripts/test-issue-89.cjs",
     "test:issue-59": "node scripts/test-issue-59.cjs",
     "test:marketplace": "node scripts/check-marketplace-readme.mjs",

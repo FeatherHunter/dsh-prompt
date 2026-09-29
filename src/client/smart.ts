@@ -14,6 +14,8 @@ import {
   type SmartPos,
 } from './smartstore'
 import { getLang, tr, STR } from './i18n'
+import { getRemotePrefs, subscribeRemote } from './remote'
+import { remoteFontScale } from './remoteView'
 const DOT_SIZE = 12 // 还原原设计：12px 次级色低调圆点（原型 GlobalDot 样式）
 const CARD_W = 280 // 内容宽度收窄
 const CARD_H_EST = 150 // 卡片高度估算（首次渲染未测量时用；测量后精确锚定）
@@ -188,6 +190,17 @@ export function SmartCardHost(props: any): any {
     return () => { off1(); off2() }
   }, [])
 
+  // 三档全局跟随（2026-09-29 用户拍板）：字号档缩放智能卡文字；tick 订阅保证调档即时重渲染。
+  const remoteTickState = react.useState(0)
+  react.useEffect(() => {
+    let on = true
+    try {
+      return subscribeRemote(() => { if (on) remoteTickState[1]((n: number) => n + 1) })
+    } catch (e) { /* ignore */ }
+    return () => { on = false }
+  }, [])
+  const smartFontScale = remoteFontScale(getRemotePrefs().font as any)
+
   // 草稿来源 = 输入框真实值（轮询 + focus 事件；DOM 读不到时由 currentDraft 回退输入桥草稿）；
   // 与面板插入同源，不依赖 overlay 重渲染
   react.useEffect(() => {
@@ -328,7 +341,7 @@ export function SmartCardHost(props: any): any {
     background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',
     borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)',
     display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 10px',
-    fontFamily: 'var(--dsw-font-family)', fontSize: 'var(--dsw-font-markdown-base-font-size)', color: base,
+    fontFamily: 'var(--dsw-font-family)', fontSize: 'calc(var(--dsw-font-markdown-base-font-size) * ' + smartFontScale + ')', color: base,
   }
   const headStyle: any = { display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderBottom: line, cursor: 'grab', minWidth: 0 }
   // 行 = 圆角子卡片（原型样式）：编号 + 名称 + 标签(·分N/·最近) + 命中词 + 「点击填入」按钮

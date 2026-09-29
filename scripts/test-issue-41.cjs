@@ -1,13 +1,14 @@
-// 回归 #41：启动后延迟自动检查 + 有新版本弹一次 + 跳过此版本
+// 回归 #41（#89 起部分契约被取代，见下）：启动后延迟自动检查 + 有新版本弹同一只窗 + 跳过此版本
 //
-// 契约（票面「交付」1–4 与「验收」逐条；map #38 的 grilling 定案）：
+// 契约（票面「交付」1–4 与「验收」逐条；map #38 的 grilling 定案；#89 拍板修订 2) 与 4)）：
 //  1) 启动后延迟若干秒自动查一次新版：延迟时长在本票里定死，代码里只出现一处（updauto.ts 的
-//     AUTO_CHECK_DELAY_MS），update.ts 只引用它、不写第二个数字；
-//  2) 有新版本时自动弹**同一只**更新弹窗（update.ts 的 UpdateEntry 在 `auto` 模式下只渲染那只弹窗，
-//     不另写第二只），且只弹一次（一个页面会话里至多一次自动检查，至多一次自动开窗）；
+//     AUTO_CHECK_DELAY_MS）；#89 起排期搬进 updauto.ts 的 subscribeAutoTick，update.ts 只订阅、不写数字；
+//  2)（#89 改写）有新版本时自动弹**同一只**更新弹窗，不另写第二只；「只弹一次」改成「每周期单飞、
+//     同屏只一只」——后台按 4h±5min 周期复查（issue #89），不再是「一个页面会话只查一次」；
 //  3) 「跳过此版本」只落 localStorage 一个键（`storages/dsh_prompt.json` 的 schema 冻结，不进它）；
 //     同版本不再自动弹，**手动**点「检查更新」仍能看到那个版本；
-//  4) 只在弹窗打开 / 安装进行中时轮询状态（间隔取派生文件的 UPD_POLL），关掉弹窗不留常驻定时器。
+//  4)（#89 改写）安装状态轮询仍只在弹窗打开 / 安装进行中时跑（间隔取派生文件的 UPD_POLL）；
+//     后台周期的 interval 是预期内唯一的常驻表（有订阅时活着、末注销即清）。
 //
 // 断言纪律（本图用血换来的）：
 //  · 「点一下再立刻读」一律换成**有界等待**，超时判红（waitFor / waitShown 返回 false 就 bad）；
@@ -45,7 +46,10 @@ const MODULES = [
   ['updauto.ts', SRC('updauto.ts'), []],
   // #41 收口 R2 的连带：update.ts 多了一条 `./upddialog` 的 import 边（弹窗归属闸）。
   ['upddialog.ts', SRC('upddialog.ts'), []],
-  ['panel.ts', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore']],
+  // #82 起 panel.ts 多了 `./remote` 与 `./remoteView` 两条 import 边（远程模式总闸与纯视图，无外部依赖）。
+  ['remote.ts', SRC('remote.ts'), []],
+  ['remoteView.ts', SRC('remoteView.ts'), []],
+  ['panel.ts', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView']],
   ['about.ts', SRC('about.ts'), ['./panel', './i18n']],
   ['update.ts', SRC('update.ts'), ['./panel', './i18n', './updauto', './upddialog', '../update/bridge', '../update/gen/updateClient.derived.js']],
   ['bridge.ts', path.join(ROOT, 'src', 'update', 'bridge.ts'), ['./gen/updateClient.derived.js']],
@@ -242,6 +246,10 @@ const liveIntervals = () => liveTimers('interval').filter((v) => v.ms >= 250);
 /* ── 生产真值（测试里写死，不许拿常量自己比自己） ── */
 /** 票面定死的延迟：启动后 8 秒。本行是**期望**，不是从源码读出来的值。 */
 const EXPECT_DELAY_MS = 8000;
+/** #89 拍板的周期：基线 4h。本行是**期望**，断言看的是行为区间（基线±抖动），不是拿常量比自己。 */
+const EXPECT_INTERVAL_MS = 4 * 3600 * 1000;
+/** #89 拍板的抖动半带：±5min。 */
+const EXPECT_JITTER_MS = 5 * 60 * 1000;
 /** localStorage 键写死一次：改键名 = 老用户的跳过记录失效，这条是刻意的红。 */
 const EXPECT_SKIP_KEY = 'dsh.prompt.upd.skip';
 /** 真实 profile 的存储文件（票面硬规矩：一个字节都不许动）。 */
@@ -346,10 +354,13 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
     const hits = srcless.filter((f) => /\b8000\b/.test(stripComments(fs.readFileSync(f, 'utf8'))))
       .map((f) => path.relative(ROOT, f).replace(/\\/g, '/'));
     eq(hits, ['src/client/updauto.ts'], '延迟数字 8000 在 src 的代码里只出现在 updauto.ts 一处');
-    // #41 收口 R1 之后闸在定时器回调里领（回包落地才结算），所以常量在代码里是 import + 定时器两处。
-    eq(updateCode.split('AUTO_CHECK_DELAY_MS').length - 1, 2, 'update.ts 只在 import + setTimeout 两处提到这个常量（自己不写数字）');
-    eq(/setTimeout\([\s\S]{0,240}AUTO_CHECK_DELAY_MS/.test(updateCode), true, '延迟到点的定时器用的就是这个常量');
-    eq(/clearTimeout\(timer\)/.test(updateCode), true, '卸载 / 关窗时 clearTimeout（不留常驻表）');
+    // #89 起排期搬进 updauto.ts 的 subscribeAutoTick（模块级：首订阅排首次、末注销清表），update.ts 只订阅。
+    eq(updateCode.split('subscribeAutoTick').length - 1, 2, '#89：update.ts 只在 import + 订阅 effect 两处提到 subscribeAutoTick');
+    eq(/AUTO_CHECK_DELAY_MS/.test(updateCode), false, '#89：update.ts 不再直接写首次延迟（排期数字只在 updauto.ts）');
+    eq(/setTimeout\([\s\S]{0,200}AUTO_CHECK_DELAY_MS/.test(autoCode), true, '#89：首次延迟定时器在 updauto.ts 里用这个常量');
+    eq(/export const AUTO_CHECK_INTERVAL_MS = 4 \* 3600 \* 1000/.test(autoCode), true, '#89：updauto.ts 定义周期基线 4h（拍板值）');
+    eq(/export const AUTO_CHECK_INTERVAL_JITTER_MS = 5 \* 60 \* 1000/.test(autoCode), true, '#89：updauto.ts 定义抖动半带 5min（拍板值）');
+    eq(/clearInterval\(autoInterval\)/.test(autoCode), true, '#89：末注销清周期表（常驻 interval 只在有订阅时活着）');
     // 全局宿主：shell.overlay 的第二个注册点（与智能卡并列），auto 开关只在这一处传
     eq(indexCode.split("'shell.overlay'").length - 1, 4, 'index.ts 在 shell.overlay 注册两处（inject + register 各一次 × 智能卡与更新自动检查）');
     eq(/id: 'dsh-prompt-update-auto'/.test(indexCode), true, '全局宿主有稳定的 id（dsh-prompt-update-auto）');
@@ -381,27 +392,48 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
       eq(!!one(c, 'data-dsh-prompt-update-action') && !!nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'install')[0], true,
         '自动弹出的就是 #40 那只带「安装新版本」的弹窗');
     }
-    eq(calls('check'), 1, '整个启动过程只自动查这一次（闸：一个会话一次）');
-    eq(pendingDelay().length, 0, '延迟那一刻的一次性定时器已经烧掉，账上没有别的一次性表在等');
-    eq(liveIntervals().length, 0, '空闲弹窗（没有安装任务）不开常驻轮询');
+    eq(calls('check'), 1, '首次延迟到点只发一条 check（单飞）');
+    eq(pendingDelay().length, 0, '首次的一次性定时器已经烧掉，账上没有别的一次性表在等');
+    // #89 起常驻的周期 interval 是预期的（唯一的常驻表）：区间 = 基线±抖动，两个端点都是拍板值。
+    const ivls = liveIntervals();
+    eq(ivls.length, 1, '#89：首次之后排了一只后台周期 interval（常驻是预期的，不再是「不留表」）');
+    if (ivls.length === 1) {
+      eq(ivls[0].ms >= EXPECT_INTERVAL_MS - EXPECT_JITTER_MS && ivls[0].ms <= EXPECT_INTERVAL_MS + EXPECT_JITTER_MS, true,
+        '#89：周期间隔落在 4h±5min 内，实际=' + ivls[0].ms);
+    }
 
-    console.log('=== T6: 「只弹一次」——关掉后再重挂载也不发第二条电话、不再弹 ===');
+    console.log('=== T6（#89 改写）：同周期多挂载不重发；卸光即清表，重挂载是新一轮首次 ===');
     {
-      const close = nodes(c, 'data-dsh-prompt-update-action').filter((n) => n.props['data-dsh-prompt-update-action'] === 'close')[0];
-      await act(() => { close.props.onClick() });
-      eq(!!one(c, 'data-dsh-prompt-update-modal'), false, '点 ✕ 关掉弹窗');
-      c.unmount();
-      await flush();
+      // c 还挂着（订阅仍在）：再挂第二份 auto，同周期内不另排首次、也不多发。
       const c2 = await mount(React.createElement(update.UpdateEntry, { auto: true }));
-      const pend2 = pendingDelay()[0];
-      eq(pend2 && pend2.ms, EXPECT_DELAY_MS, '重挂载后确实又排了一次延迟（不是靠「根本没挂上」蒙过的）');
-      await fireTimeout(pend2);
-      // 有界等待：上一条 check 的回包已经落地（可判读 ⇒ 名额落定），重挂载这一枪必须什么都不发。
-      await waitFor(() => calls('check') === 1, 4000);
+      eq(pendingDelay().length, 0, '#89：调度已 armed，重挂载不另排首次延迟（入口行仍不在，不是靠「没挂上」蒙过的）');
+      eq(nodes(c2, 'data-dsh-prompt-update').length, 0, '#89：第二份 auto 同样不出入口行');
+      // 手动触发周期拍：两份订阅各 fire 一次，单飞闸保证只多一条 check。
+      const iv = liveIntervals()[0];
+      if (!iv) bad('#89：账上没有后台周期 interval（调度被谁清了？）');
+      else {
+        await act(() => { iv.fn() });
+        if (!await waitFor(() => calls('check') === 2, 4000)) bad('#89：周期拍没换来第二条 check；通话序列=' + (requests.map((r) => r.which).join('|') || '(无)'));
+        else ok('#89：周期拍发出第二条 check（后台一直在查）');
+      }
+      // 同一版本、弹窗已关过一次：第二轮不叠第二只窗（弹窗归属＋单窗语义）。
       await TR.act(async () => { await new Promise((r) => setTimeout(r, 60)) });
-      eq(calls('check'), 1, '第二次启动阶段一条 check 都不发（闸在模块级、跨重挂载：一启动只查一次）');
-      eq(!!one(c2, 'data-dsh-prompt-update-modal'), false, '也不再弹第二只窗（「有新版本弹一次」）');
-      c2.unmount();
+      const modals = nodes(c, 'data-dsh-prompt-update-modal').length + nodes(c2, 'data-dsh-prompt-update-modal').length;
+      eq(modals <= 1, true, '#89：同版本第二轮不叠窗（至多一只可操作弹窗），实际=' + modals);
+      eq(calls('check'), 2, '#89：两拍一共两条 check（没有按挂载翻倍）');
+      c.unmount(); c2.unmount();
+      await flush();
+      eq(liveIntervals().length, 0, '#89：最后一个订阅者卸载即清周期表');
+      eq(pendingDelay().length, 0, '#89：卸光后也没有一次性表');
+      // 重挂载 = 新一轮首次：再排 8s，烧掉后再查（与页面重载同语义，不是「永久静默」）。
+      const c3 = await mount(React.createElement(update.UpdateEntry, { auto: true }));
+      const pend3 = pendingDelay()[0];
+      eq(pend3 && pend3.ms, EXPECT_DELAY_MS, '#89：重挂载（调度已清）重新排首次延迟');
+      await fireTimeout(pend3);
+      if (!await waitFor(() => calls('check') === 3, 4000)) bad('#89：新一轮首次没发 check');
+      else ok('#89：新一轮首次照常检查');
+      c3.unmount();
+      await flush();
     }
 
     console.log('=== T7: 没有新版本 / 安装中轮询随弹窗生命周期起停 ===');
@@ -414,9 +446,12 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
       if (!await waitFor(() => calls('check') === 1, 4000)) bad('（第二个模块实例）延迟到点没发 check');
       await TR.act(async () => { await new Promise((r) => setTimeout(r, 50)) });
       eq(!!one(c3, 'data-dsh-prompt-update-modal'), false, 'latest == running（没有新版本）⇒ 不弹窗，不打扰');
-      eq(pendingDelay().length, 0, '没弹窗也不留常驻一次性表');
-      eq(liveIntervals().length, 0, '没弹窗也不留常驻轮询');
+      eq(pendingDelay().length, 0, '一次性首次已烧掉');
+      // #89：无新版也不撤周期表（下周期照常；常驻是预期的）。
+      eq(liveIntervals().length, 1, '#89：无新版本仍留一只后台周期 interval');
       c3.unmount();
+      await flush();
+      eq(liveIntervals().length, 0, '#89：卸载即清周期表');
 
       // 安装中：弹窗打开期间按 UPD_POLL 轮询；关掉弹窗即停表（票面验收第 3 条）。
       resetScript(); clearLS(); clearClock();
@@ -436,11 +471,12 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
         const at = calls('status');
         await TR.act(async () => { await new Promise((r) => setTimeout(r, derived.UPD_POLL + 500)) });
         eq(calls('status'), at, '关掉弹窗后不再打 status（轮询随弹窗生命周期结束，' + (derived.UPD_POLL + 500) + 'ms 内又打了 ' + (calls('status') - at) + ' 次）');
-        eq(liveIntervals().length, 0, '关掉弹窗后账上没有活着的 interval');
+        eq(liveIntervals().length, 1, '#89：关弹窗只停安装轮询，后台周期 interval 还在（常驻是预期的）');
         eq(pendingDelay().length, 0, '关掉弹窗后账上也没有别的一次性表');
       }
       c4.unmount();
       await flush();
+      eq(liveIntervals().length, 0, '#89：卸载后周期表清掉');
     }
 
     console.log('=== T8: 「跳过此版本」只写 localStorage；跳过之后（含重启）不再自动弹；清掉键即恢复 ===');
@@ -572,7 +608,7 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
     c2.unmount();
     await flush();
 
-    // 对照：回包**可判读**（宿主答了、带快照形状）⇒ 名额照样落定，不会因为这次修复变成「重挂载就再查一次」。
+    // 对照（#89 改写）：回包**可判读** ⇒ 本轮落地；卸光重挂是新一轮首次（与重载同语义），照常再查。
     resetScript(); clearLS(); clearClock();
     script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
     const m2 = reload();
@@ -581,15 +617,17 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
     if (!await waitShown(() => !!one(c3, 'data-dsh-prompt-update-modal'), 4000)) bad('（R1 对照）第一次挂载没有自动弹窗');
     c3.unmount();
     await flush();
+    eq(liveIntervals().length, 0, '#89：卸光后周期表已清');
     const c4 = await mount(React.createElement(m2.update.UpdateEntry, { auto: true }));
-    await fireTimeout(pendingDelay()[0]);
-    await TR.act(async () => { await new Promise((r) => setTimeout(r, 60)) });
-    eq(calls('check'), 1, '（R1 对照）回包可判读 ⇒ 名额落定：重挂载不再补发 check（还是一启动一次）');
-    eq(!!one(c4, 'data-dsh-prompt-update-modal'), false, '（R1 对照）重挂载也不弹第二只窗');
+    const pend4 = pendingDelay()[0];
+    eq(pend4 && pend4.ms, EXPECT_DELAY_MS, '#89：新一轮重排首次延迟（卸光重挂≠永久静默）');
+    await fireTimeout(pend4);
+    if (!await waitFor(() => calls('check') === 2, 4000)) bad('（R1 对照#89）新一轮首次没有再查；通话序列=' + (requests.map((r) => r.which).join('|') || '(无)'));
+    else ok('（R1 对照#89）新一轮首次照常检查');
     c4.unmount();
     await flush();
 
-    // 边界：回包**不可判读**（桥没答）⇒ 放闸，下一次挂载还有一次机会（不是把整会话赔进去）。
+    // 边界（#89 改写）：回包**不可判读**（桥没答）⇒ 本轮不弹，但周期表还在，下周期照常（失败不顺延）。
     resetScript(); clearLS(); clearClock();
     script.check = failEnv('bridge-unreachable');
     const m3 = reload();
@@ -598,16 +636,19 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
     if (!await waitFor(() => calls('check') === 1, 4000)) bad('（R1 边界）第一条 check 没有发出');
     await TR.act(async () => { await new Promise((r) => setTimeout(r, 60)) });
     eq(!!one(c5, 'data-dsh-prompt-update-modal'), false, '（R1 边界）桥没答：不弹窗（后台动作的失败不上面）');
-    c5.unmount();
-    await flush();
+    eq(liveIntervals().length, 1, '#89：失败也不撤周期表（下周期照常）');
+    // 下周期照常：手动触发周期拍即再查（不用等重挂载，定时器自己推进）。
     script.check = okEnv(snap({ latestVersion: '0.1.9', canInstall: true }), 'CMD');
-    const c6 = await mount(React.createElement(m3.update.UpdateEntry, { auto: true }));
-    await fireTimeout(pendingDelay()[0]);
-    if (!await waitFor(() => calls('check') === 2, 4000)) bad('（R1 边界）回包读不出来时重挂载没再试一次（名额被白花掉；通话序列=' + (requests.map((r) => r.which).join('|') || '(无)') + '）');
-    else ok('（R1 边界）回包读不出来 ⇒ 放闸：重挂载再试一次并拿到可判读的回包');
-    if (!await waitShown(() => !!one(c6, 'data-dsh-prompt-update-modal'), 4000)) bad('（R1 边界）第二次机会没有弹出窗');
-    else ok('（R1 边界）第二次机会照常自动弹窗');
-    c6.unmount();
+    const iv5 = liveIntervals()[0];
+    if (!iv5) bad('（R1 边界#89）周期 interval 不在账上');
+    else {
+      await act(() => { iv5.fn() });
+      if (!await waitFor(() => calls('check') === 2, 4000)) bad('（R1 边界#89）下周期没有再查（失败把以后赔进去了；通话序列=' + (requests.map((r) => r.which).join('|') || '(无)') + '）');
+      else ok('（R1 边界#89）失败不顺延：下周期照常检查');
+    }
+    if (!await waitShown(() => !!one(c5, 'data-dsh-prompt-update-modal'), 4000)) bad('（R1 边界）下周期没有弹出窗');
+    else ok('（R1 边界）下周期照常自动弹窗');
+    c5.unmount();
     clearLS();
     await flush();
   }

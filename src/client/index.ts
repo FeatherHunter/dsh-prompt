@@ -10,6 +10,7 @@ import { buildPromptSource } from './trigger'
 import { SmartCardHost } from './smart'
 import { setSmartInput } from './smartstore'
 import { ensureLoaded } from './store'
+import { ensureRemoteLoaded } from './remote'
 import { getLang, tr, STR } from './i18n'
 import { isPanelOpen, onPanelOpen } from './state'
 import { startLog, getLog } from './log'
@@ -32,11 +33,11 @@ type ClientContext = {
 export const inject = ['slots', 'inputTriggers']
 
 /**
- * 更新自动检查宿主（#41）：全局单点（shell.overlay）、启动即挂 —— 挂载后自己延迟一把再查，
- * 有新版本才弹 #40 那只弹窗（`auto` 模式只出弹窗、不出设置页那一行）。
+ * 更新自动检查宿主（#41 建、#89 改周期）：全局单点（shell.overlay）、启动即挂 —— 挂载后先延迟一把再查，
+ * 之后按固定周期复查，有新版本才弹 #40 那只弹窗（`auto` 模式只出弹窗、不出设置页那一行）。
  *
  * 为什么放在 shell.overlay 而不是 conversation.input.overlay：会话说白了可以有多个，
- * 而「启动后自动查一次」这件事每台机器只该发生一次（电话与弹窗都不该按会话翻倍）。
+ * 而「后台按周期查」这件事每台机器只该有一摊调度（电话与弹窗都不该按会话翻倍；见 updauto.ts 的模块级调度）。
  */
 function UpdateAutoHost(): any {
   const react = getReact()
@@ -117,6 +118,8 @@ export function apply(ctx: ClientContext): void {
   log.log('app.boot', { hasReact: !!getReact(), lang: getLang(), entryCount: 6 })
   // #20：client 启动即拉 host 快照（失败 warn + 内存默认，不阻塞装配）
   ctx.effect(() => { ensureLoaded().catch(() => undefined) }, 'dsh-prompt: store load')
+  // #82：远程偏好同理（总闸默认关，host 不可达时当次默认、下次恢复默认并明示）
+  ctx.effect(() => { ensureRemoteLoaded().catch(() => undefined) }, 'dsh-prompt: remote load')
   // #76：启动即挂落点采样（selectionchange / focusin）。必须早于用户打字 ——
   // 只在点击时才挂监听的话，"用户编辑期的最后落点"根本没人记，失焦后的漂移就无从纠正。
   // 不走 ctx.effect：这两个监听是页面生命周期级的、只挂一次（内部有幂等闩），没有按会话
@@ -147,20 +150,53 @@ export function apply(ctx: ClientContext): void {
 
   // 面板「设置 → 模板管理」：当前 v1 关闭面板即可（设置页经 ⚙ → 插件 → dsh-prompt 到达）
   // 面板「设置 → 模板管理」：打开设置面板并选中本插件配置页（宿主无全局 open API → DOM 触发侧栏设置按钮 + 导航项）
-  setGoSettingsHandler(() => {
+  // #82：同一份 DOM 触发另挂 globalThis.__dshPromptGoSettings，供 remote.openRemoteSettings 兜底复用；
+  // 稳定直达（#87 H2）落地前一律走此兜底并由调用方明示。
+  // 2026-09-29 加固（真机反馈齿轮点不开）：旧实现只点一次+150ms 硬等，宿主弹窗稍慢即静默失败。
+  // 新实现：已开设置页则直点本插件名；否则点设置触发后轮询等导航项出现再点，命中远程段后滚入视野。
+  const goSettings = (): void => {
     try {
       if (typeof document === 'undefined') return
+      const label = tr(getLang(), STR.sectionName)
+      const clickCell = (): boolean => {
+        try {
+          const cells = Array.prototype.slice.call(document.querySelectorAll('button')) as HTMLElement[]
+          const cell = cells.find((b) => (b.textContent || '').trim() === label)
+          if (cell) {
+            cell.click()
+            let tries = 0
+            const scroller = setInterval(() => {
+              try {
+                const el = document.querySelector('[data-dsh-prompt-remote-section]')
+                if (el && typeof (el as any).scrollIntoView === 'function') {
+                  (el as any).scrollIntoView({ block: 'start' })
+                  clearInterval(scroller)
+                } else if (++tries > 10) clearInterval(scroller)
+              } catch (e) { clearInterval(scroller) }
+            }, 200)
+            return true
+          }
+        } catch (e) { /* ignore */ }
+        return false
+      }
+      // 设置页已开（本插件名可见）→ 直达，不碰触发按钮。
+      if (clickCell()) return
       const btns = Array.prototype.slice.call(document.querySelectorAll('button[aria-haspopup="dialog"]')) as HTMLElement[]
-      const trig = btns.find((b) => /设置|Settings/.test((b.textContent || '').trim())) || btns[0]
+      const trig = btns.find((b) => /设置|Settings/.test((b.textContent || '').trim()))
+        || (Array.prototype.slice.call(document.querySelectorAll('button')) as HTMLElement[])
+          .find((b) => /设置|Settings/.test((b.textContent || '').trim()))
       if (trig) trig.click()
-      setTimeout(() => {
-        const label = tr(getLang(), STR.sectionName)
-        const cells = Array.prototype.slice.call(document.querySelectorAll('button')) as HTMLElement[]
-        const cell = cells.find((b) => (b.textContent || '').trim() === label)
-        if (cell) cell.click()
-      }, 150)
+      // 轮询等导航项挂载（宿主弹窗动画慢也不丢），最多约 2 秒。
+      let n = 0
+      const tid = setInterval(() => {
+        try {
+          if (clickCell() || ++n > 10) clearInterval(tid)
+        } catch (e) { try { clearInterval(tid) } catch (err) { /* ignore */ } }
+      }, 200)
     } catch (e) { /* ignore */ }
-  })
+  }
+  setGoSettingsHandler(goSettings)
+  try { (globalThis as any).__dshPromptGoSettings = goSettings } catch (e) { /* ignore */ }
 
   // /prompt 触发源（#9）：列出预制+自定义模板，支持过滤（标签/搜索），选中即插入
   if (ctx.inputTriggers && typeof ctx.inputTriggers.registerSource === 'function') {
@@ -172,7 +208,7 @@ export function apply(ctx: ClientContext): void {
     ctx.slots.register({ name: 'shell.overlay', id: 'dsh-prompt-smart', order: 200, label: () => 'dsh-prompt smart' }, SmartCardHost),
   ), 'dsh-prompt: smart card')
 
-  // 更新自动检查（#41）：同一个 shell.overlay 槽的第二个注册点，启动后延迟一次（见 UpdateAutoHost）
+  // 更新自动检查（#41 建、#89 改周期）：同一个 shell.overlay 槽的第二个注册点，启动延迟首次＋固定周期（见 UpdateAutoHost）
   ctx.effect(() => ctx.slots.inject('shell.overlay', () =>
     ctx.slots.register({ name: 'shell.overlay', id: 'dsh-prompt-update-auto', order: 210, label: () => 'dsh-prompt update auto' }, UpdateAutoHost),
   ), 'dsh-prompt: update auto')

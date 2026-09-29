@@ -28,12 +28,12 @@
  *
  * #41 起本组件有**两种模式**（同一个组件，不是第二只弹窗）：
  *   设置页那一份（默认，`auto` 不传）：一行入口 + 弹窗，行为与 #40 一字不差；
- *   全局那一份（`auto: true`，`index.ts` 挂在 shell.overlay）：不渲染入口行，改为「延迟一次 check →
- *   有新版本才开同一只弹窗」。判据与跳过记录的落点都在 `updauto.ts`，本文件只做接线。
+ *   全局那一份（`auto: true`，`index.ts` 挂在 shell.overlay）：不渲染入口行，改为「每周期一次 check →
+ *   有新版本才开同一只弹窗」（#89 前是启动延迟查一次；周期与拍点都在 `updauto.ts`，本文件只做接线）。
  *
- * #41 收口（R1/R2）起本组件还持两份**闸**（都是模块级、都跨重挂载）：
- *   一次启动只自动查一次 —— `updauto.ts` 的 `claimAutoCheck` / `deliverAutoCheck`，闸只有在**回包真的
- *   交到活着的挂载手里**之后才算花掉（第一条 check 还在飞时重挂载，那次机会不会被白花掉）；
+ * #41 收口（R1/R2）起本组件还持两份**闸**（都是模块级、都跨重挂载），#89 把其中第一份改成周期语义：
+ *   每周期单飞 —— `updauto.ts` 的 `claimAutoCheck` / `deliverAutoCheck`（在飞才挡，回包落地只清在飞，
+ *   下周期照常；第一条 check 还在飞时重挂载，回包照样交到活着的挂载手里）；
  *   同一时刻只有一只弹窗可操作 —— `upddialog.ts` 的归属名额（用户那只压掉自动那只，自动那只不接手
  *   已经打开的那只），否则两只同屏、被拒的那只会对用户显示「安装失败」（真包的两道闸只保证不装两次）。
  */
@@ -41,10 +41,10 @@ import { getReact, MODAL_Z, ModalPortal } from './panel'
 import { getLang, tr, STR } from './i18n'
 import { createUpdateBridge, updatePhoneNames, type UpdateCallResult } from '../update/bridge'
 import { UPD_POLL } from '../update/gen/updateClient.derived.js'
-// #41 的两块判据（跳过记在哪 / 这次该不该弹）与「一次启动只查一次」的闸在 updauto.ts；那边不 import 本文件，两文件不成环。
+// #41 的两块判据（跳过记在哪 / 这次该不该弹）、单飞闸与周期调度（#89）在 updauto.ts；那边不 import 本文件，两文件不成环。
 import {
-  AUTO_CHECK_DELAY_MS, claimAutoCheck, decideAutoOpen, deliverAutoCheck, loadSkippedVersion,
-  saveSkippedVersion, setAutoCheckHandler,
+  claimAutoCheck, decideAutoOpen, deliverAutoCheck, loadSkippedVersion,
+  saveSkippedVersion, setAutoCheckHandler, subscribeAutoTick,
 } from './updauto'
 // #41 收口 R2 的弹窗归属闸（同屏不许叠两只可各自点安装的窗）；只认识 token，不认识版本号与电话。
 import {
@@ -419,29 +419,33 @@ export function UpdateEntry(props?: any): any {
   }, [open, installing])
 
   /**
-   * 启动自动检查（#41，只在 `auto` 模式跑）：延迟到点领闸，领到才发**一条** check；回包落地交给
-   * **当前活着的挂载**处理（`applyAutoResult`），有新版本、且不是用户点过「跳过此版本」的那一个，
+   * 后台自动检查（#41 起，只在 `auto` 模式跑；#89 起是周期性的）：每一拍领闸，领到才发**一条** check；
+   * 回包落地交给**当前活着的挂载**处理（`applyAutoResult`），有新版本、且不是用户点过「跳过此版本」的那一个，
    * 才把同一只弹窗开出来。
    *
    * 五条纪律：
-   * 1. **延迟常量只在 updauto.ts 定义一次**（这里引用，不写第二个数字）；
-   * 2. 一个页面会话至多一次自动开窗：名额是 #41 收口 R1 的三态闸，只在**回包真的交到活着的挂载手里**之后
-   *    才算花掉（`deliverAutoCheck` 看 handler 的返回值）—— 第一条 check 还在飞、或回包读不出来时
-   *    重挂载，名额不会被白花掉（见 updauto.ts 的注释）；
+   * 1. **排期常量只在 updauto.ts 定义一次**（首次延迟与周期间隔＋抖动都在那边；这里只订阅，不写数字）；
+   * 2. 每周期单飞：同一拍只发一条（`claimAutoCheck` 在飞即挡；多挂载各有一份订阅也只发一条）——
+   *    第一条 check 还在飞时重挂载，回包照样交到活着的挂载手里（见 updauto.ts 的注释），失败不顺延、
+   *    下周期照常（周期由定时器推进，不由回包推进）；
    * 3. 判据是纯函数 `decideAutoOpen` —— 比不出大小就不弹；这一支的失败**不上面**（后台动作不该把设置页
    *    炸掉，也不该在界面上多一块用户没点过的失败），用户手动点「检查更新」仍有 #40 的全套说明；
    * 4. **开窗先领弹窗名额**（R2）：名额被占（多半是设置页那只已经打开）就不接手，`setOpen` 一次都不调 ——
-   *    同一时刻只许一只可操作态的弹窗（见 upddialog.ts）；
-   * 5. 卸载即清定时器：关掉弹窗 / 卸载宿主后不留任何常驻定时器（票面验收第 3 条）。
+   *    同一时刻只许一只可操作态的弹窗（见 upddialog.ts）；被挡掉的那次快照仍落在 `res` / `lastGoodRes`，
+   *    用户下一次手动打开照样看得到（#89 Q2 的徽标兜底就是这一句）；
+   * 5. 最后一个订阅者卸载即清表：周期 interval 是**预期内唯一的常驻表**（#89 起取代 #41「不留常驻定时器」
+   *    那条验收），挂载期间常驻、卸光即清，重挂载复用同一拍、不另起一摊。
    */
 
   /**
    * 回包交接的接收端（R1 的关键一条）：一条自动 check 的在飞时间（8 秒延迟 + 通话）足够宿主重挂载，
    * 发起那次挂载的闭包会随卸载作废 —— 所以回包不写进「发起者的状态」，而是回到**当前挂载**这里：
-   * 落状态、判据、开窗都由还活着的那一份做。返回值 = 这次是不是可判读的回包（闸据此结算）。
+   * 落状态、判据、开窗都由还活着的那一份做。返回值 = 这次是不是可判读的回包（测试据此断言，
+   * 闸不再消费它：下一次机会由定时器给）。
    *
    * `res` 与手动路径落到同一个 `res` / `lastGoodRes`：版本行读的就是它 —— 只把快照拿来判据、
-   * 不落状态，弹出来的窗上会是「版本未知」（红队 R1 场景实测）。
+   * 不落状态，弹出来的窗上会是「版本未知」（红队 R1 场景实测）。被弹窗名额挡掉时同样先落状态
+   * 再判接手，所以下一次手动打开看得到这次的快照（Q2 兜底）。
    */
   const applyAutoResult = (resRaw: unknown): boolean => {
     const out = (resRaw && typeof resRaw === 'object' ? resRaw : null) as UpdateCallResult | null
@@ -473,14 +477,15 @@ export function UpdateEntry(props?: any): any {
 
   react.useEffect(() => {
     if (!auto) return undefined
-    // 定时器到点先**领闸**再发：名额空着（没人发过 / 上一次回包读不出来）才发这一条电话。
-    const timer = setTimeout(() => {
+    // 每一拍先**领闸**再发：在飞才挡；同周期多订阅也只发一条，发完由 deliverAutoCheck 清在飞。
+    // 定时器在 updauto.ts 的 subscribeAutoTick 里（模块级、首订阅排首次、末注销清表）。
+    const off = subscribeAutoTick(() => {
       if (!claimAutoCheck()) return
-      run(updatePhoneNames.updateCheck, 'check')
-        .then((out) => { deliverAutoCheck(out) })
+      lastRun.current(updatePhoneNames.updateCheck, 'check')
+        .then((out: UpdateCallResult | null) => { deliverAutoCheck(out) })
         .catch(() => { deliverAutoCheck(null) })
-    }, AUTO_CHECK_DELAY_MS)
-    return () => clearTimeout(timer)
+    })
+    return () => { off() }
   }, [auto])
 
   /**

@@ -5,12 +5,13 @@
  * （免得和它绕成一个环）。#41 新增的能力里，凡是**不需要 React 与电话**的部分都落在这里：
  *   1. 「跳过此版本」的存取 —— 只落 localStorage 一个键；
  *   2. 「这次该不该自动弹」的纯判据 `decideAutoOpen`；
- *   3. 「一次启动只自动查一次」的闸 `claimAutoCheck` / `deliverAutoCheck`（三态 + 回包交接，见注释）。
+ *   3. 「每周期单飞」的闸 `claimAutoCheck` / `deliverAutoCheck`（单飞 + 回包交接，见注释）与
+ *      周期调度 `subscribeAutoTick`（#89：启动 8s 首次＋固定周期；#41 时是「一次启动只查一次」）。
  * 另一道闸（弹窗归属：同屏不许叠两只可各自点安装的窗）在 `upddialog.ts`：那边要订阅 React 重渲染，
  * 与这里的纯判据分开，两边都不认识对方。
- * 调用点在 update.ts 的 auto 模式：延迟到点 → 领闸 → 发一条 check → 回包落地交给**当前挂载**的
+ * 调用点在 update.ts 的 auto 模式：每一拍到点 → 领闸 → 发一条 check → 回包落地交给**当前挂载**的
  * `applyAutoResult`（落状态 + 把快照喂给 `decideAutoOpen`）→ 为真才开弹窗（弹窗本身仍是 #40 那一只，
- * 没有第二只）；结算由 `deliverAutoCheck` 做，交接不到活着的挂载就把名额放回去。
+ * 没有第二只）；结算由 `deliverAutoCheck` 做（只清在飞，下周期照常）。
  *
  * 三条边界（map #38 的 grilling 定案）：
  * 1. 「跳过此版本」**只落 localStorage**，不进 `storages/dsh_prompt.json`（那个 schema 已冻结），
@@ -21,6 +22,11 @@
  *    比一比就够，不为「有没有新版」新增电话（#41 一个字节都不改宿主半）。
  * 3. 比不出大小就不弹：版本字段是坏形状 / 认不出时，宁可这次不打扰用户，也不凭猜测弹窗。
  *    代价是「宿主读不出当前版本 ⇒ 这次不弹」，这正是要的保守侧。
+ *
+ * #89 起「一次启动只查一次」放宽为「启动首次＋固定周期」（AUTO_CHECK_INTERVAL_MS，默认 4h ± 5min
+ * 抖动）：#41 三态闸里「autoSpent 落定即整会话不再查」的那一半与「不留常驻定时器」验收随之被取代 ——
+ * 常驻的周期 interval 是预期的、唯一的常驻表（最后一个订阅者卸载即清）。判据、跳过落点、
+ * 弹窗归属口径一字不动；单飞（autoInFlight）保留，失败不顺延、下周期照常。
  */
 
 /**
@@ -157,25 +163,46 @@ export function decideAutoOpen(input: AutoOpenInput): AutoOpenVerdict {
 export const AUTO_CHECK_DELAY_MS = 8000
 
 /**
- * 「一次启动只自动查一次」的闸（#41 收口 R1，三态 + 回包交接）。
+ * 后台周期的基线（毫秒）：#89 拍板 4h。抖动带见 AUTO_CHECK_INTERVAL_JITTER_MS。
  *
- * 宿主把浮层槽重建、会话切换都可能让宿主组件重挂载，那不该变成第二条电话、第二只弹窗 —— 票面的
- * 「有新版本弹一次」说的是**每次启动至多一次**（页面重载 = 新的一次启动，闸跟着模块重建）。
+ * 为什么是 4h：发布节奏是天/周级，4h 一天约 6 次，对官方源是礼貌流量；1h 太密（凭证 churn、
+ * 日志刷屏），24h 则多日会话错过安全修复、且失败一次再等一天。扰不扰由判据决定（无新版不弹），
+ * 不由检查频率决定 —— `check` 本身静默。
  *
- * 三态而不是「领了就花掉」（红队 N §4 实测的洞）：第一条 check 还在飞的时候宿主重挂载，旧写法里
- * 名额已经被前一次挂载花掉，新挂载的延迟到点后什么也不做 ⇒ **这一整个会话再也不自动弹窗**
- * （实测通话只有 `check×1`、没有窗口）。所以分成三件事：
- *   - 还没发出去：`autoInFlight` / `autoSpent` 都是假 ⇒ 可以领；
- *   - 已经有一条在飞：`autoInFlight` ⇒ 不重发（不变成两条电话），回包**交给还活着的那个挂载**收
+ * **这两个数字在本仓的代码里只出现这一处**：调用点引用常量，回归脚本把同一个期望写死。
+ */
+export const AUTO_CHECK_INTERVAL_MS = 4 * 3600 * 1000
+/** 周期间隔的抖动半带（毫秒）：#89 拍板 ±5min，多机错峰、防 thundering herd。 */
+export const AUTO_CHECK_INTERVAL_JITTER_MS = 5 * 60 * 1000
+
+/**
+ * 算出本轮会话的周期间隔：基线 ± 抖动。`rand` 供测试钉住，生产传默认的 `Math.random`。
+ * 非法输入（抛 / 非数字 / 越界）一律回基线 —— 排期坏了最多是「整点查」，不能因此不查。
+ */
+export function jitteredAutoIntervalMs(rand: () => number = Math.random): number {
+  let r = 0.5
+  try {
+    const v = rand()
+    if (typeof v === 'number' && Number.isFinite(v)) r = v
+  } catch (e) { /* 用默认 0.5 */ }
+  if (r < 0) r = 0
+  if (r > 1) r = 1
+  return Math.round(AUTO_CHECK_INTERVAL_MS + (r * 2 - 1) * AUTO_CHECK_INTERVAL_JITTER_MS)
+}
+
+/**
+ * 每周期单飞的闸（#89：#41 三态闸的后继）。
+ *
+ * #41 的 `autoSpent`（可判读即整会话不再查）已删：周期语义下可判读只是本周期落地，
+ * 下周期照常。保留的部分：
+ *   - 已经有一条在飞：`autoInFlight` ⇒ 不重发，回包**交给还活着的那个挂载**收
  *     （见 `setAutoCheckHandler`）—— 发出去的那次挂载会卸载，不交接就等于把结果扔掉；
- *   - 拿到了**可判读的回包**：`autoSpent` ⇒ 从此不再发（一次启动就一次）；
- *   - 回包不可判读（桥没答 / 能力没接通 / 连快照都没有）：`deliverAutoCheck` 放闸 ——
- *     「花掉名额」这件事只在真的换来一次判断之后才算数，而不是把「这一整个会话」赔进去。
+ *   - 回包不可判读（桥没答 / 能力没接通 / 连快照都没有）：只清在飞，不影响下周期 ——
+ *     「失败不顺延」天然成立：周期由定时器推进，不由回包推进。
  *
  * 用户手动点「检查更新」不走这里：想查几次查几次（交付 3 的后半句就靠这条分界）。
  */
 let autoInFlight = false
-let autoSpent = false
 
 /**
  * 回包交接的落点：当前挂载的 handler（每次挂载登记一次，卸载时注销）。
@@ -186,11 +213,11 @@ type AutoCheckHandler = (result: unknown) => boolean
 const autoHandlers: AutoCheckHandler[] = []
 
 /**
- * 领这一次启动的自动检查名额：名额空着就发（`true`），已经有一条在飞或已经拿到过可判读的回包就
- * 不发（`false`）。拿到 `true` 的调用方**必须**在回包落地时叫一次 `deliverAutoCheck(result)`。
+ * 领本周期的一次自动检查名额：没有在飞就发（`true`），有一条在飞就不发（`false`）。
+ * 拿到 `true` 的调用方**必须**在回包落地时叫一次 `deliverAutoCheck(result)`。
  */
 export function claimAutoCheck(): boolean {
-  if (autoInFlight || autoSpent) return false
+  if (autoInFlight) return false
   autoInFlight = true
   return true
 }
@@ -209,16 +236,67 @@ export function setAutoCheckHandler(fn: AutoCheckHandler): () => void {
 
 /**
  * 一条自动 check 的回包落地：交给**当前还活着**的挂载处理（它负责落状态、判据、开窗、把话说清楚），
- * 并据此结算闸 —— handler 回 `true` 表示这次拿到的是可判读的回包（名额落定），回 `false`
- * （或压根没人接：卸载后再也没有挂载）就把名额放回去。
+ * 并清掉在飞标记。handler 的返回值只决定本周期是否「可判读」（调用方目前不消费它，留给测试断言），
+ * 不再决定以后周期发不发 —— 下一次机会由定时器给，不由这次回包给。
  *
  * `result` 用 `unknown`：本模块不认识通话结果的形状，只当交接物。
  */
 export function deliverAutoCheck(result: unknown): void {
   autoInFlight = false
-  let readable = false
   for (const fn of autoHandlers.slice()) {
-    try { if (fn(result)) readable = true } catch (e) { /* 一个 handler 抛不许影响闸的结算 */ }
+    try { fn(result) } catch (e) { /* 一个 handler 抛不许影响闸的结算 */ }
   }
-  if (readable) autoSpent = true
+}
+
+/**
+ * 周期调度的订阅者：每一拍到来时被调用一次（调用方在里面领单飞闸并发 check）。
+ * 调度是模块级的（一个页面会话一份）：首个订阅者排 8s 首次，首次烧掉后起固定周期；
+ * 最后一个订阅者注销即清表（timeout + interval 都清，不留常驻）。
+ * tick 回调抛错只影响自己那一份，不影响别的订阅者与下一拍。
+ */
+export type AutoTick = () => void
+const autoTickers: AutoTick[] = []
+let autoTimer: ReturnType<typeof setTimeout> | null = null
+let autoInterval: ReturnType<typeof setInterval> | null = null
+
+function fireTickers(): void {
+  for (const fn of autoTickers.slice()) {
+    try { fn() } catch (e) { /* 见上 */ }
+  }
+}
+
+function startSchedule(): void {
+  if (autoTimer !== null || autoInterval !== null) return
+  autoTimer = setTimeout(() => {
+    autoTimer = null
+    fireTickers()
+    if (autoTickers.length === 0 || autoInterval !== null) return
+    autoInterval = setInterval(fireTickers, jitteredAutoIntervalMs())
+  }, AUTO_CHECK_DELAY_MS)
+}
+
+function stopScheduleIfIdle(): void {
+  if (autoTickers.length > 0) return
+  if (autoTimer !== null) {
+    clearTimeout(autoTimer)
+    autoTimer = null
+  }
+  if (autoInterval !== null) {
+    clearInterval(autoInterval)
+    autoInterval = null
+  }
+}
+
+/**
+ * 订阅后台拍：挂载时订阅、卸载时用返回值注销。重挂载不重排（调度已 armed 就复用同一拍），
+ * 同周期靠单飞闸去重 —— 不会出现两只挂载各发一条。
+ */
+export function subscribeAutoTick(fn: AutoTick): () => void {
+  autoTickers.push(fn)
+  startSchedule()
+  return () => {
+    const i = autoTickers.indexOf(fn)
+    if (i >= 0) autoTickers.splice(i, 1)
+    stopScheduleIfIdle()
+  }
 }

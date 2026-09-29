@@ -44,7 +44,10 @@ const MODULES = [
   ['state.ts', SRC('state.ts'), []],
   ['i18n.ts', SRC('i18n.ts'), []],
   ['smartstore.ts', SRC('smartstore.ts'), []],
-  ['panel.ts', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore']],
+  // #82 起 panel.ts 多了 `./remote` 与 `./remoteView` 两条 import 边（同 #41 脚本的补齐）。
+  ['remote.ts', SRC('remote.ts'), []],
+  ['remoteView.ts', SRC('remoteView.ts'), []],
+  ['panel.ts', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView']],
   ['about.ts', SRC('about.ts'), ['./panel', './i18n']],
   // #41 的连带：update.ts 多了一条 `./updauto` 的 import 边（启动自动检查的判据 + 跳过记录的落点）。
   // 与 #40 给本脚本加 `./update` / `./about` 时同一条纪律：新 import 边必须进这张表，否则脚本直接崩。
@@ -52,7 +55,7 @@ const MODULES = [
   ['updauto.ts', SRC('updauto.ts'), []],
   ['upddialog.ts', SRC('upddialog.ts'), []],
   ['update.ts', SRC('update.ts'), ['./panel', './i18n', './updauto', './upddialog', '../update/bridge', '../update/gen/updateClient.derived.js']],
-  ['settings.ts', SRC('settings.ts'), ['./panel', './about', './update', './smartstore', './i18n']],
+  ['settings.ts', SRC('settings.ts'), ['./panel', './about', './update', './smartstore', './i18n', './remote']],
   ['bridge.ts', path.join(ROOT, 'src', 'update', 'bridge.ts'), ['./gen/updateClient.derived.js']],
   ['updateClient.derived.js', path.join(ROOT, 'src', 'update', 'gen', 'updateClient.derived.js'), []],
 ];

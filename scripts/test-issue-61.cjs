@@ -244,7 +244,14 @@ console.log('=== T8: 行保焦 keepComposerFocus（不抢搜索框） ===');
   TR.act(() => { compact = TR.create(React.createElement(panel.TemplateBrowser, { compact: true })); });
   const rows = compact.root.findAll((x) => x.props && x.props['data-dsh-prompt-id']);
   ok(rows.length > 0, '悬浮列表渲染出行，行数=' + rows.length);
-  ok(rows.every((r) => r.props.onMouseDown === panel.keepComposerFocus), '悬浮行全部挂 keepComposerFocus');
+  // 按**行为**判，不按函数同一性：panel.ts 里有两行把 keepComposerFocus(e) 包在箭头函数里
+  // （还要顺带拨 pressed 状态），引用比较会把它们误判成没挂护栏。逐个调一次，看默认行为有没有被拦。
+  const guarded = rows.every((r) => {
+    let prevented = false;
+    try { TR.act(() => { r.props.onMouseDown({ preventDefault: () => { prevented = true; } }); }); } catch (e) { /* 行内还会拨状态，失败不影响判据 */ }
+    return prevented;
+  });
+  ok(guarded, '悬浮行全部挂 keepComposerFocus（按行为判：mousedown 一律拦默认）');
 }
 {
   const ed = ediv(['AB']);

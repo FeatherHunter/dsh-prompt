@@ -94,8 +94,11 @@ console.log('=== T2: 可访问名不丢（图标化后靠它） ===');
 console.log('=== T3: 样式注入内容被逐字钉住 ===');
 {
   const tags = global.document.head.children;
-  ok(tags.length === 1, '只注入一段样式，实际=' + tags.length);
-  const tag = tags[0];
+  // 「全局只许一段样式」自 #82 起不再成立（hostfont.ts 自带一段注入，用户已裁定可接受）。
+  // 仍然钉住本入口那段**恰好一次**：幂等与可排查性一条不减。
+  const mine = tags.filter((x) => x.tagName === 'STYLE' && x.attrs['data-dsh-prompt-style'] === 'dsh-prompt-entry-narrow');
+  ok(mine.length === 1, '入口那段样式恰好注入一次，实际=' + mine.length);
+  const tag = mine[0];
   ok(tag.tagName === 'STYLE', '注入的是 <style>');
   ok(tag.attrs['data-dsh-prompt-style'] === 'dsh-prompt-entry-narrow', '带标记属性，便于幂等与排查');
   ok(tag.textContent === EXPECTED_CSS, 'CSS 逐字一致（断点/选择器/属性改动即红）');
@@ -104,7 +107,8 @@ console.log('=== T3: 样式注入内容被逐字钉住 ===');
 console.log('=== T4: 幂等 ===');
 {
   render(); render();
-  ok(global.document.head.children.length === 1, '重复渲染不重复注入，实际=' + global.document.head.children.length);
+  const mine2 = global.document.head.children.filter((x) => x.tagName === 'STYLE' && x.attrs['data-dsh-prompt-style'] === 'dsh-prompt-entry-narrow');
+  ok(mine2.length === 1, '重复渲染不重复注入本入口那一段，实际=' + mine2.length);
 }
 
 console.log('=== T5: 隐藏规则只在 @container 块内（宽屏不被误伤） ===');

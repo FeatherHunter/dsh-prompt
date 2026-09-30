@@ -244,17 +244,23 @@ eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 0 块左边�
   eq(kids.filter((k) => txt(k).indexOf(STR.updateEntry.zh) >= 0).length, 1, '#60-A：整页只有身份行那一块带入口文案（不再另起一块）');
   eq(domSeq(entryNode).some((n) => n.props && n.props['data-dsh-prompt-update-version'] !== undefined), true, '#60-A：入口那一枚按钮里带着版本徽标');
 }
-eq(txt(kids[1]).indexOf(STR.smartGroup.zh) >= 0, true, '第 1 块是「智能推荐」组（带组标题）');
-eq(txt(kids[1]).indexOf(STR.smartToggle.zh) >= 0, true, '智能开关在组内（文案一字不动）');
-eq(hasCheckbox(kids[1]), true, '智能开关仍是 checkbox');
-eq(txt(kids[2]).indexOf(STR.logGroup.zh) >= 0, true, '第 2 块是「诊断日志」组');
-eq([STR.logExport.zh, STR.logCopyPath.zh, STR.logClear.zh].every((s) => txt(kids[2]).indexOf(s) >= 0), true, '日志三入口都在组内（导出 / 复制路径 / 清空）');
-eq(txt(kids[2]).indexOf(STR.logWhere.zh) >= 0, true, '组内有落点行（等宽字体，不再写尖括号）');
-eq(kids[3].type, 'section', '#77：第 3 块是模板浏览列表（已是有壳的卡片，不再是裸 div）');
-eq(!kids[3].props['data-dsh-prompt-more'], true, '第 3 块不是引流区');
-// 那句存储说明已按作者决定删除：#20 与 #37 原先钉着的「第 4 块 = 存储说明」随之撤掉，
-// 页面的灰字连读问题不再存在（模板卡自己是一张卡，说明不再孤悬在两张卡之间）。
-eq(kids[4].props['data-dsh-prompt-more'], '', '第 4 块（页面底部）是引流区');
+// 实测版式（2026-09-30）：[0] 身份行 / [1] 模板列表 / [2] 远程模式 / [3] 诊断日志 / [4] 引流区。
+//   · 智能推荐配置区按 #36 的裁定**整组不渲染**（settings.ts 里逻辑 / i18n / persist 全保留，接回即恢复）；
+//   · #82 起多了「远程模式」组。
+// 按本文件自己的纪律**按内容找、不按索引钉死**：索引断言会随版式漂移，且会假绿。
+const blockWith = (s) => kids.find((k) => txt(k).indexOf(s) >= 0);
+const logBlock = blockWith(STR.logGroup.zh);
+eq(!!logBlock, true, '有「诊断日志」组（带组标题）');
+eq([STR.logExport.zh, STR.logCopyPath.zh, STR.logClear.zh].every((s) => txt(logBlock).indexOf(s) >= 0), true, '日志三入口都在组内（导出 / 复制路径 / 清空）');
+eq(txt(logBlock).indexOf(STR.logWhere.zh) >= 0, true, '组内有落点行（等宽字体，不再写尖括号）');
+const listBlock = kids.find((k) => k.type === 'section' && txt(k).indexOf(STR.addShort.zh) >= 0);
+eq(!!listBlock, true, '#77：模板浏览列表仍是有壳的卡片（section），且带新增入口');
+eq(!listBlock.props['data-dsh-prompt-more'], true, '模板列表不是引流区');
+eq(blockWith(STR.smartGroup.zh) === undefined, true, '智能推荐组整组不渲染（#36 裁定废弃后暂不放开）');
+eq(blockWith(STR.smartToggle.zh) === undefined, true, '智能开关的文案也不出现');
+// 那句存储说明已按作者决定删除：#20 与 #37 原先钉着的「存储说明块」随之撤掉。
+eq(txt(kids[kids.length - 1]).indexOf(STR.moreTitle.zh) >= 0, true, '末块（页面底部）是引流区');
+eq(kids[kids.length - 1].props['data-dsh-prompt-more'], '', '末块带引流区标记');
 // #53 回归：panel.ts 头行两处内联灯泡 SVG 换成 logo.ts 的 promptMark 后，设置页头行必须照旧（标志 + Prompt + 新增）
 const browser = mount(React.createElement(panel.TemplateBrowser, { compact: false }));
 eq(browser.root.findAll((x) => x.type === 'svg').length >= 1, true, '#53：模板列表头行仍有标志 svg');

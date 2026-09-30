@@ -59,7 +59,9 @@ const okFetch = async (url, init) => {
   if (init.method !== 'POST' || !/system\/orientation$/.test(url)) throw new Error('bad request');
   const body = JSON.parse(init.body);
   if (body.orientation !== 'portrait') throw new Error('bad body');
-  return { ok: true, status: 200, json: async () => ({ ok: true, orientation: 'portrait' }) };
+  // 总闸要从 host 快照里来：mount 的 effect 会拉一次 store 并把缓存重置为快照值，
+  // 所以「开着」这件事必须由快照表达（#82 起总闸默认关，关时方向/密度控件被禁用）。
+  return { ok: true, status: 200, json: async () => (/\/store$/.test(String(url)) ? { ok: true, value: { remote: { enabled: true, size: 5, orientation: 'auto', density: 'a' } } } : { ok: true, orientation: 'portrait' }) };
 };
 r = await sys.setSystemOrientation('portrait', okFetch);
 if (!r.ok || r.orientation !== 'portrait') fail('POST 成功应回真值');
@@ -118,7 +120,9 @@ remote2.__resetRemoteForTests();
 let fetchCalls = [];
 globalThis.fetch = async (url, init) => {
   fetchCalls.push({ url, method: init && init.method });
-  return { ok: true, status: 200, json: async () => ({ ok: true, orientation: 'portrait' }) };
+  // 总闸要从 host 快照里来：mount 的 effect 会拉一次 store 并把缓存重置为快照值，
+  // 所以「开着」这件事必须由快照表达（#82 起总闸默认关，关时方向/密度控件被禁用）。
+  return { ok: true, status: 200, json: async () => (/\/store$/.test(String(url)) ? { ok: true, value: { remote: { enabled: true, size: 5, orientation: 'auto', density: 'a' } } } : { ok: true, orientation: 'portrait' }) };
 };
 let created;
 await TR.act(async () => { created = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
@@ -136,7 +140,7 @@ ok('渲染器：锁定走 OS、成功偏好落地无 note');
 // 失败路径：denied → 自家锁定照常 + note 明示原因码
 remote2.__resetRemoteForTests();
 fetchCalls = [];
-globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ ok: false, error: { code: 'denied', message: 'd' } }) });
+globalThis.fetch = async (url) => ({ ok: true, status: 200, json: async () => (/\/store$/.test(String(url)) ? { ok: true, value: { remote: { enabled: true, size: 5, orientation: 'auto', density: 'a' } } } : { ok: false, error: { code: 'denied', message: 'd' } }) });
 let created2;
 await TR.act(async () => { created2 = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
 const btns2 = created2.root.findAll((x) => x.props && x.props['data-dsh-prompt-orientation'] === 'landscape');
@@ -149,7 +153,7 @@ ok('渲染器：失败回落自家并明示原因码');
 // auto 不出网
 remote2.__resetRemoteForTests();
 fetchCalls = [];
-globalThis.fetch = async (url, init) => { fetchCalls.push({ url }); return { ok: true, status: 200, json: async () => ({}) } };
+globalThis.fetch = async (url) => { fetchCalls.push({ url }); return { ok: true, status: 200, json: async () => (/\/store$/.test(String(url)) ? { ok: true, value: { remote: { enabled: true, size: 5, orientation: 'auto', density: 'a' } } } : {}) } };
 await remote2.setRemoteOrientation('portrait');
 let created3;
 await TR.act(async () => { created3 = TR.create(React.createElement(settingsMod.SettingsPage, {})); });

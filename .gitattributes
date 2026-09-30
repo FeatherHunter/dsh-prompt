@@ -1,2 +1,14 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# 自动识别文本文件并做 LF 归一
+#
+# 为什么把 eol 钉死：只写 `* text=auto` 时，检出按 core.eol，默认是 native ——
+# Windows 的工作副本因此恒为 CRLF，CI（Linux，native=lf）却是 LF。
+# 本仓回归脚本里有多处「按行切分 + 剥注释」的文本处理，对行尾敏感：
+#   scripts/test-issue-41.cjs 的 stripComments 用 /\/\/.*$/ 删行注释，
+#   CRLF 下每行尾部留着 \r、而 JS 的 `.` 匹配不了 \r，于是注释一句都没被剥掉 —— 静默失效。
+# 结果同一份提交在 Windows 上结构性变红、在 CI 上结构性变绿。
+# 钉成 lf：工作副本与仓库内容逐字节一致，两台机器跑的是同一份东西。
+* text=auto eol=lf
+
+# Windows 批处理保持 CRLF（cmd.exe 对 LF 的容忍度不可依赖）
+*.cmd text eol=crlf
+*.bat text eol=crlf

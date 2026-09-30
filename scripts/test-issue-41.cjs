@@ -37,38 +37,24 @@ function eq(a, b, msg) {
 /* ── 转译客户端模块到 .rt-tmp-41（沿用仓内既有先例：ts.transpileModule → CJS + 改 require 后缀） ── */
 fs.rmSync(DIR, { recursive: true, force: true });
 fs.mkdirSync(DIR, { recursive: true });
-const MODULES = [
-  ['templates.ts', SRC('templates.ts'), []],
-  ['store.ts', SRC('store.ts'), ['./templates']],
-  ['state.ts', SRC('state.ts'), []],
-  ['i18n.ts', SRC('i18n.ts'), []],
-  ['smartstore.ts', SRC('smartstore.ts'), []],
-  ['updauto.ts', SRC('updauto.ts'), []],
-  // #41 收口 R2 的连带：update.ts 多了一条 `./upddialog` 的 import 边（弹窗归属闸）。
-  ['upddialog.ts', SRC('upddialog.ts'), []],
-  // #82 起 panel.ts 多了 `./remote` 与 `./remoteView` 两条 import 边（远程模式总闸与纯视图，无外部依赖）。
-  ['remote.ts', SRC('remote.ts'), []],
-  ['remoteView.ts', SRC('remoteView.ts'), []],
-  ['panel.ts', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView']],
-  ['about.ts', SRC('about.ts'), ['./panel', './i18n']],
-  ['update.ts', SRC('update.ts'), ['./panel', './i18n', './updauto', './upddialog', '../update/bridge', '../update/gen/updateClient.derived.js']],
-  ['bridge.ts', path.join(ROOT, 'src', 'update', 'bridge.ts'), ['./gen/updateClient.derived.js']],
-  ['updateClient.derived.js', path.join(ROOT, 'src', 'update', 'gen', 'updateClient.derived.js'), []],
-];
-for (const [outName, srcPath, deps] of MODULES) {
-  const src = fs.readFileSync(srcPath, 'utf8');
-  let js = ts.transpileModule(src, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true },
-  }).outputText;
-  for (const d of deps) {
-    // '../update/bridge' 这类跨目录依赖要落到本临时目录里的同名产物上（bridge 的派生文件同理）
-    const target = d === '../update/bridge' ? './bridge.cjs'
-      : (d === './gen/updateClient.derived.js' || d === '../update/gen/updateClient.derived.js') ? './updateClient.derived.cjs'
-        : d + '.cjs';
-    js = js.split('require("' + d + '")').join('require("' + target + '")');
-  }
-  fs.writeFileSync(TMP(outName.replace(/\.ts$/, '.cjs').replace(/\.js$/, '.cjs')), js);
-}
+// P1：只声明根；闭包与 require 改写由共享件顺着源码 import 推导（不再是手抄表）。
+const { buildFlat } = require('./lib/transpile-client.cjs');
+buildFlat(DIR, [
+  SRC('templates.ts'),
+  SRC('store.ts'),
+  SRC('state.ts'),
+  SRC('i18n.ts'),
+  SRC('smartstore.ts'),
+  SRC('updauto.ts'),
+  SRC('upddialog.ts'),
+  SRC('remote.ts'),
+  SRC('remoteView.ts'),
+  SRC('panel.ts'),
+  SRC('about.ts'),
+  SRC('update.ts'),
+  path.join(ROOT, 'src', 'update', 'bridge.ts'),
+  path.join(ROOT, 'src', 'update', 'gen', 'updateClient.derived.js'),
+]);
 const React = require('react');
 const TR = require('react-test-renderer');
 const derived = require(TMP('updateClient.derived.cjs'));
@@ -80,7 +66,9 @@ const derived = require(TMP('updateClient.derived.cjs'));
  * 字符串里没有 `//`；真出现了也是测试自己的事，不影响被测代码的行为断言）。
  */
 function stripComments(src) {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+  // 实现集中在 scripts/lib/transpile-client.cjs 一份：原来这里的 split('\n') 在 CRLF 下会**静默失效**
+  // （每行尾部留着 \r，而 JS 的 `.` 匹配不了 \r，于是行注释一句都没被剥掉）——Windows 检出恒为 CRLF。
+  return require('./lib/transpile-client.cjs').stripComments(src);
 }
 
 /** 清掉临时目录里的模块缓存再 require：updauto.ts 有一个「一个会话只自动查一次」的闩，
@@ -351,9 +339,14 @@ const PROFILE_STORE = path.join(process.env.USERPROFILE || '', '.dsh', 'storages
       }
     };
     walkSrc(path.join(ROOT, 'src'));
-    const hits = srcless.filter((f) => /\b8000\b/.test(stripComments(fs.readFileSync(f, 'utf8'))))
+    // 按**意图**判「8 秒延迟只有一处」：延迟常量的定义唯一，且没有别的模块在排期调用里写死这个数字。
+    // 旧写法扫全树字面量 8000，会被无关的 z-index 常量（button.ts 的 DOCK_Z = 8000）误伤 —— 两个 8000 语义不相干。
+    const hits = srcless.filter((f) => /export const AUTO_CHECK_DELAY_MS\s*=\s*8000\b/.test(stripComments(fs.readFileSync(f, 'utf8'))))
       .map((f) => path.relative(ROOT, f).replace(/\\/g, '/'));
-    eq(hits, ['src/client/updauto.ts'], '延迟数字 8000 在 src 的代码里只出现在 updauto.ts 一处');
+    eq(hits, ['src/client/updauto.ts'], '首次延迟常量 AUTO_CHECK_DELAY_MS = 8000 只在 updauto.ts 定义一处');
+    const stray8000 = srcless.filter((f) => /(?:setTimeout|setInterval)\s*\([^;]{0,200}?\b8000\b/.test(stripComments(fs.readFileSync(f, 'utf8'))))
+      .map((f) => path.relative(ROOT, f).replace(/\\/g, '/'));
+    eq(stray8000, [], 'src 里没有别处把 8000 写死进排期调用（排期只走 AUTO_CHECK_DELAY_MS）');
     // #89 起排期搬进 updauto.ts 的 subscribeAutoTick（模块级：首订阅排首次、末注销清表），update.ts 只订阅。
     eq(updateCode.split('subscribeAutoTick').length - 1, 2, '#89：update.ts 只在 import + 订阅 effect 两处提到 subscribeAutoTick');
     eq(/AUTO_CHECK_DELAY_MS/.test(updateCode), false, '#89：update.ts 不再直接写首次延迟（排期数字只在 updauto.ts）');

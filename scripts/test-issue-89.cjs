@@ -34,40 +34,30 @@ const EXPECT_JITTER_MS = 5 * 60 * 1000;
 
 fs.rmSync(DIR, { recursive: true, force: true });
 fs.mkdirSync(DIR, { recursive: true });
-const MODULES = [
-  ['templates.ts', SRC('templates.ts'), []],
-  ['store.ts', SRC('store.ts'), ['./templates']],
-  ['state.ts', SRC('state.ts'), []],
-  ['i18n.ts', SRC('i18n.ts'), []],
-  ['smartstore.ts', SRC('smartstore.ts'), []],
-  ['updauto.ts', SRC('updauto.ts'), []],
-  ['upddialog.ts', SRC('upddialog.ts'), []],
-  ['remote.ts', SRC('remote.ts'), []],
-  ['remoteView.ts', SRC('remoteView.ts'), []],
-  ['panel.ts', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView']],
-  ['about.ts', SRC('about.ts'), ['./panel', './i18n']],
-  ['update.ts', SRC('update.ts'), ['./panel', './i18n', './updauto', './upddialog', '../update/bridge', '../update/gen/updateClient.derived.js']],
-  ['bridge.ts', path.join(ROOT, 'src', 'update', 'bridge.ts'), ['./gen/updateClient.derived.js']],
-  ['updateClient.derived.js', path.join(ROOT, 'src', 'update', 'gen', 'updateClient.derived.js'), []],
-];
-for (const [outName, srcPath, deps] of MODULES) {
-  const src = fs.readFileSync(srcPath, 'utf8');
-  let js = ts.transpileModule(src, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true },
-  }).outputText;
-  for (const d of deps) {
-    const target = d === '../update/bridge' ? './bridge.cjs'
-      : (d === './gen/updateClient.derived.js' || d === '../update/gen/updateClient.derived.js') ? './updateClient.derived.cjs'
-        : d + '.cjs';
-    js = js.split('require("' + d + '")').join('require("' + target + '")');
-  }
-  fs.writeFileSync(TMP(outName.replace(/\.ts$/, '.cjs').replace(/\.js$/, '.cjs')), js);
-}
+// P1：只声明根；闭包与 require 改写由共享件顺着源码 import 推导（不再是手抄表）。
+const { buildFlat } = require('./lib/transpile-client.cjs');
+buildFlat(DIR, [
+  SRC('templates.ts'),
+  SRC('store.ts'),
+  SRC('state.ts'),
+  SRC('i18n.ts'),
+  SRC('smartstore.ts'),
+  SRC('updauto.ts'),
+  SRC('upddialog.ts'),
+  SRC('remote.ts'),
+  SRC('remoteView.ts'),
+  SRC('panel.ts'),
+  SRC('about.ts'),
+  SRC('update.ts'),
+  path.join(ROOT, 'src', 'update', 'bridge.ts'),
+  path.join(ROOT, 'src', 'update', 'gen', 'updateClient.derived.js'),
+]);
 const React = require('react');
 const TR = require('react-test-renderer');
 
 function stripComments(src) {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+  // 实现集中在 scripts/lib/transpile-client.cjs 一份（旧写法的 split('\n') 在 CRLF 下静默失效）。
+  return require('./lib/transpile-client.cjs').stripComments(src);
 }
 function purge() {
   for (const k of Object.keys(require.cache)) if (k.indexOf(DIR) === 0) delete require.cache[k];
@@ -224,7 +214,10 @@ const calls = (which) => requests.filter((r) => !which || r.which === which).len
     };
     walkSrc(path.join(ROOT, 'src'));
     const rel = (f) => path.relative(ROOT, f).replace(/\\/g, '/');
-    eq(srcless.filter((f) => /\b8000\b/.test(stripComments(fs.readFileSync(f, 'utf8')))).map(rel), ['src/client/updauto.ts'], '8000 只在 updauto.ts 一处');
+    // 按**意图**判（同 test-issue-41）：延迟常量的定义唯一 + 排期调用里没有写死的 8000。
+    // 旧写法扫全树字面量 8000，会被无关的 z-index 常量（button.ts 的 DOCK_Z = 8000）误伤。
+    eq(srcless.filter((f) => /export const AUTO_CHECK_DELAY_MS\s*=\s*8000\b/.test(stripComments(fs.readFileSync(f, 'utf8')))).map(rel), ['src/client/updauto.ts'], 'AUTO_CHECK_DELAY_MS = 8000 只在 updauto.ts 定义一处');
+    eq(srcless.filter((f) => /(?:setTimeout|setInterval)\s*\([^;]{0,200}?\b8000\b/.test(stripComments(fs.readFileSync(f, 'utf8')))).map(rel), [], '排期调用里没有写死的 8000（排期只走 AUTO_CHECK_DELAY_MS）');
     eq(srcless.filter((f) => /\b14400000\b/.test(stripComments(fs.readFileSync(f, 'utf8')))).map(rel), [], '14400000 不以字面量出现');
     eq(srcless.filter((f) => /\b300000\b/.test(stripComments(fs.readFileSync(f, 'utf8')))).map(rel), [], '300000 不以字面量出现');
     // 抖动：端点与非法输入。

@@ -11,20 +11,16 @@ try { ts = require('typescript') } catch (e) { ts = require('D:/0Tools/DSHDeskto
 const DIR = path.join(__dirname, '.rt-tmp');
 fs.mkdirSync(DIR, { recursive: true });
 const PANEL_TS = path.resolve(path.join(__dirname, '..', 'src', 'client', 'panel.ts'));
-const MODULES = [
-  ['templates.ts', path.join(__dirname, '..', 'src', 'client', 'templates.ts'), []],
-  ['store.ts', path.join(__dirname, '..', 'src', 'client', 'store.ts'), ['./templates']],
-  ['state.ts', path.join(__dirname, '..', 'src', 'client', 'state.ts'), []],
-  ['i18n.ts', path.join(__dirname, '..', 'src', 'client', 'i18n.ts'), []],
-  ['smartstore.ts', path.join(__dirname, '..', 'src', 'client', 'smartstore.ts'), []],
-  ['panel.cjs', PANEL_TS, ['./templates', './store', './state', './i18n', './smartstore']],
-];
-for (const [outName, srcPath, deps] of MODULES) {
-  let src = fs.readFileSync(srcPath, 'utf8');
-  let js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true } }).outputText;
-  for (const d of deps) js = js.split('require("' + d + '")').join('require("' + d + '.cjs")');
-  fs.writeFileSync(path.join(DIR, outName.replace(/\.ts$/, '.cjs')), js);
-}
+// P1：只声明根；闭包与 require 改写由共享件顺着源码 import 推导（不再是手抄表）。
+const { buildFlat } = require('./lib/transpile-client.cjs');
+buildFlat(DIR, [
+  path.join(__dirname, '..', 'src', 'client', 'templates.ts'),
+  path.join(__dirname, '..', 'src', 'client', 'store.ts'),
+  path.join(__dirname, '..', 'src', 'client', 'state.ts'),
+  path.join(__dirname, '..', 'src', 'client', 'i18n.ts'),
+  path.join(__dirname, '..', 'src', 'client', 'smartstore.ts'),
+  PANEL_TS,
+]);
 const React = require('react');
 const TR = require('react-test-renderer');
 const panel = require(path.join(DIR, 'panel.cjs'));

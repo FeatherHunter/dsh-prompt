@@ -14,24 +14,16 @@ const DIR = path.join(__dirname, '.rt-tmp');
 fs.mkdirSync(DIR, { recursive: true });
 const SRC = (f) => path.join(__dirname, '..', 'src', 'client', f);
 // 独立文件名（不与别家互压）：store71/panel71 等
-const MODULES = [
-  ['templates71.cjs', SRC('templates.ts'), []],
-  ['store71.cjs', SRC('store.ts'), ['./templates']],
-  ['state71.cjs', SRC('state.ts'), []],
-  ['i18n71.cjs', SRC('i18n.ts'), []],
-  ['smartstore71.cjs', SRC('smartstore.ts'), []],
-  ['panel71.cjs', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore']],
-];
-for (const [outName, srcPath, deps] of MODULES) {
-  let src = fs.readFileSync(srcPath, 'utf8');
-  let js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true } }).outputText;
-  for (const d of deps) {
-    const base = d.replace(/^\.\//, '');
-    js = js.split('require("' + d + '")').join('require("./' + base + '71.cjs")');
-    js = js.split("require('" + d + "')").join('require("./' + base + '71.cjs")');
-  }
-  fs.writeFileSync(path.join(DIR, outName), js);
-}
+// P1：只声明根；闭包与 require 改写由共享件顺着源码 import 推导（不再是手抄表）。
+const { buildFlat } = require('./lib/transpile-client.cjs');
+buildFlat(DIR, [
+  SRC('templates.ts'),
+  SRC('store.ts'),
+  SRC('state.ts'),
+  SRC('i18n.ts'),
+  SRC('smartstore.ts'),
+  SRC('panel.ts'),
+], { suffix: '71' });
 const React = require('react');
 const TR = require('react-test-renderer');
 const req = (n) => require(path.join(DIR, n));

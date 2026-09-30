@@ -18,34 +18,23 @@ fs.mkdirSync(DIR, { recursive: true });
 const SRC = (f) => path.join(__dirname, '..', 'src', 'client', f);
 const UPD = (f) => path.join(__dirname, '..', 'src', 'update', f);
 // 独立后缀（不与别家互压）：*77.cjs
-const MODULES = [
-  ['templates', SRC('templates.ts'), []],
-  ['store', SRC('store.ts'), ['./templates']],
-  ['state', SRC('state.ts'), []],
-  ['i18n', SRC('i18n.ts'), []],
-  ['smartstore', SRC('smartstore.ts'), []],
-  ['panel', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore']],
-  ['about', SRC('about.ts'), ['./panel', './i18n']],
-  ['updauto', SRC('updauto.ts'), []],
-  ['upddialog', SRC('upddialog.ts'), []],
-  ['update', SRC('update.ts'), ['./panel', './i18n', './updauto', './upddialog', '../update/bridge', '../update/gen/updateClient.derived.js']],
-  ['settings', SRC('settings.ts'), ['./panel', './about', './update', './smartstore', './i18n']],
-  ['bridge', UPD('bridge.ts'), ['./gen/updateClient.derived.js']],
-  ['derived', UPD('gen/updateClient.derived.js'), []],
-];
-const OUT = (name) => './' + name + '77.cjs';
-for (const [name, srcPath, deps] of MODULES) {
-  const src = fs.readFileSync(srcPath, 'utf8');
-  let js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true } }).outputText;
-  for (const d of deps) {
-    const to = d === '../update/bridge' ? OUT('bridge')
-      : (d === './gen/updateClient.derived.js' || d === '../update/gen/updateClient.derived.js') ? OUT('derived')
-        : OUT(d.replace(/^\.\//, ''));
-    js = js.split('require("' + d + '")').join('require("' + to + '")');
-    js = js.split("require('" + d + "')").join('require("' + to + '")');
-  }
-  fs.writeFileSync(path.join(DIR, name + '77.cjs'), js);
-}
+// P1：只声明根；闭包与 require 改写由共享件顺着源码 import 推导（不再是手抄表）。
+const { buildFlat } = require('./lib/transpile-client.cjs');
+buildFlat(DIR, [
+  SRC('templates.ts'),
+  SRC('store.ts'),
+  SRC('state.ts'),
+  SRC('i18n.ts'),
+  SRC('smartstore.ts'),
+  SRC('panel.ts'),
+  SRC('about.ts'),
+  SRC('updauto.ts'),
+  SRC('upddialog.ts'),
+  SRC('update.ts'),
+  SRC('settings.ts'),
+  UPD('bridge.ts'),
+  UPD('gen/updateClient.derived.js'),
+], { suffix: '77' });
 const React = require('react');
 const TR = require('react-test-renderer');
 const req = (n) => require(path.join(DIR, n));

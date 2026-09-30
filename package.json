@@ -37,6 +37,7 @@
     "derive:update-values": "node node_modules/dsh-plugin-update/derive-client-values.mjs --prefix prompt --out src/update/gen/updateClient.derived.js",
     "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck:host",
     "typecheck:host": "tsc -p tsconfig.host.json",
+    "test:lib-sync": "node scripts/check-lib-sync.mjs",
     "test:modal": "node scripts/test-modal-remount.cjs",
     "test:issue-14": "node scripts/test-issue-14.cjs",
     "test:issue-20": "node scripts/test-issue-20.cjs",
@@ -70,7 +71,7 @@
     "test:issue-89": "node scripts/test-issue-89.cjs",
     "test:issue-59": "node scripts/test-issue-59.cjs",
     "test:marketplace": "node scripts/check-marketplace-readme.mjs",
-    "test": "npm run test:modal && npm run test:issue-14"
+    "test": "npm run test:lib-sync && npm run test:modal && npm run test:issue-14"
   },
   "dsh": {
     "bundle": {

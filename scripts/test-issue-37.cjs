@@ -13,37 +13,23 @@ const DIR = path.join(__dirname, '.rt-tmp');
 fs.mkdirSync(DIR, { recursive: true });
 const SRC = (f) => path.join(__dirname, '..', 'src', 'client', f);
 const UPD = (f) => path.join(__dirname, '..', 'src', 'update', f);
-const MODULES = [
-  ['templates.ts', SRC('templates.ts'), []],
-  ['store.ts', SRC('store.ts'), ['./templates']],
-  ['state.ts', SRC('state.ts'), []],
-  ['i18n.ts', SRC('i18n.ts'), []],
-  ['smartstore.ts', SRC('smartstore.ts'), []],
-  ['panel.ts', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore']],
-  ['about.ts', SRC('about.ts'), ['./panel', './i18n']],
-  // #40 的连带：settings.ts 顶部多了一行更新入口（`./update`），转译表与依赖改写必须跟着带上，
-  // 否则这个脚本会以「Cannot find module './update'」直接崩（不是断言失败，是跑不起来）。
-  // #41 的连带同理：update.ts 多了一条 `./updauto` 的 import 边（自动检查的判据与跳过记录）。
-  // #41 收口 R2 又多一条 `./upddialog`（弹窗归属闸）：同样必须进表，否则本脚本直接崩。
-  ['updauto.ts', SRC('updauto.ts'), []],
-  ['upddialog.ts', SRC('upddialog.ts'), []],
-  ['update.ts', SRC('update.ts'), ['./panel', './i18n', './updauto', './upddialog', '../update/bridge', '../update/gen/updateClient.derived.js']],
-  ['settings.ts', SRC('settings.ts'), ['./panel', './about', './update', './smartstore', './i18n']],
-  ['bridge.ts', UPD('bridge.ts'), ['./gen/updateClient.derived.js']],
-  ['updateClient.derived.js', UPD('gen/updateClient.derived.js'), []],
-];
-for (const [outName, srcPath, deps] of MODULES) {
-  let src = fs.readFileSync(srcPath, 'utf8');
-  let js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true } }).outputText;
-  for (const d of deps) {
-    // 跨目录依赖（update.ts 的 '../update/bridge' 与 bridge/update 用的派生文件）落到本临时目录里的同名产物
-    const to = d === '../update/bridge' ? './bridge.cjs'
-      : (d === './gen/updateClient.derived.js' || d === '../update/gen/updateClient.derived.js') ? './updateClient.derived.cjs'
-        : d + '.cjs';
-    js = js.split('require("' + d + '")').join('require("' + to + '")');
-  }
-  fs.writeFileSync(path.join(DIR, outName.replace(/\.ts$/, '.cjs').replace(/\.js$/, '.cjs')), js);
-}
+// P1：只声明根；闭包与 require 改写由共享件顺着源码 import 推导（不再是手抄表）。
+const { buildFlat } = require('./lib/transpile-client.cjs');
+buildFlat(DIR, [
+  SRC('templates.ts'),
+  SRC('store.ts'),
+  SRC('state.ts'),
+  SRC('i18n.ts'),
+  SRC('smartstore.ts'),
+  SRC('panel.ts'),
+  SRC('about.ts'),
+  SRC('updauto.ts'),
+  SRC('upddialog.ts'),
+  SRC('update.ts'),
+  SRC('settings.ts'),
+  UPD('bridge.ts'),
+  UPD('gen/updateClient.derived.js'),
+]);
 const React = require('react');
 const TR = require('react-test-renderer');
 const about = require(path.join(DIR, 'about.cjs'));

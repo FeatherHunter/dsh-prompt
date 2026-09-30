@@ -25,25 +25,16 @@ try { ts = require('typescript') } catch (e) { ts = require('D:/0Tools/DSHDeskto
 const DIR = path.join(__dirname, '.rt-tmp');
 fs.mkdirSync(DIR, { recursive: true });
 const SRC = (f) => path.join(__dirname, '..', 'src', 'client', f);
-const MODULES = [
-  ['templates76.cjs', SRC('templates.ts'), []],
-  ['store76.cjs', SRC('store.ts'), ['./templates']],
-  ['state76.cjs', SRC('state.ts'), []],
-  ['i1876.cjs', SRC('i18n.ts'), []],
-  ['smartstore76.cjs', SRC('smartstore.ts'), []],
-  ['panel76.cjs', SRC('panel.ts'), ['./templates', './store', './state', './i18n', './smartstore']],
-];
-for (const [outName, srcPath, deps] of MODULES) {
-  let src = fs.readFileSync(srcPath, 'utf8');
-  let js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true } }).outputText;
-  for (const d of deps) {
-    const base = d.replace(/^\.\//, '');
-    const outBase = base === 'i18n' ? 'i1876.cjs' : base + '76.cjs';
-    js = js.split('require("' + d + '")').join('require("./' + outBase + '")');
-    js = js.split("require('" + d + "')").join('require("./' + outBase + '")');
-  }
-  fs.writeFileSync(path.join(DIR, outName), js);
-}
+// P1：只声明根；闭包与 require 改写由共享件顺着源码 import 推导（不再是手抄表）。
+const { buildFlat } = require('./lib/transpile-client.cjs');
+buildFlat(DIR, [
+  SRC('templates.ts'),
+  SRC('store.ts'),
+  SRC('state.ts'),
+  SRC('i18n.ts'),
+  SRC('smartstore.ts'),
+  SRC('panel.ts'),
+], { suffix: '76' });
 if (typeof global.MutationObserver === 'undefined') {
   global.MutationObserver = class { constructor() {} observe() {} disconnect() {} };
 }

@@ -126,6 +126,24 @@ function eq(a, b, msg) {
   eq(out.json.value.lastUsed, 'c1', 'lastUsed 原子设置');
   ok('usage/bump 计数 + lastUsed 原子');
 
+  // 回归（2026-09-30 线上事故）：宿主的 `domain.global.set()` 是**整体替换**而不是打补丁，
+  // 所以两处写入必须各自带上既有键，否则互相冲掉：
+  //   ① remote/set 只传 remote* → 把 lastUsed 写没 → desktop 端 0.1.14（schema 里 lastUsed 必填）
+  //      打不开 domain → GET /store 恒 503 → 自定义模板全不见（真实事故就是这个）。
+  //   ② usage/bump 只传 lastUsed → 把 remote* 偏好写没。
+  // 下面用「假宿主 = 整体替换」把两条都钉住。
+  out = await call('POST', '/_dsh/dsh-prompt/remote/set', { orientation: 'portrait', density: 'b' });
+  eq(out.status, 200, 'remote/set 状态码');
+  out = await call('GET', '/_dsh/dsh-prompt/store');
+  eq(out.json.value.lastUsed, 'c1', '① remote/set 之后 lastUsed 必须还在（曾在这里被写没）');
+  eq(out.json.value.remote.orientation, 'portrait', 'remote.orientation 落地');
+  await call('POST', '/_dsh/dsh-prompt/usage/bump', { id: 'c10000' });
+  out = await call('GET', '/_dsh/dsh-prompt/store');
+  eq(out.json.value.remote.orientation, 'portrait', '② usage/bump 之后 remote 偏好必须还在（曾在这里被写没）');
+  eq(out.json.value.remote.density, 'b', 'remote.density 仍在');
+  eq(out.json.value.lastUsed, 'c10000', 'lastUsed 仍随 bump 更新');
+  ok('global 整体替换下，两处写入互不冲掉对方的键');
+
   // pinned：超限 400，有效对账
   out = await call('POST', '/_dsh/dsh-prompt/pinned/set', { ids: ['a', 'b', 'c', 'd', 'e', 'f'] });
   eq(out.status, 400, '6 个置顶应 400');

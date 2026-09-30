@@ -45,8 +45,8 @@ npm install -g @deepseek-ai/dsh
 dsh plugin --profile web add dsh-prompt       # self-hosted web service (dsh web)
 #     or
 dsh plugin --profile desktop add dsh-prompt   # DSH Desktop app
-# Pin a version for stability (current 0.2.1):
-dsh plugin --profile web add dsh-prompt@0.2.1 --registry https://registry.npmjs.org
+# Pin a version for stability (current 0.2.0):
+dsh plugin --profile web add dsh-prompt@0.2.0 --registry https://registry.npmjs.org
 ```
 
 <div align="center">
@@ -99,14 +99,14 @@ dsh plugin --profile web remove dsh-prompt   # uninstall
 
 </div>
 
-Developed and verified against **DSH CLI `0.2.0-rc.1`** and **DSH Desktop `2.0.9`**.<br>
+Developed and verified against **DSH CLI `0.2.0-rc.2`** and **DSH Desktop `2.0.9`**.<br>
 Lower DSH versions are not verified — they install fine, but running correctly is not guaranteed; issues are welcome.
 
 The block below is the single version declaration, and it must match `dsh.engines.dsh` in `package.json` character for character (`npm run test:issue-42` compares the two, so editing one and forgetting the other turns red). It is documentation only: installation never blocks on a version.
 
 ```text
-dsh.engines.dsh = >=0.2.0-rc.1
-dsh.cli = 0.2.0-rc.1
+dsh.engines.dsh = >=0.2.0-rc.2
+dsh.cli = 0.2.0-rc.2
 dsh.desktop = 2.0.9
 ```
 

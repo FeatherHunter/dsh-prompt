@@ -85,7 +85,9 @@ async function drain(cap, home, expectEvent) {
   // #39 整改加了三条更新能力的宿主侧事件：host.call、update.install.exec、update.route.fail（都属 resident）。
   // #61 加 pick.probe 诊断探针（ondemand debug，只记计数与桥形状）。
   // #82 加四条远程事件：settings.remote.toggle/font/control + remote.direct.open（都属 resident）。
+  // 2026-09-29 单滑块：font/control 合为 settings.remote.size（resident），总数 47→46。
   // 去宿主化加一条：settings.remote.orientation（resident）。
+  // #90 加一条：settings.remote.density（resident），总数 46→47。
   // 真切整机加两条：system.orientation.get/set（resident）。
   eq(actualKinds, { resident: 33, ondemand: 9, selfmon: 5 }, '三类 kind 计数');
 
@@ -291,7 +293,8 @@ async function drain(cap, home, expectEvent) {
 
   const PACKAGE_INTERNAL = ['host.start', 'host.call.fail', 'log.persist.fail', 'log.export.fail', 'log.forward.summary', 'log.switch.watchdog'];
   /** 已声明但尚未接调用点的事件：只在票与票之间短暂存在，接上就删（见对应票）。 */
-  const PENDING_CALL_SITES = []; // 配置页三入口（#51）已接上，此清单为空
+  // 智能推荐配置区暂藏：settings.smart.toggle 调用点随 UI 隐藏而摘除，事件声明保留待接回（功能未放开，非删除）。
+  const PENDING_CALL_SITES = ['settings.smart.toggle'];
   // #39 整改新加的三条更新事件（host.call / update.install.exec / update.route.fail）都住在
   // src/update/host/index.ts 与 lib/index.js 里，调用点用字面量事件名（下面这条扫描能看见）。
   const CALL_RE = /\b(?:log\w*|\w*Log)(?:\?\.)?\(\s*['"]([a-zA-Z0-9._]+)['"]\s*,\s*\{([^}]*)\}/g;
@@ -514,6 +517,19 @@ async function drain(cap, home, expectEvent) {
   eq(enumGate.filter('update.route.fail', { route: 'my-template-v3', reason: 'check-expired', errorHash: 'deadbeef' }).fields.route, 'my-template-v3', '标识符形状模板名能过闸门形状（残余风险，桥侧语义表兜住）');
   // 非 ENUM 事件不收窄：既有可用性未动。
   eq(enumGate.filter('host.log.export', { ok: true, bytes: 12, fallback: false, date: '2026-09-12' }).fields.date, '2026-09-12', '非 ENUM 事件不受形状约束（只收窄 ENUM）');
+
+  /* ── 9) #91：store 快照失败一次延迟补拉（与 remote ensureRemoteLoaded 同构；源码级断言） ── */
+  // 如实注明：scripts/ 下覆盖 store.snapshot.* 的唯一接缝是本文件的日志管线断言（grep store.snapshot.fail/ok 仅落此处），
+  // 没有可驱动 store.ensureLoaded 的 fetch 级 harness（store.ts 亦无 __reset* 测试缝，硬造违反 diagnosing-bugs Phase5），
+  // 故此处只钉“重试调度存在 + 无新增事件”；运行时的“首次失败→补拉成功→customs/usage 装入”未被锁死。
+  const storeSrc91 = fs.readFileSync(path.join(ROOT, 'src', 'client', 'store.ts'), 'utf8');
+  const storeCode91 = storeSrc91.replace(/\/\*[\s\S]*?\*\//g, '').split(/\r?\n/).map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+  const storeEvents91 = [...storeCode91.matchAll(/logEvent\('([^']+)'/g)].map((m) => m[1]);
+  eq([...new Set(storeEvents91)].sort(), ['store.persist.fail', 'store.snapshot.fail', 'store.snapshot.ok'], '#91 store.ts 只打既有三事件（无新增事件）');
+  assert(/loadRetried/.test(storeCode91), '#91 store.ts 有单次重试旗（loadRetried）');
+  assert(/setTimeout/.test(storeCode91) && /2500/.test(storeCode91), '#91 store.ts 有 2500ms 延迟补拉（setTimeout 2500）');
+  assert(/loadPromise\s*=\s*null/.test(storeCode91) && /storeLoaded\s*=\s*false/.test(storeCode91), '#91 补拉前复位 loadPromise/storeLoaded');
+  assert(/unref/.test(storeCode91), '#91 延迟器 unref（不拖住退出）');
 
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* 清理失败不影响结论 */ }
   console.log(failures === 0 ? '=== Test log PASS ===' : `=== Test log FAIL（${failures} 项）===`);

@@ -160,8 +160,7 @@
       "kind": "resident",
       "fields": [
         "on",
-        "font",
-        "control"
+        "size"
       ],
       "codes": [
         "ENUM"
@@ -174,32 +173,12 @@
         "R_EMAIL"
       ]
     },
-    "settings.remote.font": {
+    "settings.remote.size": {
       "level": "info",
       "kind": "resident",
       "fields": [
         "on",
-        "font",
-        "control"
-      ],
-      "codes": [
-        "ENUM"
-      ],
-      "rules": [
-        "R_TOKEN",
-        "R_WIN_ABS",
-        "R_HOME_PATH",
-        "R_URL",
-        "R_EMAIL"
-      ]
-    },
-    "settings.remote.control": {
-      "level": "info",
-      "kind": "resident",
-      "fields": [
-        "on",
-        "font",
-        "control"
+        "size"
       ],
       "codes": [
         "ENUM"
@@ -218,6 +197,24 @@
       "fields": [
         "on",
         "orientation"
+      ],
+      "codes": [
+        "ENUM"
+      ],
+      "rules": [
+        "R_TOKEN",
+        "R_WIN_ABS",
+        "R_HOME_PATH",
+        "R_URL",
+        "R_EMAIL"
+      ]
+    },
+    "settings.remote.density": {
+      "level": "info",
+      "kind": "resident",
+      "fields": [
+        "on",
+        "density"
       ],
       "codes": [
         "ENUM"

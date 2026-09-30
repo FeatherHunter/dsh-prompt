@@ -10,15 +10,20 @@ function ok(msg) { console.log(' ok: ' + msg) }
 const ROOT = path.join(__dirname, '..');
 const hostSrc = fs.readFileSync(path.join(ROOT, 'lib', 'index.js'), 'utf8');
 
-// 1) 路由与已知表
+// 1) 路由与已知表（深模块外缝 + 内缝各就其位：spawn 唯一实现，解析/构造为纯函数）
 for (const marker of [
   '/_dsh/dsh-prompt/system/orientation', 'ORIENT_ROUTE',
-  'queryOsOrientation', 'changeOsOrientation', 'spawnPowershellJson', 'spawnPowershellRaw',
+  'queryOsOrientation', 'changeOsOrientation', 'runPowershell', 'parseJsonLines',
+  'buildSetScript', 'mapApplyFailure', 'spawnErrorToOrient',
   'resolvePowershellExe', 'enqueueOrient', 'orientBusy', 'lastKnownOrientation',
 ]) {
   if (!hostSrc.includes(marker)) fail('lib/index.js 缺少真切执行器标记: ' + marker);
 }
-ok('真切执行器源码齐（查询/切换/spawn/串行/忙位/回声）');
+ok('真切执行器源码齐（查询/切换/spawn/解析/构造/串行/忙位/回声）');
+if (hostSrc.includes('spawnPowershellJson') || hostSrc.includes('spawnPowershellRaw')) {
+  fail('Json/Raw 双生 spawn 应已合并为 runPowershell（删穿透适配器）');
+}
+ok('无双生 spawn（单实现 + 纯解析）');
 if (!hostSrc.includes('"/_dsh/dsh-prompt/system/orientation"')) fail('KNOWN_ROUTES 缺新路径');
 ok('已知路由表含新路径');
 

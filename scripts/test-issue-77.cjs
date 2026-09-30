@@ -8,7 +8,7 @@
 //  E) 收起态「＋ 新增」不触发折叠：列表仍收起，新增弹窗照常弹
 //  F) 不受影响的面：compact=true 悬浮面板照旧立刻渲染列表、页面上没有折叠头行；
 //     不传 collapsible 的 compact=false 挂载（全部既有回归脚本的用法）行为一字不动
-//  G) #37/#40 的结构断言不破：设置页顶层仍是 6 块，第 3 块仍是那个浏览器（含折叠头行）
+//  G) #37/#40 的结构断言不破：设置页顶层仍是 5 块，身份行首行、模板区第 1 块（含折叠头行）
 const fs = require('node:fs');
 const path = require('node:path');
 let ts;
@@ -194,9 +194,9 @@ async function main() {
   {
     const p3 = TR.create(React.createElement(settings.SettingsPage, {}));
     const kids3 = p3.toJSON().children;
-    const listCard = kids3[3];
-    // 与上面两张卡（智能推荐 / 诊断日志）逐条对账：外壳的三个量必须一致。
-    for (const idx of [1, 2]) {
+    const listCard = kids3[1];
+    // 模板区居标题栏之下，与下面两张卡（远程 / 诊断日志）逐条对账：外壳的三个量必须一致。
+    for (const idx of [2, 3]) {
       ok(listCard.props.style.border === kids3[idx].props.style.border,
         '与第 ' + idx + ' 张卡边框一致（' + listCard.props.style.border + '）');
       ok(listCard.props.style.borderRadius === kids3[idx].props.style.borderRadius,

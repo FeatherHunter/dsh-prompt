@@ -11,6 +11,7 @@
  * 新模块用 TS（map 约束）；纯函数走转译断言（见 scripts/test-issue-82.cjs）。
  */
 
+/** 旧三档（2026-09-29 前）：仅做遗留数据迁移（large→2，其余→1），新代码不得再读写档位 */
 export type RemoteFontTier = 'small' | 'medium' | 'large'
 export type RemoteControlTier = 'small' | 'medium' | 'large'
 
@@ -22,15 +23,30 @@ export type RemoteControlTier = 'small' | 'medium' | 'large'
  */
 export type RemoteOrientationPref = 'auto' | 'landscape' | 'portrait'
 
+/**
+ * 密度档（#90，用户拍板）：
+ * - 'a'（默认）= 12 宫（竖 3×4 / 横 4×3，现状零改动）；
+ * - 'b' = 8 宫大卡（竖 2×4 / 横 4×2，不满补空位恒 8）。
+ * 字面量 'a'/'b'；纯手动，禁任何自动切档逻辑；仅切密度页码归零（方向切换不动）。
+ */
+export type RemoteDensity = 'a' | 'b'
+
 export interface RemotePrefs {
   enabled: boolean
-  font: RemoteFontTier
-  control: RemoteControlTier
+  /** 统一大小 1–10 档（2026-09-29 用户拍板：单滑块字号控件联动，倍数表见 remoteView.REMOTE_SIZE_SCALES，1 档=100%） */
+  size: number
   orientation: RemoteOrientationPref
+  /** 密度档（#90）：默认 'a'；旧数据无键回 'a' */
+  density: RemoteDensity
 }
 
-/** 默认值：总闸默认关（#85 US8）；字号/控件默认大（2026-09-29 用户拍板初始即大）；方向偏好默认自动 */
-export const REMOTE_DEFAULTS: RemotePrefs = { enabled: false, font: 'large', control: 'large', orientation: 'auto' }
+/** 默认值：总闸默认关（#85 US8）；大小默认 5 档（2x，用户拍板起步即大）；方向偏好默认自动；密度默认 A */
+export const REMOTE_DEFAULTS: RemotePrefs = { enabled: false, size: 5, orientation: 'auto', density: 'a' }
+
+/** 大小校验：1–10 整数（纯函数） */
+export function isRemoteSize(v: unknown): v is number {
+  return typeof v === 'number' && isFinite(v) && Math.floor(v) === v && (v as number) >= 1 && (v as number) <= 10
+}
 
 export const REMOTE_TIERS: RemoteFontTier[] = ['small', 'medium', 'large']
 
@@ -44,15 +60,29 @@ export function isRemoteOrientationPref(v: unknown): v is RemoteOrientationPref 
   return v === 'auto' || v === 'landscape' || v === 'portrait'
 }
 
-/** 归一化：未知形状一律回默认（纯函数；宿主旧数据/手改坏文件走此） */
+/** 密度档校验（纯函数，#90） */
+export function isRemoteDensity(v: unknown): v is RemoteDensity {
+  return v === 'a' || v === 'b'
+}
+
+/** 密度归一化：非法/缺键回默认 A（纯函数，不抛） */
+export function normalizeRemoteDensity(v: unknown): RemoteDensity {
+  return v === 'b' ? 'b' : 'a'
+}
+
+/** 归一化：未知形状一律回默认（纯函数；宿主旧数据/手改坏文件走此；旧三档按 large→2、其余→1 迁入） */
 export function normalizeRemotePrefs(input: unknown): RemotePrefs {
   try {
-    const o = (input || {}) as Partial<RemotePrefs>
+    const o = (input || {}) as any
+    let size: number = REMOTE_DEFAULTS.size
+    if (isRemoteSize(o.size)) size = o.size
+    else if (o.font === 'large' || o.control === 'large') size = 2
+    else if (isRemoteTier(o.font) || isRemoteTier(o.control)) size = 1
     return {
       enabled: o.enabled === true,
-      font: isRemoteTier(o.font) ? o.font : REMOTE_DEFAULTS.font,
-      control: isRemoteTier(o.control) ? o.control : REMOTE_DEFAULTS.control,
-      orientation: isRemoteOrientationPref((o as any).orientation) ? (o as any).orientation : REMOTE_DEFAULTS.orientation,
+      size,
+      orientation: isRemoteOrientationPref(o.orientation) ? o.orientation : REMOTE_DEFAULTS.orientation,
+      density: isRemoteDensity(o.density) ? o.density : REMOTE_DEFAULTS.density,
     }
   } catch (e) {
     return { ...REMOTE_DEFAULTS }
@@ -164,6 +194,7 @@ export function ensureRemoteLoaded(): Promise<void> {
           font: raw.remoteFont,
           control: raw.remoteControl,
           orientation: raw.remoteOrientation !== undefined ? raw.remoteOrientation : (raw as any).orientation,
+          density: raw.remoteDensity !== undefined ? raw.remoteDensity : (raw as any).density,
         })
         persistFailed = false
         persistMessage = ''
@@ -211,7 +242,7 @@ function persistRemote(): void {
     fetch(SET_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ enabled: cache.enabled, font: cache.font, control: cache.control, orientation: cache.orientation }),
+      body: JSON.stringify({ enabled: cache.enabled, size: cache.size, orientation: cache.orientation, density: cache.density }),
     }).then(
       async (res) => {
         if (!res.ok) {
@@ -261,23 +292,37 @@ function applyPatch(patch: Partial<RemotePrefs>): RemotePrefs {
 export function setRemoteEnabled(on: boolean): RemotePrefs {
   const next = applyPatch({ enabled: !!on })
   // 注意：事件名必须写字面量（日志回归扫描只认 logEvent('字面量', {...}) 调用点，变量转交会被判“声明了却没人打”）。
-  logEvent('settings.remote.toggle', { on: next.enabled, font: next.font, control: next.control })
+  logEvent('settings.remote.toggle', { on: next.enabled, size: next.size })
   return { ...next }
 }
 
-/** 字号档（大中小三档，与分辨率解耦） */
-export function setRemoteFont(tier: RemoteFontTier): RemotePrefs {
-  if (!isRemoteTier(tier)) return { ...cache }
-  const next = applyPatch({ font: tier })
-  logEvent('settings.remote.font', { on: next.enabled, font: next.font, control: next.control })
-  return { ...next }
+/**
+ * 跨插件页内 API（#93）：globalThis.__dshPromptSetRemote 的实现本体。
+ *
+ * - 入参：boolean 或 { enabled: boolean }；其余键一律忽略（只动总闸；
+ *   size / orientation / density 请走跨插件 HTTP API：POST /_dsh/dsh-prompt/remote/set）。
+ * - 路径：复用 setRemoteEnabled（内为 normalizeRemotePrefs→applyPatch→既有订阅通知），
+ *   事件沿用既有 settings.remote.toggle，无新事件名。
+ * - 并发：多写 last-write-wins（后写覆盖先写，无锁；与 host 侧 storage-json 双写语义一致）。
+ * - 无鉴权立场：UI 偏好低风险，仅靠页内同源 + host 侧同源围栏，不另加 token（见 lib/index.js）。
+ */
+export function setRemoteFromExternal(input: unknown): RemotePrefs {
+  let on: boolean | undefined
+  if (typeof input === 'boolean') on = input
+  else if (input && typeof input === 'object' && typeof (input as any).enabled === 'boolean') on = (input as any).enabled as boolean
+  else return { ...cache }
+  if (on === undefined) return { ...cache }
+  return setRemoteEnabled(on)
 }
 
-/** 控件档（大中小三档，与分辨率解耦） */
-export function setRemoteControl(tier: RemoteControlTier): RemotePrefs {
-  if (!isRemoteTier(tier)) return { ...cache }
-  const next = applyPatch({ control: tier })
-  logEvent('settings.remote.control', { on: next.enabled, font: next.font, control: next.control })
+try { (globalThis as any).__dshPromptSetRemote = setRemoteFromExternal } catch (e) { /* ignore */ }
+
+/** 统一大小 1–10 档（越界钳制取整；非法输入拒绝） */
+export function setRemoteSize(n: unknown): RemotePrefs {
+  const v = typeof n === 'number' && isFinite(n) ? Math.min(10, Math.max(1, Math.round(n))) : NaN
+  if (!isRemoteSize(v)) return { ...cache }
+  const next = applyPatch({ size: v })
+  logEvent('settings.remote.size', { on: next.enabled, size: next.size })
   return { ...next }
 }
 
@@ -286,6 +331,15 @@ export function setRemoteOrientation(pref: RemoteOrientationPref): RemotePrefs {
   if (!isRemoteOrientationPref(pref)) return { ...cache }
   const next = applyPatch({ orientation: pref } as Partial<RemotePrefs>)
   logEvent('settings.remote.orientation', { on: next.enabled, orientation: next.orientation })
+  return { ...next }
+}
+
+/** 密度档（#90）：两段手动切换，默认 A；非法拒绝（原值不动，不落盘不记事件）；切档页码归零由调用方执行 */
+export function setRemoteDensity(d: RemoteDensity): RemotePrefs {
+  if (!isRemoteDensity(d)) return { ...cache }
+  const next = applyPatch({ density: d } as Partial<RemotePrefs>)
+  // 注意：事件名必须写字面量（日志回归扫描只认 logEvent('字面量', {...}) 调用点，变量转交会被判“声明了却没人打”）。
+  logEvent('settings.remote.density', { on: next.enabled, density: next.density })
   return { ...next }
 }
 

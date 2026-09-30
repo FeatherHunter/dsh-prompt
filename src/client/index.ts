@@ -10,7 +10,8 @@ import { buildPromptSource } from './trigger'
 import { SmartCardHost } from './smart'
 import { setSmartInput } from './smartstore'
 import { ensureLoaded } from './store'
-import { ensureRemoteLoaded } from './remote'
+import { ensureRemoteLoaded, subscribeRemote, getRemotePrefs } from './remote'
+import { syncHostFont, syncRemoteRows } from './hostfont'
 import { getLang, tr, STR } from './i18n'
 import { isPanelOpen, onPanelOpen } from './state'
 import { startLog, getLog } from './log'
@@ -114,12 +115,27 @@ export function apply(ctx: ClientContext): void {
   // 日志能力（#49）：先建日志器（本地开关秒显），再向宿主对账（以宿主为准），最后才写第一条事件。
   const log = startLog()
   log.reconcile().catch(() => undefined)
-  // entryCount = 下面 `ctx.effect` 注册的入口数（#41 加了「更新自动检查」这一处，5 → 6）
-  log.log('app.boot', { hasReact: !!getReact(), lang: getLang(), entryCount: 6 })
+  // entryCount = 下面 `ctx.effect` 无条件注册数（#41 5→6 后 smart/update-auto/字桥陆续加入未补数；
+  // #92 补齐为 8：store/remote/字桥/entry/panel/settings/smart/update-auto；/prompt 源按宿主能力条件注册，不计）
+  log.log('app.boot', { hasReact: !!getReact(), lang: getLang(), entryCount: 8 })
   // #20：client 启动即拉 host 快照（失败 warn + 内存默认，不阻塞装配）
   ctx.effect(() => { ensureLoaded().catch(() => undefined) }, 'dsh-prompt: store load')
   // #82：远程偏好同理（总闸默认关，host 不可达时当次默认、下次恢复默认并明示）
   ctx.effect(() => { ensureRemoteLoaded().catch(() => undefined) }, 'dsh-prompt: remote load')
+  // #92：宿主内容字跟随（野路子）：开则双写变量、关则两边 removeProperty 恢复原样；
+  // 工作区列表跟随（D-targeted 二期）：同订阅同路，开注 zoom 关摘，无新设置 UI；
+  // 两条桥都无新日志事件名（沿用 setRemoteEnabled/Size 已有事件）。
+  ctx.effect(() => {
+    const sync = (): void => {
+      try {
+        const p = getRemotePrefs()
+        syncHostFont(p.enabled, p.size)
+        syncRemoteRows(p.enabled, p.size)
+      } catch (e) { /* fail-soft：宿主字桥永不影响装配 */ }
+    }
+    try { sync() } catch (e) { /* ignore */ }
+    try { return subscribeRemote(sync) } catch (e) { return undefined }
+  }, 'dsh-prompt: host font sync')
   // #76：启动即挂落点采样（selectionchange / focusin）。必须早于用户打字 ——
   // 只在点击时才挂监听的话，"用户编辑期的最后落点"根本没人记，失焦后的漂移就无从纠正。
   // 不走 ctx.effect：这两个监听是页面生命周期级的、只挂一次（内部有幂等闩），没有按会话
@@ -134,7 +150,11 @@ export function apply(ctx: ClientContext): void {
         const h = react.createElement
         const openState = react.useState(isPanelOpen())
         react.useEffect(() => onPanelOpen((v) => openState[1](v)), [])
-        return h(EntryButton, { open: openState[0] })
+        // #94：宿主右侧边栏面（ctx.sidebarRight，可晚到/缺席 → 缺席时键隐藏，fail-soft）；
+        // 每次 render 重探，晚到服务在下一次重渲染时自然接上。
+        let sidebarCtl: any = undefined
+        try { sidebarCtl = (ctx as any).get ? (ctx as any).get('sidebarRight') : undefined } catch (e) { sidebarCtl = undefined }
+        return h(EntryButton, { open: openState[0], sidebarCtl })
       }),
   ), 'dsh-prompt: entry')
 

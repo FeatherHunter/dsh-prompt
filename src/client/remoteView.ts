@@ -51,16 +51,41 @@ export interface RemoteHostCapsInput {
   hasStableOpen: boolean
 }
 
-/** 每页固定槽位数（横屏 4×3、竖屏 3×4 均为十二槽） */
+/** 每页固定槽位数（遗留：A 档十二槽；密度化后以 remotePageSizeFor 为准） */
 export const REMOTE_PAGE_SIZE = 12
 
-/** 横屏列数（4×3） */
-export function remoteColsFor(orientation: RemoteOrientation): number {
+/**
+ * 密度档（#90，用户拍板，不许改）：
+ * - A（默认）= 竖 3×4 / 横 4×3，12 宫现状零改动；
+ * - B = 竖 2×4 / 横 4×2，8 宫大卡，不满补空位恒 8。
+ * 字面量 'a'/'b'（无额外样式，网格自然撑大）；纯手动，禁任何自动切档逻辑。
+ */
+export type RemoteDensity = 'a' | 'b'
+
+/** 密度归一化：非法/缺键回默认 A（纯函数，不抛） */
+export function normalizeRemoteDensity(v: unknown): RemoteDensity {
+  return v === 'b' ? 'b' : 'a'
+}
+
+/** 密度校验（纯函数） */
+export function isRemoteDensity(v: unknown): v is RemoteDensity {
+  return v === 'a' || v === 'b'
+}
+
+/** 密度→每页槽位数：A=12，B=8（纯函数） */
+export function remotePageSizeFor(density: unknown): number {
+  return normalizeRemoteDensity(density) === 'b' ? 8 : REMOTE_PAGE_SIZE
+}
+
+/** 横屏列数（A 横 4×3 / 竖 3×4；B 横 4×2 / 竖 2×4；缺省 A 现状值） */
+export function remoteColsFor(orientation: RemoteOrientation, density: unknown = 'a'): number {
+  if (normalizeRemoteDensity(density) === 'b') return orientation === 'portrait' ? 2 : 4
   return orientation === 'portrait' ? 3 : 4
 }
 
-/** 横屏行数（4×3）；竖屏行数（3×4） */
-export function remoteRowsFor(orientation: RemoteOrientation): number {
+/** 行数（A 横 3 / 竖 4；B 横 2 / 竖 4；缺省 A 现状值） */
+export function remoteRowsFor(orientation: RemoteOrientation, density: unknown = 'a'): number {
+  if (normalizeRemoteDensity(density) === 'b') return orientation === 'portrait' ? 4 : 2
   return orientation === 'portrait' ? 4 : 3
 }
 
@@ -79,23 +104,43 @@ export function deriveRemoteOrientation(width: unknown, height: unknown): Remote
   }
 }
 
-/** 字号三档乘数（自动推导基准之上，与分辨率解耦；大档必须一眼可辨，故步长拉开） */
-export function remoteFontScale(tier: RemoteTierName): number {
-  if (tier === 'small') return 0.85
-  if (tier === 'large') return 1.32
-  return 1
+/**
+ * 统一大小倍数表（2026-09-29 用户拍板，两次调优收敛）：1 档=100%，之后每档 +25%，
+ * 即 100 / 125 / 150 / 175 / 200 / 225 / 250 / 275 / 300 / 325，等距步进、档档手感一致。
+ */
+export const REMOTE_SIZE_SCALES = [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25]
+/** 档位→倍数：非法回默认 5 档（2x） */
+export function remoteSizeScale(size: unknown): number {
+  const v = typeof size === 'number' && isFinite(size) ? Math.min(10, Math.max(1, Math.round(size))) : NaN
+  const idx = v >= 1 && v <= 10 ? v : 5
+  return REMOTE_SIZE_SCALES[idx - 1]
 }
 
-/** 控件三档乘数（自动推导基准之上，与分辨率解耦；大档必须一眼可辨，故步长拉开） */
-export function remoteControlScale(tier: RemoteTierName): number {
-  if (tier === 'small') return 0.85
-  if (tier === 'large') return 1.45
-  return 1
+/**
+ * 控制面倍数（2026-09-29 晚用户拍板去封顶：档位自由变大——入口/齿轮/智能卡跟内容面吃同一全额，
+ * 不再钳在 2x；小窗挤爆风险由用户认）。
+ */
+export function remoteChromeScale(size: unknown): number {
+  return remoteSizeScale(size)
 }
 
-/** 档位归一化（非法回默认大，与 remote.ts 同规则的纯投影，不读模块） */
-export function normalizeRemoteTierName(v: unknown): RemoteTierName {
-  return v === 'small' || v === 'medium' || v === 'large' ? v : 'large'
+/**
+ * 宿主内容字 px（#92 野路子，纯函数）：
+ * round(remoteSizeScale(size) * 14)，非法（非有限数值）回 14（宿主默认内容字号）。
+ * 只返数值、不拼单位、不碰 DOM（落点/单位拼接归 hostfont.ts）。
+ */
+export function hostContentFontPx(size: unknown): number {
+  try {
+    if (typeof size !== 'number' || !isFinite(size)) return 14
+    return Math.round(remoteSizeScale(size) * 14)
+  } catch (e) {
+    return 14
+  }
+}
+
+/** 大小归一化（非法回默认 5，与 remote.ts 同规则的纯投影，不读模块） */
+export function normalizeRemoteSize(v: unknown): number {
+  return remoteSizeScale(v)
 }
 
 /** 页码归一化（NaN/越界钳制，不抛） */
@@ -122,11 +167,13 @@ export interface RemoteViewInput {
   orientation: RemoteOrientation
   /** 远程总闸（关=小列表，调用方不渲染本视图；开=大列表） */
   enabled: boolean
-  font: RemoteTierName
-  control: RemoteTierName
+  /** 统一大小 1–10（单滑块字号控件联动） */
+  size: number
   hostCaps: RemoteHostCapsInput
   /** 搜索展开态（底栏大键收起 → 点开展开行内顶起，UI 持有，模型只回显） */
   searchOpen: boolean
+  /** 密度档（#90）：'a'=12 宫默认，'b'=8 宫大卡；缺省 A（旧调用点零改动） */
+  density?: RemoteDensity
 }
 
 export interface RemoteView {
@@ -168,9 +215,10 @@ export interface RemoteView {
  */
 export function computeRemoteView(input: RemoteViewInput): RemoteView {
   const orientation: RemoteOrientation = input.orientation === 'portrait' ? 'portrait' : 'landscape'
-  const cols = remoteColsFor(orientation)
-  const rows = remoteRowsFor(orientation)
-  const per = REMOTE_PAGE_SIZE
+  const density = normalizeRemoteDensity((input as any).density)
+  const cols = remoteColsFor(orientation, density)
+  const rows = remoteRowsFor(orientation, density)
+  const per = remotePageSizeFor(density)
   const ids = Array.isArray(input.ids) ? input.ids.filter((x) => typeof x === 'string') : []
   const total = ids.length
   const totalPages = Math.max(1, Math.ceil(total / per))
@@ -184,8 +232,9 @@ export function computeRemoteView(input: RemoteViewInput): RemoteView {
     if (i < emptiesCount) slots.push({ kind: 'empty', order: i })
     else slots.push({ kind: 'template', order: i, id: slice[i - emptiesCount] })
   }
-  const font = normalizeRemoteTierName(input.font)
-  const control = normalizeRemoteTierName(input.control)
+  // 单滑块联动：字号与控件吃同一倍数（内容面全额，封顶只管控制面，不管这里）。
+  // 仅远程开时生效（2026-09-29 用户拍板大小跟随开关）：关=一切正常尺寸。
+  const sizeScale = remoteSizeScale(input.enabled ? (input as any).size : 1)
   // 去宿主化：hostCaps 仅为兼容保留，不再参与门控；总闸恒以自家面为准，无灰字。
   void input.hostCaps
   return {
@@ -205,8 +254,8 @@ export function computeRemoteView(input: RemoteViewInput): RemoteView {
       pageText: String(page + 1) + '/' + String(totalPages),
       searchOpen: !!input.searchOpen,
     },
-    fontScale: remoteFontScale(font),
-    controlScale: remoteControlScale(control),
+    fontScale: sizeScale,
+    controlScale: sizeScale,
     threshold: {
       masterEnabled: !!input.enabled,
       hostPending: false,

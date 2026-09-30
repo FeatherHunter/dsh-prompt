@@ -25,7 +25,8 @@ import {
 import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './state'
 import { getRemotePrefs, subscribeRemote, ensureRemoteLoaded } from './remote'
 import {
-  deriveRemoteOrientation, resolveRemoteOrientation, computeRemoteView, remoteTagOptions, remoteFontScale,
+  deriveRemoteOrientation, resolveRemoteOrientation, computeRemoteView, remoteTagOptions, remoteSizeScale,
+  normalizeRemoteDensity,
   type RemoteOrientation,
 } from './remoteView'
 import { getLang, tr, STR, type Lang } from './i18n'
@@ -561,8 +562,8 @@ function TemplateModal(props: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
-  // 新增弹窗同样跟字号档（卡面 em 全跟；父级重渲染即刷新，无需订阅）。
-  const uiScale = remoteFontScale(getRemotePrefs().font as any)
+  // 新增弹窗跟大小（仅远程开时；父级重渲染即刷新，无需订阅）。
+  const uiScale = remoteSizeScale(getRemotePrefs().enabled ? getRemotePrefs().size : 1)
   const cardStyleScaled: any = { ...modalCardStyle, fontSize: 'calc(1em * ' + uiScale + ')' }
   const editing = props.kind === 'edit' && !!props.tpl
   const s1 = react.useState(editing ? props.tpl.name : '')
@@ -592,12 +593,14 @@ function TemplateModal(props: any): any {
     props.onOk && props.onOk({ name: nm, labels: checked.labels, body: bd })
   }
   const known = allKnownLabels()
-  // 远程模式标签网格（2026-09-29 用户拍板）：原生 datalist 下拉又小又不可样式化，远程下换成
-  // 正方形大格单选网格（字形跟字号档走卡根 em，格尺寸由列宽定、永为正方形）；输入框保留供新词与拼音。
+  // 远程模式标签悬浮网格（2026-09-29 用户拍板）：常态只留一个触发键，点后浮出网格 overlay 选；
+  // 不常驻占位。原生 datalist 远程下不用，非远程原样（零打扰）。
   const labelGridOn = getRemotePrefs().enabled
+  const labelPickerState = react.useState(false)
+  const labelPickerOpen = labelPickerState[0]
   const labelGridStyle: any = {
     display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(4.5em, 1fr))',
-    gap: '0.5em', marginTop: '0.5em',
+    gap: '0.5em', marginTop: '0.75em',
   }
   const labelCellStyle = (on: boolean): any => ({
     aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -609,13 +612,13 @@ function TemplateModal(props: any): any {
     lineHeight: 1.25, overflowWrap: 'break-word',
   })
   const toggleGridLabel = (w: string): void => {
-    if (labels.indexOf(w) >= 0) setLabels(labels.filter((x) => x !== w))
+    if (labels.indexOf(w) >= 0) setLabels(labels.filter((x: string) => x !== w))
     else setLabels(normalizeLabels([...labels, w]))
   }
   const chipStyle: any = { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.85em', color: 'var(--dsw-alias-label-primary)', background: 'var(--dsw-alias-bg-layer-3)', border: '1px solid var(--dsw-alias-border-l2)', padding: '1px 4px 1px 9px', borderRadius: 999, whiteSpace: 'nowrap' }
   const chipXStyle: any = { border: 0, background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', cursor: 'pointer', fontSize: '1em', lineHeight: 1, padding: '0 2px', fontFamily: 'var(--dsw-font-family)' }
   return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
-    h('div', { style: { ...cardStyleScaled, width: 'min(640px, 94vw)', maxHeight: '92vh', overflowY: 'auto' } }, [
+    h('div', { style: { ...cardStyleScaled, width: labelGridOn ? 'min(1440px, 96vw)' : 'min(640px, 94vw)', maxHeight: labelGridOn ? '90vh' : '92vh', overflowY: 'auto' } }, [
       h('h3', { style: { fontSize: '1.08em', margin: 0 } }, editing ? props.t('editTitle') : props.t('addTitle')),
       h('input', { style: modalFieldStyle, placeholder: props.t('namePh'), value: name, onChange: (e: any) => setName(e.target.value) }),
       h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } }, labels.map((l: string) =>
@@ -631,16 +634,60 @@ function TemplateModal(props: any): any {
         list: labelGridOn ? undefined : 'dsh-prompt-labels',
       }),
       labelGridOn ? null : h('datalist', { id: 'dsh-prompt-labels' }, known.map((w: string) => h('option', { key: w, value: w }))),
-      labelGridOn ? h('div', { style: labelGridStyle, 'data-dsh-prompt-label-grid': '1' }, known.map((w: string) => {
-        const on = labels.indexOf(w) >= 0
-        return h('button', {
-          key: w, type: 'button', style: labelCellStyle(on),
-          'data-dsh-prompt-label-cell': '1', 'aria-pressed': on ? 'true' : 'false', title: w,
-          onClick: () => toggleGridLabel(w),
-        }, w)
-      })) : null,
+      // 悬浮式标签网格触发键：常态只占一行，点后浮出 overlay 网格多选（×/点外/完成关闭）。
+      labelGridOn ? h('button', {
+        key: 'label-picker', type: 'button',
+        style: {
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+          marginTop: '0.5em', padding: '0.6em 0.75em', borderRadius: '0.6em',
+          border: 'thin solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-3)',
+          color: 'var(--dsw-alias-label-primary)', cursor: 'pointer',
+          fontFamily: 'var(--dsw-font-family)', fontSize: '1em',
+        },
+        'data-dsh-prompt-label-picker': '1',
+        'aria-haspopup': 'true', 'aria-expanded': labelPickerOpen ? 'true' : 'false',
+        onClick: () => labelPickerState[1](true),
+      }, [
+        h('span', { key: 't' }, '🏷 ' + props.t('labelPicker') + (labels.length > 0 ? ' · ' + labels.length : '')),
+        h('span', { key: 'c', style: { color: 'var(--dsw-alias-label-tertiary)' } }, '▾'),
+      ]) : null,
+      labelGridOn && labelPickerOpen ? h(ModalPortal, { key: 'label-grid-overlay' }, [
+        h('div', {
+          key: 'label-grid-mask',
+          style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: MODAL_Z },
+          'data-dsh-prompt-label-grid-mask': '1',
+          onClick: (e: any) => { if (e.target === e.currentTarget) labelPickerState[1](false) },
+        }, [
+          h('div', {
+            key: 'label-grid-card',
+            style: {
+              width: 'min(520px, 92vw)', maxHeight: '80vh', overflowY: 'auto',
+              background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+              backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+              border: '1px solid var(--dsw-alias-border-inverted)', borderRadius: 12, padding: '0.9em',
+              fontFamily: 'var(--dsw-font-family)', color: 'var(--dsw-alias-label-primary)',
+            },
+          }, [
+            h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5em' } }, [
+              h('span', { key: 't', style: { fontSize: '1em', fontWeight: 700 } }, '🏷 ' + props.t('labelPicker')),
+              h('span', { key: 'btns', style: { display: 'flex', gap: '0.5em' } }, [
+                h('button', { key: 'done', type: 'button', style: modalBtn(true), onClick: () => labelPickerState[1](false) }, props.t('labelDone')),
+                h('button', { key: 'x', type: 'button', style: modalBtn(), onClick: () => labelPickerState[1](false) }, '×'),
+              ]),
+            ]),
+            h('div', { key: 'grid', style: labelGridStyle, 'data-dsh-prompt-label-grid': '1' }, known.map((w: string) => {
+              const on = labels.indexOf(w) >= 0
+              return h('button', {
+                key: w, type: 'button', style: labelCellStyle(on),
+                'data-dsh-prompt-label-cell': '1', 'aria-pressed': on ? 'true' : 'false', title: w,
+                onClick: () => toggleGridLabel(w),
+              }, w)
+            })),
+          ]),
+        ]),
+      ]) : null,
       h('div', { style: { fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)' } }, props.t('labelsHint')),
-      h('textarea', { style: { ...modalFieldStyle, height: 200, resize: 'vertical' }, placeholder: props.t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),
+      h('textarea', { style: { ...modalFieldStyle, height: labelGridOn ? 400 : 200, resize: 'vertical' }, placeholder: props.t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),
       err ? h('div', { style: { fontSize: '0.92em', color: 'var(--dsw-specific-danger,#e06c75)' } }, props.t(err as keyof typeof STR)) : null,
       h('div', { style: modalBtnsStyle }, [
         h('button', { style: modalBtn(), onClick: props.onCancel }, props.t('cancel')),
@@ -655,7 +702,8 @@ function ConfirmDelete(props: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
-  const uiScale = remoteFontScale(getRemotePrefs().font as any)
+  // 删除确认跟大小（仅远程开时；关=正常尺寸）。
+  const uiScale = remoteSizeScale(getRemotePrefs().enabled ? getRemotePrefs().size : 1)
   const cardStyleScaled: any = { ...modalCardStyle, fontSize: 'calc(1em * ' + uiScale + ')' }
   return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
     h('div', { style: cardStyleScaled }, [
@@ -979,11 +1027,16 @@ export function TemplateBrowser(props: BrowserProps): any {
     page: remotePage,
     orientation: remoteFinalOrient,
     enabled: !!remotePrefs.enabled,
-    font: (remotePrefs.font as any),
-    control: (remotePrefs.control as any),
+    size: (remotePrefs as any).size,
     hostCaps: { hasSystemOrientation: false, hasSystemFont: false, hasStableOpen: false },
     searchOpen: remoteSearchOpen,
+    density: (remotePrefs as any).density,
   })
+  // #90 仅切密度页码归零（方向切换不动页码；纯手动，无自动切档逻辑）。
+  const remoteDensity = normalizeRemoteDensity((remotePrefs as any).density)
+  react.useEffect(() => {
+    remotePageState[1](0)
+  }, [remoteDensity])
   const remoteById = new Map(remoteSorted.map((x) => [x.id, x]))
   const remoteUsage = loadUsage()
 
@@ -1006,9 +1059,8 @@ export function TemplateBrowser(props: BrowserProps): any {
   const presetCount = PRESET_TEMPLATES.length
   const customCount = customs.length
 
-  // 三档全局跟随（2026-09-29 用户拍板：字号档缩放本插件一切 UI 文字的基准，不分远程开关；
-  // 常规小列表/新增弹窗/删除确认)，与 palette 无关；关=小列表照常用，只是字号跟档走。
-  const uiFontScale = remoteFontScale(getRemotePrefs().font as any)
+  // 大小跟随开关（2026-09-29 用户拍板）：仅远程开时缩放，关=一切正常尺寸。
+  const uiFontScale = remoteSizeScale(remotePrefs.enabled ? remotePrefs.size : 1)
 
   // ── 样式（DSH 主题变量）──
   const base = 'var(--dsw-alias-label-primary)'
@@ -1175,17 +1227,21 @@ export function TemplateBrowser(props: BrowserProps): any {
       display: 'grid',
       gridTemplateColumns: 'repeat(' + remoteCols + ', minmax(0, 1fr))',
       gridTemplateRows: 'repeat(' + remoteRows + ', minmax(0, 1fr))',
-      gap: '0.75em', padding: '0.75em', overflow: 'hidden', alignContent: 'stretch',
+      // 空白不跟字号等比：gap/padding 用 rem 固定，字大只长字不长空白（0.75em 标记留给圆角以保回归）。
+      gap: '0.5rem', padding: '0.5rem', overflow: 'hidden', alignContent: 'stretch',
     }
     const remoteCardStyle = (custom: boolean, pinned: boolean, hover: boolean, pressed: boolean): any => ({
       minWidth: '0', minHeight: '0', overflow: 'hidden',
-      // 苹果式信息层级（2026-09-29 卡片重排）：内容顶对齐，空位只剩底边一小截；
-      // 自上而下=元信息行（徽标+用量）→ 标题 → 简介，一眼三段。
-      display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: '0.3em',
-      padding: '0.75em', borderRadius: '0.75em',
-      // 预置 / 自建 / 置顶三态可辨（只用主题变量，跟随深浅色与 palette，不硬编码）：
-      // 置顶=accent 粗边，自建=layer-2 底区别于预置 layer-3，按压/悬停复用 #88 行语义。
-      border: pinned ? '0.14em solid var(--dsw-specific-accent,#f0a45c)' : remoteThin,
+      // 卡片是悬浮页脚的定位锚（页脚 absolute 右下压简介，position 不可删）。
+      position: 'relative',
+      // 自上而下=标题 → 简介（独享剩余、底边硬裁），页脚悬浮不占行。
+      display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: '0.25rem',
+      padding: '0.5rem', borderRadius: '0.75em',
+      // 预置 / 自建只看边框颜色（远程用户拍板）：自建=accent 边，预置=默认细边；
+      // 置顶=accent 粗边（覆盖），按压/悬停复用 #88 行语义。
+      border: pinned
+        ? '0.14em solid var(--dsw-specific-accent,#f0a45c)'
+        : (custom ? '0.07em solid var(--dsw-specific-accent,#f0a45c)' : remoteThin),
       background: pressed
         ? ROW_PRESSED_BG
         : hover
@@ -1209,28 +1265,36 @@ export function TemplateBrowser(props: BrowserProps): any {
       whiteSpace: 'normal', overflow: 'hidden', overflowWrap: 'break-word',
       flex: '1 1 auto', minHeight: 0, lineHeight: 1.4,
     }
-    // 种类徽标：预置 / 自建一眼可辨（palette 下仍可辨：只用主题变量）。
-    const remoteKindBadge = (custom: boolean): any => ({
-      flex: 'none', fontSize: '0.72em', fontWeight: 700,
-      color: custom ? 'var(--dsw-specific-accent,#f0a45c)' : muted,
-      border: '0.07em solid ' + (custom ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-border-l2)'),
-      padding: '0 0.4em', borderRadius: 999, lineHeight: 1.35, whiteSpace: 'nowrap',
-    })
+    // 种类徽标已删（远程用户拍板：预置/自建改看卡片边框颜色，页脚只剩红色用量数字+复制/编辑键）。
+    // 用量只剩红色数字（远程用户拍板）；置顶加 ★（边框粗细已让给预置/自建+置顶，此 ★ 为置顶唯一文字信号）。
     const remoteCardUse = (pinnedCard: boolean): any => ({
-      fontSize: '0.78em', color: pinnedCard ? 'var(--dsw-specific-accent,#f0a45c)' : dim, flex: 'none',
-      fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontWeight: pinnedCard ? 700 : 400,
+      fontSize: '0.8em', color: 'var(--dsw-specific-danger,#e06c75)', flex: 'none',
+      fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontWeight: 700,
     })
-    // 元信息行：标题弹性占满 + 徽标 + 用量 + 动作键同行，简介独享剩余高度。
+    // 苹果式三段（标题独占一行，简介独享剩余，页脚沉底）：
+    // 徽标已删（预置/自建改看边框颜色），标题再也不跟任何人抢宽。
+    // meta 必须 flex:1 撑满卡高（卡高由网格定死）：简介 flex:1+minHeight:0 在内收缩、
+    // 超长由底边硬裁；页脚 flex:none 永远有位。之前 meta 是 flex:none（内容多高撑多高），
+    // 简介根本不收缩、卡 overflow:hidden 从底边裁，页脚排最后被第一个裁掉——复制键+红数字消失。
     const remoteCardMeta: any = {
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4em',
-      flex: 'none', minWidth: '0',
+      display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '0.25rem',
+      flex: '1 1 auto', minHeight: 0, minWidth: '0',
+    }
+    // 悬浮页脚（用户拍板：用量数字紧贴复制键，两者合一压简介右下，内容允许重叠——
+    // 简介多看几行；胶囊自带实色底，被压住的字只亏右下一小块，键永远可点）。
+    const remoteCardFoot: any = {
+      position: 'absolute', right: '0.5rem', bottom: '0.5rem', zIndex: 1,
+      display: 'flex', alignItems: 'center', gap: '0.3rem',
+      padding: '0.2rem 0.2rem 0.2rem 0.5rem', borderRadius: 999, border: remoteThin,
+      background: 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-3))',
+      whiteSpace: 'nowrap',
     }
     // 卡片动作键（2026-09-29 用户拍板：图标换成文字键——“编辑/复制”明示比✎好认；
-    // 细边框胶囊 + 次级灰字，不抢戏；最小高度跟控件档、字形跟字号档）。
+    // 细边框胶囊 + 次级灰字，不抢戏；字形跟字号档，空白用 rem 固定不跟比放大）。
     // 自建=编辑进编辑页，预置只读故=复制为自建；点动作只办事不插入（handleEdit/handleCopy 内已 stopPropagation）。
     const remoteCardAct: any = {
-      flex: 'none', alignSelf: 'center', padding: '0.35em 0.75em',
-      minHeight: 'calc(1.8em * ' + remoteControlScale + ')',
+      flex: 'none', alignSelf: 'center', padding: '0.15rem 0.5rem',
+      minHeight: '1.6rem',
       borderRadius: 999, border: '0.07em solid var(--dsw-alias-border-l2)',
       background: 'transparent',
       color: muted, cursor: 'pointer', fontSize: '0.78em', fontWeight: 600, lineHeight: 1.4,
@@ -1242,38 +1306,45 @@ export function TemplateBrowser(props: BrowserProps): any {
       background: 'transparent',
     }
     const remoteSearchRowStyle: any = {
-      display: 'flex', gap: '0.5em', padding: '0 0.75em 0.5em', flex: 'none',
+      display: 'flex', gap: '0.5rem', padding: '0 0.5rem 0.5rem', flex: 'none',
     }
     const remoteSearchInputStyle: any = {
       flex: '1 1 auto', minWidth: '0',
-      padding: '0.6em 0.75em', borderRadius: '0.6em', border: remoteThin,
+      padding: '0.5rem 0.6rem', borderRadius: '0.6em', border: remoteThin,
       background: 'var(--dsw-alias-bg-layer-3)', color: base,
       fontFamily: 'var(--dsw-font-family)', fontSize: '1em', outline: 'none',
     }
     const remoteBarStyle: any = {
-      display: 'flex', gap: '0.5em', alignItems: 'stretch',
-      padding: '0.5em 0.75em 0.75em', borderTop: remoteThin,
-      flex: 'none', flexWrap: 'wrap',
+      display: 'flex', flexDirection: 'row', gap: '0.5rem', alignItems: 'stretch',
+      padding: '0.5rem', borderTop: remoteThin,
+      flex: 'none', flexWrap: 'nowrap', overflowX: 'auto', minWidth: '0',
+    }
+    // 底栏必须单行：左侧标签区弹性占满，右侧动作组固定不换行；
+    // 动作键高度跟标签区齐（stretch），宽度 em 适中、随档位放大缩小。
+    const remoteActionsStyle: any = {
+      display: 'flex', gap: '0.5rem', alignItems: 'stretch',
+      flex: 'none', alignSelf: 'stretch',
     }
     const remoteBtnStyle = (enabledBtn: boolean): any => ({
-      flex: 'none', minWidth: '4em',
-      minHeight: 'calc(3em * ' + remoteControlScale + ')',
-      padding: '0.5em 0.75em', borderRadius: '0.6em', border: remoteThin,
+      flex: 'none', alignSelf: 'stretch', minWidth: '2.8em',
+      // 图标键：宽高全走 em，随档位放大缩小；高度靠 stretch 跟左侧标签区齐平。
+      padding: '0 0.6em', borderRadius: '0.6em', border: remoteThin,
       background: enabledBtn ? 'var(--dsw-alias-bg-layer-3)' : 'transparent',
       color: enabledBtn ? base : dim,
       cursor: enabledBtn ? 'pointer' : 'default',
       opacity: enabledBtn ? 1 : 0.45,
       fontFamily: 'var(--dsw-font-family)', fontSize: '1em', fontWeight: 700,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
+      whiteSpace: 'nowrap', overflow: 'hidden',
     })
     const remoteTagsWrap: any = {
-      flex: '1 1 auto', minWidth: '40%',
+      flex: '1 1 auto', minWidth: '0',
       display: 'grid', gridTemplateRows: 'repeat(2, auto)', gridAutoFlow: 'column',
-      gridAutoColumns: 'minmax(4em, auto)', gap: '0.4em',
-      overflowX: 'auto', overflowY: 'hidden', alignContent: 'center', padding: '0.15em',
+      gridAutoColumns: 'minmax(4em, auto)', gap: '0.35rem',
+      overflowX: 'auto', overflowY: 'hidden', alignContent: 'center', padding: '0.15rem',
     }
     const remoteTagBtn = (on: boolean): any => ({
-      minWidth: '0', padding: '0.45em 0.6em', borderRadius: '0.4em', border: remoteThin,
+      minWidth: '0', padding: '0.35rem 0.5rem', borderRadius: '0.4em', border: remoteThin,
       background: on ? 'var(--dsw-specific-accent,#f0a45c)' : 'transparent',
       color: on ? '#1a1a1e' : muted,
       cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.9em',
@@ -1312,19 +1383,32 @@ export function TemplateBrowser(props: BrowserProps): any {
         onFocus: () => hoverState[1](tpl.id),
         onBlur: () => hoverState[1](null),
       }
-      return h('button', {
+      // 外层用 div[role=button] 而不用 button：复制/编辑是真 button，button 套 button 非法，
+      // 且部分宿主 webview 对 button 做 flex  computed 会吞掉页脚（复制键+用量数字凭空消失）。
+      return h('div', {
         key: tpl.id, style: remoteCardStyle(custom, pinned, cardHover, cardPressed),
+        role: 'button', tabIndex: 0,
         'data-dsh-prompt-remote-card': '1', 'data-dsh-prompt-id': tpl.id,
         title: labelString(tpl),
         onClick: () => { pressedState[1](null); handlePick(tpl) },
+        onKeyDown: (e: any) => {
+          try {
+            if (e && (e.key === 'Enter' || e.key === ' ')) {
+              if (typeof e.preventDefault === 'function') e.preventDefault()
+              pressedState[1](null); handlePick(tpl)
+            }
+          } catch (err) { /* ignore */ }
+        },
         ...cardInteract,
       }, [
         h('span', { style: remoteCardMeta }, [
-          h('span', { style: { ...remoteCardTitle, flex: '1 1 auto', minWidth: 0 } }, tpl.name),
-          h('span', { style: remoteKindBadge(custom) }, custom ? '自建' : '预置'),
-          h('span', { style: remoteCardUse(pinned) }, '用量' + usageN + (pinned ? ' ★' : '')),
+          h('span', { style: { ...remoteCardTitle, flex: 'none', minWidth: 0 } }, tpl.name),
+          h('span', { style: remoteCardIntro }, intro),
+        ]),
+        h('span', { style: remoteCardFoot }, [
+          h('span', { style: remoteCardUse(pinned), 'data-dsh-prompt-remote-use': '1' }, String(usageN) + (pinned ? ' ★' : '')),
           h('button', {
-            type: 'button', style: remoteCardAct,
+            type: 'button', style: { ...remoteCardAct, border: '0', background: 'transparent' },
             title: custom ? t('edit') : t('copy'),
             'aria-label': custom ? t('edit') : t('copy'),
             'data-dsh-prompt-remote-act': custom ? 'edit' : 'copy',
@@ -1332,7 +1416,6 @@ export function TemplateBrowser(props: BrowserProps): any {
             onClick: (e: any) => { if (custom) handleEdit(e, tpl); else handleCopy(e, tpl.id) },
           }, custom ? t('edit') : t('copy')),
         ]),
-        h('span', { style: remoteCardIntro }, intro),
       ])
     })
     const remoteTagNodes = remoteOptions.map((label) => {
@@ -1362,8 +1445,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       ref: rootRef, style: remotePanelStyle, ...remoteHover,
       'data-dsh-prompt-remote-panel': '1',
       'data-dsh-prompt-remote-orient': remoteView.orientation,
-      'data-dsh-prompt-remote-font': String(remotePrefs.font),
-      'data-dsh-prompt-remote-control': String(remotePrefs.control),
+      'data-dsh-prompt-remote-size': String((remotePrefs as any).size),
       'data-dsh-prompt-remote-orientation-pref': String(remotePref),
     }, [
       useInput ? h(DraftTap, { key: 'dsh-prompt-draft-tap', useInput }) : null,
@@ -1385,36 +1467,61 @@ export function TemplateBrowser(props: BrowserProps): any {
         }),
       ]) : null,
       h('div', { style: remoteBarStyle }, [
-        h('button', {
-          style: remoteBtnStyle(remoteView.bottomBar.hasPrev),
-          disabled: !remoteView.bottomBar.hasPrev,
-          'data-dsh-prompt-remote-prev': '1',
-          onMouseDown: keepComposerFocus,
-          onClick: () => { if (remoteView.bottomBar.hasPrev) { remotePageState[1](remoteView.page - 1); refresh() } },
-        }, '◀ 上一页'),
         h('div', { style: remoteTagsWrap, 'data-dsh-prompt-remote-tags': '1' }, remoteTagNodes),
-        h('button', {
-          style: remoteBtnStyle(true),
-          'data-dsh-prompt-remote-search': '1',
-          'aria-pressed': remoteSearchOpen ? 'true' : 'false',
-          title: t('searchPh'),
-          onMouseDown: keepComposerFocus,
-          onClick: remoteSearchToggle,
-        }, '🔍 搜索'),
-        h('button', {
-          style: remoteBtnStyle(remoteView.bottomBar.hasNext),
-          disabled: !remoteView.bottomBar.hasNext,
-          'data-dsh-prompt-remote-next': '1',
-          onMouseDown: keepComposerFocus,
-          onClick: () => { if (remoteView.bottomBar.hasNext) { remotePageState[1](remoteView.page + 1); refresh() } },
-        }, '下一页 ▶'),
-        h('span', { style: { ...remoteMetaStyle, alignSelf: 'center', flex: 'none' }, 'data-dsh-prompt-remote-page': '1' }, remoteView.bottomBar.pageText),
-        h('button', {
-          style: { ...remoteCloseStyle, alignSelf: 'center' }, title: t('close'),
-          'data-dsh-prompt-remote-close': '1',
-          onMouseDown: keepComposerFocus,
-          onClick: () => setPanelOpen(false),
-        }, '×'),
+        h('div', { style: remoteActionsStyle }, [
+          h('button', {
+            style: remoteBtnStyle(true),
+            'data-dsh-prompt-remote-search': '1',
+            'aria-pressed': remoteSearchOpen ? 'true' : 'false',
+            title: t('searchPh'),
+            'aria-label': t('searchPh'),
+            onMouseDown: keepComposerFocus,
+            onClick: remoteSearchToggle,
+          }, h('svg', {
+            width: '1.25em', height: '1.25em', viewBox: '0 0 24 24', fill: 'none',
+            stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round',
+            'aria-hidden': 'true', style: { flex: 'none', display: 'block' },
+          }, [
+            h('circle', { key: 'c', cx: 11, cy: 11, r: 6 }),
+            h('line', { key: 'l', x1: 15.5, y1: 15.5, x2: 20, y2: 20 }),
+          ])),
+          // 翻页一对相邻（2026-09-29 用户拍板：上一页紧贴下一页左侧），纯图标键、单行不换行。
+          h('button', {
+            style: remoteBtnStyle(remoteView.bottomBar.hasPrev),
+            disabled: !remoteView.bottomBar.hasPrev,
+            'data-dsh-prompt-remote-prev': '1',
+            title: '上一页',
+            'aria-label': '上一页',
+            onMouseDown: keepComposerFocus,
+            onClick: () => { if (remoteView.bottomBar.hasPrev) { remotePageState[1](remoteView.page - 1); refresh() } },
+          }, h('svg', {
+            width: '1.25em', height: '1.25em', viewBox: '0 0 24 24', fill: 'currentColor',
+            'aria-hidden': 'true', style: { flex: 'none', display: 'block' },
+          }, [
+            h('polygon', { key: 'p', points: '16,4 6,12 16,20' }),
+          ])),
+          h('button', {
+            style: remoteBtnStyle(remoteView.bottomBar.hasNext),
+            disabled: !remoteView.bottomBar.hasNext,
+            'data-dsh-prompt-remote-next': '1',
+            title: '下一页',
+            'aria-label': '下一页',
+            onMouseDown: keepComposerFocus,
+            onClick: () => { if (remoteView.bottomBar.hasNext) { remotePageState[1](remoteView.page + 1); refresh() } },
+          }, h('svg', {
+            width: '1.25em', height: '1.25em', viewBox: '0 0 24 24', fill: 'currentColor',
+            'aria-hidden': 'true', style: { flex: 'none', display: 'block' },
+          }, [
+            h('polygon', { key: 'p', points: '8,4 18,12 8,20' }),
+          ])),
+          h('span', { style: { ...remoteMetaStyle, alignSelf: 'center', flex: 'none' }, 'data-dsh-prompt-remote-page': '1' }, remoteView.bottomBar.pageText),
+          h('button', {
+            style: { ...remoteCloseStyle, alignSelf: 'center' }, title: t('close'),
+            'data-dsh-prompt-remote-close': '1',
+            onMouseDown: keepComposerFocus,
+            onClick: () => setPanelOpen(false),
+          }, '×'),
+        ]),
       ]),
       modalNode,
     ])

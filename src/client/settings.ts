@@ -14,11 +14,11 @@ import { UpdateEntry } from './update'
 import { isSmartEnabled, setSmartEnabled } from './smartstore'
 import {
   getRemotePrefs, subscribeRemote, ensureRemoteLoaded,
-  setRemoteEnabled, setRemoteFont, setRemoteControl, setRemoteOrientation,
+  setRemoteEnabled, setRemoteSize, setRemoteOrientation, setRemoteDensity,
   getRemotePersistState,
-  type RemoteFontTier, type RemoteOrientationPref,
+  type RemoteOrientationPref, type RemoteDensity,
 } from './remote'
-import { remoteFontScale } from './remoteView'
+import { remoteSizeScale } from './remoteView'
 import { setSystemOrientation, isSystemOrientation } from './systemOrientation'
 import { getLang, tr, STR } from './i18n'
 
@@ -44,19 +44,19 @@ const TOK = {
   font: 'var(--dsw-font-family)',
 }
 
-/** 一行：标签在左、控件在右，说明缩进到标签列（整页同一条左轨）。 */
+/** 一行：标签在左、控件在右，说明占满行宽正常流排（此前 maxWidth:520 在宽弹窗里半屏换行）。 */
 function SettingRow(props: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
   const kids: any[] = [
     h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 } }, [
-      h('span', { key: 'label', style: { fontFamily: TOK.font, fontSize: 13, color: TOK.labelPrimary } }, props.label),
+      h('span', { key: 'label', style: { fontFamily: TOK.font, fontSize: '0.93em', color: TOK.labelPrimary } }, props.label),
       props.control ? h('span', { key: 'control', style: { display: 'inline-flex', alignItems: 'center' } }, props.control) : null,
     ]),
   ]
   if (props.description) {
-    kids.push(h('div', { key: 'desc', style: { fontFamily: TOK.font, fontSize: 12, lineHeight: 1.65, color: TOK.labelTertiary, maxWidth: 520 } }, props.description))
+    kids.push(h('div', { key: 'desc', style: { fontFamily: TOK.font, fontSize: '0.86em', lineHeight: 1.65, color: TOK.labelTertiary } }, props.description))
   }
   return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 0' } }, kids)
 }
@@ -81,7 +81,7 @@ function SettingGroup(props: any): any {
   }, [
     props.title ? h('div', {
       key: 'title',
-      style: { fontSize: 12, fontWeight: 600, color: TOK.labelSecondary, padding: '12px 0 0', letterSpacing: 0.2 },
+      style: { fontSize: '0.86em', fontWeight: 600, color: TOK.labelSecondary, padding: '12px 0 0', letterSpacing: 0.2 },
     }, props.title) : null,
     ...(props.children || []),
   ])
@@ -96,7 +96,7 @@ function Btn(props: any): any {
   const hoverState = react.useState(false)
   const hover = hoverState[0]
   const base: any = {
-    fontFamily: TOK.font, fontSize: 12.5, padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
+    fontFamily: TOK.font, fontSize: '0.89em', padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
     transition: 'background-color .12s ease, color .12s ease, border-color .12s ease',
   }
   const style = tone === 'ghost'
@@ -113,7 +113,10 @@ function Btn(props: any): any {
   }, props.children)
 }
 
-/** 复选框：宿主风格的圆角小方框（accent-color 跟随主题），不再是自己画一个控件。 */
+/** 复选框：宿主风格的圆角小方框（accent-color 跟随主题），不再是自己画一个控件。
+ * 尺寸走 em 吃设置页根 scale（远程开大档一起变大）；flex:none 保命中区不小于框体。
+ * 原生 input 不继承 font-size（UA 样式自带字号），em 会锚死在默认字号上跟档无感，
+ * 故显式 fontSize:inherit 把父级（已随档缩放的根）字号接进来；关=根回基准，原样。 */
 function Check(props: any): any {
   const react = getReact()
   if (!react) return null
@@ -121,7 +124,7 @@ function Check(props: any): any {
     type: 'checkbox',
     checked: props.checked,
     disabled: props.disabled,
-    style: { width: 16, height: 16, accentColor: TOK.accent, cursor: props.disabled ? 'not-allowed' : 'pointer', margin: 0 },
+    style: { width: '1.15em', height: '1.15em', flex: 'none', fontSize: 'inherit', accentColor: TOK.accent, cursor: props.disabled ? 'not-allowed' : 'pointer', margin: 0 },
     onChange: props.onChange,
   })
 }
@@ -174,8 +177,7 @@ export function SettingsPage(props: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
-  const smartState = react.useState(isSmartEnabled())
-  const smartOn = smartState[0]
+  // 智能开关 state 随配置区暂藏而停用（persist 与 smart.ts 逻辑保留，接回即恢复）。
   // #82 远程偏好（总闸 + 字号/控件三档）：内存真相来源，host 快照到达后更新。
   const remoteState = react.useState(getRemotePrefs())
   const remote = remoteState[0]
@@ -316,33 +318,7 @@ export function SettingsPage(props: any): any {
     }
   })()
 
-  const noteStyle: any = { fontFamily: TOK.font, fontSize: 12, lineHeight: 1.65, color: TOK.labelTertiary, paddingTop: 8 }
-
-  // #82 远程段（三档按钮组：小/中/大单选，当前档实心高亮）
-  const tierControl = (
-    current: RemoteFontTier,
-    onPick: (v: RemoteFontTier) => void,
-    testId: string,
-  ): any => {
-    const tiers: RemoteFontTier[] = ['small', 'medium', 'large']
-    const labelOf = (v: RemoteFontTier): string =>
-      v === 'small' ? t('remoteTierSmall') : v === 'large' ? t('remoteTierLarge') : t('remoteTierMedium')
-    return h('div', { style: { display: 'flex', gap: 6 }, 'data-dsh-prompt-remote-tiers': testId }, tiers.map((v) =>
-      h('button', {
-        key: v,
-        type: 'button',
-        'data-dsh-prompt-tier': v,
-        'aria-pressed': current === v ? 'true' : 'false',
-        style: {
-          fontFamily: TOK.font, fontSize: 12, padding: '5px 12px', borderRadius: 8, cursor: 'pointer',
-          border: '1px solid ' + TOK.border,
-          background: current === v ? TOK.accent : 'transparent',
-          color: current === v ? '#fff' : TOK.labelPrimary,
-        },
-        onClick: () => { onPick(v) },
-      }, labelOf(v)),
-    ))
-  }
+  const noteStyle: any = { fontFamily: TOK.font, fontSize: '0.86em', lineHeight: 1.65, color: TOK.labelTertiary, paddingTop: 8 }
 
   // 去宿主化方向偏好控件：自动/横屏锁定/竖屏锁定三档单选（纯插件，持久化）
   // 锁定档背后先调 OS 真切（本插件 host 半自实现），busy 期禁用防连点。
@@ -350,80 +326,102 @@ export function SettingsPage(props: any): any {
     current: RemoteOrientationPref,
     onPick: (v: RemoteOrientationPref) => void,
     busy: boolean,
+    remoteOff: boolean,
   ): any => {
     const opts: RemoteOrientationPref[] = ['auto', 'landscape', 'portrait']
     const labelOf = (v: RemoteOrientationPref): string =>
       v === 'auto' ? t('remoteOrientationAuto') : v === 'landscape' ? t('remoteOrientationLandscape') : t('remoteOrientationPortrait')
+    const dis = !!busy || !!remoteOff
     return h('div', { style: { display: 'flex', gap: 6 }, 'data-dsh-prompt-remote-orientation': '1' }, opts.map((v) =>
       h('button', {
         key: v,
         type: 'button',
-        disabled: !!busy,
+        disabled: dis,
         'data-dsh-prompt-orientation': v,
         'aria-pressed': current === v ? 'true' : 'false',
         style: {
-          fontFamily: TOK.font, fontSize: 12, padding: '5px 12px', borderRadius: 8, cursor: busy ? 'wait' : 'pointer',
+          flex: 1, textAlign: 'center',
+          fontFamily: TOK.font, fontSize: '0.86em', padding: '5px 12px', borderRadius: 8, cursor: dis ? 'not-allowed' : 'pointer',
           border: '1px solid ' + TOK.border,
           background: current === v ? TOK.accent : 'transparent',
           color: current === v ? '#fff' : TOK.labelPrimary,
-          opacity: busy ? 0.6 : 1,
+          opacity: dis ? 0.6 : 1,
         },
-        onClick: () => { if (!busy) onPick(v) },
+        onClick: () => { if (!dis) onPick(v) },
+      }, labelOf(v)),
+    ))
+  }
+
+  // 密度档两段（#90，用户拍板）：12宫/8宫大卡，与方向偏好并列；默认 A；纯手动，禁任何自动切档逻辑。
+  const densityControl = (
+    current: RemoteDensity,
+    onPick: (v: RemoteDensity) => void,
+    remoteOff: boolean,
+  ): any => {
+    const opts: RemoteDensity[] = ['a', 'b']
+    const labelOf = (v: RemoteDensity): string =>
+      v === 'a' ? t('remoteDensityA') : t('remoteDensityB')
+    return h('div', { style: { display: 'flex', gap: 6 }, 'data-dsh-prompt-remote-density': '1' }, opts.map((v) =>
+      h('button', {
+        key: v,
+        type: 'button',
+        disabled: !!remoteOff,
+        'data-dsh-prompt-density': v,
+        'aria-pressed': current === v ? 'true' : 'false',
+        style: {
+          flex: 1, textAlign: 'center', whiteSpace: 'nowrap',
+          fontFamily: TOK.font, fontSize: '0.86em', padding: '5px 12px', borderRadius: 8, cursor: remoteOff ? 'not-allowed' : 'pointer',
+          border: '1px solid ' + TOK.border,
+          background: current === v ? TOK.accent : 'transparent',
+          color: current === v ? '#fff' : TOK.labelPrimary,
+          opacity: remoteOff ? 0.6 : 1,
+        },
+        onClick: () => { if (!remoteOff) onPick(v) },
       }, labelOf(v)),
     ))
   }
 
   // 方向偏好 OS 真切态：busy 防连点，note 记失败回落（成功静默，偏好高亮即是）。
+  // fail-soft 内聚一处：自家锁定恒落地（当次有效 + 持久化），OS 成败只决定 note 文案。
   const orientBusyState = react.useState(false)
   const orientBusy = orientBusyState[0]
   const orientNoteState = react.useState('')
   const orientNote = orientNoteState[0]
+  const landOrientation = (v: RemoteOrientationPref, note: string): void => {
+    const next = setRemoteOrientation(v)
+    remoteState[1]({ ...next })
+    persistState[1](getRemotePersistState())
+    orientNoteState[1](note)
+    orientBusyState[1](false)
+  }
   const onPickOrientation = (v: RemoteOrientationPref): void => {
     if (v === 'auto' || orientBusy) {
-      if (v === 'auto' && !orientBusy) {
-        const next = setRemoteOrientation('auto')
-        remoteState[1]({ ...next })
-        persistState[1](getRemotePersistState())
-        orientNoteState[1]('')
-      }
+      if (v === 'auto' && !orientBusy) landOrientation('auto', '')
       return
     }
     if (!isSystemOrientation(v)) return
     orientBusyState[1](true)
     orientNoteState[1](t('remoteOrientationBusy'))
     setSystemOrientation(v).then(
-      (r) => {
-        // fail-soft：自家锁定恒落地（当次有效 + 持久化）；OS 成败只决定 note。
-        const next = setRemoteOrientation(v)
-        remoteState[1]({ ...next })
-        persistState[1](getRemotePersistState())
-        orientNoteState[1](r.ok ? '' : t('remoteOrientationOsFail').replace('{code}', r.error.code))
-        orientBusyState[1](false)
-      },
-      () => {
-        const next = setRemoteOrientation(v)
-        remoteState[1]({ ...next })
-        persistState[1](getRemotePersistState())
-        orientNoteState[1](t('remoteOrientationOsFail').replace('{code}', 'unknown'))
-        orientBusyState[1](false)
-      },
+      (r) => landOrientation(v, r.ok ? '' : t('remoteOrientationOsFail').replace('{code}', r.error.code)),
+      () => landOrientation(v, t('remoteOrientationOsFail').replace('{code}', 'unknown')),
     )
   }
+
+  // 卡片内 hairline 分隔（苹果改版）：行与行之间一线，纯装饰无钩子；颜色走统一 token。
+  const hairline = (key: string): any =>
+    h('div', { key, style: { borderTop: '1px solid ' + TOK.border } })
 
   const remoteGroup = h('section', {
     key: 'remote',
     style: cardStyle('2px 14px 12px'),
     'data-dsh-prompt-remote-section': '1',
   }, [
-    h('div', {
-      key: 'title',
-      style: { fontSize: 12, fontWeight: 600, color: TOK.labelSecondary, padding: '12px 0 0', letterSpacing: 0.2 },
-    }, t('remoteGroup')),
+    // 总闸去重行：卡片标题与开关行同名（均为“远程模式”），标题行退役，开关行即首行。
     // 总闸：默认关；开=大、关=小；去宿主化后恒可用，不因任何外部能力 disabled。
     h(SettingRow, {
       key: 'remote-switch',
       label: t('remoteToggle'),
-      description: t('remoteToggleHint'),
       control: h(Check, {
         checked: !!remote.enabled,
         'data-dsh-prompt-remote-toggle': '1',
@@ -435,32 +433,65 @@ export function SettingsPage(props: any): any {
         },
       }),
     }),
-    h(SettingRow, {
-      key: 'remote-font',
-      label: t('remoteFont'),
-      description: t('remoteFontHint'),
-      control: tierControl(remote.font, (v) => {
-        const next = setRemoteFont(v)
-        remoteState[1]({ ...next })
-        persistState[1](getRemotePersistState())
-      }, 'font'),
-    }),
-    h(SettingRow, {
-      key: 'remote-control',
-      label: t('remoteControl'),
-      description: t('remoteControlHint'),
-      control: tierControl(remote.control, (v) => {
-        const next = setRemoteControl(v)
-        remoteState[1]({ ...next })
-        persistState[1](getRemotePersistState())
-      }, 'control'),
-    }),
+    hairline('sep-switch-size'),
+    // 统一大小（苹果改版·无预览）：上下结构——上行标签+值 pill，下行整行滑块配两端小字。
+    h('div', {
+      key: 'remote-size',
+      style: { display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 0' },
+    }, [
+      h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 } }, [
+        h('span', { key: 'label', style: { fontFamily: TOK.font, fontSize: '0.93em', color: TOK.labelPrimary } }, t('remoteSize')),
+        h('span', {
+          key: 'val',
+          style: {
+            fontFamily: TOK.font, fontSize: '0.86em', color: TOK.labelPrimary,
+            padding: '2px 10px', border: '1px solid ' + TOK.border, borderRadius: 999,
+            fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', flex: 'none',
+          },
+          'data-dsh-prompt-size-value': '1',
+        }, remote.size + '档·' + Math.round(remoteSizeScale(remote.size) * 100) + '%'),
+      ]),
+      h('div', { key: 'slider-row', style: { display: 'flex', alignItems: 'center', gap: 8 } }, [
+        h('span', { key: 'min', style: { fontFamily: TOK.font, fontSize: '0.82em', color: TOK.labelTertiary, flex: 'none' } }, t('remoteSizeMin')),
+        h('input', {
+          key: 'slider',
+          type: 'range', min: 1, max: 10, step: 1, value: remote.size,
+          disabled: !remote.enabled,
+          'data-dsh-prompt-size-slider': '1',
+          'aria-label': t('remoteSize'),
+          style: {
+            flex: 1, minWidth: 0, accentColor: TOK.accent, cursor: !remote.enabled ? 'not-allowed' : 'pointer', margin: 0,
+            transform: remote.enabled ? 'scale(1, ' + remoteSizeScale(remote.size) + ')' : 'none',
+            transformOrigin: 'left center', opacity: !remote.enabled ? 0.6 : 1,
+          },
+          onChange: (e: any) => {
+            // 浏览器 range 的 value 恒为字符串，不转 Number 则 setRemoteSize 直接拒收、滑块成摆设。
+            const next = setRemoteSize(Number((e.target as any).value))
+            remoteState[1]({ ...next })
+            persistState[1](getRemotePersistState())
+          },
+        }),
+        h('span', { key: 'max', style: { fontFamily: TOK.font, fontSize: '0.82em', color: TOK.labelTertiary, flex: 'none' } }, t('remoteSizeMax')),
+      ]),
+    ]),
+    hairline('sep-size-orient'),
     // 方向偏好（真切整机优先的本插件闭环）：自动跟视口；锁定先调 OS，真切失败回落自家锁定并明示。
     h(SettingRow, {
       key: 'remote-orientation',
       label: t('remoteOrientation'),
       description: t('remoteOrientationHint'),
-      control: orientationControl((remote as any).orientation || 'auto', onPickOrientation, orientBusy),
+      control: orientationControl((remote as any).orientation || 'auto', onPickOrientation, orientBusy, !remote.enabled),
+    }),
+    hairline('sep-orient-density'),
+    // 密度档（#90）：方向偏好行之后，两段手动切换；切档页码归零由面板侧执行。
+    h(SettingRow, {
+      key: 'remote-density',
+      label: t('remoteDensity'),
+      control: densityControl((remote as any).density || 'a', (v) => {
+        const next = setRemoteDensity(v)
+        remoteState[1]({ ...next })
+        persistState[1](getRemotePersistState())
+      }, !remote.enabled),
     }),
     orientNote
       ? h('div', { key: 'remote-orientation-note', style: noteStyle, 'data-dsh-prompt-orientation-note': '1' }, orientNote)
@@ -480,7 +511,7 @@ export function SettingsPage(props: any): any {
     h('div', {
       key: 'log-where',
       style: {
-        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 11.5,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: '0.82em',
         color: TOK.labelTertiary, padding: '0 0 10px', wordBreak: 'break-all', userSelect: 'text',
       },
     }, t('logWhere')),
@@ -494,38 +525,36 @@ export function SettingsPage(props: any): any {
     }, [
       h(Btn, { key: 'clear', tone: 'danger', onClick: () => { onClear().catch(() => undefined) } }, confirming ? t('logClearConfirm') : t('logClear')),
       dropped > 0
-        ? h('span', { key: 'dropped', style: { fontFamily: TOK.font, fontSize: 11.5, color: TOK.labelTertiary } }, t('logDropped') + ' ' + dropped)
+        ? h('span', { key: 'dropped', style: { fontFamily: TOK.font, fontSize: '0.82em', color: TOK.labelTertiary } }, t('logDropped') + ' ' + dropped)
         : null,
     ]),
   ])
   if (note) logGroup.props.children.push(h('div', { key: 'log-note', style: noteStyle }, note))
 
+  // 单滑块跟随（用户拍板，封顶时代“设置页自身不跟”已废）：开吃全额，与 compact 小列表
+  // uiFontScale 同构；子项全 em 化，故根在关时也锚到宿主基准 var（=14px，em 按 px/14 换算后与旧 px 视觉一致）。
+  const settingsFontScale = remoteSizeScale(remote.enabled ? remote.size : 1)
+  const settingsRootStyle: any = {
+    padding: 4, display: 'flex', flexDirection: 'column',
+    fontSize: remote.enabled
+      ? 'calc(var(--dsw-font-markdown-base-font-size) * ' + settingsFontScale + ')'
+      : 'var(--dsw-font-markdown-base-font-size)',
+  }
   // #37：旧的一行文字链接（⛭ GitHub 仓库 / ⚠ 反馈故障）已由顶部右上角两个图标按钮取代，不再保留第二处入口。
-  // 三档全局跟随（2026-09-29 用户拍板）：字号档缩放本插件配置面所有文字。
-  // 用 CSS zoom（字符串写法防 React 补 px）：Chromium 系（DSH web/桌面）生效，整体等比，
-  // 与 palette 无关；控件档不管此处（管远程面板与入口热区）。
-  const settingsZoom = String(remoteFontScale(remote.font))
-  return h('div', { style: { padding: 4, display: 'flex', flexDirection: 'column', zoom: settingsZoom } }, [
+  return h('div', { style: settingsRootStyle }, [
+    // 标题栏置顶（身份行：提示词模板 + 检查更新 + 版本 + 🌟💬，内容与钩子原样只换位置）。
     // #60 追加交付 A 的位置修正（第二次真机反馈）：更新入口**不再是独立的一块**，而是交给身份行，
     // 与 🌟 / 💬 同一行、排在这两个图标之前 —— 用户原话「检查更新和版本号和 star 的按钮在一起」。
-    // 于是这一页的顶层块从 7 块回到 6 块：身份行带着入口一起当第 0 块。
     h(SettingsHeaderLinks, { key: 'links', lang, entry: h(UpdateEntry, { key: 'update' }) }),
-    h(SettingGroup, { key: 'smart', title: t('smartGroup') }, [
-      h(SettingRow, {
-        key: 'smart-row',
-        label: t('smartToggle'),
-        description: t('smartToggleHint'),
-        control: h(Check, { checked: smartOn, onChange: (e: any) => { const on = e.target.checked; smartState[1](on); setSmartEnabled(on); logEvent('settings.smart.toggle', { on }) } }),
-      }),
-    ]),
-    remoteGroup,
-    logGroup,
-    // #77：模板区是一张**与上面两张卡、下面那张卡同款的卡片**（此前它是一条裸行，没有壳，
-    // 夹在「诊断日志」与「作者其他插件」之间显得格格不入）。折叠态只露出卡片头行，点开才是完整列表。
-    // pad 取 4px 6px 8px：内嵌浏览器自带 8px 内边距，6 + 8 = 14px，与其它三张卡的内容左轨对齐。
+    // 模板管理栏紧随标题栏（主体功能优先）：预制·自定义模板区为第 1 块，其余段顺序不变相对后移。
+    // #77：模板区是一张**与下面几张卡同款的卡片**（此前它是一条裸行，没有壳）。折叠态只露出卡片头行，点开才是完整列表。
+    // pad 取 4px 6px 8px：内嵌浏览器自带 8px 内边距，6 + 8 = 14px，与其它卡的内容左轨对齐。
     h(SettingGroup, { key: 'list', pad: '4px 6px 8px' }, [
       h(TemplateBrowser, { key: 'browser', compact: false, collapsible: true }),
     ]),
+    // 智能推荐配置区暂不放开：整组不渲染（逻辑 smart.ts、i18n 键、persist 全保留，接回即恢复）。
+    remoteGroup,
+    logGroup,
     // 存储说明那句（原「自定义模板与使用次数保存在 DSH 缓存目录…」）已按作者决定删除：
     // 它孤零零悬在两张卡之间，说的是上面那张模板卡的事，却谁也不属于。
     h(AuthorPlugins, { key: 'more', lang }),

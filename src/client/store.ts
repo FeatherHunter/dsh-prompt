@@ -62,6 +62,8 @@ interface StoreSnapshot {
 const cache: StoreSnapshot = { customs: [], usage: {}, pinned: [], lastUsed: null }
 let storeLoaded = false
 let loadPromise: Promise<void> | null = null
+// #91 启动竞态兜底旗（与 remote.ts loadRetried 同构）：快照失败只补一次延迟重拉。
+let loadRetried = false
 const storeListeners = new Set<() => void>()
 
 function notifyStore(): void {
@@ -97,7 +99,7 @@ const ROUTE_NAMES: Record<string, string> = {
   [PINNED_URL]: 'pinned.set',
 }
 
-/** 拉取 host 快照并装入缓存（失败 → 保持内存默认 + 记事件，不读旧 localStorage）。 */
+/** 拉取 host 快照并装入缓存（失败 → 保持内存默认 + 记事件，不读旧 localStorage；#91 起失败补一次 2500ms 延迟重拉，与 remote 同构）。 */
 export function ensureLoaded(): Promise<void> {
   if (storeLoaded) return Promise.resolve()
   if (loadPromise) return loadPromise
@@ -116,6 +118,22 @@ export function ensureLoaded(): Promise<void> {
         reason: typeof fetch === 'undefined' ? 'no-fetch' : 'http-or-json-fail',
         latencyMs: Date.now() - startedAt,
       })
+      // #91 启动竞态（宿主 domain 异步打开中撞 503/不可达）：旧实现直接锁死空默认 → 自定义全不见、用量全 0。
+      // 与 remote.ts ensureRemoteLoaded 同构：只补一次 2500ms 延迟重拉；命中则覆盖默认并经既有 notifyStore 刷新 UI。
+      // 只复用既有事件字面量（store.snapshot.ok/fail），不新增事件、不加失败明示行。
+      if (!loadRetried) {
+        loadRetried = true
+        try {
+          if (typeof setTimeout === 'function') {
+            const tid: any = setTimeout(() => {
+              loadPromise = null
+              storeLoaded = false
+              ensureLoaded().catch(() => undefined)
+            }, 2500)
+            try { if (tid && typeof tid.unref === 'function') tid.unref() } catch (e) { /* ignore */ }
+          }
+        } catch (e) { /* ignore */ }
+      }
     }
     storeLoaded = true
     notifyStore()

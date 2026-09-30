@@ -1,9 +1,9 @@
 /**
  * dsh-prompt — 入口按钮（conversation.input.left）
  */
-import { getReact, keepComposerFocus, ModalPortal, MODAL_Z } from './panel'
+import { getReact, keepComposerFocus, ModalPortal, PanelPortal, MODAL_Z } from './panel'
 import { SettingsPage } from './settings'
-import { remoteFontScale, remoteControlScale } from './remoteView'
+import { remoteChromeScale } from './remoteView'
 import { isPanelOpen, setPanelOpen, cancelPanelClose, schedulePanelClose } from './state'
 import {
   getRemotePrefs, subscribeRemote, ensureRemoteLoaded,
@@ -61,8 +61,8 @@ function ensureNarrowStyle(): void {
  */
 const REMOTE_FB_STYLE_ID = 'dsh-prompt-remote-feedback'
 const REMOTE_FB_CSS = [
-  '[data-dsh-prompt-remote-gear]:hover, [data-dsh-prompt-remote-panel] button:hover, [data-dsh-prompt-settings-modal] button:hover { filter: brightness(1.1); }',
-  '[data-dsh-prompt-remote-gear]:active, [data-dsh-prompt-remote-panel] button:active, [data-dsh-prompt-settings-modal] button:active { filter: brightness(.9); transform: scale(.97); }',
+  '[data-dsh-prompt-remote-gear]:hover, [data-dsh-prompt-sidebar-toggle]:hover, [data-dsh-prompt-remote-panel] button:hover, [data-dsh-prompt-settings-modal] button:hover { filter: brightness(1.1); }',
+  '[data-dsh-prompt-remote-gear]:active, [data-dsh-prompt-sidebar-toggle]:active, [data-dsh-prompt-remote-panel] button:active, [data-dsh-prompt-settings-modal] button:active { filter: brightness(.9); transform: scale(.97); }',
   '[data-dsh-prompt-remote-panel] button:disabled:hover, [data-dsh-prompt-remote-panel] button:disabled:active { filter: none; transform: none; }',
   '[data-dsh-prompt-remote-panel] button, [data-dsh-prompt-settings-modal] button { transition: filter .08s ease, transform .08s ease; }',
 ].join('\n')
@@ -89,6 +89,59 @@ function ensureRemoteFeedbackStyle(): void {
 export function __resetNarrowStyle(): void {
   narrowStyleReady = false
 }
+
+/**
+ * #94 右侧边栏折叠面（宿主正道：ctx.sidebarRight 的 isExpanded/toggleExpanded）。
+ *
+ * 正道来源（只读实证，2026-09-29）：dsh-better-sidebar@0.24.1 发布包内 TS 源码
+ * `src/client/sidebar/use-host-feeds.ts:38-41`（NativeColumnFace：`isExpanded?/toggleExpanded?`，
+ * 经 `ctx.get('sidebarRight')` 取得，optional-call 探测）与 `:68,:80,:82`（调用位）；
+ * 同包 `src/client/native/surface.ts:43-54`（NativeController 结构片）；第二独立佐证
+ * dsh-mattpocock-skills-deck 已装包 `lib/client.js:8059`（`ctx.get('sidebarRight')` +
+ * openTab/openTabIn 守卫式调用）与 `:19944-19978`（sidebarRightTabs + sidebar.right.pane.tab 注册）。
+ * 官方 ctx 服务族（与 slots/inputTriggers 同族），无哈希类名、无 globalThis 野路子；
+ * 宿主可晚到/缺席，故此处一律探测式调用、失败静默（fail-soft），存在性由调用方按位门控。
+ */
+export interface SidebarCtl {
+  isExpanded?: () => boolean
+  toggleExpanded?: () => void
+}
+
+/** 安全读展开态：true=展开、false=折叠、null=未知（宿主缺席/未实现/异常，不抛） */
+export function readSidebarExpanded(ctl: unknown): boolean | null {
+  try {
+    const f = (ctl as any) && (ctl as any).isExpanded
+    if (typeof f !== 'function') return null
+    const v = f.call(ctl)
+    return v === true ? true : v === false ? false : null
+  } catch (e) { return null }
+}
+
+/**
+ * 只切侧栏：调宿主 toggleExpanded，不碰本插件任何 state、不记日志事件。
+ * 返回是否真调到宿主面（调用层断言只断到这里，不刺探宿主内部）。
+ */
+export function toggleSidebar(ctl: unknown): boolean {
+  try {
+    const f = (ctl as any) && (ctl as any).toggleExpanded
+    if (typeof f !== 'function') return false
+    f.call(ctl)
+    return true
+  } catch (e) { return false }
+}
+
+/**
+ * #95 远程 Dock：远程下入口三键（入口/齿轮/折栏）离对话框，聚为一体钉 DSH 窗口底部。
+ * - 横向容器：fixed 底、左右下留边（DOCK_MARGIN）、DOCK_Z=8000 低于远程面板 PANEL_Z=9999
+ *   （panel.ts:551），高于页面内容与智能卡（400）；经 PanelPortal 挂 body 逃离 slot 层叠上下文。
+ * - 高随档：Dock 自身不定高，内边距走 em（以 fontSize 12*entryFontScale 为锚），内键 px/em 体系不动，
+ *   档位放大时内容撑高即自动跟，无需第二套尺寸 math。
+ * - 内容 actions 注册式：dockActions 数组 append 续加，后续新键只管 push。
+ * - 收展内存态（useState，默认展）：收起键在行内末尾，收起后折成底部中间小 pill（与 Dock 同底边距），点展；
+ *   不进 remote 持久化、不记日志。
+ */
+export const DOCK_Z = 8000
+const DOCK_MARGIN = 12
 
 // 自家设置弹窗样式（与 panel 弹窗同标尺：遮罩 MODAL_Z，卡片宽至多 600、内容区滚动）。
 const settingsMaskStyle: any = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: MODAL_Z }
@@ -129,23 +182,48 @@ export function EntryButton(props: any): any {
   ensureNarrowStyle()
   ensureRemoteFeedbackStyle()
 
-  // 三档全局跟随（2026-09-29 用户拍板）：字号档管入口文字与图标、控件档管入口热区与齿轮尺寸；
-  // 与 palette 无关（inline 样式本就最高），只用乘数，不碰主题变量。
-  const entryFontScale = remoteFontScale(remote.font)
-  const entryControlScale = remoteControlScale(remote.control)
+  // 单滑块跟随开关（2026-09-29 用户拍板大小跟随开关）：关=入口正常尺寸；
+  // 开时按控制面封顶 2x（全额 10x 会撑爆宿主布局）；内容面才吃全额。
+  const entryFontScale = remoteChromeScale(remote.enabled ? remote.size : 1)
+  const entryControlScale = remoteChromeScale(remote.enabled ? remote.size : 1)
 
   // 自家设置弹窗（2026-09-29 用户拍板：齿轮不再走宿主设置页 DOM 兜底——真机上打不开；
   // 点齿轮即在自家 Modal 里放完整配置面板，零宿主依赖；优先展示顶部区域，不自动滚动）。
   const gearModalState = react.useState(false)
   const gearModalOpen = gearModalState[0]
   const closeGearModal = (): void => { try { gearModalState[1](false) } catch (e) { /* ignore */ } }
+  // #94 侧栏键态感（纯局部视觉态，不进本插件 store/remote state；未知态按折叠画，点后重读、无值则乐观翻转）
+  const sbState = react.useState(readSidebarExpanded((props as any).sidebarCtl))
+  // #95 Dock 收展（内存态，默认展；不进持久化）
+  const dockState = react.useState(true)
+  // 返修（关闭键不可见）：远程开时四边留边（不再 100vw×100vh 铺满，圆角回来）；
+  // 底边避开入口行——pos/entry 语义（面板底坐入口顶边上方 8px，同 panel.ts:894），reserve 用 rem/百分比；
+  // 关闭行 sticky 钉住（82 只断存在性）。非远程原样不动。
+  const gearMaskStyle = remote.enabled
+    ? { ...settingsMaskStyle, alignItems: 'flex-start', padding: '2vh 2vw 0' }
+    : settingsMaskStyle
+  const gearCardStyle = remote.enabled
+    // 宽随字自适应（仅远程）：fit-content 吃内容——字小时窄版，字大换行后渐宽；
+    // min 保可用（窄到 480 即停，小屏按 94vw 收），max 取现状上限（96vw，与全屏档同值）；非远程原尺寸不动。
+    ? {
+      ...settingsModalCardStyle, width: 'fit-content', minWidth: 'min(480px, 94vw)', maxWidth: '96vw',
+      height: 'calc(96vh - 3.5rem)', maxHeight: 'calc(96vh - 3.5rem)', margin: 0, borderRadius: 12,
+    }
+    : settingsModalCardStyle
+  const gearHeadStyle = remote.enabled
+    ? {
+      ...settingsModalHeadStyle, position: 'sticky', top: 0, zIndex: 1,
+      background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+      backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+    }
+    : settingsModalHeadStyle
   const gearModalNode = !gearModalOpen ? null : h(ModalPortal, { key: 'dsh-prompt-settings-modal' },
     h('div', {
-      style: settingsMaskStyle, 'data-dsh-prompt-settings-modal': '1',
+      style: gearMaskStyle, 'data-dsh-prompt-settings-modal': '1',
       onClick: (e: any) => { if (e.target === e.currentTarget) closeGearModal() },
     }, [
-      h('div', { style: settingsModalCardStyle }, [
-        h('div', { style: settingsModalHeadStyle }, [
+      h('div', { style: gearCardStyle }, [
+        h('div', { style: gearHeadStyle }, [
           h('span', { style: settingsModalTitleStyle }, tr(lang, STR.remoteConfigKey)),
           h('button', {
             type: 'button', style: settingsModalCloseStyle, title: tr(lang, STR.close),
@@ -216,5 +294,114 @@ export function EntryButton(props: any): any {
     onMouseDown: keepComposerFocus,
     onClick: () => { gearModalState[1](true) },
   }, '⚙')
-  return h('span', { style: { display: 'inline-flex', alignItems: 'center' } }, [entryBtn, gear, gearModalNode])
+  // #94 齿轮右侧侧栏折叠键：仅远程 + 宿主面在场（toggleExpanded 为函数）时出现；
+  // 同 entryBtn 行内、gearBox 同体系（26*chromeScale 随档跟缩）；SVG 自设计两态
+  // （currentColor、1.2em 系、strokeWidth 2 与入口灯泡同重）；aria-pressed + 两态图标/明暗给态感；
+  // onMouseDown 保焦（与齿轮同理：同行按钮 mousedown 会抢作曲家焦点）；点击只调宿主面。
+  const sidebarCtl = (props as any).sidebarCtl
+  const canSidebar = !!sidebarCtl && typeof (sidebarCtl as any).toggleExpanded === 'function'
+  const sbExpanded = sbState[0] === true
+  const sbTitle = tr(lang, sbExpanded ? STR.sidebarCollapse : STR.sidebarExpand)
+  const sidebarKey = !canSidebar ? null : h('button', {
+    type: 'button',
+    style: {
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: gearBox, height: gearBox, borderRadius: 8, marginLeft: 6,
+      background: 'var(--dsw-alias-bg-layer-3)',
+      border: '1px solid var(--dsw-alias-border-l1)',
+      color: 'var(--dsw-alias-label-primary)', cursor: 'pointer', fontSize: 14 * entryFontScale, flex: 'none',
+      opacity: sbExpanded ? 1 : 0.75,
+    },
+    title: sbTitle,
+    'aria-label': sbTitle,
+    'aria-pressed': sbExpanded,
+    'data-dsh-prompt-sidebar-toggle': '1',
+    onMouseDown: keepComposerFocus,
+    onClick: () => {
+      toggleSidebar(sidebarCtl)
+      try {
+        const v = readSidebarExpanded(sidebarCtl)
+        sbState[1](v === null ? !sbExpanded : v)
+      } catch (e) { /* ignore */ }
+    },
+  }, [
+    // 自设计：右侧栏面板 + 分栏线 + 折向箭头；展开态示“向左折”（分栏居右）、折叠态示“向右开”（分栏居左）。
+    h('svg', { width: '1.2em', height: '1.2em', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, sbExpanded ? [
+      h('rect', { x: 3, y: 4, width: 18, height: 16, rx: 2 }),
+      h('path', { d: 'M15 4v16' }),
+      h('path', { d: 'M10.5 9l-3 3 3 3' }),
+    ] : [
+      h('rect', { x: 3, y: 4, width: 18, height: 16, rx: 2 }),
+      h('path', { d: 'M9 4v16' }),
+      h('path', { d: 'M13.5 9l3 3-3 3' }),
+    ]),
+  ])
+  // #95 远程 Dock：三键离对话框→Dock 行内（actions 数组 append 续加；收起键在末尾）；
+  // Dock 容器 fixed 底居中、左右下留边、DOCK_Z 低于远程面板；高随档（容器不定高+em 内边距）。
+  const dockActions: any[] = []
+  dockActions.push(entryBtn)
+  dockActions.push(gear)
+  if (sidebarKey) dockActions.push(sidebarKey)
+  const dockCollapseTitle = tr(lang, STR.dockCollapse)
+  dockActions.push(h('button', {
+    type: 'button',
+    style: {
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: gearBox, height: gearBox, borderRadius: 8, marginLeft: 6,
+      background: 'transparent',
+      border: '1px solid var(--dsw-alias-border-l1)',
+      color: 'var(--dsw-alias-label-tertiary)', cursor: 'pointer', fontSize: 14 * entryFontScale, flex: 'none',
+    },
+    title: dockCollapseTitle,
+    'aria-label': dockCollapseTitle,
+    'data-dsh-prompt-dock-collapse': '1',
+    onMouseDown: keepComposerFocus,
+    onClick: () => { dockState[1](false) },
+  }, '▾'))
+  const dockBarStyle: any = {
+    position: 'fixed', left: DOCK_MARGIN, right: DOCK_MARGIN, bottom: DOCK_MARGIN,
+    display: 'flex', justifyContent: 'center', zIndex: DOCK_Z, pointerEvents: 'none',
+    fontSize: 12 * entryFontScale,
+  }
+  const dockPillStyle: any = {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    padding: '0.5em 0.75em', borderRadius: 12,
+    background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+    border: '1px solid var(--dsw-alias-border-l1)',
+    color: 'var(--dsw-alias-label-primary)',
+    fontFamily: 'var(--dsw-font-family)', pointerEvents: 'auto',
+  }
+  if (!dockState[0]) {
+    // 收起态：底部中间小 pill（与 Dock 本体同底边距），点展；设置弹窗照常可挂。
+    const dockExpandTitle = tr(lang, STR.dockExpand)
+    const pillNode = h(PanelPortal, { key: 'dsh-prompt-dock-pill' },
+      h('div', {
+        style: { position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: DOCK_MARGIN, zIndex: DOCK_Z, pointerEvents: 'none' },
+      }, [
+        h('button', {
+          type: 'button',
+          style: {
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0.4em 0.7em', borderRadius: 999,
+            background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+            border: '1px solid var(--dsw-alias-border-l1)',
+            color: 'var(--dsw-alias-label-primary)', cursor: 'pointer',
+            fontSize: 12 * entryFontScale, fontFamily: 'var(--dsw-font-family)', pointerEvents: 'auto',
+          },
+          title: dockExpandTitle,
+          'aria-label': dockExpandTitle,
+          'data-dsh-prompt-dock-pill': '1',
+          onMouseDown: keepComposerFocus,
+          onClick: () => { dockState[1](true) },
+        }, '▴'),
+      ]),
+    )
+    return h('span', { style: { display: 'inline-flex', alignItems: 'center' } }, [pillNode, gearModalNode])
+  }
+  const dockNode = h(PanelPortal, { key: 'dsh-prompt-dock' },
+    h('div', { style: dockBarStyle, 'data-dsh-prompt-dock': '1' }, [
+      h('div', { style: dockPillStyle }, dockActions),
+    ]),
+  )
+  return h('span', { style: { display: 'inline-flex', alignItems: 'center' } }, [dockNode, gearModalNode])
 }

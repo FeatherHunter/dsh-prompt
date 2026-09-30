@@ -15,7 +15,7 @@ import {
 } from './smartstore'
 import { getLang, tr, STR } from './i18n'
 import { getRemotePrefs, subscribeRemote } from './remote'
-import { remoteFontScale } from './remoteView'
+import { remoteChromeScale } from './remoteView'
 const DOT_SIZE = 12 // 还原原设计：12px 次级色低调圆点（原型 GlobalDot 样式）
 const CARD_W = 280 // 内容宽度收窄
 const CARD_H_EST = 150 // 卡片高度估算（首次渲染未测量时用；测量后精确锚定）
@@ -199,7 +199,8 @@ export function SmartCardHost(props: any): any {
     } catch (e) { /* ignore */ }
     return () => { on = false }
   }, [])
-  const smartFontScale = remoteFontScale(getRemotePrefs().font as any)
+  // 单滑块后智能卡按控制面封顶 2x（2026-09-29）；仅远程开时生效，关=正常尺寸。
+  const smartFontScale = remoteChromeScale(getRemotePrefs().enabled ? getRemotePrefs().size : 1)
 
   // 草稿来源 = 输入框真实值（轮询 + focus 事件；DOM 读不到时由 currentDraft 回退输入桥草稿）；
   // 与面板插入同源，不依赖 overlay 重渲染

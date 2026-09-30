@@ -103,3 +103,9 @@
 ## 日志导出 (log export)
 
 把日志原文交到用户手上，供反馈故障时附给我们。与它并列的是清空（删掉既有日志文件）。两者都只作用于本机日志文件。
+
+## 更新能力 (update capability)
+
+本插件内置的「检查更新 / 一键更新」：把 **dsh-prompt 自己**升到 npm 上的新版本。由外部包 dsh-plugin-update 提供（同一作者的独立包，非本仓产物），该包在**构建期**被内联进 `lib/update.js`，版本冻结在构建那一刻。
+
+因此「更新 dsh-prompt」与「更新更新包本身」是两件独立的事：前者用户点按钮即可，后者必须改构建期钉版、重建产物、重新发版。升级步骤与三道门禁见 `docs/adr/0003-update-package-inlined-at-build.md`，上游体检跑 `npm run check:update-pkg`。

@@ -35,6 +35,7 @@
     "build:update-host": "node scripts/update/build-host.mjs",
     "prepare": "npm run build",
     "derive:update-values": "node node_modules/dsh-plugin-update/derive-client-values.mjs --prefix prompt --out src/update/gen/updateClient.derived.js",
+    "check:update-pkg": "node scripts/check-update-pkg.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck:host",
     "typecheck:host": "tsc -p tsconfig.host.json",
     "test:lib-sync": "node scripts/check-lib-sync.mjs",

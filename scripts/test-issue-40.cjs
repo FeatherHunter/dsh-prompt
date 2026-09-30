@@ -208,21 +208,21 @@ const openDetails = async (c) => {
 };
 const fieldOf = (c, k) => nodes(c, 'data-dsh-prompt-update-field').filter((n) => n.props['data-dsh-prompt-update-field'] === k)[0];
 
-/** 包 README 第 8 节第三列的可执行要求：逐字抄成可判定的片段（与本仓文案表相互独立）。 */
+/** 包 README 第 5.2 节第三列的可执行要求：逐字抄成可判定的片段（与本仓文案表相互独立）。 */
 const README_DO = {
-  'unknown-profile': '检查使用范围名是否含特殊字符',
+  'unknown-profile': '目录是否还在',
   'source-install': '不给手工命令',
   'invalid-installation': '重装当前版本',
-  'installation-changed': '让指纹重新绑定',
+  'installation-changed': '重新打开宿主再查一次',
   'pending-restart': '重启宿主',
   'registry-conflict': '改成版本号再试',
   'incompatible-node': 'Node 到 22',
   'recovery-required': '重新点一次',
 };
-/** 本版本（包 0.1.1）**实产**的 7 条；`registry-conflict` 零处产出，只许预留文案（不许为它编情形）。 */
+/** 本版本（包 0.2.0）**实产**的 7 条；`registry-conflict` 零处产出，只许预留文案（不许为它编情形）。 */
 const PRODUCED = ['unknown-profile', 'invalid-installation', 'installation-changed', 'source-install', 'pending-restart', 'incompatible-node', 'recovery-required'];
 const RESERVED = ['registry-conflict'];
-/** 包 README 第 9 节：manual 为空是正常的两种情形（源码安装与认不出使用范围）。 */
+/** 包 README 第 5.3 节：manual 为空是正常的两种情形（源码安装与认不出使用范围）。 */
 const EMPTY_MANUAL = ['unknown-profile', 'source-install'];
 /** 构建期派生出来的取值文件（电话名与轮询间隔的唯一真值）。 */
 const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
@@ -246,11 +246,11 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
   eq(/export function ModalPortal/.test(panelSrc), true, 'panel.ts 导出 ModalPortal（#40 的最小接入：只加 export，不重排）');
 
   console.log('=== T2: 八条原因码与包 README 对账 + 本版本实产 7 条 ===');
-  // 只在第 8 节那一节里数表行（README 别处也有 `| \`x\` |` 形状的表，不切片会多出无关行）
-  const sec8 = readme.slice(readme.indexOf('## 8.'), readme.indexOf('## 9.'));
+  // 只在第 5.2 节那一节里数表行（README 别处也有 `| \`x\` |` 形状的表，不切片会多出无关行）
+  const sec8 = readme.slice(readme.indexOf('## 5.2'), readme.indexOf('## 5.3'));
   const tableRows = sec8.split('\n').filter((l) => /^\| `[a-z-]+` \|/.test(l));
   const readmeCodes = tableRows.map((l) => l.split('|')[1].trim().replace(/`/g, ''));
-  eq(readmeCodes.length, 8, '包 README 第 8 节列了 8 条原因码');
+  eq(readmeCodes.length, 8, '包 README 第 5.2 节列了 8 条原因码');
   eq(Object.keys(update.UPDATE_REASON_KEYS).sort(), readmeCodes.slice().sort(), '本仓文案表与 README 的八条逐条对齐（不多不少）');
   for (const code of readmeCodes) {
     const key = update.UPDATE_REASON_KEYS[code];
@@ -273,10 +273,10 @@ const derived = require(path.join(DIR, 'updateClient.derived.cjs'));
     }
   }
   eq(Array.from(new Set(producers)).sort(), PRODUCED.slice().sort(),
-    '包 0.1.1 里 blockedReason 的产出点正好是这 7 条（registry-conflict 一个产出点都没有）');
+    '包 0.2.0 里 blockedReason 的产出点正好是这 7 条（registry-conflict 一个产出点都没有）');
   eq(producers.indexOf('registry-conflict'), -1, '没有任何一行把 registry-conflict 写进 blockedReason');
   // 但也不许说「包里没有这个词」：它确实出现在两处**非产出**的地方（透传白名单 / job.message 判断）。
-  // 实测位置：host.js 的 known 码表、service.js:284 的 `code === "registry-conflict"` 透传判断。
+  // 实测位置：host.js 的 known 码表、service.js:290 的 `code === "registry-conflict"` 透传判断。
   eq(distOf('host.js').indexOf('registry-conflict') >= 0, true,
     'registry-conflict 出现在 host.js 的 known 码表里（透传白名单，不是产出点）');
   eq(distOf('service.js').split('\n').filter((l) => l.indexOf('registry-conflict') >= 0 && l.indexOf('blockedReason') < 0).length > 0, true,

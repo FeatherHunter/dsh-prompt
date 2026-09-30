@@ -1,11 +1,13 @@
 /**
  * `dsh-plugin-update` 的类型声明（本仓自备）。
  *
- * 为什么不装 `@types/dsh-plugin-update`：包 0.1.1 没有随包发 `.d.ts`，registry 上也没有对应的
- * @types 包（实测 2026-09）。本仓只在宿主半用到一个入口 `createHostUpdate`，所以这里**只声明
+ * 为什么不装 `@types/dsh-plugin-update`：包 0.2.0 没有随包发 `.d.ts`，registry 上也没有对应的
+ * @types 包（实测 2026-09，0.1.1 时代亦然）。本仓只在宿主半用到一个入口 `createHostUpdate`，所以这里**只声明
  * 用得到的那一面**，形状逐字对着 `dist/` 的**调用点**（不是 README 的示例文字）：
- * `dist/host.js:187,196` 发 `phoneLogCtx.fire(level, event, fields)`、`dist/store.js:273` 发
- * `log(level, event, fields)` —— 两处都是**三参**，事件名在第二个位置。升级包版本时要回头核这份声明。
+ * `dist/host.js:216,225` 发 `phoneLogCtx.fire(level, event, fields)`、`dist/store.js:273` 发
+ * `log(level, event, fields)` —— 两处都是**三参**，事件名在第二个位置。升级包版本时要回头核这份声明
+ * （0.1.1→0.2.0 终裁见 #97：fire 三参位与 loggedPhone 形状未变，行号 187,196→216,225；新增的
+ * `pluginManager` 顶层透传生产不传、`readerOverrides` 仅回归 12) 段透传可识别布局，生产走包默认自动探测）。
  *
  * 声明面故意收窄：包里还有 reader / store / gate 等十几个导出，本仓一个都不用，
  * 不声明就不会有人从这儿顺手引进去。
@@ -54,7 +56,7 @@ declare module 'dsh-plugin-update' {
   }
 
   /**
-   * 更新包的日志口。形状抄 `dist/host.js:187,196`（`phoneLogCtx.fire(...)`）与 `dist/store.js:273`
+   * 更新包的日志口。形状抄 `dist/host.js:216,225`（`phoneLogCtx.fire(...)`）与 `dist/store.js:273`
    * （`log("info", "update.install.exec", {...})`）两处真实调用：**三个位置参数，事件名在第二位**。
    *
    * 别按两参写 —— 那个形状会让 `"info"` 变成事件名、真事件名降级成字段对象，两条事件被闸门整条丢掉
@@ -62,7 +64,7 @@ declare module 'dsh-plugin-update' {
    * （级别由仓库根 `event-list.dsh-prompt.json` 决定，不引入第二套级别语义），但仍必须收下，
    * 否则参数位置整体错位。调用是同步的，返回值被忽略。
    *
-   * **前置事实（#39 复审 V5 实测，供下一轮别踩）**：包侧**不校验**这个口 —— `dist/host.js:185-190,194-199`
+   * **前置事实（#39 复审 V5 实测，供下一轮别踩）**：包侧**不校验**这个口 —— `dist/host.js:214-219,223-228`
    * 两处 `emit` 把 `fire` 包在 try/catch 里，`logCtx: {}`（没有 fire）与 `fire(){ throw }` 都不抛、回包
    * 仍然是 `ok:true`，日志口什么都不收到。也就是说：形状写错**没有任何运行时信号**，只能靠本仓自己的
    * 回归断言兜住。所以改这个口时，必须同时改 `scripts/test-issue-39.cjs` 的 8)/11)/12) 三段
@@ -78,6 +80,9 @@ declare module 'dsh-plugin-update' {
     ctx?: unknown
     logCtx?: UpdateLogCtx | null
     desktopPnpm?: unknown
+    /** 0.2.0 新增的顶层透传（生产不传，走包默认自动探测；仅回归 12) 段透传临时可识别布局）。 */
+    pluginManager?: unknown
+    /** 同上：生产不传，仅回归 12) 段经宿主半透传 targetPackageDir / profileDir / homeDir。 */
     readerOverrides?: Record<string, unknown>
   }
 

@@ -139,6 +139,25 @@ const UPDATE_FAIL_KEYS: Record<string, keyof typeof STR> = {
 
 const asText = (v: unknown): string => (typeof v === 'string' ? v : '')
 
+/**
+ * 前缀匹配查表（#102：0.2.0 的 `job.message` 带 `: <detail>` 后缀）。
+ * 上游 `dist/service.js` 的 `runBackground` 按 `${base}: ${detail}` 写终态（`base` 为
+ * `install-failed` / `installation-changed` / `registry-conflict` 三者之一，否则落
+ * `install-failed`），包 README 第 6.10 节点名“匹配请匹配前缀错误码，不要整串相等”。
+ * 精确码走精确分支命中；带后缀时取第一个 `:` 之前的 `prefix.trim()` 命中；
+ * `phone error` 码无后缀（调用方保持整串相等，不经此处）。
+ */
+function lookupByPrefix<T>(table: Record<string, T>, code: string): T | undefined {
+  if (!code) return undefined
+  if (Object.prototype.hasOwnProperty.call(table, code)) return table[code]
+  const idx = code.indexOf(':')
+  if (idx > 0) {
+    const prefix = code.slice(0, idx).trim()
+    if (prefix && Object.prototype.hasOwnProperty.call(table, prefix)) return table[prefix]
+  }
+  return undefined
+}
+
 /** 填 STR 里的 `{name}` 占位（只有待重启横幅那一句需要带版本号，为此引模板引擎不值得）。 */
 function fill(template: string, vars: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (m, k: string) =>
@@ -346,6 +365,9 @@ export function UpdateEntry(props?: any): any {
   const failTitle = bridgeDown ? 'updateHostFailTitle' : capDown ? 'updateCapDownTitle' : 'updateFailAnsweredTitle'
   const failHint = bridgeDown || capDown ? 'updateHostFailHint' : 'updateFailAnsweredHint'
   const reason = asText(snap && snap.blockedReason)
+  // #102：`blockedReason` 在 0.2.0 仍是同一 8 码（无后缀），此处与 `job.message` 一起走前缀匹配
+  //（`phone error` 码无后缀，保持整串相等，不经此处）。
+  const reasonKey = lookupByPrefix(UPDATE_REASON_KEYS, reason)
   const running = asText(snap && snap.runningVersion)
   const installed = asText(snap && snap.installedVersion)
   const latest = asText(snap && snap.latestVersion)
@@ -372,6 +394,10 @@ export function UpdateEntry(props?: any): any {
    */
   const jobFailed = jobState === 'failed' || jobState === 'interrupted'
   const jobCode = jobFailed ? (jobMessage || 'install-failed') : ''
+  // #102：`job.message` 在 0.2.0 形如 `install-failed: <detail>`（`dist/service.js` 的
+  // `runBackground` 按 `${base}: ${detail}` 写终态），此处按前缀查 `UPDATE_FAIL_KEYS`，
+  // 展示仍用完整 `jobCode`（后缀留着报 Issue 靠它）。
+  const jobFailKey = lookupByPrefix(UPDATE_FAIL_KEYS, jobCode)
   const pendingRestart = reason === 'pending-restart'
   const manual = res && res.ok ? asText(res.manual) : asText(lastGoodRes && lastGoodRes.manual)
   const versionLine = running ? 'v' + running : t('updateVersionUnknown')
@@ -730,14 +756,14 @@ export function UpdateEntry(props?: any): any {
         h('span', { key: 'code', style: { fontFamily: TOK.mono, fontSize: 11.5, color: TOK.labelTertiary } }, jobCode),
       ]),
       h('span', { key: 'why', style: { fontSize: 12.5, lineHeight: 1.65, color: TOK.labelPrimary } },
-        UPDATE_FAIL_KEYS[jobCode] ? t(UPDATE_FAIL_KEYS[jobCode]) : t('updateJobFailHint')),
+        jobFailKey ? t(jobFailKey) : t('updateJobFailHint')),
     ]))
   }
 
   // ④ 装不了的原因：给「用户该做什么」，不给英文原因码了事。它排在按钮**之前** ——
   //    先看清「为什么装不了 / 还要做什么」，再决定按哪一个按钮。
   if (reason) {
-    const key = UPDATE_REASON_KEYS[reason]
+    const key = reasonKey
     children.push(h('div', {
       key: 'reason',
       'data-dsh-prompt-update-reason': '',

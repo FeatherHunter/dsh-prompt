@@ -8,9 +8,10 @@
  * node_modules 上溯，而真机是 DSH 写死的 hoisted 布局，命不中本插件包 ⇒ 三条更新路由只会回
  * `unknown-profile`。
  *
- * 代价是：**上游发了新版，本插件不会自己知道**。已有三道门禁都只在「动了之后」才拦得住
- * （build-host 的拒收门、test:issue-39 的钉版断言、test:lib-sync 的产物同步），
- * 没有人提醒「该动了」。本脚本补的就是这一环。
+ * 代价是：**上游发了新版，本插件不会自己知道**。#98 起构建会自动跟最新
+ * （`npm run build` → ensure:update-pkg 装 latest 再内联），本脚本的角色转为**发版门**：
+ * 发版前跑一遍，确认“检入的钉版与产物”已经是上游 latest（即：最近一次构建是在联网状态下跑的）。
+ * 离线构建只会警告后用本地版继续 —— 此时本脚本 exit 2，必须人工确认后再发。
  *
  * 【退出码】发布前检查请按这个表读：
  *   0 = 与上游 latest 同版（或上游没有更新的版本）
@@ -71,15 +72,12 @@ if (latest === pinned) {
   process.exit(0)
 }
 
-console.log('\n=== 上游版本与钉版不同 —— 需要人工确认并按清单走一遍 ===')
+console.log('\n=== 上游版本与钉版不同 —— 发版前先跟上 ===')
 console.log('  钉版 ' + pinned + '  →  上游 latest ' + latest)
 console.log('')
-console.log('  1) npm i -D ' + PKG_NAME + '@' + latest + '        # 精确版本，不要 ^ / ~')
-console.log('  2) npm run derive:update-values                  # 上游改了客户端派生值才需要')
-console.log('  3) 上游改了宿主 API/类型：同步 src/update/dsh-plugin-update.d.ts 与 src/update/host/index.ts')
-console.log('  4) 改冻结点 scripts/test-issue-39.cjs 的钉版断言（有意为之：逼一次人工确认）')
-console.log('  5) npm run build                                 # 重建 lib/update.js，banner 版本跟着变')
-console.log('  6) npm run test:lib-sync && npm run test:issue-39 && npm test，再升插件版本号、提交（含 lib/）、发布')
+console.log('  联网跑一次 npm run build（ensure:update-pkg 会自动装 latest 并重建 lib/update.js），')
+console.log('  再重跑本脚本；确认同版后再提交（含 lib/ 与 lock）并发版。')
+console.log('  离线实在跟不上时，按 ADR-0003 的旧六步清单人工走一遍（见 git 历史）。')
 console.log('')
 console.log('  详细理由与三道护栏见 docs/adr/0003-update-package-inlined-at-build.md')
 process.exit(1)

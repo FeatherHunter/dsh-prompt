@@ -130,15 +130,19 @@ const squash = (s) => s.replace(/\s+/g, ' ');
     fail('dsh-plugin-update 不许留在 dependencies（#58 起它是构建期输入，已内联进 lib/update.js），实为 '
       + JSON.stringify(pkg.dependencies['dsh-plugin-update']));
   }
-  if (pkg.devDependencies['dsh-plugin-update'] !== '0.1.1') {
-    fail('devDependencies["dsh-plugin-update"] 应为精确 "0.1.1"（构建期输入，版本冻结在产物里），实为 '
+  // #98 起构建期自动跟最新（地图 #96 用户拍板，覆盖 ADR-0003 人工钉版）：这里不再认任何写死的
+  // 包版本号，只认三条 —— 记录是精确值（不许 ^ / ~ / latest）、产物 banner 与记录一致（下面专段断言）、
+  // 实装与记录一致（构建门禁断言）。版本悄悄漂的确认点搬到发版前（check:update-pkg，见 #101）。
+  const pinnedUpdatePkg = pkg.devDependencies['dsh-plugin-update'];
+  if (typeof pinnedUpdatePkg !== 'string' || !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(pinnedUpdatePkg)) {
+    fail('devDependencies["dsh-plugin-update"] 必须是精确版本（构建期输入，#98 起由构建自动跟最新），实为 '
       + JSON.stringify(pkg.devDependencies['dsh-plugin-update']));
   }
   if (!pkg.devDependencies.esbuild) fail('devDependencies 缺 esbuild');
   if (!pkg.scripts['test:issue-39']) fail('package.json 缺 test:issue-39 入口');
   if (!pkg.scripts['build:update-host']) fail('package.json 缺 build:update-host 入口');
   if (!pkg.scripts['derive:update-values']) fail('package.json 缺 derive:update-values 入口');
-  ok('依赖声明（dsh-plugin-update@0.1.1 在 devDependencies + esbuild + test:issue-39 + build:update-host + derive:update-values）');
+  ok('依赖声明（dsh-plugin-update@' + pinnedUpdatePkg + ' 精确钉版 + esbuild + test:issue-39 + build:update-host + derive:update-values）');
   // 400 行告警线（地图 #38 grilling 拍板）：生产代码按「文件行数」算。本脚本自己的数字不被人工数骗到
   // （PowerShell 的 Get-Content 在 UTF-8 文件上会少报），所以这里真数一遍，超线的当场点名。
   // 覆盖面 = **本票改动过的全部代码文件**，包括本测试脚本、探针、构建脚本，以及因事件清单条数变化
@@ -1271,9 +1275,26 @@ const squash = (s) => s.replace(/\s+/g, ' ');
    */
   const realLogged = [];
   if (typeof globalThis.fetch !== 'function') fail('本机没有全局 fetch：真包读取器建不起来（dist/reader.js:91-94），12) 段的真包集成跑不了');
+  // #99（0.2.0）：包按 node_modules/<包名> 锚定反推 profileDir，开发目录本身认不出是诚实失败，
+  // 此段遂在临时目录造可识别布局并经宿主半透传（生产永远不传，默认自动探测不变）。
+  const DIR12 = path.join(DIR, 'real12');
+  const home12 = path.join(DIR12, 'home');
+  const profile12 = path.join(DIR12, 'profiles', 'web');
+  const pkg12 = path.join(profile12, 'node_modules', 'dsh-prompt');
+  fs.mkdirSync(path.join(pkg12, 'lib'), { recursive: true });
+  fs.mkdirSync(home12, { recursive: true });
+  for (const rel of ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/update.js']) {
+    fs.cpSync(path.join(ROOT, rel), path.join(pkg12, rel));
+  }
+  const client12 = path.join(ROOT, 'lib', 'client.js');
+  if (fs.existsSync(client12)) fs.cpSync(client12, path.join(pkg12, 'lib', 'client.js'));
+  else fs.writeFileSync(path.join(pkg12, 'lib', 'client.js'), '// 占位：12) 只验宿主半真集成，不加载它\nexport {}\n');
+  fs.writeFileSync(path.join(profile12, 'package.json'),
+    JSON.stringify({ name: 'dsh-profile-web', version: '0.0.0', private: true, dependencies: { 'dsh-prompt': pkgVersion } }, null, 2) + '\n');
   const realCap = await builtMod.createUpdateCapability({
     ctx: { get: () => undefined },
     logReady: Promise.resolve({ log: (event, fields) => { realLogged.push([event, fields]); return true } }),
+    readerOverrides: { targetPackageDir: pkg12, profileDir: profile12, homeDir: home12 },
   });
   eq(realCap.ok, true, '真包下能力应建起来（ok=true）');
   const realStatus = await realCap.runRoute(ROUTES.status, {});

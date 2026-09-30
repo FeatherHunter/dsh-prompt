@@ -25,3 +25,11 @@
   - `npm run test:lib-sync`：换了包却忘了重建 ⇒ 检入的 `lib/update.js` 与重新构建的字节不一致 ⇒ 红。
   - `npm run check:update-pkg`（本 ADR 补的那条）：查 registry 上它的 latest 与钉版比对。退出码 **0 = 同版 / 1 = 有差异需人工确认 / 2 = 查不到（离线，不算通过）**。
 - **用户装到的包里不再有 `dsh-plugin-update`** —— 这正是要的效果（插件自包含，不依赖「插件包外恰好有一份更新包」）；但任何新增的宿主侧调用都必须经 `src/update/host/index.ts` 走构建，不能再出现运行时裸导入。
+
+## 修订（#98，2026-10-01，覆盖“人工钉版”部分）
+
+用户在地图 #96 两次明确拍板：每次打包自动跟上游最新。上述 6 步清单的第 1 步改为由
+`scripts/update/ensure-latest.mjs` 在构建起点自动执行（`npm install --save-exact -D`），
+`test-issue-39` 第 1 段不再认写死的版本号（只认精确格式 + 三处一致），`check:update-pkg`
+转为发版门。不变的是：内联形态、精确记录、banner 版本标记、三处一致门禁、离线不硬建。
+回溯凭据：产物 banner 的 `INLINED_UPDATE_PKG_VERSION` + `package.json` 精确值 + lock。

@@ -90,6 +90,13 @@ export interface CreateUpdateCapabilityOptions {
   logReady?: Promise<LogCapability | null> | null
   /** 假的包入口（回归脚本用）；缺省时按包名 import 真包。 */
   hostUpdate?: { createHostUpdate(deps?: CreateHostUpdateDeps, config?: unknown): HostUpdate }
+  /**
+   * 透传给更新包的识别覆盖（仅回归 12) 段用；生产永远不传）。
+   * 0.2.0 起包按 `node_modules/<包名>` 锚定反推 profileDir，开发目录本身认不出是诚实失败；
+   * 回归要验真集成，就在临时目录造可识别布局并经此透传（targetPackageDir / profileDir / homeDir）。
+   * 缺省即不传，包走默认自动探测，生产行为一个字节都不变。
+   */
+  readerOverrides?: Record<string, unknown>
   /** 能力起不来时的告警口（默认什么都不做）。 */
   onFallback?: (reason: string) => void
   /**
@@ -118,8 +125,10 @@ export async function createUpdateCapability(
   /** 更新包的日志口（同一个实例既交给包，也留给本文件自己报故障 —— 见 runRoute 的 catch）。 */
   const bridgeLog = createBridgeLog(options.logReady, { now: options.now, relogFloorMs: options.relogFloorMs })
   try {
+    const deps: CreateHostUpdateDeps = { ctx: options.ctx ?? null, logCtx: bridgeLog }
+    if (options.readerOverrides !== undefined) deps.readerOverrides = options.readerOverrides
     update = mod.createHostUpdate(
-      { ctx: options.ctx ?? null, logCtx: bridgeLog },
+      deps,
       {
         pluginId: PLUGIN_ID,
         prefix: PHONE_PREFIX,

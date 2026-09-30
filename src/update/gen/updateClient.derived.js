@@ -1,4 +1,4 @@
-// 由 dsh-plugin-update@0.1.1 的集成工具生成，人手不改。
+// 由 dsh-plugin-update@0.2.0 的集成工具生成，人手不改。
 // 生成命令：node dsh-plugin-update/derive-client-values.mjs --prefix prompt --out <本文件路径>
 // 生成对象：dsh-prompt。改了前缀或想升级本包，重新跑一次这条命令即可。
 // node_modules/dsh-plugin-update/dist/config.js

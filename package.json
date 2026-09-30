@@ -33,6 +33,7 @@
     "build": "node scripts/build.mjs",
     "build:client": "tsdown",
     "build:update-host": "node scripts/update/build-host.mjs",
+    "ensure:update-pkg": "node scripts/update/ensure-latest.mjs",
     "prepare": "npm run build",
     "derive:update-values": "node node_modules/dsh-plugin-update/derive-client-values.mjs --prefix prompt --out src/update/gen/updateClient.derived.js",
     "check:update-pkg": "node scripts/check-update-pkg.mjs",
@@ -92,7 +93,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.5.0",
-    "dsh-plugin-update": "0.1.1",
+    "dsh-plugin-update": "0.2.0",
     "esbuild": "^0.28.2",
     "marked": "^18.0.9",
     "react": "^18.3.1",

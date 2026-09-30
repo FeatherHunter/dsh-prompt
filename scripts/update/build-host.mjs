@@ -19,8 +19,10 @@
  * 内联后这段代码住在 `lib/update.js`，即**本插件包内** ⇒ 上溯第一个命中的就是本插件包的
  * `package.json`（`name = "dsh-prompt"`）⇒ `loaded == installed`。
  *
- * 代价（明写在这里，别当成没发生）：更新包的版本被**冻结在构建期** —— 升它要改 devDependencies
- * 再重建、重新发版（`lib/update.js` 本来就是入库的构建产物，升级路径与别处一致）；
+ * 代价（明写在这里，别当成没发生）：更新包的版本被**冻结在构建期** —— 每次构建先由
+ * ensure:update-pkg 自动跟到上游 latest（#98，用户在地图 #96 两次明确拍板，覆盖 ADR-0003 的
+ * 人工钉版；离线构建只警告后用本地版继续，发版前 check:update-pkg 把门）。记录仍是精确值、
+ * 照旧重建重发（`lib/update.js` 本来就是入库的构建产物，升级路径与别处一致）；
  * `package.json` 里它从 `dependencies` 降到 `devDependencies`，用户装到的包里不再另装它
  * —— 这正是要的效果（本插件自包含，不依赖「插件包外恰好有一份更新包」）。
  * 回归：`scripts/test-issue-39.cjs` 的 1) 段钉住产物里没有裸 import，13) 段钉住
@@ -35,6 +37,7 @@
  * 没有对更新包的裸导入、版本标记与 `devDependencies` 对得上；不满足就**拒收**（把构建前的产物放回去）
  * 并 exit 1。测试那条闸门（`test:issue-39`）仍在，但不再是人唯一能撞上的门。
  */
+import { spawnSync } from 'node:child_process'
 import { build } from 'esbuild'
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -48,9 +51,21 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url))
 const entry = fileURLToPath(new URL('../../src/update/host/index.ts', import.meta.url))
 const outfile = fileURLToPath(new URL('../../lib/update.js', import.meta.url))
 
-// 更新包的版本钉在 package.json 的 devDependencies 里（精确值，不是 caret —— 产物冻结在这个版本上）。
-// 它同时进 banner：产物自己带上「我内联的是哪一版」，好让「升了包版本却忘了重建」从**入库字节**就能查出来
-// （复审 J 的 Top2：上一版产物里搜不到任何版本号，只有 test:issue-39 的字面量断言能挡）。
+// #98 起构建先跟最新（用户在地图 #96 两次明确拍板，覆盖 ADR-0003 的人工钉版）：
+// ensure:update-pkg 把上游 latest 装进来后，下面的钉版重读（npm 已经把 package.json 写成新精确值）。
+// 离线时 ensure 只警告后继续，发版安全由 check:update-pkg 把门（见 #101）。
+const ensure = spawnSync(process.execPath, [fileURLToPath(new URL('./ensure-latest.mjs', import.meta.url))], {
+  stdio: 'inherit',
+})
+if (ensure.error || ensure.status !== 0) {
+  console.error('build-host: 跟最新步骤没过（见上），不用旧版硬建。')
+  process.exit(ensure.status || 1)
+}
+
+// 更新包的版本钉在 package.json 的 devDependencies 里（精确值，不是 caret）。
+// #98 后这个数字由 ensure 步骤自动写成 latest 再读到这里 —— 记录仍精确（可复现记录），
+// 只是不用人手改了。它同时进 banner：产物自己带上「我内联的是哪一版」，好让「升了包版本却忘了重建」
+// 从**入库字节**就能查出来（复审 J 的 Top2）。
 const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'))
 const inlinedVersion = pkg.devDependencies?.['dsh-plugin-update']
 if (typeof inlinedVersion !== 'string' || inlinedVersion === '') {

@@ -46,10 +46,10 @@ npm install -g @deepseek-ai/dsh
 dsh plugin --profile web add dsh-prompt     # 用自启 web 服务（dsh web）
 #     或者
 dsh plugin --profile desktop add dsh-prompt   # 用 DSH Desktop 桌面应用
-# 锁定最新版更稳（当前 0.2.0）：
-dsh plugin --profile web add dsh-prompt@0.2.0 --registry https://registry.npmjs.org
+# 锁定最新版更稳（当前 0.2.1）：
+dsh plugin --profile web add dsh-prompt@0.2.1 --registry https://registry.npmjs.org
 #     或者
-dsh plugin --profile desktop add dsh-prompt@0.2.0 --registry https://registry.npmjs.org
+dsh plugin --profile desktop add dsh-prompt@0.2.1 --registry https://registry.npmjs.org
 ```
 
 <div align="center">
@@ -102,14 +102,14 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 </div>
 
-开发与验证基线：**DSH CLI `0.1.5-rc.1`** · **DSH Desktop `2.0.9`**。<br>
+开发与验证基线：**DSH CLI `0.2.0-rc.1`** · **DSH Desktop `2.0.9`**。<br>
 比基线更低的 DSH 版本未验证——装得上，但能不能跑对不保证；遇到了问题欢迎[提 ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)。
 
 下面这段是唯一的版本声明，`package.json` 的 `dsh.engines.dsh` 与它逐字一致（`npm run test:issue-42` 会比对，改一处忘另一处就变红）。声明只作说明：安装时不拦版本。
 
 ```text
-dsh.engines.dsh = >=0.1.5-rc.1
-dsh.cli = 0.1.5-rc.1
+dsh.engines.dsh = >=0.2.0-rc.1
+dsh.cli = 0.2.0-rc.1
 dsh.desktop = 2.0.9
 ```
 

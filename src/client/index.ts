@@ -11,7 +11,7 @@ import { SmartCardHost } from './smart'
 import { setSmartInput } from './smartstore'
 import { ensureLoaded } from './store'
 import { ensureRemoteLoaded, subscribeRemote, getRemotePrefs } from './remote'
-import { syncHostFont, syncRemoteRows } from './hostfont'
+import { syncHostFont, syncRemoteRows, syncAssistantZoom } from './hostfont'
 import { getLang, tr, STR } from './i18n'
 import { isPanelOpen, onPanelOpen } from './state'
 import { startLog, getLog } from './log'
@@ -124,13 +124,15 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => { ensureRemoteLoaded().catch(() => undefined) }, 'dsh-prompt: remote load')
   // #92：宿主内容字跟随（野路子）：开则双写变量、关则两边 removeProperty 恢复原样；
   // 工作区列表跟随（D-targeted 二期）：同订阅同路，开注 zoom 关摘，无新设置 UI；
-  // 两条桥都无新日志事件名（沿用 setRemoteEnabled/Size 已有事件）。
+  // 主会话 AI 跟随（#103 野路子三期）：同订阅同路，开注 zoom 关摘，无新设置 UI；
+  // 三条桥都无新日志事件名（沿用 setRemoteEnabled/Size 已有事件）。
   ctx.effect(() => {
     const sync = (): void => {
       try {
         const p = getRemotePrefs()
         syncHostFont(p.enabled, p.size)
         syncRemoteRows(p.enabled, p.size)
+        syncAssistantZoom(p.enabled, p.size)
       } catch (e) { /* fail-soft：宿主字桥永不影响装配 */ }
     }
     try { sync() } catch (e) { /* ignore */ }

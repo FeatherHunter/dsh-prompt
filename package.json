@@ -72,6 +72,7 @@
     "test:issue-86": "node scripts/test-issue-86.cjs",
     "test:issue-89": "node scripts/test-issue-89.cjs",
     "test:issue-59": "node scripts/test-issue-59.cjs",
+    "test:issue-103": "node scripts/test-issue-103.cjs",
     "test:marketplace": "node scripts/check-marketplace-readme.mjs",
     "test": "npm run test:lib-sync && npm run test:modal && npm run test:issue-14"
   },

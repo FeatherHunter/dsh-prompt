@@ -7,6 +7,8 @@
  *   持久化失败当次有效、下次恢复默认并明示（fail-soft）。
  * - 门槛：去宿主化——总闸恒以自家面能否真变大为准，无宿主门控、无灰行、无待宿主文案。
  * - 配置键直达：以本插件 DOM 链/自家弹窗为官方路径（宿主若提供稳定打开则顺手用之，不门控）。
+ * - 会话快照（#110）：进入（关→开）记住方向偏好，退出（开→关）恢复进入值；
+ *   快照内存 + 落盘双份（reload/崩溃后恢复一次即清）；会话中改的方向视为临时覆盖。
  *
  * 新模块用 TS（map 约束）；纯函数走转译断言（见 scripts/test-issue-82.cjs）。
  */
@@ -143,6 +145,62 @@ let persistFailed = false
 let persistMessage = ''
 const listeners = new Set<() => void>()
 
+/* ── 会话快照（#110）：进入记住方向偏好，退出恢复 ── */
+
+/** 快照落盘键（独立于主偏好键；只存进入前方向，恢复一次即清） */
+const PRE_REMOTE_KEY = '__dshPromptPreRemote'
+
+/** 会话内存快照：进入远程那一刻的方向偏好（null = 非会话中） */
+let sessionSnapshot: RemoteOrientationPref | null = null
+
+type SnapshotStorage = {
+  getItem(k: string): string | null
+  setItem(k: string, v: string): void
+  removeItem(k: string): void
+}
+
+/** 取快照存储（浏览器 localStorage；缺席回 null，调用方走纯内存路径，不抛） */
+function snapshotStorage(): SnapshotStorage | null {
+  try {
+    const g = globalThis as any
+    const s = g && g.localStorage
+    if (s && typeof s.getItem === 'function' && typeof s.setItem === 'function' && typeof s.removeItem === 'function') {
+      return s as SnapshotStorage
+    }
+    return null
+  } catch (e) { return null }
+}
+
+/** 读盘上快照（无键/坏包回 null，不抛） */
+function readStoredSnapshot(): RemoteOrientationPref | null {
+  try {
+    const s = snapshotStorage()
+    if (!s) return null
+    const raw = s.getItem(PRE_REMOTE_KEY)
+    if (!raw) return null
+    const v = (JSON.parse(raw) as any).orientation
+    return isRemoteOrientationPref(v) ? v : null
+  } catch (e) { return null }
+}
+
+/** 写盘上快照（失败静默，内存快照为准，不抛） */
+function writeStoredSnapshot(v: RemoteOrientationPref): void {
+  try {
+    const s = snapshotStorage()
+    if (!s) return
+    s.setItem(PRE_REMOTE_KEY, JSON.stringify({ orientation: v }))
+  } catch (e) { /* ignore */ }
+}
+
+/** 清盘上快照（失败静默，不抛） */
+function clearStoredSnapshot(): void {
+  try {
+    const s = snapshotStorage()
+    if (!s) return
+    s.removeItem(PRE_REMOTE_KEY)
+  } catch (e) { /* ignore */ }
+}
+
 function notifyRemote(): void {
   listeners.forEach((fn) => { try { fn() } catch (e) { /* ignore */ } })
 }
@@ -198,6 +256,17 @@ export function ensureRemoteLoaded(): Promise<void> {
         })
         persistFailed = false
         persistMessage = ''
+        // #110 崩溃恢复：盘上有进入快照且 host 仍开着（上次会话没正常退出，
+        // reload 同理）→ 方向回进入值一次并清快照；关着只清 stale 键不动偏好。
+        const stored = readStoredSnapshot()
+        if (stored !== null) {
+          if (cache.enabled === true && stored !== cache.orientation) {
+            cache = normalizeRemotePrefs({ ...cache, orientation: stored })
+            persistRemote()
+          }
+          clearStoredSnapshot()
+          notifyRemote()
+        }
         logEvent('store.snapshot.ok', { customs: 0, pinned: 0, latencyMs: Date.now() - startedAt })
       } else {
         // 旧快照无远程键 → 默认（不算失败，静默用默认；首启即此分支）
@@ -288,9 +357,33 @@ function applyPatch(patch: Partial<RemotePrefs>): RemotePrefs {
   return { ...next }
 }
 
-/** 总闸：开/关（开=大、关=小；不许大/小直接互切由调用方保证——本函数只做二值切换） */
+/** 总闸：开/关（开=大、关=小；不许大/小直接互切由调用方保证——本函数只做二值切换）
+ * #110 会话语义：关→开快照进入前方向（内存 + 落盘，重复开不覆盖）；
+ * 开→关恢复进入值（与当前一致则单写开关，不多写；快照一次性，用后即清）。 */
 export function setRemoteEnabled(on: boolean): RemotePrefs {
-  const next = applyPatch({ enabled: !!on })
+  const want = !!on
+  if (want === true && cache.enabled === false) {
+    sessionSnapshot = cache.orientation
+    writeStoredSnapshot(cache.orientation)
+    const next = applyPatch({ enabled: true })
+    // 注意：事件名必须写字面量（日志回归扫描只认 logEvent('字面量', {...}) 调用点，变量转交会被判“声明了却没人打”）。
+    logEvent('settings.remote.toggle', { on: next.enabled, size: next.size })
+    return { ...next }
+  }
+  if (want === false && cache.enabled === true) {
+    const snap = sessionSnapshot !== null ? sessionSnapshot : readStoredSnapshot()
+    let next: RemotePrefs
+    if (snap !== null && snap !== cache.orientation) {
+      next = applyPatch({ enabled: false, orientation: snap })
+    } else {
+      next = applyPatch({ enabled: false })
+    }
+    sessionSnapshot = null
+    clearStoredSnapshot()
+    logEvent('settings.remote.toggle', { on: next.enabled, size: next.size })
+    return { ...next }
+  }
+  const next = applyPatch({ enabled: want })
   // 注意：事件名必须写字面量（日志回归扫描只认 logEvent('字面量', {...}) 调用点，变量转交会被判“声明了却没人打”）。
   logEvent('settings.remote.toggle', { on: next.enabled, size: next.size })
   return { ...next }
@@ -343,9 +436,10 @@ export function setRemoteDensity(d: RemoteDensity): RemotePrefs {
   return { ...next }
 }
 
-/** 仅供测试：重置内存态 */
+/** 仅供测试：重置内存态（会话快照一并清；落盘键由用例自管，不碰） */
 export function __resetRemoteForTests(): void {
   cache = { ...REMOTE_DEFAULTS }
+  sessionSnapshot = null
   remoteLoaded = false
   loadPromise = null
   loadRetried = false

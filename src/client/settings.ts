@@ -19,7 +19,7 @@ import {
   type RemoteOrientationPref, type RemoteDensity,
 } from './remote'
 import { remoteSizeScale } from './remoteView'
-import { setSystemOrientation, isSystemOrientation } from './systemOrientation'
+import { setSystemOrientation, getSystemOrientation, isSystemOrientation, shouldRestoreSystemOrientation } from './systemOrientation'
 import { getLang, tr, STR } from './i18n'
 
 /** 取日志能力（装在槽里的那个实例）；能力缺席时返回 null，界面据此走「不可用」分支，不静默。 */
@@ -173,6 +173,15 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/* ── #110 会话整机快照（模块级：会话跨设置弹窗开关存活；单会话假设） ── */
+
+/** O0 进入值（GET 失败记 null = 未知，退出不恢复整机；插件偏好恢复不受影响） */
+let sessionOsEntry: unknown = null
+/** 会话内插件是否成功切过整机（仅成功 POST 置 true） */
+let sessionOsTouched = false
+/** 进入查询在途（锁定点先等它落定，避免 entry 读到切后值造成恢复目标错位） */
+let sessionOsEntryQuery: Promise<unknown> | null = null
+
 export function SettingsPage(props: any): any {
   const react = getReact()
   if (!react) return null
@@ -322,6 +331,7 @@ export function SettingsPage(props: any): any {
 
   // 去宿主化方向偏好控件：自动/横屏锁定/竖屏锁定三档单选（纯插件，持久化）
   // 锁定档背后先调 OS 真切（本插件 host 半自实现），busy 期禁用防连点。
+  // #110 禁用态去强调色：禁用即无 accent、无半透明冒充（opacity 回 1），附需先开远程说明。
   const orientationControl = (
     current: RemoteOrientationPref,
     onPick: (v: RemoteOrientationPref) => void,
@@ -339,20 +349,32 @@ export function SettingsPage(props: any): any {
         disabled: dis,
         'data-dsh-prompt-orientation': v,
         'aria-pressed': current === v ? 'true' : 'false',
-        style: {
-          flex: 1, textAlign: 'center',
-          fontFamily: TOK.font, fontSize: '0.86em', padding: '5px 12px', borderRadius: 8, cursor: dis ? 'not-allowed' : 'pointer',
-          border: '1px solid ' + TOK.border,
-          background: current === v ? TOK.accent : 'transparent',
-          color: current === v ? '#fff' : TOK.labelPrimary,
-          opacity: dis ? 0.6 : 1,
-        },
+        'aria-disabled': dis ? 'true' : 'false',
+        title: dis ? t('remoteNeedOn') : undefined,
+        style: dis
+          ? {
+            flex: 1, textAlign: 'center',
+            fontFamily: TOK.font, fontSize: '0.86em', padding: '5px 12px', borderRadius: 8, cursor: 'not-allowed',
+            border: '1px solid ' + TOK.border,
+            background: 'transparent',
+            color: TOK.labelTertiary,
+            opacity: 1,
+          }
+          : {
+            flex: 1, textAlign: 'center',
+            fontFamily: TOK.font, fontSize: '0.86em', padding: '5px 12px', borderRadius: 8, cursor: 'pointer',
+            border: '1px solid ' + TOK.border,
+            background: current === v ? TOK.accent : 'transparent',
+            color: current === v ? '#fff' : TOK.labelPrimary,
+            opacity: 1,
+          },
         onClick: () => { if (!dis) onPick(v) },
       }, labelOf(v)),
     ))
   }
 
   // 密度档两段（#90，用户拍板）：12宫/8宫大卡，与方向偏好并列；默认 A；纯手动，禁任何自动切档逻辑。
+  // #110 禁用态与方向偏好同规（去强调色 + 说明）。
   const densityControl = (
     current: RemoteDensity,
     onPick: (v: RemoteDensity) => void,
@@ -368,14 +390,25 @@ export function SettingsPage(props: any): any {
         disabled: !!remoteOff,
         'data-dsh-prompt-density': v,
         'aria-pressed': current === v ? 'true' : 'false',
-        style: {
-          flex: 1, textAlign: 'center', whiteSpace: 'nowrap',
-          fontFamily: TOK.font, fontSize: '0.86em', padding: '5px 12px', borderRadius: 8, cursor: remoteOff ? 'not-allowed' : 'pointer',
-          border: '1px solid ' + TOK.border,
-          background: current === v ? TOK.accent : 'transparent',
-          color: current === v ? '#fff' : TOK.labelPrimary,
-          opacity: remoteOff ? 0.6 : 1,
-        },
+        'aria-disabled': remoteOff ? 'true' : 'false',
+        title: remoteOff ? t('remoteNeedOn') : undefined,
+        style: remoteOff
+          ? {
+            flex: 1, textAlign: 'center', whiteSpace: 'nowrap',
+            fontFamily: TOK.font, fontSize: '0.86em', padding: '5px 12px', borderRadius: 8, cursor: 'not-allowed',
+            border: '1px solid ' + TOK.border,
+            background: 'transparent',
+            color: TOK.labelTertiary,
+            opacity: 1,
+          }
+          : {
+            flex: 1, textAlign: 'center', whiteSpace: 'nowrap',
+            fontFamily: TOK.font, fontSize: '0.86em', padding: '5px 12px', borderRadius: 8, cursor: 'pointer',
+            border: '1px solid ' + TOK.border,
+            background: current === v ? TOK.accent : 'transparent',
+            color: current === v ? '#fff' : TOK.labelPrimary,
+            opacity: 1,
+          },
         onClick: () => { if (!remoteOff) onPick(v) },
       }, labelOf(v)),
     ))
@@ -402,10 +435,26 @@ export function SettingsPage(props: any): any {
     if (!isSystemOrientation(v)) return
     orientBusyState[1](true)
     orientNoteState[1](t('remoteOrientationBusy'))
-    setSystemOrientation(v).then(
-      (r) => landOrientation(v, r.ok ? '' : t('remoteOrientationOsFail').replace('{code}', r.error.code)),
-      () => landOrientation(v, t('remoteOrientationOsFail').replace('{code}', 'unknown')),
-    )
+    // #110：先等进入查询落定（避免 entry 读到切后值），再调 OS；
+    // 会话内成功切过整机记 touched（退出恢复用），失败仍回落自家并明示。
+    const waitEntry = sessionOsEntryQuery
+    const run = (async (): Promise<void> => {
+      try { if (waitEntry) await waitEntry } catch (e) { /* entry 未知按未知处理 */ }
+      let r: any
+      try {
+        r = await setSystemOrientation(v)
+      } catch (e) {
+        r = { ok: false, error: { code: 'unknown', message: 'orientation-failed' } }
+      }
+      if (r && r.ok) {
+        try { if (getRemotePrefs().enabled === true) sessionOsTouched = true } catch (e) { /* ignore */ }
+        landOrientation(v, '')
+      } else {
+        const code = (r && r.error && r.error.code) || 'unknown'
+        landOrientation(v, t('remoteOrientationOsFail').replace('{code}', code))
+      }
+    })()
+    run.catch(() => undefined)
   }
 
   // 卡片内 hairline 分隔（苹果改版）：行与行之间一线，纯装饰无钩子；颜色走统一 token。
@@ -427,9 +476,51 @@ export function SettingsPage(props: any): any {
         'data-dsh-prompt-remote-toggle': '1',
         onChange: (e: any) => {
           const on = !!e.target.checked
+          if (on === true && !remote.enabled) {
+            // #110 进入：整机 O0 最佳努力快照（失败记未知，不挡总闸；锁定点会等它落定）
+            sessionOsTouched = false
+            sessionOsEntry = null
+            try {
+              const q: Promise<unknown> = getSystemOrientation() as unknown as Promise<unknown>
+              sessionOsEntryQuery = q
+              q.then(
+                (r: any) => {
+                  sessionOsEntry = r && r.ok ? r.orientation : null
+                  if (sessionOsEntryQuery === q) sessionOsEntryQuery = null
+                },
+                () => {
+                  sessionOsEntry = null
+                  if (sessionOsEntryQuery === q) sessionOsEntryQuery = null
+                },
+              )
+            } catch (err) { sessionOsEntry = null; sessionOsEntryQuery = null }
+          }
           const next = setRemoteEnabled(on)
           remoteState[1]({ ...next })
           persistState[1](getRemotePersistState())
+          if (on === false) {
+            // #110 退出：插件偏好已由 setRemoteEnabled 同步恢复；
+            // 整机按判定异步恢复（成功静默，失败明示；现值读不到则不恢复不打扰）。
+            const entry = sessionOsEntry
+            const touched = sessionOsTouched
+            sessionOsEntry = null
+            sessionOsTouched = false
+            sessionOsEntryQuery = null
+            if (touched === true && isSystemOrientation(entry)) {
+              getSystemOrientation().then(
+                (cur: any) => {
+                  if (!shouldRestoreSystemOrientation(entry, true, cur && cur.ok ? cur.orientation : null)) return
+                  setSystemOrientation(entry).then(
+                    (r: any) => {
+                      if (!r.ok) orientNoteState[1](t('remoteOrientationRestoreFail').replace('{code}', r.error.code))
+                    },
+                    () => { orientNoteState[1](t('remoteOrientationRestoreFail').replace('{code}', 'unknown')) },
+                  )
+                },
+                () => { /* 现值读不到 → 不恢复 */ },
+              )
+            }
+          }
         },
       }),
     }),

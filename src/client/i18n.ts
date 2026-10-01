@@ -106,6 +106,8 @@ export const STR = {
   remoteOrientationPortrait: { zh: '竖屏', en: 'Portrait' },
   remoteOrientationBusy: { zh: '正在切换整机方向…', en: 'Switching system orientation…' },
   remoteOrientationOsFail: { zh: '整机未改变，已锁定自家布局（原因：{code}）。', en: 'System display unchanged; own layout locked (reason: {code}).' },
+  remoteOrientationRestoreFail: { zh: '退出恢复整机方向失败，仍是切换后的方向（原因：{code}），可在系统中手动切回。', en: 'Could not restore the system orientation on exit — it is still the switched one (reason: {code}); switch it back in system settings.' },
+  remoteNeedOn: { zh: '需先开启远程模式', en: 'Turn on remote mode first' },
   remoteDensity: { zh: '宫格密度', en: 'Grid density' },
   remoteDensityA: { zh: '12宫格', en: '12' },
   remoteDensityB: { zh: '8宫格', en: '8 large' },

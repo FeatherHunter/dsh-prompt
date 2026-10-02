@@ -14,6 +14,7 @@ import {
   readWorkspaceLeftExpanded, toggleWorkspaceLeft,
 } from './workspace'
 import { WorkspacePicker } from './picker'
+import { getSmartInput } from './smartstore'
 
 /**
  * #66 窄屏优化：对话框底部输入区变窄时，按钮收起文字、只剩图标。
@@ -213,7 +214,6 @@ export function EntryButton(props: any): any {
   const pickerGateState = react.useState('pending' as 'pending' | 'ready' | 'absent')
   const pickerOpenState = react.useState(false)
   const pickerOpen = pickerOpenState[0]
-  const setPickerOpen = pickerOpenState[1]
   const pickerOpenerRef: any = react.useRef ? react.useRef(null) : { current: null }
   const openPicker = (): void => {
     try { gearModalState[1](false) } catch (e) { /* ignore */ }
@@ -488,11 +488,10 @@ export function EntryButton(props: any): any {
     style: {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       width: gearBox, height: gearBox, borderRadius: 8, marginLeft: 6,
-      background: pickerOpen
-        ? 'var(--dsw-specific-accent,#f0a45c)'
-        : 'var(--dsw-alias-bg-layer-3)',
-      border: '1px solid var(--dsw-alias-border-l1)',
-      color: pickerOpen ? '#1a1a1e' : 'var(--dsw-alias-label-primary)',
+      // 开启态只换边框色（原型 dock 键 accent 边框口径；实心填充系 creep，已按审查 #18 回退）。
+      background: 'var(--dsw-alias-bg-layer-3)',
+      border: '1px solid ' + (pickerOpen ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-border-l1)'),
+      color: 'var(--dsw-alias-label-primary)',
       cursor: 'pointer', fontSize: 14 * entryFontScale, flex: 'none',
     },
     title: pickerTitle,
@@ -515,10 +514,22 @@ export function EntryButton(props: any): any {
   ])
   // #104 挑选器面：与齿轮弹窗同层（MODAL_Z，经 ModalPortal 挂 body 逃离层叠）、高于 Dock（DOCK_Z）；
   // 单模态（开挑选器关齿轮，反之亦然）；关闭后面板焦点回 opener；开关不改收展内存态。
+  // #104 当前会话 id（#111 US23 已在直关就靠它）：优先用槽 props（若宿主给），
+  // 缺席回退 smartstore（由会话 overlay 经已证实 sessionId 喂养，index.ts 的 setSmartInput）。
+  // 审查结论 #6：input.left 槽 props 带不带 sessionId 无仓内证据，不做单押。
+  let pickerSessionId: string | undefined = undefined
+  try {
+    const a = (props as any).sessionId
+    if (typeof a === 'string' && a !== '') pickerSessionId = a
+    else {
+      const b = getSmartInput().sessionId
+      if (typeof b === 'string' && b !== '') pickerSessionId = b
+    }
+  } catch (e) { pickerSessionId = undefined }
   const pickerModalNode = !pickerOpen ? null : h(ModalPortal, { key: 'dsh-prompt-workspace-picker' },
     h(WorkspacePicker, {
       faces: wsFaces,
-      currentId: (props as any).sessionId,
+      currentId: pickerSessionId,
       remoteSize: remote.size,
       onClose: () => { closePicker() },
     }),

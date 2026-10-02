@@ -7,7 +7,7 @@
  * 成功才关，其余留屏；失败不自动关；取消只取消等待。
  * 约束：不进持久化、不记新日志、不读写草稿（沿 #111）。
  */
-import { getReact, keepComposerFocus } from './panel'
+import { getReact, keepComposerFocus, MODAL_Z } from './panel'
 import { remoteSizeScale } from './remoteView'
 import { getLang, tr, STR } from './i18n'
 import {
@@ -19,10 +19,37 @@ import {
   absoluteWorkspaceTime,
   switchWorkspaceSession,
   tailSegment,
+  workspaceColor,
+  workspaceShortCode,
   type WorkspaceFaces,
   type WorkspaceGroup,
   type WorkspaceSession,
 } from './workspace'
+
+/** 加载条动画（v7 loadbar 有 1s 无限 slide；inline style 写不出 keyframes，走自家 style 注入惯例） */
+const PICKER_ANIM_STYLE_ID = 'dsh-prompt-picker-anim'
+const PICKER_ANIM_CSS = [
+  '@keyframes dsh-prompt-picker-slide { from { margin-left: -40%; } to { margin-left: 100%; } }',
+  '.dsh-prompt-picker-load-i { height: 100%; width: 40%; border-radius: 99px; background: var(--dsw-specific-accent,#f0a45c); animation: dsh-prompt-picker-slide 1s infinite linear; }',
+].join('\n')
+let pickerAnimReady = false
+function ensurePickerAnimStyle(): void {
+  if (pickerAnimReady) return
+  try {
+    const doc: any = (globalThis as any).document
+    if (!doc || !doc.head || typeof doc.createElement !== 'function') return
+    const sel = 'style[data-dsh-prompt-style="' + PICKER_ANIM_STYLE_ID + '"]'
+    if (typeof doc.querySelector === 'function' && doc.querySelector(sel)) {
+      pickerAnimReady = true
+      return
+    }
+    const tag = doc.createElement('style')
+    tag.setAttribute('data-dsh-prompt-style', PICKER_ANIM_STYLE_ID)
+    tag.textContent = PICKER_ANIM_CSS
+    doc.head.appendChild(tag)
+    pickerAnimReady = true
+  } catch (e) { /* ignore */ }
+}
 
 export interface PickerProps {
   faces: WorkspaceFaces
@@ -30,6 +57,11 @@ export interface PickerProps {
   currentId?: string
   /** 远程大小档 1–10（只做 em 相对缩放，不写 px 常量） */
   remoteSize?: number
+  /**
+   * 宽布局（横屏 rail + 右展）。缺席时按打开瞬间视口宽高比自判（宽>高即宽），
+   * 测试可显式钉死。v7 C 横屏即此形（左轨 hugging + 右展）。
+   */
+  wide?: boolean
   /** 关闭（switchedId 有值 = 切换成功并切到该会话；无值 = 原地关闭/取消） */
   onClose: (switchedId?: string) => void
 }
@@ -40,15 +72,19 @@ type Phase = 'probing' | 'loading' | 'ready' | 'empty' | 'failed' | 'switching'
 function SessionCard(props: {
   h: any
   s: WorkspaceSession
+  lang: 'zh' | 'en'
+  ungroupedName: string
+  fallbackShort: string
   current: boolean
   failed: boolean
   withShort: boolean
   onPick: (id: string) => void
 }): any {
-  const { h, s, current, failed, withShort, onPick } = props
-  const lang = getLang()
-  const trail = relativeWorkspaceTime(s.updatedAt)
+  const { h, s, lang, ungroupedName, fallbackShort, current, failed, withShort, onPick } = props
+  const trail = relativeWorkspaceTime(s.updatedAt, undefined, lang)
   const abs = absoluteWorkspaceTime(s.updatedAt)
+  // 展示名：登记缺席的未归属行用双语展示名回填（搜“未归属”可达、tooltip 不悬空，审查 #10）。
+  const displayName = (s.workspaceName || '') !== '' ? s.workspaceName : ungroupedName
   const badges: any[] = []
   if (s.blank) {
     badges.push(h('span', {
@@ -85,10 +121,21 @@ function SessionCard(props: {
       'data-dsh-prompt-picker-badge-fail': '1',
     }, tr(lang, STR.pickerSwitchFailBadge)))
   }
-  // 元信息行：短码（展平态）+ 冲突尾段芯片；无则整行不渲染（v7 省空间）
+  // 元信息行：色点 + 短码（展平态）+ 冲突尾段芯片；无则整行不渲染（v7 省空间）。
+  // 色点是 v7 第一寻路通道（审查 #3 补回）；短码取归属末段前 4 字（审查 #8 数据驱动版）。
   const meta: any[] = []
   if (withShort) {
-    const short = (s.workspaceName || '').slice(0, 4) || '散'
+    meta.push(h('span', {
+      key: 'dot',
+      'data-dsh-prompt-picker-dot': '1',
+      style: {
+        flex: 'none', width: 10, height: 10, borderRadius: '50%',
+        background: workspaceColor(s.workspaceId),
+      },
+    }))
+    const short = s.workspaceId
+      ? (workspaceShortCode(s.workspaceName, s.workspaceId) || fallbackShort)
+      : fallbackShort
     meta.push(h('span', {
       key: 'short',
       style: {
@@ -113,19 +160,17 @@ function SessionCard(props: {
   }
   return h('button', {
     type: 'button',
-    title: s.title + '\n' + abs + '\n' + (s.workspaceName || '') + (s.cwd ? ' · ' + s.cwd : ''),
+    title: s.title + '\n' + abs + '\n' + displayName + (s.cwd ? ' · ' + s.cwd : ''),
     'data-dsh-prompt-picker-row': s.id,
     'aria-current': current ? 'true' : undefined,
     onMouseDown: keepComposerFocus,
     onClick: () => onPick(s.id),
     style: {
       display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-      background: current
-        ? 'color-mix(in srgb, #7fd08a 12%, var(--dsw-alias-bg-layer-3))'
-        : 'var(--dsw-alias-bg-layer-3)',
-      border: current
-        ? '1px solid #7fd08a'
-        : '1px solid var(--dsw-alias-border-l1)',
+      // 当前行信号只用边框 + 内圈（原型口径；实心 tint 底系 creep，已按审查 #17 回退）。
+      background: 'var(--dsw-alias-bg-layer-3)',
+      border: '1px solid ' + (current ? '#7fd08a' : 'var(--dsw-alias-border-l1)'),
+      boxShadow: current ? 'inset 0 0 0 1px #7fd08a' : 'none',
       color: 'var(--dsw-alias-label-primary)', borderRadius: 12,
       padding: '10px 12px', fontSize: '0.92em', minWidth: 0,
       fontFamily: 'var(--dsw-font-family)',
@@ -144,6 +189,8 @@ function SessionCard(props: {
         },
         'data-dsh-prompt-picker-time': '1',
       }, [trail + ' ', h('span', { key: 'go', 'aria-hidden': 'true' }, '›')]),
+      // 浮动时间尾随的 clearfix（原型 .ct::after 口径；无它换行标题会吞尾行高度）。
+      h('div', { key: 'clear', style: { clear: 'both' } }),
     ]),
     meta.length === 0 ? null : h('div', {
       key: 'cm',
@@ -157,9 +204,20 @@ export function WorkspacePicker(props: PickerProps): any {
   if (!react) return null
   const h = react.createElement
   const lang = getLang()
+  // 未归属展示名走双语表（审查 #10：搜“未归属/Ungrouped”可达、tooltip 不悬空）。
+  const ungroupedName = tr(lang, STR.pickerUngrouped)
+  const fallbackShort = tr(lang, STR.pickerUnassignedShort)
   const faces = props.faces
   const currentId = typeof props.currentId === 'string' ? props.currentId : ''
   const size = typeof props.remoteSize === 'number' ? props.remoteSize : 5
+  // 宽布局：显式 prop 优先，否则按打开瞬间视口宽高比自判（横屏 rail + 右展，v7 C 横屏形）。
+  let wideAuto = false
+  try {
+    if (typeof window !== 'undefined' && window.innerWidth > window.innerHeight) wideAuto = true
+  } catch (e) { wideAuto = false }
+  const wide = typeof props.wide === 'boolean' ? props.wide : wideAuto
+
+  ensurePickerAnimStyle()
 
   const phaseState = react.useState('probing' as Phase)
   const phase = phaseState[0] as Phase
@@ -171,7 +229,7 @@ export function WorkspacePicker(props: PickerProps): any {
   const sessions = sessionsState[0] as WorkspaceSession[]
   const setSessions = sessionsState[1]
   const namesState = react.useState(new Map<string, string>())
-  void namesState[0]
+  const names = namesState[0] as Map<string, string>
   const setNames = namesState[1]
   const switchingState = react.useState(null as string | null)
   const switchingId = switchingState[0] as string | null
@@ -213,7 +271,9 @@ export function WorkspacePicker(props: PickerProps): any {
         setSessions(snap.sessions)
         setNames(snap.names)
         try {
-          const gs = groupWorkspaceSessions(snap.sessions, snap.names)
+          // 默认展开组内最新的那一组（“最近的在手边”即分组排序规则本身；
+          // 原型默认首组是演示数据巧合，此处故意不抄，见审查 #21）。
+          const gs = groupWorkspaceSessions(snap.sessions, snap.names, ungroupedName)
           if (!alive) return
           if (gs.length > 0) setOpenGroup(gs[0].key)
         } catch (e) { /* ignore */ }
@@ -238,17 +298,16 @@ export function WorkspacePicker(props: PickerProps): any {
     // faces 是宿主机会面引用，打开时由 button 层重建对象 identity 变化即重探
   }, [])
 
-  const filtered = filterWorkspaceSessions(sessions, query)
+  const filtered = filterWorkspaceSessions(sessions, query, ungroupedName)
   const hasQuery = query.trim() !== ''
   let groups: WorkspaceGroup[] = []
   try {
-    const names = namesState[0] as Map<string, string>
-    groups = groupWorkspaceSessions(filtered, names)
+    groups = groupWorkspaceSessions(filtered, names, ungroupedName)
   } catch (e) { groups = [] }
-  const single = isSingleWorkspace(groupWorkspaceSessions(sessions, namesState[0] as Map<string, string>))
+  const single = isSingleWorkspace(groupWorkspaceSessions(sessions, names, ungroupedName))
 
-  // 搜索无结果进空态（不回退全量，#111 US14）
-  const showEmptySearch = (phase === 'ready' || phase === 'switching') && hasQuery && filtered.length === 0
+  // 搜索框常驻（审查 #5 的故意 diverged：原型 C 无查询时藏搜索框，但那是个演示洞——
+  // 藏了就没法发起搜索，直接违反 #111 US12 文字；此处规格优先，几何仍沿原型 .search slim 形）。
   const showTrueEmpty = phase === 'empty' && emptyKind === 'true-none'
 
   const doPick = (id: string): void => {
@@ -299,7 +358,7 @@ export function WorkspacePicker(props: PickerProps): any {
             return
           }
           try {
-            const gs = groupWorkspaceSessions(snap.sessions, snap.names)
+            const gs = groupWorkspaceSessions(snap.sessions, snap.names, ungroupedName)
             if (gs.length > 0) setOpenGroup(gs[0].key)
           } catch (e) { /* ignore */ }
           setPhase('ready')
@@ -323,11 +382,15 @@ export function WorkspacePicker(props: PickerProps): any {
   }
 
   const uiScale = remoteSizeScale(size)
+  // 根容器定层级（审查 #1 Blocking 修复）：整块包进 MODAL_Z stacking root，
+  // 与齿轮设置弹窗同层、高于 Dock（DOCK_Z），打开即盖住触控栏（#111 US3 / #113 US15）。
+  // 之前 mask z10 / sheet z11 是抄原型的框内层级，在真机全局比拼中必输给 Dock——注释写同层而代码没做到。
+  const rootStyle: any = { position: 'fixed', inset: 0, zIndex: MODAL_Z }
   const maskStyle: any = {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 10,
+    position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)',
   }
   const sheetStyle: any = {
-    position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 11,
+    position: 'absolute', left: 0, right: 0, bottom: 0,
     background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
     backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
     borderRadius: '18px 18px 0 0', borderTop: '1px solid var(--dsw-alias-border-l1)',
@@ -349,160 +412,189 @@ export function WorkspacePicker(props: PickerProps): any {
     flex: 'none', boxSizing: 'border-box', fontFamily: 'var(--dsw-font-family)', outline: 'none',
   }
   const bodyStyle: any = { overflowY: 'auto', padding: '8px 12px 14px', minHeight: 0, minWidth: 0 }
-  const groupHeadStyle: any = {
-    display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 6px',
-    fontSize: '0.88em', fontWeight: 700,
+
+  const renderCard = (s: WorkspaceSession, withShort: boolean): any =>
+    h(SessionCard, {
+      key: s.id, h, s, lang,
+      ungroupedName, fallbackShort,
+      current: s.id === currentId,
+      failed: s.id === failRowId,
+      withShort,
+      onPick: doPick,
+    })
+  // 一级卡（v7：名 + 计数 + 色点，无“最新”整行；展开态 accent 边框给态感，审查 #3/#4）。
+  const renderWcard = (g: WorkspaceGroup, isOpen: boolean, allowCollapse: boolean): any =>
+    h('button', {
+      key: 'head:' + g.key,
+      type: 'button',
+      'data-dsh-prompt-picker-group': g.key,
+      'aria-pressed': isOpen ? 'true' : 'false',
+      onMouseDown: keepComposerFocus,
+      onClick: () => {
+        // 收起规则（v7 bind 口径，审查 #12）：竖屏允许收到全空，横屏重 sockaddr 点保持展开。
+        try { setOpenGroup(allowCollapse && isOpen ? '__none' : g.key) } catch (e) { /* ignore */ }
+      },
+      style: {
+        display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
+        background: 'var(--dsw-alias-bg-layer-3)',
+        border: '1px solid ' + (isOpen ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-border-l1)'),
+        color: 'var(--dsw-alias-label-primary)', borderRadius: 12,
+        padding: '10px 12px', fontSize: '0.92em', marginBottom: 8,
+        fontFamily: 'var(--dsw-font-family)',
+      },
+    }, [
+      h('span', {
+        key: 'wnm',
+        style: { display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 },
+      }, [
+        h('span', {
+          key: 'dot',
+          'data-dsh-prompt-picker-dot': '1',
+          style: {
+            flex: 'none', width: 10, height: 10, borderRadius: '50%',
+            background: workspaceColor(g.workspaceId),
+          },
+        }),
+        h('span', { key: 'nm' }, g.name),
+        h('span', {
+          key: 'cnt',
+          'data-dsh-prompt-picker-count': String(g.items.length),
+          style: {
+            flex: 'none', fontSize: '0.75em', color: 'var(--dsw-alias-label-tertiary)',
+            background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+            border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 999,
+            padding: '0 9px', fontWeight: 400,
+          },
+        }, String(g.items.length)),
+      ]),
+    ])
+  const openKey = openGroup || (groups.length > 0 ? groups[0].key : '__none')
+  const switchingNote = phase === 'switching' && switchingId
+    ? h('div', {
+      key: 'switching',
+      'data-dsh-prompt-picker-switching': switchingId,
+      style: { fontSize: '0.78em', color: 'var(--dsw-alias-label-tertiary)', padding: '6px 0 0', flex: 'none' },
+    }, tr(lang, STR.pickerSwitching) + '…')
+    : null
+  // 列表区（C 手风琴：无查询多组 → 手风琴；有查询/单组 → 自动展平 + 短码，#111 US9/US12）。
+  let listContent: any = null
+  if (single || hasQuery) {
+    const flat = filtered.slice().sort((a, b) => b.updatedAt - a.updatedAt)
+    listContent = h('div', { key: 'flat', 'data-dsh-prompt-picker-flat': hasQuery ? 'query' : 'single' }, [
+      switchingNote,
+      h('div', { key: 'list', style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+        flat.map((s) => renderCard(s, hasQuery))),
+    ])
+  } else if (wide) {
+    // 横屏 rail + 右展（v7 C 横屏形，审查 #2）：左轨 hugging 宽只列一级卡，右侧展开放组卡片。
+    const openG = groups.find((g) => g.key === openKey) || groups[0] || null
+    listContent = h('div', { key: 'widewrap' }, [
+      switchingNote,
+      h('div', {
+        key: 'rail',
+        'data-dsh-prompt-picker-rail': '1',
+        style: { display: 'flex', gap: 10, alignItems: 'flex-start' },
+      }, [
+        h('div', {
+          key: 'crail',
+          style: { flex: '0 0 auto', maxWidth: '38%', minWidth: 0, display: 'flex', flexDirection: 'column' },
+        }, groups.map((g) => renderWcard(g, !!openG && openG.key === g.key, false))),
+        openG ? h('div', {
+          key: 'clist',
+          style: { flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 },
+        }, openG.items.map((s) => renderCard(s, false))) : null,
+      ]),
+    ])
+  } else {
+    listContent = h('div', { key: 'acc' }, [
+      switchingNote,
+      ...groups.map((g) => {
+        const isOpen = openKey === g.key
+        // 一级卡只留名与计数（v7：删掉“最新”整行，防杂乱）
+        const list = !isOpen ? null : h('div', {
+          key: 'items:' + g.key,
+          style: { display: 'flex', flexDirection: 'column', gap: 8, margin: '0 0 8px' },
+        }, g.items.map((s) => renderCard(s, false)))
+        return h('div', { key: 'g:' + g.key }, [renderWcard(g, isOpen, true), list])
+      }),
+    ])
   }
 
-  let bodyNode: any = null
-  if (phase === 'probing' || phase === 'loading') {
-    bodyNode = h('div', { key: 'loading', 'data-dsh-prompt-picker-loading': '1' }, [
-      h('div', {
-        key: 'bar',
-        style: { height: 4, borderRadius: 99, background: 'var(--dsw-alias-bg-layer-3)', overflow: 'hidden', margin: '10px 12px 0', flex: 'none' },
-      }, [
-        h('div', { key: 'i', style: { height: '100%', width: '40%', borderRadius: 99, background: 'var(--dsw-specific-accent,#f0a45c)' } }),
-      ]),
-      h('div', {
-        key: 'row',
-        style: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px 12px', fontSize: '0.82em', color: 'var(--dsw-alias-label-tertiary)' },
-      }, [
-        h('span', { key: 't' }, tr(lang, STR.pickerLoading)),
-        h('button', {
-          key: 'cancel', type: 'button',
-          'data-dsh-prompt-picker-cancel': '1',
-          onMouseDown: keepComposerFocus,
-          onClick: cancelWait,
-          style: {
-            border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent',
-            color: 'var(--dsw-alias-label-tertiary)', borderRadius: 8, padding: '6px 14px',
-            fontSize: '0.9em', cursor: 'pointer', minHeight: 40, fontFamily: 'var(--dsw-font-family)',
-          },
-        }, tr(lang, STR.pickerCancel)),
-      ]),
-    ])
-  } else if (phase === 'failed') {
-    const msg = failKind === 'probe' ? tr(lang, STR.pickerProbeFail) : tr(lang, STR.pickerSwitchFail)
-    const failBadge = failRowId
-      ? h('div', { key: 'rowfail', style: { margin: '0 0 8px', fontSize: '0.82em', color: 'var(--dsw-specific-danger,#e06c75)' } },
-        tr(lang, STR.pickerSwitchFailBadge) + ' · ' + failRowId)
-      : null
-    bodyNode = h('div', { key: 'failed', 'data-dsh-prompt-picker-failed': failKind || 'switch' }, [
-      failBadge,
-      h('div', {
-        key: 'box',
+  const loadingBox: any = h('div', { key: 'loading', 'data-dsh-prompt-picker-loading': '1' }, [
+    h('div', {
+      key: 'bar',
+      style: { height: 4, borderRadius: 99, background: 'var(--dsw-alias-bg-layer-3)', overflow: 'hidden', margin: '10px 12px 0', flex: 'none' },
+    }, [
+      h('div', { key: 'i', className: 'dsh-prompt-picker-load-i' }),
+    ]),
+    h('div', {
+      key: 'row',
+      style: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px 12px', fontSize: '0.82em', color: 'var(--dsw-alias-label-tertiary)' },
+    }, [
+      h('span', { key: 't' }, tr(lang, STR.pickerLoading)),
+      h('button', {
+        key: 'cancel', type: 'button',
+        'data-dsh-prompt-picker-cancel': '1',
+        onMouseDown: keepComposerFocus,
+        onClick: cancelWait,
         style: {
-          margin: '6px 0 12px', padding: '8px 12px', border: '1px solid var(--dsw-specific-danger,#e06c75)',
-          borderRadius: 10, fontSize: '0.85em', color: 'var(--dsw-alias-label-primary)',
-          display: 'flex', gap: 10, alignItems: 'center', lineHeight: 1.5,
+          border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent',
+          color: 'var(--dsw-alias-label-tertiary)', borderRadius: 8, padding: '6px 14px',
+          fontSize: '0.9em', cursor: 'pointer', minHeight: 40, fontFamily: 'var(--dsw-font-family)',
         },
-      }, [
-        h('span', { key: 'm' }, msg),
-        h('button', {
-          key: 'retry', type: 'button',
-          'data-dsh-prompt-picker-retry': '1',
-          onMouseDown: keepComposerFocus,
-          onClick: retryAll,
-          style: {
-            flex: 'none', minHeight: 44, padding: '6px 18px', fontSize: '0.95em', borderRadius: 9,
-            cursor: 'pointer', border: '1px solid var(--dsw-specific-accent,#f0a45c)',
-            background: 'var(--dsw-specific-accent,#f0a45c)', color: '#1a1a1e', fontWeight: 700,
-            fontFamily: 'var(--dsw-font-family)',
-          },
-        }, tr(lang, STR.pickerRetry)),
-      ]),
-    ])
-  } else if (showTrueEmpty || showEmptySearch) {
-    const msg = showEmptySearch ? tr(lang, STR.pickerEmptySearch) : tr(lang, STR.pickerEmpty)
-    bodyNode = h('div', {
-      key: 'empty',
-      'data-dsh-prompt-picker-empty': showEmptySearch ? 'search' : 'true-none',
+      }, tr(lang, STR.pickerCancel)),
+    ]),
+  ])
+  const emptyBox = (kind: 'true-none' | 'search'): any => h('div', {
+    key: 'empty:' + kind,
+    'data-dsh-prompt-picker-empty': kind,
+    style: {
+      margin: '6px 0 12px', padding: '8px 12px', border: '1px dashed var(--dsw-alias-border-l1)',
+      borderRadius: 10, fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)',
+      display: 'flex', gap: 10, alignItems: 'center', lineHeight: 1.5,
+    },
+  }, kind === 'search' ? tr(lang, STR.pickerEmptySearch) : tr(lang, STR.pickerEmpty))
+  const retryBox = (kind: 'probe' | 'switch'): any => h('div', {
+    key: 'failed:' + kind,
+    'data-dsh-prompt-picker-failed': kind,
+  }, [
+    h('div', {
+      key: 'box',
       style: {
-        margin: '6px 0 12px', padding: '8px 12px', border: '1px dashed var(--dsw-alias-border-l1)',
-        borderRadius: 10, fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)',
+        margin: '6px 0 12px', padding: '8px 12px', border: '1px solid var(--dsw-specific-danger,#e06c75)',
+        borderRadius: 10, fontSize: '0.85em', color: 'var(--dsw-alias-label-primary)',
         display: 'flex', gap: 10, alignItems: 'center', lineHeight: 1.5,
       },
-    }, msg)
-  } else {
-    // 就绪 / 切换中：C 手风琴（有查询自动展平 + 短码，单工作区隐藏组头退化平铺）
-    const switchingNote = phase === 'switching' && switchingId
-      ? h('div', {
-        key: 'switching',
-        'data-dsh-prompt-picker-switching': switchingId,
-        style: { fontSize: '0.78em', color: 'var(--dsw-alias-label-tertiary)', padding: '6px 0 0', flex: 'none' },
-      }, tr(lang, STR.pickerSwitching) + '…')
-      : null
-    if (single || hasQuery) {
-      const flat = filtered.slice().sort((a, b) => b.updatedAt - a.updatedAt)
-      bodyNode = h('div', { key: 'flat', 'data-dsh-prompt-picker-flat': hasQuery ? 'query' : 'single' }, [
-        switchingNote,
-        h('div', { key: 'list', style: { display: 'flex', flexDirection: 'column', gap: 8 } },
-          flat.map((s) => h(SessionCard, {
-            key: s.id, h, s,
-            current: s.id === currentId,
-            failed: s.id === failRowId,
-            withShort: hasQuery,
-            onPick: doPick,
-          }))),
-      ])
-    } else {
-      bodyNode = h('div', { key: 'acc' }, [
-        switchingNote,
-        ...groups.map((g) => {
-          const isOpen = (openGroup || groups[0].key) === g.key
-          const head = h('button', {
-            key: 'head:' + g.key,
-            type: 'button',
-            'data-dsh-prompt-picker-group': g.key,
-            'aria-pressed': isOpen ? 'true' : 'false',
-            onMouseDown: keepComposerFocus,
-            onClick: () => {
-              try { setOpenGroup(isOpen ? '__none' : g.key) } catch (e) { /* ignore */ }
-            },
-            style: {
-              display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-              background: 'var(--dsw-alias-bg-layer-3)', border: '1px solid var(--dsw-alias-border-l1)',
-              color: 'var(--dsw-alias-label-primary)', borderRadius: 12,
-              padding: '10px 12px', fontSize: '0.92em', marginBottom: 8,
-              fontFamily: 'var(--dsw-font-family)',
-            },
-          }, [
-            h('span', {
-              key: 'wnm',
-              style: { display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 },
-            }, [
-              h('span', { key: 'nm' }, g.name),
-              h('span', {
-                key: 'cnt',
-                'data-dsh-prompt-picker-count': String(g.items.length),
-                style: {
-                  flex: 'none', fontSize: '0.75em', color: 'var(--dsw-alias-label-tertiary)',
-                  background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
-                  border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 999,
-                  padding: '0 9px', fontWeight: 400,
-                },
-              }, String(g.items.length)),
-            ]),
-          ])
-          // 一级卡只留名与计数（v7：删掉“最新”整行，防杂乱）
-          const list = !isOpen ? null : h('div', {
-            key: 'items:' + g.key,
-            style: { display: 'flex', flexDirection: 'column', gap: 8, margin: '0 0 8px' },
-          }, g.items.map((s) => h(SessionCard, {
-            key: s.id, h, s,
-            current: s.id === currentId,
-            failed: s.id === failRowId,
-            withShort: false,
-            onPick: doPick,
-          })))
-          return h('div', { key: 'g:' + g.key }, [head, list])
-        }),
-      ])
-    }
-    void groupHeadStyle
-  }
+    }, [
+      h('span', { key: 'm' }, kind === 'probe' ? tr(lang, STR.pickerProbeFail) : tr(lang, STR.pickerSwitchFail)),
+      h('button', {
+        key: 'retry', type: 'button',
+        'data-dsh-prompt-picker-retry': '1',
+        onMouseDown: keepComposerFocus,
+        onClick: retryAll,
+        style: {
+          flex: 'none', minHeight: 44, padding: '6px 18px', fontSize: '0.95em', borderRadius: 9,
+          cursor: 'pointer', border: '1px solid var(--dsw-specific-accent,#f0a45c)',
+          background: 'var(--dsw-specific-accent,#f0a45c)', color: '#1a1a1e', fontWeight: 700,
+          fontFamily: 'var(--dsw-font-family)',
+        },
+      }, tr(lang, STR.pickerRetry)),
+    ]),
+  ])
+  // 搜索无结果进空态（不回退全量，#111 US14）；切换失败留屏时列表仍在、失败行可点重试（#111 US25 行内辅重试）。
+  const queryEmpty = hasQuery && filtered.length === 0
+  let bodyNode: any = null
+  if (phase === 'probing' || phase === 'loading') bodyNode = loadingBox
+  else if (phase === 'failed' && failKind === 'probe') bodyNode = retryBox('probe')
+  else if (showTrueEmpty) bodyNode = emptyBox('true-none')
+  else if (queryEmpty) {
+    bodyNode = phase === 'failed'
+      ? h('div', { key: 'sfr' }, [retryBox('switch'), emptyBox('search')])
+      : emptyBox('search')
+  } else if (phase === 'failed') bodyNode = h('div', { key: 'sfl' }, [retryBox('switch'), listContent])
+  else bodyNode = listContent
 
-  return h('div', { 'data-dsh-prompt-picker-root': '1' }, [
+  return h('div', { 'data-dsh-prompt-picker-root': '1', style: rootStyle }, [
     h('div', {
       key: 'mask',
       style: maskStyle,

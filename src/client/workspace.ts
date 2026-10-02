@@ -213,21 +213,12 @@ export function normalizeWorkspaceNames(input: unknown): Map<string, string> {
   } catch (e) { return out }
 }
 
-/** 归一 cwd（分组键：去尾斜杠，空回 ''，不抛） */
-export function normalizeCwd(cwd: unknown): string {
-  try {
-    const s = asString(cwd)
-    if (s === '') return ''
-    return s.replace(/[/\\]+$/, '')
-  } catch (e) { return '' }
-}
-
 /**
  * 纯视图分组（#107 Q3 / #111 US8–US11）：
  * - 按 workspaceId 分组，无归属（null/''）进未归属桶；
  * - 未归属桶置底；其余组按组内最新倒序；
  * - 组内按 updatedAt 倒序；组头名 = 登记名 || workspaceId || 未归属；
- * - 同标题跨组冲突行打 collision=true（尾段芯片只给这些行，v7 省空间）；
+ * - 同标题行打 collision=true（全局统计：跨组同名恰是真消歧场景；原型按组统计，此处故意 diverged，见审查结论 #9）；
  * - 不读存储不碰界面，纯函数。
  */
 export function groupWorkspaceSessions(
@@ -292,37 +283,39 @@ export function isSingleWorkspace(groups: WorkspaceGroup[]): boolean {
   try { return Array.isArray(groups) && groups.length <= 1 } catch (e) { return true }
 }
 
-/** 搜索 haystack（标题 + 工作区名，调用方拼好后做大小写不敏感子串；拼音/cwd 全文首版不做，留缝） */
-export function sessionHaystack(s: WorkspaceSession): string {
+/** 搜索 haystack（标题 + 工作区名，未归属行用展示名回填，保证搜“未归属”可达；拼音/cwd 全文首版不做，留缝） */
+export function sessionHaystack(s: WorkspaceSession, ungroupedName?: string): string {
   try {
-    return ((s.title || '') + ' ' + (s.workspaceName || '')).toLowerCase()
+    const wn = (s.workspaceName || '') !== '' ? s.workspaceName : (asString(ungroupedName) || '')
+    return ((s.title || '') + ' ' + wn).toLowerCase()
   } catch (e) { return '' }
 }
 
 /** 搜索过滤（#107 Q4 / #111 US12–US14：大小写不敏感子串；空查询回全量；无结果回 [] 由调用方进空态，不回退） */
-export function filterWorkspaceSessions(sessions: WorkspaceSession[], query: unknown): WorkspaceSession[] {
+export function filterWorkspaceSessions(sessions: WorkspaceSession[], query: unknown, ungroupedName?: string): WorkspaceSession[] {
   try {
     const list = Array.isArray(sessions) ? sessions : []
     const q = String(query || '').trim().toLowerCase()
     if (q === '') return list.slice()
-    return list.filter((s) => sessionHaystack(s).indexOf(q) >= 0)
+    return list.filter((s) => sessionHaystack(s, ungroupedName).indexOf(q) >= 0)
   } catch (e) { return [] }
 }
 
-/** 紧凑相对时间（v7 口径：刚刚/5分/3时/2天，悬停看绝对，不抛） */
-export function relativeWorkspaceTime(ts: unknown, now?: number): string {
+/** 紧凑相对时间（v7 口径中文：刚刚/5分/3时/2天；英文：now/5m/3h/2d；悬停看绝对，不抛） */
+export function relativeWorkspaceTime(ts: unknown, now?: number, lang?: string): string {
   try {
+    const en = lang === 'en'
     const t = Number(ts)
     if (!isFinite(t) || t <= 0) return ''
     const base = typeof now === 'number' && isFinite(now) ? now : Date.now()
     const d = base - t
-    if (d < 0) return '刚刚'
+    if (d < 0) return en ? 'now' : '刚刚'
     const m = Math.floor(d / 60000)
-    if (m < 1) return '刚刚'
-    if (m < 60) return m + '分'
+    if (m < 1) return en ? 'now' : '刚刚'
+    if (m < 60) return en ? m + 'm' : m + '分'
     const h = Math.floor(m / 60)
-    if (h < 24) return h + '时'
-    return Math.floor(h / 24) + '天'
+    if (h < 24) return en ? h + 'h' : h + '时'
+    return en ? Math.floor(h / 24) + 'd' : Math.floor(h / 24) + '天'
   } catch (e) { return '' }
 }
 
@@ -332,6 +325,32 @@ export function absoluteWorkspaceTime(ts: unknown): string {
     const t = Number(ts)
     if (!isFinite(t) || t <= 0) return ''
     try { return new Date(t).toLocaleString() } catch (e) { return String(ts) }
+  } catch (e) { return '' }
+}
+
+/** 工作区配色（v7 色点通道：按 workspaceId 稳定哈希进固定调色盘，null 进未归属位；只定可辨，不定具体色） */
+const WORKSPACE_DOT_COLORS = ['#f0a45c', '#7fd08a', '#b388ff', '#6cb8e0', '#e06c75', '#8ad0c8']
+export function workspaceColor(wsId: string | null): string {
+  try {
+    const s = typeof wsId === 'string' && wsId !== '' ? wsId : '__ungrouped'
+    let acc = 0
+    for (let i = 0; i < s.length; i++) acc = (acc * 31 + s.charCodeAt(i)) >>> 0
+    return WORKSPACE_DOT_COLORS[acc % WORKSPACE_DOT_COLORS.length]
+  } catch (e) { return WORKSPACE_DOT_COLORS[0] }
+}
+
+/**
+ * 工作区短码（v7 短码通道的数据驱动版：取归属名按分隔符切分的末段前 4 字；
+ * 如 dsh-prompt→prom、dsh-opencode-palette→pale；空归属回 '' 由调用方按双语回退。
+ * 原型 SHORT 表是演示数据硬编码（prompt/配色/散），生产不定死表。）
+ */
+export function workspaceShortCode(name: unknown, wsId: unknown): string {
+  try {
+    const raw = asString(name) || asString(wsId)
+    if (raw === '') return ''
+    const parts = raw.split(/[-_\/\\:.]+/).filter((p) => p !== '')
+    const last = parts.length > 1 ? parts[parts.length - 1] : raw
+    return last.slice(0, 4)
   } catch (e) { return '' }
 }
 
@@ -393,9 +412,7 @@ export function probeWorkspaceGates(faces: WorkspaceFaces | null | undefined): {
   try {
     if (!faces || typeof faces !== 'object') return { enumerable: false, switchable: false }
     const sessions = (faces as any).sessions
-    const workspaces = (faces as any).workspaces
     const ui = (faces as any).uiWorkspace
-    void workspaces
     let enumerable = false
     try {
       if (sessions) {
@@ -407,7 +424,8 @@ export function probeWorkspaceGates(faces: WorkspaceFaces | null | undefined): {
           else if (Array.isArray((sessions as any).items)) enumerable = true
           else if (Array.isArray((sessions as any).sessions)) enumerable = true
           else if ((sessions as any).byId && typeof (sessions as any).byId === 'object') enumerable = true
-          else if (typeof (sessions as any).get === 'function') enumerable = true
+          // 注意：裸 sessions.get(sid) 是单体面（取一行要先有 id），不能枚举——
+          // 它在此不算 enumerable（#106 点名它，但枚举链用不上；误算会导致假“真无会话”）。
         }
       }
     } catch (e) { enumerable = false }
@@ -568,22 +586,21 @@ export async function switchWorkspaceSession(faces: WorkspaceFaces | null | unde
     if (!faces || typeof faces !== 'object') throw new Error('switch-failed')
     const ui = (faces as any).uiWorkspace
     const sessions = (faces as any).sessions
-    const errors: unknown[] = []
+    // 失败不记日志（沿 #111 不记新日志约束），直接落到回退/抛错，调用方进留屏重试。
     if (ui && typeof (ui as any).openSession === 'function') {
       try {
         const r = (ui as any).openSession(id)
         if (r && typeof (r as any).then === 'function') await (r as any)
         return true
-      } catch (e) { errors.push(e) }
+      } catch (e) { /* 回退位 */ }
     }
     if (sessions && typeof (sessions as any).open === 'function') {
       try {
         const r = (sessions as any).open(id)
         if (r && typeof (r as any).then === 'function') await (r as any)
         return true
-      } catch (e) { errors.push(e) }
+      } catch (e) { /* 无面可退即失败 */ }
     }
-    void errors
     throw new Error('switch-failed')
   } catch (e) {
     throw e instanceof Error ? e : new Error('switch-failed')

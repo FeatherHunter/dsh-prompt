@@ -62,8 +62,25 @@ const ws = require(path.join(DIR, 'workspace.cjs'));
   if (f.length !== 1 || f[0].id !== 's4') fail('搜索应标题+工作区名不敏感子串，实际 ' + JSON.stringify(f.map((x) => x.id)));
   if (ws.filterWorkspaceSessions(sessions, '').length !== 5) fail('空查询应回全量');
   if (ws.filterWorkspaceSessions(sessions, 'zzz').length !== 0) fail('无结果应回 [] 由调用方进空态');
+  // 未归属行 workspaceName 为空时用展示名回填，保证搜“未归属”可达（审查 #10）
+  const unHit = ws.filterWorkspaceSessions(sessions, '未归属', '未归属');
+  if (unHit.length !== 1 || unHit[0].id !== 's5') fail('搜未归属应命中未归属行，实际 ' + JSON.stringify(unHit.map((x) => x.id)));
+  if (ws.filterWorkspaceSessions(sessions, '未归属').length !== 0) fail('无展示名回填时不应误命中');
   if (ws.relativeWorkspaceTime(now - 30 * 1000) !== '刚刚') fail('相对时间 刚刚失败');
   if (!/分$/.test(ws.relativeWorkspaceTime(now - 5 * 60000))) fail('相对时间 分失败');
+  // 双语时间（审查 Standards 硬伤 #2：英文 UI 不得漏中文）
+  if (ws.relativeWorkspaceTime(now - 30 * 1000, now, 'en') !== 'now') fail('EN 相对时间 now 失败');
+  if (ws.relativeWorkspaceTime(now - 5 * 60000, now, 'en') !== '5m') fail('EN 相对时间 5m 失败，实际 ' + ws.relativeWorkspaceTime(now - 5 * 60000, now, 'en'));
+  if (ws.relativeWorkspaceTime(now - 3 * 3600000, now, 'en') !== '3h') fail('EN 相对时间 3h 失败');
+  if (ws.relativeWorkspaceTime(now - 2 * 86400000, now, 'en') !== '2d') fail('EN 相对时间 2d 失败');
+  // 色点：同 id 稳定、#rrggbb 形（审查 #3 色点通道）
+  const c1a = ws.workspaceColor('ws-prompt'), c1b = ws.workspaceColor('ws-prompt');
+  if (c1a !== c1b || !/^#[0-9a-f]{6}$/i.test(c1a)) fail('色点应对同一归属稳定且为色值，实际 ' + c1a);
+  if (ws.workspaceColor(null) !== ws.workspaceColor(null)) fail('空归属色点应稳定');
+  // 短码：末段前 4 字规则（审查 #8 数据驱动版，非演示硬编码）
+  if (ws.workspaceShortCode('dsh-prompt', 'ws-prompt') !== 'prom') fail('短码 dsh-prompt 应为 prom');
+  if (ws.workspaceShortCode('dsh-opencode-palette', 'ws-pal') !== 'pale') fail('短码应取末段，实际 ' + ws.workspaceShortCode('dsh-opencode-palette', 'ws-pal'));
+  if (ws.workspaceShortCode('', '') !== '') fail('空归属短码应回空（调用方按双语回退）');
   if (ws.tailSegment('/a/b/c') !== 'c') fail('尾段应取 c');
   if (ws.tailSegment('') !== '') fail('空尾段应回空');
   ok('纯函数：分组/排序/未归属置底/单组退化/搜索/冲突/时间/尾段');
@@ -87,6 +104,11 @@ async function asyncChecks() {
   if (!(g.enumerable && g.switchable)) fail('双面齐应双满足');
   if (ws.canShowWorkspacePicker(full) !== true) fail('双满足应出现');
   if (ws.canShowWorkspacePicker({ sessions: { list: { getSnapshot: () => ({}) } } }) !== false) fail('半残（能看不能切）不应出现');
+  // 裸 sessions.get 是单体面、不能枚举：门控不得算可枚举（审查 #7，否则假“真无会话”）
+  const getOnly = { sessions: { get: (sid) => ({ id: sid }) }, workspaces: [], uiWorkspace: { openSession: () => Promise.resolve() } };
+  const gg = ws.probeWorkspaceGates(getOnly);
+  if (gg.enumerable !== false) fail('裸 .get 不应算可枚举');
+  if (ws.canShowWorkspacePicker(getOnly) !== false) fail('.get-only 宿主不应出现入口（应隐藏而非假空态）');
   if (ws.canShowWorkspacePicker(null) !== false) fail('空面不应出现');
   ok('纯函数：挑选器双门控（双满足/半残隐藏）');
   // 枚举多态 + 切换优先链
@@ -128,7 +150,7 @@ async function asyncChecks() {
   for (const marker of ['data-dsh-prompt-workspace-left', 'data-dsh-prompt-workspace-picker',
     'data-dsh-prompt-picker-sheet', 'dockActions', 'DOCK_Z', 'ModalPortal', 'PanelPortal',
     'readWorkspaceLeftExpanded', 'toggleWorkspaceLeft', 'canShowWorkspaceLeft',
-    'probeWorkspaceGates', 'canShowWorkspacePicker', 'WorkspacePicker',
+    'probeWorkspaceGates', 'canShowWorkspacePicker', 'WorkspacePicker', 'getSmartInput',
     'workspaceLeftExpand', 'workspaceLeftCollapse', 'workspacePicker',
     'aria-pressed', 'aria-expanded', 'aria-haspopup', 'maxWidth', '96vw', 'overflowX']) {
     if (!buttonSrc.includes(marker)) fail('#104 button.ts 缺标记: ' + marker);
@@ -179,10 +201,19 @@ async function asyncChecks() {
   for (const marker of ['data-dsh-prompt-picker-root', 'data-dsh-prompt-picker-sheet', 'data-dsh-prompt-picker-mask',
     'data-dsh-prompt-picker-search', 'data-dsh-prompt-picker-row', 'data-dsh-prompt-picker-close',
     'data-dsh-prompt-picker-retry', 'data-dsh-prompt-picker-cancel', 'data-dsh-prompt-picker-loading',
-    'maxHeight', '88%', 'keepComposerFocus', 'enumerateWorkspaceSessions', 'switchWorkspaceSession',
-    'filterWorkspaceSessions', 'groupWorkspaceSessions', 'isSingleWorkspace']) {
+    'data-dsh-prompt-picker-rail', 'data-dsh-prompt-picker-dot',
+    'MODAL_Z', 'maxHeight', '88%', 'keepComposerFocus', 'enumerateWorkspaceSessions', 'switchWorkspaceSession',
+    'filterWorkspaceSessions', 'groupWorkspaceSessions', 'isSingleWorkspace',
+    'workspaceColor', 'workspaceShortCode']) {
     if (!pickerSrc.includes(marker)) fail('#104 picker.ts 缺标记: ' + marker);
   }
+  // 审查 #1：根容器必须定 MODAL_Z 层级，旧 z10/z11 不得残留（真机必输给 DOCK_Z=8000）
+  if (!/zIndex:\s*MODAL_Z/.test(pickerSrc)) fail('#104 picker 根容器应 zIndex: MODAL_Z（与齿轮弹窗同层）');
+  if (/zIndex:\s*10\b/.test(stripComments(pickerSrc)) || /zIndex:\s*11\b/.test(stripComments(pickerSrc))) fail('#104 picker 不得残留 z10/z11（会被 Dock 盖住）');
+  // 审查 creep #16：失败条不得渲染裸会话 id
+  if (pickerSrc.includes("+ ' · ' + failRowId")) fail('#104 失败条不得拼裸会话 id');
+  // 审查 creep #17：当前行不得用 color-mix tint 底（原型口径边框 + 内圈）
+  if (pickerSrc.includes('color-mix')) fail('#104 当前行应回退原型口径（边框 + 内圈），不得 tint 底');
   const pickerCode = stripComments(pickerSrc);
   if (/logEvent\s*\(/.test(pickerCode)) fail('#104 picker 不得新增日志事件');
   if (/fetch\s*\(/.test(pickerCode)) fail('#104 picker 不得直调网络（只走宿主机会面）');
@@ -191,7 +222,8 @@ async function asyncChecks() {
   const i18nSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'i18n.ts'), 'utf8');
   for (const marker of ['workspaceLeftExpand', 'workspaceLeftCollapse', 'workspacePicker', 'pickerSearch',
     'pickerLoading', 'pickerCancel', 'pickerRetry', 'pickerEmpty', 'pickerEmptySearch',
-    'pickerProbeFail', 'pickerSwitchFail', 'pickerCurrent', 'pickerBlank']) {
+    'pickerProbeFail', 'pickerSwitchFail', 'pickerCurrent', 'pickerBlank',
+    'pickerUngrouped', 'pickerUnassignedShort']) {
     if (!i18nSrc.includes(marker)) fail('#104 i18n 缺键: ' + marker);
   }
   ok('i18n 双语键齐（title=aria-label 同串）');
@@ -217,7 +249,7 @@ async function rendererChecks() {
     ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView']],
     ['settings.cjs', path.join(ROOT, 'src', 'client', 'settings.ts'), ['./panel', './about', './update', './smartstore', './remote', './remoteView', './systemOrientation', './i18n']],
     ['picker.cjs', path.join(ROOT, 'src', 'client', 'picker.ts'), ['./panel', './remoteView', './i18n', './workspace']],
-    ['button.cjs', path.join(ROOT, 'src', 'client', 'button.ts'), ['./panel', './state', './settings', './remote', './remoteView', './i18n', './workspace', './picker']],
+    ['button.cjs', path.join(ROOT, 'src', 'client', 'button.ts'), ['./panel', './state', './settings', './remote', './remoteView', './i18n', './workspace', './picker', './smartstore']],
   ];
   fs.writeFileSync(path.join(DIR, 'about.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;');
   fs.writeFileSync(path.join(DIR, 'update.cjs'), 'module.exports.UpdateEntry=()=>null;');
@@ -233,8 +265,18 @@ async function rendererChecks() {
   const React = require('react');
   const TR = require('react-test-renderer');
   const buttonMod = require(path.join(DIR, 'button.cjs'));
+  const pickerMod = require(path.join(DIR, 'picker.cjs'));
   const remote2 = require(path.join(DIR, 'remote2.cjs'));
   const stateMod = require(path.join(DIR, 'state.cjs'));
+  const smartMod = require(path.join(DIR, 'smartstore.cjs'));
+  // Node ≥18 自带 global fetch：不桩则 ensureRemoteLoaded 走相对 URL 必失败，
+  // 还会起 2500ms 重试定时器把远程偏好翻回默认并广播——长用例跑到后半程会被翻成非远程。
+  // 沿 #82/#86 口径桩掉：store 快照故意无远程键（走“旧快照默认”分支：不翻转、不重试），
+  // 写桥一律成功（进程级，不恢复）。各块按需 setRemoteEnabled(true) 即稳。
+  globalThis.fetch = async (url) => ({
+    ok: true, status: 200,
+    json: async () => (/\/store$/.test(String(url)) ? { ok: true, value: {} } : { ok: true }),
+  });
 
   const byLeft = (r) => r.findAll((x) => x.props && x.props['data-dsh-prompt-workspace-left'] === '1');
   const byPickerKey = (r) => r.findAll((x) => x.props && x.props['data-dsh-prompt-workspace-picker'] === '1');
@@ -416,6 +458,16 @@ async function rendererChecks() {
   });
   const failedBox = ebFail.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-failed']);
   if (failedBox.length !== 1) fail('#104 切换失败应留屏进 failed，实际 ' + failedBox.length);
+  // 审查 #14/US25：切换失败留屏时列表仍在、失败行可点重试（行内辅重试）
+  const failRows = ebFail.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-row']);
+  if (failRows.length !== 1) fail('#104 切换失败应保留列表行以供行内重试，实际 ' + failRows.length);
+  const beforeRow = switchCalls;
+  await TR.act(async () => {
+    ebFail.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-row'] === 's1')[0].props.onClick();
+    await new Promise((r) => setTimeout(r, 50));
+  });
+  if (!(switchCalls > beforeRow)) fail('#104 失败行再点应重试切换');
+  if (ebFail.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-failed']).length !== 1) fail('#104 行内重试失败后仍应留屏');
   const before = switchCalls;
   await TR.act(async () => {
     ebFail.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-retry'] === '1')[0].props.onClick();
@@ -426,6 +478,168 @@ async function rendererChecks() {
   const prefsBeforePick = JSON.stringify(remote2.getRemotePrefs());
   await TR.act(async () => { byCollapse(ebFail.root)[0].props.onClick(); });
   if (JSON.stringify(remote2.getRemotePrefs()) !== prefsBeforePick) fail('#104 收展/开关不得碰远程偏好');
+  // 审查 #1 Blocking：根容器必须与齿轮弹窗同层、高于 Dock，否则 Dock 浮在面之上可点
+  let ebZ;
+  await TR.act(async () => {
+    ebZ = TR.create(React.createElement(buttonMod.EntryButton, {
+      open: false,
+      workspaceSessions: F.sessions,
+      workspaceList: F.workspaces,
+      workspaceUI: F.uiWorkspace,
+      sessionId: 's1',
+    }));
+  });
+  await TR.act(async () => { });
+  await TR.act(async () => { byPickerKey(ebZ.root)[0].props.onClick(); });
+  await TR.act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+  const pickerRoot = ebZ.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-root'] === '1')[0];
+  if (!pickerRoot) fail('#104 挑选器根容器应存在');
+  if (pickerRoot.props.style.zIndex !== 11000) fail('#104 挑选器根应 zIndex 11000（MODAL_Z 同层），实际 ' + pickerRoot.props.style.zIndex);
+  if (!(buttonMod.DOCK_Z < pickerRoot.props.style.zIndex)) fail('#104 挑选器层级应高于 Dock，实际 DOCK_Z=' + buttonMod.DOCK_Z);
+  ebZ.unmount();
+  ok('渲染器：挑选器与齿轮弹窗同层、盖住 Dock（审查 #1）');
+
+  // 多组竖屏手风琴：组头色点 + 展开态边框 + 默认展开最新组（审查 #3/#4）
+  const twoGroups = {
+    sessions: {
+      list: {
+        getSnapshot: () => ({
+          items: [
+            { id: 'a1', title: '旧会话A', workspaceId: 'w1', cwd: '/a', updatedAt: now - 100000 },
+            { id: 'a2', title: '新会话A', workspaceId: 'w1', cwd: '/a', updatedAt: now - 90000 },
+            { id: 'b1', title: '最新会话B', workspaceId: 'w2', cwd: '/b', updatedAt: now - 100 },
+          ],
+        }),
+      },
+      open: () => Promise.resolve(),
+    },
+    workspaces: { list: { getSnapshot: () => [{ id: 'w1', name: '工程A' }, { id: 'w2', name: '工程B' }] } },
+    uiWorkspace: { openSession: () => Promise.resolve() },
+  };
+  let pkPortrait;
+  await TR.act(async () => {
+    pkPortrait = TR.create(React.createElement(pickerMod.WorkspacePicker, {
+      faces: twoGroups, currentId: '', remoteSize: 5, wide: false, onClose: () => {},
+    }));
+  });
+  await TR.act(async () => { await new Promise((r) => setTimeout(r, 400)); });
+  const heads = pkPortrait.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-group']);
+  if (heads.length !== 2) fail('#104 双组竖屏应有 2 个一级卡，实际 ' + heads.length);
+  const dots = pkPortrait.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-dot'] === '1');
+  if (dots.length !== 2) fail('#104 一级卡应各带色点，实际 ' + dots.length);
+  const openHeads = heads.filter((x) => x.props['aria-pressed'] === 'true');
+  if (openHeads.length !== 1) fail('#104 应恰好展开一组，实际 ' + openHeads.length);
+  if (!/f0a45c/.test(String(openHeads[0].props.style.border))) fail('#104 展开组应 accent 边框态感');
+  const closedHeads = heads.filter((x) => x.props['aria-pressed'] === 'false');
+  if (/f0a45c/.test(String(closedHeads[0].props.style.border))) fail('#104 未展开组不应 accent 边框');
+  // 默认展开组内最新的 w2（只有 b1 一行）
+  const portraitRows = pkPortrait.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-row']);
+  if (portraitRows.length !== 1 || portraitRows[0].props['data-dsh-prompt-picker-row'] !== 'b1') {
+    fail('#104 默认应展开最新组（w2/b1），实际行 ' + JSON.stringify(portraitRows.map((x) => x.props['data-dsh-prompt-picker-row'])));
+  }
+  pkPortrait.unmount();
+  ok('渲染器：一级卡色点 + 展开态边框 + 默认展开最新组');
+
+  // 横屏 rail + 右展（审查 #2）：左轨两卡 + 右侧放组一行
+  let pkWide;
+  await TR.act(async () => {
+    pkWide = TR.create(React.createElement(pickerMod.WorkspacePicker, {
+      faces: twoGroups, currentId: '', remoteSize: 5, wide: true, onClose: () => {},
+    }));
+  });
+  await TR.act(async () => { await new Promise((r) => setTimeout(r, 400)); });
+  if (pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-rail'] === '1').length !== 1) {
+    fail('#104 横屏应渲染 rail + 右展');
+  }
+  const wideRows = pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-row']);
+  if (wideRows.length !== 1 || wideRows[0].props['data-dsh-prompt-picker-row'] !== 'b1') {
+    fail('#104 横屏右侧应展开放组（b1），实际 ' + JSON.stringify(wideRows.map((x) => x.props['data-dsh-prompt-picker-row'])));
+  }
+  pkWide.unmount();
+  ok('渲染器：横屏 rail + 右展');
+
+  // 审查 #6：槽 props 无 sessionId 时回退 smartstore（已在行点之直接关，不发真切换）
+  let fbSwitches = [];
+  const fbFaces = mkFaces({
+    uiWorkspace: { openSession: (sid) => { fbSwitches.push(sid); return Promise.resolve(); } },
+    sessions: {
+      list: F.sessions.list,
+      open: (sid) => { fbSwitches.push('fb:' + sid); return Promise.resolve(); },
+    },
+  });
+  smartMod.setSmartInput({ sessionId: 's2', draft: '' });
+  let ebFb;
+  await TR.act(async () => {
+    ebFb = TR.create(React.createElement(buttonMod.EntryButton, {
+      open: false,
+      workspaceSessions: fbFaces.sessions,
+      workspaceList: fbFaces.workspaces,
+      workspaceUI: fbFaces.uiWorkspace,
+    }));
+  });
+  await TR.act(async () => { });
+  await TR.act(async () => { byPickerKey(ebFb.root)[0].props.onClick(); });
+  const fbExpanded = byPickerKey(ebFb.root)[0].props['aria-expanded'];
+  if (fbExpanded !== 'true') fail('#104 点击后 aria-expanded 应 true（面没打开），实际 ' + fbExpanded);
+  await TR.act(async () => { await new Promise((r) => setTimeout(r, 500)); });
+  const fbRows = ebFb.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-row']);
+  if (fbRows.length !== 2) {
+    const diag = (k, v) => ebFb.root.findAll((x) => x.props && x.props[k] === v).length;
+    fail('#104 回退块面应打开且有 2 行，实际 ' + fbRows.length
+      + '（sheet=' + diag('data-dsh-prompt-picker-sheet', '1')
+      + ' dock=' + diag('data-dsh-prompt-dock', '1') + '）');
+  }
+  const fbCur = ebFb.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-badge-cur'] === '1');
+  if (fbCur.length < 1) fail('#104 回退 sessionId 应标出当前行徽标');
+  await TR.act(async () => {
+    ebFb.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-row'] === 's2')[0].props.onClick();
+  });
+  if (ebFb.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-sheet'] === '1').length !== 0) {
+    fail('#104 回退命中的当前行点了应直接关');
+  }
+  if (fbSwitches.length !== 0) fail('#104 当前行不得发真切换，实际 ' + JSON.stringify(fbSwitches));
+  ebFb.unmount();
+  smartMod.setSmartInput({ draft: '' });
+  ok('渲染器：sessionId 缺席回退 smartstore，已在直关且无真切换');
+
+  // 未归属行：搜展示名可达、短码走双语回退（审查 #8/#10）
+  const unFaces = mkFaces({
+    sessions: {
+      list: {
+        getSnapshot: () => ({
+          items: [
+            { id: 's1', title: '第一会话', workspaceId: 'w1', cwd: '/a', updatedAt: now - 1000 },
+            { id: 'sx', title: '孤儿', workspaceId: null, cwd: '/tmp/z', updatedAt: now - 100 },
+          ],
+        }),
+      },
+      open: () => Promise.resolve(),
+    },
+  });
+  let ebUn;
+  await TR.act(async () => {
+    ebUn = TR.create(React.createElement(buttonMod.EntryButton, {
+      open: false,
+      workspaceSessions: unFaces.sessions,
+      workspaceList: unFaces.workspaces,
+      workspaceUI: unFaces.uiWorkspace,
+      sessionId: 's1',
+    }));
+  });
+  await TR.act(async () => { });
+  await TR.act(async () => { byPickerKey(ebUn.root)[0].props.onClick(); });
+  await TR.act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+  await TR.act(async () => {
+    ebUn.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-search'] === '1')[0]
+      .props.onChange({ target: { value: '未归属' } });
+  });
+  const unRows = ebUn.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-row']);
+  if (unRows.length !== 1 || unRows[0].props['data-dsh-prompt-picker-row'] !== 'sx') {
+    fail('#104 搜未归属应命中未归属行，实际 ' + JSON.stringify(unRows.map((x) => x.props['data-dsh-prompt-picker-row'])));
+  }
+  ebUn.unmount();
+  ok('渲染器：未归属搜展示名可达');
+
   ebFail.unmount();
   ebFull.unmount();
   ok('渲染器：失败留屏重试 + 与收展正交 + pill 收展不丢面标记');

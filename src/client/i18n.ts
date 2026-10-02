@@ -148,6 +148,8 @@ export const STR = {
   pickerCurrent: { zh: '当前', en: 'Current' },
   pickerBlank: { zh: '空白', en: 'Blank' },
   pickerUntitled: { zh: '（空白会话）', en: '(Blank session)' },
+  pickerUngrouped: { zh: '未归属', en: 'Ungrouped' },
+  pickerUnassignedShort: { zh: '散', en: 'misc' },
   logExport: { zh: '导出日志', en: 'Export log' },
   logCopyPath: { zh: '复制路径', en: 'Copy path' },
   logClear: { zh: '清空日志', en: 'Clear log' },

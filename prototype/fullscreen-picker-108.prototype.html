@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<!--
+  PROTOTYPE — 抛弃式原型，不进 main（Issue #108，part of #104；规格见 #111，拍板见 #107）。
+  设计问题：“全屏工作区/会话挑选器应该长什么样？（布局/分组/行/关闭键/真全屏形态）”
+  分支判定：/prototype UI 分支 sub-shape B（本仓是 DSH 插件、无 Web 路由，
+  故“同一路由”降级为单文件 + ?variant=A/B/C + 底部悬浮切换条；先例见 prototype/remote-touch-80.prototype.html）。
+  假设声明：状态机本身已在 #107 拍板、#111 冻结，本原型不重议状态对错，只让三种外观都跑同一套冻结语义，
+  若你真正想问的是“状态模型顺不顺”那是 LOGIC 分支，另起单文件。
+  运行：双击本文件即看（无构建、无依赖、无持久化，状态全在内存；刷新即重置）。
+  复用标尺：遮罩 MODAL_Z=11000（与齿轮弹窗同层，盖住 Dock）、PanelPortal→body 语义（本文件即 body 直挂）、
+  字号 em 随档（size 1–10 档 → calc(1em * scale)，不用 px 常量）、保焦 keepComposerFocus（行 mousedown 阻止默认焦点飞走）。
+  定稿后另起实现票落地，本文件只进 throwaway 分支；不贴大段代码进票，只链本文件为资产。
+  Plan one-liner: "Three radically different fullscreen picker variants, switchable via ?variant=, on one throwaway file."
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROTOTYPE #108 — 全屏挑选器 3 变体</title>
+<style>
+  :root{
+    --bg:#14161c; --panel:#1e2230; --panel2:#262c40; --line:#3a4160;
+    --txt:#f2f4fb; --muted:#a7aec7; --dim:#6b7390;
+    --accent:#f0a45c; --accent-ink:#1a1a1e;
+    --danger:#e06c75; --ok:#7fd08a; --proto:#b388ff; --cur:#7fd08a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; font-size:18px;}
+  .proto-banner{background:#241d3d; border-bottom:2px dashed var(--proto); color:#d9ccff;
+    padding:10px 18px; font-size:15px; line-height:1.6;}
+  .proto-banner b{color:var(--proto);}
+  .proto-banner code{background:#171b27; padding:1px 7px; border-radius:6px; color:#fff;}
+  header.app{padding:18px 22px 6px; max-width:1400px; margin:0 auto;}
+  header.app h1{font-size:24px; margin:0 0 6px;}
+  header.app p{margin:4px 0; color:var(--muted); font-size:15px; max-width:1100px;}
+  .toolbar{max-width:1400px; margin:10px auto 0; padding:0 22px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+  .toolbar .grp{display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:#171b27;
+    border:1px solid var(--line); border-radius:12px; padding:8px 10px;}
+  .toolbar .grp b{font-size:13px; color:var(--muted); font-weight:600;}
+  .toolbar button{min-height:48px; padding:8px 14px; font-size:15px; border-radius:10px; cursor:pointer;
+    border:1px solid var(--line); background:var(--panel2); color:var(--txt);}
+  .toolbar button[aria-pressed="true"]{border-color:var(--accent); color:var(--accent);}
+  .toolbar button.danger{border-color:var(--danger); color:var(--danger);}
+  .toolbar input[type="range"]{width:130px; accent-color:var(--accent);}
+  main{max-width:1400px; margin:0 auto; padding:14px 22px 160px;}
+  .variant{display:none;}
+  .variant.active{display:block;}
+  .vtitle{display:flex; align-items:baseline; gap:14px; margin:8px 0 4px;}
+  .vtitle h2{margin:0; font-size:22px;}
+  .vtitle .tag{background:var(--accent); color:var(--accent-ink); font-weight:700; border-radius:8px;
+    padding:2px 12px; font-size:16px;}
+  .vdesc{color:var(--muted); font-size:15px; margin:0 0 12px; max-width:1050px; line-height:1.6;}
+  .vdesc b{color:var(--txt);}
+  .stage{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; min-height:460px;}
+  /* ---- 触控栏示意（Dock，挑选器打开即被盖住是对的） ---- */
+  .dockdemo{display:flex; align-items:center; gap:10px; background:#0e1016; border:1px solid var(--line);
+    border-radius:12px; padding:10px 14px; margin-bottom:14px; font-size:15px; color:var(--muted);}
+  .dockdemo .key{min-height:52px; padding:8px 16px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--txt); font-size:16px; cursor:pointer;}
+  .dockdemo .key.gate-off{display:none;}
+  .dockdemo .key.pick{border-color:var(--accent);}
+  .dockdemo small{color:var(--dim);}
+  /* ---- 真全屏挑选器（沿齿轮弹窗标尺：fixed 占满视口，z=11000） ---- */
+  .picker-mask{position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:11000;
+    display:flex; align-items:stretch; justify-content:stretch; padding:0;}
+  .picker{flex:1; min-width:0; max-width:100%; background:#191d29; display:flex; flex-direction:column; min-height:0;
+    font-size:calc(1em * var(--uiscale, 1));}
+  .picker-head{display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--line);}
+  .picker-head h2{margin:0; font-size:1.08em; flex:none;}
+  .picker-head .sub{font-size:0.85em; color:var(--muted);}
+  .picker-head .x{margin-left:auto; flex:none; width:52px; height:52px; border-radius:12px; cursor:pointer;
+    border:1px solid var(--line); background:var(--panel2); color:var(--txt); font-size:1.4em; line-height:1;}
+  .picker-head .x:hover{border-color:var(--accent); color:var(--accent);}
+  .picker-search{margin:12px 18px 4px; padding:10px 14px; border-radius:10px; min-height:56px;
+    border:1px solid var(--line); background:#0e1016; color:var(--txt); font-size:1em; width:calc(100% - 36px);}
+  .picker-hint{margin:6px 18px 0; font-size:0.82em; color:var(--dim);}
+  .picker-body{flex:1; overflow:auto; padding:14px 18px; min-height:0; min-width:0;}
+  /* 行通用（可点 ≥56px） */
+  .srow{display:flex; align-items:center; gap:12px; width:100%; text-align:left; cursor:pointer;
+    background:var(--panel2); border:1px solid var(--line); color:var(--txt); border-radius:12px;
+    padding:12px 16px; min-height:64px; font-size:1em;}
+  .srow:hover{border-color:var(--accent);}
+  .srow.is-cur{border-color:var(--cur); box-shadow:0 0 0 1px var(--cur) inset;}
+  .srow .t{flex:1 1 auto; min-width:0; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .srow .ws{flex:none; font-size:0.82em; color:var(--muted);}
+  .srow .rel{flex:none; font-size:0.82em; color:var(--dim); font-variant-numeric:tabular-nums;}
+  .srow .tail{flex:none; font-size:0.78em; color:var(--dim); max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .badge{flex:none; font-size:0.72em; font-weight:700; border-radius:999px; padding:1px 9px; line-height:1.7;
+    border:1px solid var(--line); color:var(--muted);}
+  .badge.blank{color:var(--accent); border-color:var(--accent);}
+  .badge.cur{color:#0e1016; background:var(--cur); border-color:var(--cur);}
+  .badge.err{color:var(--danger); border-color:var(--danger);}
+  .ghead{display:flex; align-items:baseline; gap:10px; margin:14px 0 8px; font-size:0.95em; font-weight:700;}
+  .ghead:first-child{margin-top:0;}
+  .ghead .n{background:var(--panel2); border:1px solid var(--line); border-radius:999px;
+    padding:0 10px; font-size:0.82em; color:var(--muted);}
+  /* A: 分组大卡网格 */
+  .agrid{display:grid; grid-template-columns:repeat(2,1fr); gap:16px;}
+  @media(max-width:900px){.agrid{grid-template-columns:1fr;}}
+  .acard{background:#141824; border:1px solid var(--line); border-radius:14px; padding:14px;}
+  .acard .rows{display:flex; flex-direction:column; gap:10px;}
+  /* B: 命令面板单列大行 */
+  .blist{display:flex; flex-direction:column; gap:10px;}
+  .bsticky{position:sticky; top:-14px; background:#191d29; padding:8px 2px; z-index:2;}
+  /* C: 左右分栏 */
+  .cmaster{display:grid; grid-template-columns:240px 1fr; gap:14px; min-height:380px;}
+  @media(max-width:900px){.cmaster{grid-template-columns:1fr;}}
+  .crail{display:flex; flex-direction:column; gap:10px; min-width:0;}
+  .crail button{min-height:64px; border-radius:12px; border:1px solid var(--line); background:#141824;
+    color:var(--txt); font-size:0.95em; cursor:pointer; padding:10px 14px; text-align:left;}
+  .crail button[aria-pressed="true"]{border-color:var(--accent); color:var(--accent);}
+  .crail button small{display:block; color:var(--dim); font-size:0.8em;}
+  .clist{display:flex; flex-direction:column; gap:10px; min-width:0;}
+  /* 三态 */
+  .skel{display:flex; flex-direction:column; gap:10px;}
+  .skel i{display:block; height:64px; border-radius:12px; background:linear-gradient(90deg,#232842,#2c3352,#232842);}
+  .emptystate,.failstate{border:1px dashed var(--line); border-radius:14px; padding:38px 22px; text-align:center;
+    color:var(--muted); font-size:0.95em; line-height:1.8;}
+  .emptystate b,.failstate b{color:var(--txt);}
+  .failstate{border-color:var(--danger);}
+  .retrybtn{min-height:56px; margin-top:12px; padding:10px 26px; font-size:1em; border-radius:12px; cursor:pointer;
+    border:1px solid var(--accent); background:var(--accent); color:var(--accent-ink); font-weight:700;}
+  .cancelbtn{min-height:48px; margin-top:8px; padding:8px 20px; font-size:0.9em; border-radius:10px; cursor:pointer;
+    border:1px solid var(--line); background:transparent; color:var(--muted);}
+  /* 状态外显条（每次动作后重渲染） */
+  details.state{margin-top:14px; background:#0e1016; border:1px solid var(--line); border-radius:12px;
+    padding:10px 16px; font-size:14px;}
+  details.state summary{cursor:pointer; color:var(--proto); font-weight:700; font-size:14px;}
+  details.state table{width:100%; border-collapse:collapse; margin-top:8px;}
+  details.state td{border-top:1px solid #242a3f; padding:5px 8px; vertical-align:top; line-height:1.5;}
+  details.state td.k{color:var(--muted); white-space:nowrap; width:150px;}
+  details.state td.v{color:var(--txt); font-variant-numeric:tabular-nums; word-break:break-all;}
+  .delta{margin-top:12px; background:#141824; border:1px solid var(--line); border-radius:12px;
+    padding:10px 16px; font-size:13.5px; color:var(--muted); line-height:1.7;}
+  .delta b{color:var(--txt);}
+  /* 悬浮切换条（原型 chrome，非设计本身；生产构建隐藏——本文件永不进 main） */
+  #switcher{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:12000;
+    display:flex; align-items:center; gap:6px; background:#0e1016; border:2px solid var(--proto);
+    border-radius:999px; padding:8px 10px; box-shadow:0 8px 30px rgba(0,0,0,.6);}
+  #switcher button{border:1px solid var(--line); background:var(--panel2); color:var(--txt);
+    border-radius:999px; min-width:52px; min-height:52px; font-size:20px; cursor:pointer; padding:6px 14px;}
+  #switcher button.on{background:var(--proto); border-color:var(--proto); color:#14161c; font-weight:700;}
+  #switcher .lab{color:#d9ccff; font-size:14px; padding:0 8px; white-space:nowrap;}
+</style>
+</head>
+<body>
+<div class="proto-banner"><b>PROTOTYPE #108 · 抛弃式</b> —— 不进 main，只进 throwaway 分支。
+设计问题：全屏挑选器应该长什么样（布局/分组/行/关闭键/真全屏）？分支：UI（sub-shape B：单文件 + <code>?variant=A/B/C</code> + 底部悬浮切换）。
+同一套冻结语义（<code>#111</code>）跑三套外观；每次动作后状态条重渲染。双击即看，无持久化。</div>
+
+<header class="app">
+  <h1>#108 全屏挑选器 · 3 变体 <span class="vp-read" id="vp"></span></h1>
+  <p>冻结语义（#107 已拍板）：真全屏占满视口 · 右上×主关闭 + 点遮罩关 + Esc 关 · 点行切换成功自动关、其余留屏 ·
+  分组按工作区（未归属桶置底，单工作区隐藏组头）· 组内 updatedAt 倒序、组间按组内最新倒序 ·
+  搜索=标题+工作区名大小写不敏感子串、每次打开重置、无结果进空态 · 行=标题截断+title全量 / 工作区名 / 相对时间+title绝对 / blank徽标 / cwd尾段灰显 / 当前行高亮+“当前”点了直接关 ·
+  三态整面+整面重试（骨架150ms防闪可取消；空分真无/搜无；失败分探测缺席/切换失败）· 已在直关 · 草稿不读写 · 失败留屏重试不注入错会话 · 缺面隐藏键。</p>
+  <p style="color:var(--dim)">操作：先在“语义控制台”里把挑选器玩到某个状态，再切 A/B/C 看同一状态长什么样——这才是本原型的用法。行上一律 <code>mousedown→keepComposerFocus</code>（焦点不飞走，控制台可验证）。变体差异只在外观结构，不在语义。</p>
+</header>
+
+<div class="toolbar" id="console">
+  <div class="grp"><b>语义控制台</b>
+    <button id="cOpen">打开（重置搜索）</button>
+    <button id="cSlow">模拟加载慢（骨架）</button>
+    <button id="cEmpty">模拟真无会话</button>
+    <button id="cProbeFail">模拟探测缺席</button>
+    <button id="cSwitchFail">模拟切换失败</button>
+  </div>
+  <div class="grp"><b>门控/数据</b>
+    <button id="cGate" aria-pressed="true">入口键：可见</button>
+    <button id="cSingle" aria-pressed="false">单工作区退化：关</button>
+    <button id="cSizeDown">字号−</button>
+    <button id="cSizeUp">字号+</button>
+    <span style="font-size:13px;color:var(--muted)" id="sizeLab"></span>
+  </div>
+  <div class="grp"><b>关闭（任选其一）</b>
+    <button id="cX">右上 ×</button>
+    <button id="cMask">点遮罩</button>
+    <button id="cEsc">Esc</button>
+  </div>
+</div>
+
+<main id="main"></main>
+
+<div id="switcher" role="navigation" aria-label="原型变体切换">
+  <button id="swPrev" title="上一个（←）">←</button>
+  <button data-v="A" title="A 分组大卡">A</button>
+  <button data-v="B" title="B 命令面板大行">B</button>
+  <button data-v="C" title="C 左右分栏">C</button>
+  <button id="swNext" title="下一个（→）">→</button>
+  <span class="lab" id="swLab"></span>
+</div>
+
+<script>
+"use strict";
+/* ============ 可提炼的纯语义核（若定稿， ideas 可进实现；DOM 壳抛弃） ============
+   pickerState: closed | probing | loading | ready | empty | failed | switching
+   分组: workspaceId/归一cwd，未归属桶置底；组头“工作区名(n)”；组内updatedAt倒序、组间组内最新倒序；单工作区隐藏组头。
+   搜索: 标题+工作区名，大小写不敏感子串；每次打开重置；无结果进空态(kind=search)。 */
+var ORDER=["A","B","C"];
+var NAMES={A:"分组大卡网格",B:"命令面板大行",C:"左右分栏"};
+var MODAL_Z=11000; // 与齿轮弹窗同层（panel.ts），盖住 Dock 是对的
+var SIZES=[1,1.15,1.3,1.45,1.6,1.8,2,2.2,2.5,2.8]; // 1–10 档 remoteSizeScale 示意
+var NOW=Date.now();
+var WS={ "ws-prompt":"dsh-prompt", "ws-pal":"dsh-opencode-palette", "ws-idea":"side-idea" };
+var DATA=[
+  {id:"s1", title:"触控栏双键 wayfinding（#104/#108 进行中）", wsId:"ws-prompt", cwd:"/d/dsh-plugin/dsh-prompt", updatedAt:NOW-2*60*1000, blank:false},
+  {id:"s2", title:"远程模式大字号回归（#82）复查", wsId:"ws-prompt", cwd:"/d/dsh-plugin/dsh-prompt", updatedAt:NOW-47*60*1000, blank:false},
+  {id:"s3", title:"（空白会话）", wsId:"ws-prompt", cwd:"/d/dsh-plugin/dsh-prompt", updatedAt:NOW-3*3600*1000, blank:true},
+  {id:"s4", title:"主题调色板秋季配色走查", wsId:"ws-pal", cwd:"/d/dsh-plugin/dsh-opencode-palette", updatedAt:NOW-12*60*1000, blank:false},
+  {id:"s5", title:"一个超长的会话标题用来验证单行截断与 title 悬停全量显示是否如规格所说不断布局", wsId:"ws-pal", cwd:"/d/dsh-plugin/dsh-opencode-palette", updatedAt:NOW-26*3600*1000, blank:false},
+  {id:"s6", title:"孤儿会话：归属对不上的那一个", wsId:null, cwd:"/tmp/scratch-x", updatedAt:NOW-5*3600*1000, blank:false}
+];
+var S={
+  variant:"A", picker:"closed", // closed|probing|loading|ready|empty|failed|switching
+  emptyKind:null, failKind:null, // empty: true-none|search | failed: probe|switch
+  query:"", switchingId:null, failRowId:null,
+  currentId:"s2", lastAction:"init",
+  gate:true, single:false, size:5, focusGuard:"composer",
+  cancelNote:"", skeletonShown:false
+};
+function $(s){return document.querySelector(s);}
+function $all(s){return Array.prototype.slice.call(document.querySelectorAll(s));}
+function wsName(s){return s.wsId?WS[s.wsId]||s.wsId:"未归属";}
+function tail(cwd){var p=String(cwd||"").split("/"); return p[p.length-1]||cwd;}
+function rel(ts){var d=NOW-ts; var m=Math.floor(d/60000); if(m<1)return "刚刚"; if(m<60)return m+" 分钟前";
+  var h=Math.floor(m/60); if(h<24)return h+" 小时前"; return Math.floor(h/24)+" 天前";}
+function abs(ts){try{return new Date(ts).toLocaleString();}catch(e){return String(ts);}}
+function hay(s){return ((s.title||"")+" "+wsName(s)).toLowerCase();}
+function filteredSessions(){
+  var list=DATA.slice();
+  if(S.single) list=list.filter(function(x){return x.wsId==="ws-prompt";});
+  var q=S.query.trim().toLowerCase();
+  if(q) list=list.filter(function(x){return hay(x).indexOf(q)>=0;});
+  return list;
+}
+function groups(){
+  var list=filteredSessions();
+  var map={}, order=[];
+  list.forEach(function(x){
+    var k=x.wsId||"__ungrouped";
+    if(!map[k]){map[k]={key:k,name:x.wsId?wsName(x):"未归属",items:[],latest:0,ungrouped:!x.wsId}; order.push(k);}
+    map[k].items.push(x);
+    if(x.updatedAt>map[k].latest)map[k].latest=x.updatedAt;
+  });
+  var g=order.map(function(k){return map[k];});
+  g.forEach(function(gr){gr.items.sort(function(a,b){return b.updatedAt-a.updatedAt;});});
+  g.sort(function(a,b){
+    if(a.ungrouped&&!b.ungrouped)return 1;
+    if(!a.ungrouped&&b.ungrouped)return -1;
+    return b.latest-a.latest;
+  });
+  return g;
+}
+function rowHtml(x,extra){
+  var cur=x.id===S.currentId;
+  var cls="srow"+(cur?" is-cur":"");
+  return "<button class='"+cls+"' data-row='"+x.id+"' title='"+String(x.title).replace(/"/g,"&quot;")+"&#10;"+abs(x.updatedAt)+" · "+x.cwd+"' onmousedown='keepFocus(event)'>"+
+    "<span class='t'>"+x.title+"</span>"+
+    (x.blank?"<span class='badge blank'>空白</span>":"")+
+    (cur?"<span class='badge cur'>当前</span>":"")+
+    ((S.failRowId===x.id)?"<span class='badge err'>切换失败</span>":"")+
+    "<span class='ws'>"+wsName(x)+"</span>"+
+    "<span class='tail'>"+tail(x.cwd)+"</span>"+
+    "<span class='rel' title='"+abs(x.updatedAt)+"'>"+rel(x.updatedAt)+"</span>"+
+    "<span aria-hidden='true'>›</span></button>"+(extra||"");
+}
+function stateRows(){
+  var g=groups();
+  var gtxt=g.map(function(gr){return gr.name+"("+gr.items.length+")";}).join(" → ")||"—";
+  return [
+    ["pickerState", S.picker+(S.emptyKind?" / empty="+S.emptyKind:"")+(S.failKind?" / failed="+S.failKind:"")],
+    ["query", "“"+S.query+"”（每次打开重置；标题+工作区名不敏感子串）"],
+    ["currentId", S.currentId+"（点了直接关，不重切）"],
+    ["switchingId / failRowId", (S.switchingId||"—")+" / "+(S.failRowId||"—")],
+    ["分组（计算值）", gtxt+(S.single?" · 单工作区已隐藏组头退化平铺":"")],
+    ["门控 gate", S.gate?"可枚举且可切换 → 入口键可见":"缺面 → 入口键隐藏（不进持久化，不记日志）"],
+    ["字号 size", S.size+" 档 → scale "+SIZES[S.size-1]+"（em 随档：font-size:calc(1em*scale)，无 px 常量）"],
+    ["遮罩/层级", "MODAL_Z="+MODAL_Z+" fixed 占满视口，PanelPortal→body 直挂，盖住 Dock 是对的"],
+    ["保焦", "mousedown→keepComposerFocus（preventDefault），焦点="+S.focusGuard],
+    ["lastAction", S.lastAction]
+  ];
+}
+function stateBlock(){
+  return "<details class='state' open><summary>状态外显（每次动作后重渲染 — #108 收尾要求）</summary><table>"+
+    stateRows().map(function(r){return "<tr><td class='k'>"+r[0]+"</td><td class='v'>"+r[1]+"</td></tr>";}).join("")+
+    "</table></details>"+
+    "<div class='delta'><b>与 #111 规格的 delta（本原型实际做法）：</b>① 字号随档——size 滑块 1–10 档经 <code>calc(1em*scale)</code> 全面相对缩放，面板内无绝对 px 字号；"+
+    "② 焦点——所有行 <code>mousedown</code> 先 <code>preventDefault</code>（keepComposerFocus），点行不抢输入框焦点，控制台“保焦”行可验；"+
+    "③ 缺面降级——“入口键：隐藏”开关模拟可枚举/可切换双门控任一缺席，键直接 <code>display:none</code>，不占位、不进持久化、不记日志；"+
+    "④ 骨架 150ms 防闪——“模拟加载慢”先 150ms 空白再出骨架，可取消只取消等待（切换发出后只等落定）。"+
+    "用户拍板三者（外观变体 + 这三处 delta 语义）后 #108 才算 resolve。</div>";
+}
+/* ---------- 变体 ---------- */
+function headHtml(){
+  return "<div class='picker-head'><h2>选择会话</h2><span class='sub'>真全屏 · MODAL_Z "+MODAL_Z+" · Esc/遮罩/× 三路可关</span>"+
+    "<button class='x' data-close='x' title='关闭（主出口）' aria-label='关闭'>×</button></div>"+
+    "<input class='picker-search' id='pq' placeholder='搜索：标题 + 工作区名（大小写不敏感）…' value='"+S.query.replace(/"/g,"&quot;")+"'>"+
+    "<div class='picker-hint'>每次打开重置搜索 · 无结果进空态不回退全量 · 单工作区自动隐藏组头 · 未归属桶置底</div>";
+}
+function bodyForVariant(v){
+  if(S.picker==="loading"){
+    return "<div class='skel'><i></i><i></i><i></i><i></i></div>"+
+      "<div style='text-align:center'><button class='cancelbtn' data-cancel='1'>取消等待（只取消等，不取消已发出切换）</button></div>";
+  }
+  if(S.picker==="empty"){
+    var msg=S.emptyKind==="search"?"<b>搜无结果</b><br>换个关键词试试（不回退全量，避免误点）":"<b>真无会话</b><br>当前没有任何可用会话";
+    return "<div class='emptystate'>"+msg+"</div>";
+  }
+  if(S.picker==="failed"){
+    var fmsg=S.failKind==="probe"?"<b>探测缺席</b><br>宿主机会面不可用（sessions/workspaces 快照或 openSession 缺席）":"<b>切换失败</b><br>保留上下文，可原地重试，不注入错会话";
+    return "<div class='failstate'>"+fmsg+"<br><button class='retrybtn' data-retry='1'>整面重试</button></div>";
+  }
+  var g=groups();
+  if(S.picker==="switching"){
+    return "<div class='picker-hint' style='margin:0 0 10px'>正在切换到 "+S.switchingId+" …（成功才关，其余留屏）</div>"+variantListHtml(v,g);
+  }
+  return variantListHtml(v,g);
+}
+function variantListHtml(v,g){
+  if(v==="A"){
+    return "<div class='agrid'>"+g.map(function(gr){
+      var head=S.single?"":"<div class='ghead'>"+gr.name+" <span class='n'>"+gr.items.length+"</span></div>";
+      return "<div class='acard'>"+head+"<div class='rows'>"+gr.items.map(function(x){return rowHtml(x);}).join("")+"</div></div>";
+    }).join("")+"</div>";
+  }
+  if(v==="B"){
+    return "<div class='blist'>"+g.map(function(gr){
+      var head=S.single?"":"<div class='bsticky'><div class='ghead'>"+gr.name+" <span class='n'>"+gr.items.length+"</span></div></div>";
+      return head+gr.items.map(function(x){return rowHtml(x);}).join("");
+    }).join("")+"</div>";
+  }
+  return "<div class='cmaster'><div class='crail'>"+g.map(function(gr){
+    return "<button data-rail='"+gr.key+"' aria-pressed='false'>"+gr.name+"<small>"+gr.items.length+" 个会话 · 最新"+rel(gr.latest)+"</small></button>";
+  }).join("")+"</div><div class='clist' id='clist'>"+g.map(function(gr){
+    var head=S.single?"":"<div class='ghead'>"+gr.name+" <span class='n'>"+gr.items.length+"</span></div>";
+    return "<div data-cgroup='"+gr.key+"'>"+head+gr.items.map(function(x){return rowHtml(x);}).join("")+"</div>";
+  }).join("")+"</div></div>";
+}
+function renderVariant(){
+  var v=S.variant;
+  var desc={
+    A:"<b>先定位工作区再选会话。</b>工作区分卡片网格，每组自成一卡、组内行纵排；组头“工作区名(n)”常显（单工作区自动消失退化平铺）。代价：组多时滚屏长，搜索藏在顶部不如 B 显眼。",
+    B:"<b>搜即达的命令面板。</b>顶部巨型搜索框是第一焦点，单列 64px+ 大行纵贯全屏，组头 sticky 吸顶。代价：一次只见约 6 行，浏览不如 A/C 概览。",
+    C:"<b>先选区再浏览。</b>左=工作区轨（名+计数+最新相对时间），右=会话列；点左轨滚动定位右列（不单另过滤，避免藏会话）。代价：横向占 240px，窄屏退化为单列。"
+  }[v];
+  var open=S.picker!=="closed";
+  var stage=open
+    ? "<div class='picker-mask' data-mask='1'><div class='picker' id='picker' role='dialog' aria-modal='true' aria-label='选择会话'>"+headHtml()+"<div class='picker-body'>"+bodyForVariant(v)+"</div></div></div>"
+    : "<div class='emptystate'><b>挑选器已关闭</b><br>点触控栏入口键（Dock 示意条）或语义控制台“打开”进入；关闭只经 × / 遮罩 / Esc / 点已在行 / 切换成功。</div>";
+  var dock="<div class='dockdemo'>触控栏 Dock（示意，远程底部一体条）:"+
+    "<button class='key' title='prompt'>⚡ Prompt</button>"+
+    "<button class='key' title='齿轮'>⚙</button>"+
+    "<button class='key pick "+(S.gate?"":"gate-off")+"' data-open='1' title='全屏挑选器入口'>▦ 会话</button>"+
+    "<small>"+(S.gate?"可枚举且可切换 → 键可见":"缺面 → 键已隐藏（降级）")+" · 挑选器打开时被 MODAL_Z 盖住是对的</small></div>";
+  return "<div class='vtitle'><span class='tag'>"+v+"</span><h2>"+NAMES[v]+"</h2></div>"+
+    "<p class='vdesc'>"+desc+"</p><div class='stage' style='--uiscale:"+SIZES[S.size-1]+"'>"+dock+stage+"</div>"+stateBlock();
+}
+function renderMain(){
+  $("#main").innerHTML="<section class='variant active'>"+renderVariant()+"</section>";
+  $("#sizeLab").textContent="size "+S.size+" 档 ×"+SIZES[S.size-1];
+  $("#swLab").textContent=S.variant+" — "+NAMES[S.variant];
+  $all("#switcher [data-v]").forEach(function(b){
+    if(b.getAttribute("data-v")===S.variant)b.classList.add("on"); else b.classList.remove("on");
+  });
+  var g=$("#cGate"); if(g){g.textContent="入口键："+(S.gate?"可见":"隐藏"); g.setAttribute("aria-pressed",String(S.gate));}
+  var sg=$("#cSingle"); if(sg){sg.textContent="单工作区退化："+(S.single?"开":"关"); sg.setAttribute("aria-pressed",String(S.single));}
+  bind();
+  try{var u=new URL(location.href); u.searchParams.set("variant",S.variant); history.replaceState(null,"",u.toString());}catch(e){}
+}
+function setState(patch,action){
+  for(var k in patch)S[k]=patch[k];
+  S.lastAction=action+" · picker="+S.picker;
+  renderMain();
+}
+function openPicker(){
+  S.query=""; S.switchingId=null; S.failRowId=null; S.emptyKind=null; S.failKind=null;
+  S.cancelNote=""; S.skeletonShown=false;
+  setState({picker:"probing"},"打开→probing（重探宿主能力，每次打开重置搜索）");
+  setTimeout(function(){
+    if(S.picker!=="probing")return;
+    var list=filteredSessions();
+    if(!list.length){setState({picker:"empty",emptyKind:"true-none"},"probing→empty(真无)");return;}
+    setState({picker:"loading"},"probing→loading（150ms 防闪窗口）");
+    setTimeout(function(){
+      if(S.picker!=="loading")return;
+      S.skeletonShown=true;
+      setState({picker:"ready"},"loading→ready（骨架已闪，可取消只取消等）");
+    },450);
+  },120);
+}
+function pickRow(id){
+  if(S.picker!=="ready"&&S.picker!=="switching"&&S.picker!=="failed")return;
+  if(id===S.currentId){setState({picker:"closed"},"点已在行→no-op直接关");return;}
+  S.failRowId=null;
+  setState({picker:"switching",switchingId:id},"点行→switching("+id+")");
+  setTimeout(function(){
+    if(S.picker!=="switching"||S.switchingId!==id)return;
+    if(S.failKind==="arm-switch-fail"||window.__armSwitchFail){
+      window.__armSwitchFail=false;
+      setState({picker:"failed",failKind:"switch",failRowId:id,switchingId:null},"switch→failed(切换失败，留屏+行内徽标+整面重试)");
+      return;
+    }
+    var nid=S.switchingId;
+    setState({picker:"closed",switchingId:null,currentId:nid},"switch→closed(成功，currentId="+nid+")");
+  },700);
+}
+window.keepFocus=function(e){ try{e.preventDefault();}catch(_){} S.focusGuard="composer(kept)"; };
+function bind(){
+  $all("[data-open]").forEach(function(b){b.onclick=function(){openPicker();};});
+  $all("[data-row]").forEach(function(b){
+    b.onmousedown=function(e){try{e.preventDefault();}catch(_){} S.focusGuard="composer(kept)";};
+    b.onclick=function(){pickRow(b.getAttribute("data-row"));};
+  });
+  $all("[data-close]").forEach(function(b){b.onclick=function(){setState({picker:"closed"},"右上×→closed(主出口)");};});
+  $all("[data-mask]").forEach(function(m){m.onclick=function(e){if(e.target===m)setState({picker:"closed"},"点遮罩→closed");};});
+  var q=$("#pq");
+  if(q){
+    q.oninput=function(){S.query=q.value; var pos=q.selectionStart;
+      var list=filteredSessions();
+      if(S.picker==="ready"&&!list.length)setState({emptyKind:"search",picker:"empty"},"搜索→empty(搜无，不回退)");
+      else if(S.picker==="empty"&&S.emptyKind==="search"&&list.length)setState({picker:"ready",emptyKind:null},"搜索→ready(命中恢复)");
+      else renderMain();
+      var nq=$("#pq"); if(nq){nq.focus(); try{nq.setSelectionRange(pos,pos);}catch(e){}}
+    };
+    q.onmousedown=function(e){e.stopPropagation();};
+  }
+  $all("[data-retry]").forEach(function(b){b.onclick=function(){S.failKind=null;S.failRowId=null;setState({picker:"loading"},"整面重试→loading");setTimeout(function(){if(S.picker==="loading")setState({picker:"ready"},"重试→ready");},450);};});
+  $all("[data-cancel]").forEach(function(b){b.onclick=function(){setState({picker:"closed",cancelNote:"cancelled-wait"},"取消等待→closed(只取消等)");};});
+  $all("[data-rail]").forEach(function(b){b.onclick=function(){
+    var k=b.getAttribute("data-rail"); var el=document.querySelector("[data-cgroup='"+k+"']");
+    if(el&&el.scrollIntoView)el.scrollIntoView({block:"start"});
+    S.lastAction="左轨定位→"+k; renderMain();
+  };});
+  document.onkeydown=function(e){
+    var t=e.target;
+    if(S.picker!=="closed"&&e.key==="Escape"){setState({picker:"closed"},"Esc→closed");return;}
+    if(t&&(t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.isContentEditable))return;
+    if(e.key==="ArrowLeft")swGo(-1);
+    if(e.key==="ArrowRight")swGo(1);
+  };
+}
+function swGo(d){
+  var i=(ORDER.indexOf(S.variant)+d+ORDER.length)%ORDER.length;
+  S.variant=ORDER[i]; S.lastAction="变体切换→"+S.variant+"（同一语义，换外观）"; renderMain();
+}
+function init(){
+  try{var p=new URL(location.href).searchParams; var v=p.get("variant"); if(v&&ORDER.indexOf(v)>=0)S.variant=v;}catch(e){}
+  $("#cOpen").onclick=openPicker;
+  $("#cSlow").onclick=function(){S.query="";S.failKind=null;S.emptyKind=null;setState({picker:"loading"},"模拟加载慢→loading(骨架150ms防闪示意)");setTimeout(function(){if(S.picker==="loading")setState({picker:"ready"},"loading→ready");},1200);};
+  $("#cEmpty").onclick=function(){setState({picker:"empty",emptyKind:"true-none",query:""},"模拟真无会话→empty(真无)");};
+  $("#cProbeFail").onclick=function(){setState({picker:"failed",failKind:"probe"},"模拟探测缺席→failed(探测缺席)");};
+  $("#cSwitchFail").onclick=function(){window.__armSwitchFail=true;setState({picker:"ready",failKind:"arm-switch-fail"},"已武装下一次切换失败：再点任意非当前行即失败留屏");};
+  $("#cGate").onclick=function(){setState({gate:!S.gate},"门控切换→"+(!S.gate?"隐藏键":"可见键"));};
+  $("#cSingle").onclick=function(){setState({single:!S.single},"单工作区退化→"+(!S.single?"开":"关"));};
+  $("#cSizeDown").onclick=function(){if(S.size>1)setState({size:S.size-1},"字号−→"+(S.size-1)+"档");};
+  $("#cSizeUp").onclick=function(){if(S.size<10)setState({size:S.size+1},"字号+→"+(S.size+1)+"档");};
+  $("#cX").onclick=function(){if(S.picker!=="closed")setState({picker:"closed"},"右上×→closed");};
+  $("#cMask").onclick=function(){if(S.picker!=="closed")setState({picker:"closed"},"点遮罩→closed");};
+  $("#cEsc").onclick=function(){if(S.picker!=="closed")setState({picker:"closed"},"Esc→closed");};
+  $("#swPrev").onclick=function(){swGo(-1);};
+  $("#swNext").onclick=function(){swGo(1);};
+  $all("#switcher [data-v]").forEach(function(b){b.onclick=function(){S.variant=b.getAttribute("data-v");S.lastAction="变体切换→"+S.variant;renderMain();};});
+  function vp(){var el=$("#vp"); if(el)el.textContent=window.innerWidth+" × "+window.innerHeight;}
+  window.addEventListener("resize",vp); vp();
+  renderMain();
+}
+document.addEventListener("DOMContentLoaded",init);
+</script>
+</body>
+</html>

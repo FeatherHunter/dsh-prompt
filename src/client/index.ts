@@ -153,10 +153,28 @@ export function apply(ctx: ClientContext): void {
         const openState = react.useState(isPanelOpen())
         react.useEffect(() => onPanelOpen((v) => openState[1](v)), [])
         // #94：宿主右侧边栏面（ctx.sidebarRight，可晚到/缺席 → 缺席时键隐藏，fail-soft）；
+        // #104：左面（ctx.sidebarLeft，休眠契约：无面隐藏）+ 工作区/会话机会面
+        // （ctx.sessions / ctx.workspaces / ctx.uiWorkspace，双满足才出现挑选器入口）；
         // 每次 render 重探，晚到服务在下一次重渲染时自然接上。
         let sidebarCtl: any = undefined
+        let sidebarLeftCtl: any = undefined
+        let workspaceSessions: any = undefined
+        let workspaceList: any = undefined
+        let workspaceUI: any = undefined
         try { sidebarCtl = (ctx as any).get ? (ctx as any).get('sidebarRight') : undefined } catch (e) { sidebarCtl = undefined }
-        return h(EntryButton, { open: openState[0], sidebarCtl })
+        try { sidebarLeftCtl = (ctx as any).get ? (ctx as any).get('sidebarLeft') : undefined } catch (e) { sidebarLeftCtl = undefined }
+        try { workspaceSessions = (ctx as any).get ? (ctx as any).get('sessions') : undefined } catch (e) { workspaceSessions = undefined }
+        try { workspaceList = (ctx as any).get ? (ctx as any).get('workspaces') : undefined } catch (e) { workspaceList = undefined }
+        try { workspaceUI = (ctx as any).get ? (ctx as any).get('uiWorkspace') : undefined } catch (e) { workspaceUI = undefined }
+        return h(EntryButton, {
+          open: openState[0],
+          sidebarCtl,
+          sidebarLeftCtl,
+          workspaceSessions,
+          workspaceList,
+          workspaceUI,
+          sessionId: (props as any).sessionId,
+        })
       }),
   ), 'dsh-prompt: entry')
 

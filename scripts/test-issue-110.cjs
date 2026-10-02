@@ -157,9 +157,11 @@ const MODULES = [
   ['remote2.cjs', path.join(ROOT, 'src', 'client', 'remote.ts'), []],
   ['remoteView.cjs', path.join(ROOT, 'src', 'client', 'remoteView.ts'), []],
   ['systemOrientation.cjs', SYS_TS, []],
+  ['workspace.cjs', path.join(ROOT, 'src', 'client', 'workspace.ts'), []],
+  ['picker.cjs', path.join(ROOT, 'src', 'client', 'picker.ts'), ['./panel', './remoteView', './i18n', './workspace']],
   ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView']],
   ['settings.cjs', path.join(ROOT, 'src', 'client', 'settings.ts'), ['./panel', './about', './update', './smartstore', './remote', './remoteView', './systemOrientation', './i18n']],
-  ['button.cjs', path.join(ROOT, 'src', 'client', 'button.ts'), ['./panel', './state', './settings', './remote', './i18n']],
+  ['button.cjs', path.join(ROOT, 'src', 'client', 'button.ts'), ['./panel', './state', './settings', './remote', './i18n', './workspace', './picker']],
 ];
 fs.writeFileSync(path.join(DIR, 'about.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;');
 fs.writeFileSync(path.join(DIR, 'update.cjs'), 'module.exports.UpdateEntry=()=>null;');

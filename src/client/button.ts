@@ -9,6 +9,11 @@ import {
   getRemotePrefs, subscribeRemote, ensureRemoteLoaded,
 } from './remote'
 import { getLang, tr, STR } from './i18n'
+import {
+  canShowWorkspaceLeft, canShowWorkspacePicker, probeWorkspaceGates,
+  readWorkspaceLeftExpanded, toggleWorkspaceLeft,
+} from './workspace'
+import { WorkspacePicker } from './picker'
 
 /**
  * #66 窄屏优化：对话框底部输入区变窄时，按钮收起文字、只剩图标。
@@ -58,13 +63,14 @@ function ensureNarrowStyle(): void {
  * 纯 CSS :hover/:active——鼠标悬停提亮、按下/触屏长按压暗+微缩（长按即保持 :active，无需计时器）；
  * 只用 filter/transform，不碰主题色，与 palette 共存；disabled 排除。
  * 挂在入口按钮处注入（入口常驻，即使面板关闭齿轮也在，保证齿轮一定有反馈）。
+ * #104 改域选择器：从逐键枚举改为触控栏域选择器，新键自动继承悬停/按下反馈。
  */
 const REMOTE_FB_STYLE_ID = 'dsh-prompt-remote-feedback'
 const REMOTE_FB_CSS = [
-  '[data-dsh-prompt-remote-gear]:hover, [data-dsh-prompt-sidebar-toggle]:hover, [data-dsh-prompt-remote-panel] button:hover, [data-dsh-prompt-settings-modal] button:hover { filter: brightness(1.1); }',
-  '[data-dsh-prompt-remote-gear]:active, [data-dsh-prompt-sidebar-toggle]:active, [data-dsh-prompt-remote-panel] button:active, [data-dsh-prompt-settings-modal] button:active { filter: brightness(.9); transform: scale(.97); }',
-  '[data-dsh-prompt-remote-panel] button:disabled:hover, [data-dsh-prompt-remote-panel] button:disabled:active { filter: none; transform: none; }',
-  '[data-dsh-prompt-remote-panel] button, [data-dsh-prompt-settings-modal] button { transition: filter .08s ease, transform .08s ease; }',
+  '[data-dsh-prompt-dock] button:hover, [data-dsh-prompt-dock-pill]:hover, [data-dsh-prompt-remote-panel] button:hover, [data-dsh-prompt-settings-modal] button:hover, [data-dsh-prompt-picker-sheet] button:hover { filter: brightness(1.1); }',
+  '[data-dsh-prompt-dock] button:active, [data-dsh-prompt-dock-pill]:active, [data-dsh-prompt-remote-panel] button:active, [data-dsh-prompt-settings-modal] button:active, [data-dsh-prompt-picker-sheet] button:active { filter: brightness(.9); transform: scale(.97); }',
+  '[data-dsh-prompt-remote-panel] button:disabled:hover, [data-dsh-prompt-remote-panel] button:disabled:active, [data-dsh-prompt-picker-sheet] button:disabled:hover, [data-dsh-prompt-picker-sheet] button:disabled:active { filter: none; transform: none; }',
+  '[data-dsh-prompt-remote-panel] button, [data-dsh-prompt-settings-modal] button, [data-dsh-prompt-dock] button, [data-dsh-prompt-picker-sheet] button { transition: filter .08s ease, transform .08s ease; }',
 ].join('\n')
 let remoteFbReady = false
 function ensureRemoteFeedbackStyle(): void {
@@ -202,6 +208,78 @@ export function EntryButton(props: any): any {
   const sbState = react.useState(readSidebarExpanded((props as any).sidebarCtl))
   // #95 Dock 收展（内存态，默认展；不进持久化）
   const dockState = react.useState(true)
+  // #104 左工作区折叠（休眠契约）+ 全屏挑选器（异步双门控）：局部态，不进 store/remote state、不持久化、不记日志
+  const leftState = react.useState(readWorkspaceLeftExpanded((props as any).sidebarLeftCtl))
+  const pickerGateState = react.useState('pending' as 'pending' | 'ready' | 'absent')
+  const pickerOpenState = react.useState(false)
+  const pickerOpen = pickerOpenState[0]
+  const setPickerOpen = pickerOpenState[1]
+  const pickerOpenerRef: any = react.useRef ? react.useRef(null) : { current: null }
+  const openPicker = (): void => {
+    try { gearModalState[1](false) } catch (e) { /* ignore */ }
+    try { pickerOpenState[1](true) } catch (err) { /* ignore */ }
+  }
+  const closePicker = (): void => {
+    try { pickerOpenState[1](false) } catch (e) { /* ignore */ }
+    try {
+      const el = pickerOpenerRef && pickerOpenerRef.current
+      if (el && typeof el.focus === 'function') el.focus()
+    } catch (err) { /* ignore */ }
+  }
+  const openGearModal = (): void => {
+    try { pickerOpenState[1](false) } catch (e) { /* ignore */ }
+    try { gearModalState[1](true) } catch (err) { /* ignore */ }
+  }
+  // #104 Esc 只关顶层：挑选器开着关挑选器，否则关齿轮；焦点回 opener；与收展正交（不动 dockState）
+  react.useEffect(() => {
+    if (!pickerOpen && !gearModalOpen) return undefined
+    const onKey = (e: any): void => {
+      try {
+        if (!e || e.key !== 'Escape') return
+        if (pickerOpenState[0] === true || pickerOpen) {
+          e.stopPropagation()
+          closePicker()
+        } else {
+          closeGearModal()
+        }
+      } catch (err) { /* ignore */ }
+    }
+    try {
+      const doc: any = (globalThis as any).document
+      if (doc && typeof doc.addEventListener === 'function') {
+        doc.addEventListener('keydown', onKey, true)
+        return () => { try { doc.removeEventListener('keydown', onKey, true) } catch (err) { /* ignore */ } }
+      }
+    } catch (err) { /* ignore */ }
+    return undefined
+  }, [pickerOpen, gearModalOpen])
+  // #104 挑选器双门控探测（hooks 铁律：一切 useEffect 必须在早退分支之前调用；
+  // 晚到面在下一次重渲染时自然接上，抄 #94 sidebarCtl 模式）。
+  const wsFaces = {
+    sessions: (props as any).workspaceSessions,
+    workspaces: (props as any).workspaceList,
+    uiWorkspace: (props as any).workspaceUI,
+  }
+  const pickerGate = pickerGateState[0]
+  react.useEffect(() => {
+    let alive = true
+    try {
+      const g = probeWorkspaceGates({
+        sessions: (props as any).workspaceSessions,
+        workspaces: (props as any).workspaceList,
+        uiWorkspace: (props as any).workspaceUI,
+      })
+      if (!alive) return
+      pickerGateState[1](g.enumerable && g.switchable ? 'ready' : 'absent')
+    } catch (e) {
+      try { if (alive) pickerGateState[1]('absent') } catch (err) { /* ignore */ }
+    }
+    return () => { alive = false }
+  }, [
+    (props as any).workspaceSessions,
+    (props as any).workspaceList,
+    (props as any).workspaceUI,
+  ])
   // 返修（关闭键不可见）：远程开时四边留边（不再 100vw×100vh 铺满，圆角回来）；
   // 底边避开入口行——pos/entry 语义（面板底坐入口顶边上方 8px，同 panel.ts:894），reserve 用 rem/百分比；
   // 关闭行 sticky 钉住（82 只断存在性）。非远程原样不动。
@@ -258,6 +336,7 @@ export function EntryButton(props: any): any {
     flex: 'none',
   }
   const entryBtn = h('button', {
+    key: 'entry',
     style, title: label,
     // #66 图标化后可见文字为空，可访问名必须由 aria-label 顶上，否则读屏念不出这个按钮。
     // 与可见文字同名（WCAG 2.5.3 名称与可见标签一致）；宽屏下与文字重复也无害。
@@ -298,6 +377,7 @@ export function EntryButton(props: any): any {
   const gearTitle = tr(lang, STR.remoteConfigKey)
   const gearBox = 26 * entryControlScale
   const gear = h('button', {
+    key: 'gear',
     type: 'button',
     style: {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -310,8 +390,49 @@ export function EntryButton(props: any): any {
     'aria-label': gearTitle,
     'data-dsh-prompt-remote-gear': '1',
     onMouseDown: keepComposerFocus,
-    onClick: () => { gearModalState[1](true) },
+    onClick: openGearModal,
   }, '⚙')
+  // #104 左工作区折叠键（休眠契约）：仅远程 + 左面在场时出现（今天恒隐藏，宿主补 sidebarLeft 后自动出现）；
+  // 语义镜像右键（面板侧对称：分栏居左为左，非像素翻转）；aria-pressed + 两态图标/明暗；每次渲染重探（抄晚到模式）。
+  const sidebarLeftCtl = (props as any).sidebarLeftCtl
+  const canLeft = canShowWorkspaceLeft(sidebarLeftCtl)
+  const leftExpanded = leftState[0] === true
+  const leftTitle = tr(lang, leftExpanded ? STR.workspaceLeftCollapse : STR.workspaceLeftExpand)
+  const leftKey = !canLeft ? null : h('button', {
+    key: 'workspace-left',
+    type: 'button',
+    style: {
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: gearBox, height: gearBox, borderRadius: 8, marginLeft: 6,
+      background: 'var(--dsw-alias-bg-layer-3)',
+      border: '1px solid var(--dsw-alias-border-l1)',
+      color: 'var(--dsw-alias-label-primary)', cursor: 'pointer', fontSize: 14 * entryFontScale, flex: 'none',
+      opacity: leftExpanded ? 1 : 0.75,
+    },
+    title: leftTitle,
+    'aria-label': leftTitle,
+    'aria-pressed': leftExpanded,
+    'data-dsh-prompt-workspace-left': '1',
+    onMouseDown: keepComposerFocus,
+    onClick: () => {
+      toggleWorkspaceLeft(sidebarLeftCtl)
+      try {
+        const v = readWorkspaceLeftExpanded(sidebarLeftCtl)
+        leftState[1](v === null ? !leftExpanded : v)
+      } catch (e) { /* ignore */ }
+    },
+  }, [
+    // 语义镜像（面板侧对称）：左开=分栏居左+向左折，左闭=分栏居右+向右开；与右键并排可辨左右。
+    h('svg', { width: '1.2em', height: '1.2em', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, leftExpanded ? [
+      h('rect', { x: 3, y: 4, width: 18, height: 16, rx: 2 }),
+      h('path', { d: 'M9 4v16' }),
+      h('path', { d: 'M13.5 9l-3 3 3 3' }),
+    ] : [
+      h('rect', { x: 3, y: 4, width: 18, height: 16, rx: 2 }),
+      h('path', { d: 'M15 4v16' }),
+      h('path', { d: 'M10.5 9l3 3-3 3' }),
+    ]),
+  ])
   // #94 齿轮右侧侧栏折叠键：仅远程 + 宿主面在场（toggleExpanded 为函数）时出现；
   // 同 entryBtn 行内、gearBox 同体系（26*chromeScale 随档跟缩）；SVG 自设计两态
   // （currentColor、1.2em 系、strokeWidth 2 与入口灯泡同重）；aria-pressed + 两态图标/明暗给态感；
@@ -321,6 +442,7 @@ export function EntryButton(props: any): any {
   const sbExpanded = sbState[0] === true
   const sbTitle = tr(lang, sbExpanded ? STR.sidebarCollapse : STR.sidebarExpand)
   const sidebarKey = !canSidebar ? null : h('button', {
+    key: 'sidebar',
     type: 'button',
     style: {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -354,14 +476,65 @@ export function EntryButton(props: any): any {
       h('path', { d: 'M13.5 9l3 3-3 3' }),
     ]),
   ])
-  // #95 远程 Dock：三键离对话框→Dock 行内（actions 数组 append 续加；收起键在末尾）；
-  // Dock 容器 fixed 底居中、左右下留边、DOCK_Z 低于远程面板；高随档（容器不定高+em 内边距）。
+  // #104 挑选器入口键（异步双门控）：可枚举且可切换双满足才渲染；探测中/缺席不渲染、无禁用中间态；
+  // 图标框+一行+右›；aria-expanded + haspopup=dialog；title=aria-label 同串双语；与收展正交（开关不动 dockState）。
+  // 注：wsFaces 与 pickerGate 在早退分支前已定义并探测（hooks 铁律），此处只消费。
+  const canPicker = pickerGate === 'ready' && canShowWorkspacePicker(wsFaces)
+  const pickerTitle = tr(lang, STR.workspacePicker)
+  const pickerKey = !canPicker ? null : h('button', {
+    key: 'workspace-picker',
+    type: 'button',
+    ref: (el: any) => { try { if (pickerOpenerRef) pickerOpenerRef.current = el } catch (e) { /* ignore */ } },
+    style: {
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: gearBox, height: gearBox, borderRadius: 8, marginLeft: 6,
+      background: pickerOpen
+        ? 'var(--dsw-specific-accent,#f0a45c)'
+        : 'var(--dsw-alias-bg-layer-3)',
+      border: '1px solid var(--dsw-alias-border-l1)',
+      color: pickerOpen ? '#1a1a1e' : 'var(--dsw-alias-label-primary)',
+      cursor: 'pointer', fontSize: 14 * entryFontScale, flex: 'none',
+    },
+    title: pickerTitle,
+    'aria-label': pickerTitle,
+    'aria-expanded': pickerOpen ? 'true' : 'false',
+    'aria-haspopup': 'dialog',
+    'data-dsh-prompt-workspace-picker': '1',
+    onMouseDown: keepComposerFocus,
+    onClick: () => {
+      if (pickerOpen) closePicker()
+      else openPicker()
+    },
+  }, [
+    // 自设计：框+一行+右›（全屏+当前项+切换），与右折叠同笔重同尺寸体系。
+    h('svg', { width: '1.2em', height: '1.2em', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, [
+      h('rect', { x: 3, y: 4, width: 18, height: 16, rx: 2 }),
+      h('path', { d: 'M7 10h9' }),
+      h('path', { d: 'M14.5 13.5l3 3-3 3' }),
+    ]),
+  ])
+  // #104 挑选器面：与齿轮弹窗同层（MODAL_Z，经 ModalPortal 挂 body 逃离层叠）、高于 Dock（DOCK_Z）；
+  // 单模态（开挑选器关齿轮，反之亦然）；关闭后面板焦点回 opener；开关不改收展内存态。
+  const pickerModalNode = !pickerOpen ? null : h(ModalPortal, { key: 'dsh-prompt-workspace-picker' },
+    h(WorkspacePicker, {
+      faces: wsFaces,
+      currentId: (props as any).sessionId,
+      remoteSize: remote.size,
+      onClose: () => { closePicker() },
+    }),
+  )
+  // #95 远程 Dock：顺序冻结入口→齿轮→左→右→挑选器→收起（收起永末，续加只插收起前）；
+  // 左缺席不占位；挑选器 pending/缺席不渲染；Dock 容器低于挑选器（被盖住是对的）。
+  // 高随档（容器不定高+em 内边距）；窄屏内行横滚、键体不压缩。
   const dockActions: any[] = []
   dockActions.push(entryBtn)
   dockActions.push(gear)
+  if (leftKey) dockActions.push(leftKey)
   if (sidebarKey) dockActions.push(sidebarKey)
+  if (pickerKey) dockActions.push(pickerKey)
   const dockCollapseTitle = tr(lang, STR.dockCollapse)
   dockActions.push(h('button', {
+    key: 'dock-collapse',
     type: 'button',
     style: {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -388,6 +561,8 @@ export function EntryButton(props: any): any {
     border: '1px solid var(--dsw-alias-border-l1)',
     color: 'var(--dsw-alias-label-primary)',
     fontFamily: 'var(--dsw-font-family)', pointerEvents: 'auto',
+    // #104 溢出横滚：容器限视口宽、内行横向滚动、键体不压缩（键已有 flex:none）。
+    maxWidth: '96vw', overflowX: 'auto', whiteSpace: 'nowrap',
   }
   if (!dockState[0]) {
     // 收起态：底部中间小 pill（与 Dock 本体同底边距），点展；设置弹窗照常可挂。
@@ -414,12 +589,12 @@ export function EntryButton(props: any): any {
         }, '▴'),
       ]),
     )
-    return h('span', { style: { display: 'inline-flex', alignItems: 'center' } }, [pillNode, gearModalNode])
+    return h('span', { style: { display: 'inline-flex', alignItems: 'center' } }, [pillNode, gearModalNode, pickerModalNode])
   }
   const dockNode = h(PanelPortal, { key: 'dsh-prompt-dock' },
     h('div', { style: dockBarStyle, 'data-dsh-prompt-dock': '1' }, [
       h('div', { style: dockPillStyle }, dockActions),
     ]),
   )
-  return h('span', { style: { display: 'inline-flex', alignItems: 'center' } }, [dockNode, gearModalNode])
+  return h('span', { style: { display: 'inline-flex', alignItems: 'center' } }, [dockNode, gearModalNode, pickerModalNode])
 }

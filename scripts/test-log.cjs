@@ -34,6 +34,110 @@ function eventsOf(home) { return logLines(home).map((e) => e.event); }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** 不执行代码的字面量解析：只认对象 / 数组 / 字符串 / 数字 / true / false / null，遇到其他一律抛错（上层按 null 处理）。 */
+function parseObjectLiteral(text) {
+  let i = 0;
+  const failLiteral = () => { throw new Error('bad literal'); };
+  function skipWs() { while (i < text.length && /\s/.test(text[i])) i += 1; }
+  function parseString() {
+    const quote = text[i];
+    if (quote !== '"' && quote !== "'") failLiteral();
+    i += 1;
+    let out = '';
+    while (i < text.length) {
+      const ch = text[i];
+      if (ch === quote) { i += 1; return out; }
+      if (ch === '\\') {
+        const esc = text[i + 1];
+        if (esc === undefined) failLiteral();
+        if (esc === 'n') { out += '\n'; i += 2; }
+        else if (esc === 'r') { out += '\r'; i += 2; }
+        else if (esc === 't') { out += '\t'; i += 2; }
+        else if (esc === 'b') { out += '\b'; i += 2; }
+        else if (esc === 'f') { out += '\f'; i += 2; }
+        else if (esc === 'v') { out += '\v'; i += 2; }
+        else if (esc === '0') { out += '\0'; i += 2; }
+        else if (esc === 'u') {
+          const hex = text.slice(i + 2, i + 6);
+          if (!/^[0-9a-fA-F]{4}$/.test(hex)) failLiteral();
+          out += String.fromCharCode(parseInt(hex, 16));
+          i += 6;
+        } else if (esc === '\n') i += 2;
+        else if (esc === '\r') { i += (text[i + 2] === '\n' ? 3 : 2); }
+        else { out += esc; i += 2; }
+        continue;
+      }
+      if (ch === '\n' || ch === '\r') failLiteral();
+      out += ch;
+      i += 1;
+    }
+    failLiteral();
+  }
+  function parseNumber() {
+    const m = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(text.slice(i));
+    if (!m) failLiteral();
+    i += m[0].length;
+    return Number(m[0]);
+  }
+  function parseValue() {
+    skipWs();
+    const ch = text[i];
+    if (ch === '{') return parseObject();
+    if (ch === '[') return parseArray();
+    if (ch === '"' || ch === "'") return parseString();
+    if (ch === '-' || (ch >= '0' && ch <= '9')) return parseNumber();
+    if (text.startsWith('true', i)) { i += 4; return true; }
+    if (text.startsWith('false', i)) { i += 5; return false; }
+    if (text.startsWith('null', i)) { i += 4; return null; }
+    return failLiteral();
+  }
+  function parseObject() {
+    const obj = {};
+    i += 1;
+    skipWs();
+    if (text[i] === '}') { i += 1; return obj; }
+    while (true) {
+      skipWs();
+      let key;
+      const ch = text[i];
+      if (ch === '"' || ch === "'") key = parseString();
+      else {
+        const m = /^[A-Za-z_$][\w$]*/.exec(text.slice(i));
+        if (!m) failLiteral();
+        key = m[0];
+        i += key.length;
+      }
+      skipWs();
+      if (text[i] !== ':') failLiteral();
+      i += 1;
+      const value = parseValue();
+      if (key === '__proto__') Object.defineProperty(obj, key, { value, enumerable: true, writable: true, configurable: true });
+      else obj[key] = value;
+      skipWs();
+      if (text[i] === ',') { i += 1; skipWs(); if (text[i] === '}') { i += 1; return obj; } continue; }
+      if (text[i] === '}') { i += 1; return obj; }
+      return failLiteral();
+    }
+  }
+  function parseArray() {
+    const arr = [];
+    i += 1;
+    skipWs();
+    if (text[i] === ']') { i += 1; return arr; }
+    while (true) {
+      arr.push(parseValue());
+      skipWs();
+      if (text[i] === ',') { i += 1; skipWs(); if (text[i] === ']') { i += 1; return arr; } continue; }
+      if (text[i] === ']') { i += 1; return arr; }
+      return failLiteral();
+    }
+  }
+  const value = parseValue();
+  skipWs();
+  if (i !== text.length) failLiteral();
+  return value;
+}
+
 /** 从构建产物里抠出内联的事件清单字面量（rolldown 以 `//#region event-list.dsh-prompt.json` 标注它）。 */
 function extractInlinedManifest(bundle) {
   const region = bundle.indexOf('//#region event-list.dsh-prompt.json');
@@ -47,7 +151,8 @@ function extractInlinedManifest(bundle) {
     else if (ch === '}') {
       depth -= 1;
       if (depth === 0) {
-        try { return new Function('return ' + bundle.slice(braceAt, p + 1))(); } catch (e) { return null; }
+        // 集中扫描把动态执行记高危且测试文件不豁免：这里只做无执行的字面量解析，绝不把产物文本当代码跑。
+        try { return parseObjectLiteral(bundle.slice(braceAt, p + 1)); } catch (e) { return null; }
       }
     }
   }

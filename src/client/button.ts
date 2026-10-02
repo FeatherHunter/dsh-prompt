@@ -3,8 +3,8 @@
  */
 import { getReact, keepComposerFocus, ModalPortal, PanelPortal, MODAL_Z } from './panel'
 import { SettingsPage } from './settings'
-import { remoteChromeScale } from './remoteView'
-import { isPanelOpen, setPanelOpen, cancelPanelClose, schedulePanelClose } from './state'
+import { remoteChromeScale, remoteSizeScale } from './remoteView'
+import { isPanelOpen, setPanelOpen, cancelPanelClose, schedulePanelClose, noteHoverOpen, takeHoverOpen } from './state'
 import {
   getRemotePrefs, subscribeRemote, ensureRemoteLoaded,
 } from './remote'
@@ -162,6 +162,12 @@ const settingsModalCloseStyle: any = {
 }
 const settingsModalBodyStyle: any = { overflowY: 'auto', padding: '0 14px 14px', minHeight: 0 }
 
+/**
+ * #112 同手势宽限：hover 开窗后多久内的跟进单击仍算“同一手势”（保持开）。
+ * 鼠标 hover→click 同手势通常 <500ms，取 1000ms 宽容；超窗的单击视为稳态意图（取反，可手动关）。
+ */
+const HOVER_CLICK_GRACE_MS = 1000
+
 export function EntryButton(props: any): any {
   const react = getReact()
   if (!react) return null
@@ -205,9 +211,12 @@ export function EntryButton(props: any): any {
   const gearCardStyle = remote.enabled
     // 宽随字自适应（仅远程）：fit-content 吃内容——字小时窄版，字大换行后渐宽；
     // min 保可用（窄到 480 即停，小屏按 94vw 收），max 取现状上限（96vw，与全屏档同值）；非远程原尺寸不动。
+    // #92 补齐：卡片根吃与 SettingsPage 根同构的全额 fontSize（标题 1em/关闭 1em·2em 锚到它才跟档；
+    // 此前只体跟、头不跟，10 档下标题/关闭显小且命中区不放大，与大触控目标相悖；关=不设回原样）。
     ? {
       ...settingsModalCardStyle, width: 'fit-content', minWidth: 'min(480px, 94vw)', maxWidth: '96vw',
       height: 'calc(96vh - 3.5rem)', maxHeight: 'calc(96vh - 3.5rem)', margin: 0, borderRadius: 12,
+      fontSize: 'calc(var(--dsw-font-markdown-base-font-size) * ' + remoteSizeScale(remote.size) + ')',
     }
     : settingsModalCardStyle
   const gearHeadStyle = remote.enabled
@@ -258,10 +267,19 @@ export function EntryButton(props: any): any {
     // 面板内搜索框聚焦时不抢（见 keepComposerFocus）；键盘 Tab+Enter 无 mousedown，不受影响。
     onMouseDown: keepComposerFocus,
     // hover 触发：进入即开；离开延迟 150ms 关（列表接管时取消）
-    onMouseEnter: () => { cancelPanelClose(); setPanelOpen(true) },
+    // #112 去闪关：只有闭→开这一跳才打同手势点——稳态已开时移入不重新武装，
+    // 否则逛过面板回来点按钮就永远关不掉了。
+    onMouseEnter: () => { cancelPanelClose(); if (!isPanelOpen()) { setPanelOpen(true); noteHoverOpen() } },
     onMouseLeave: () => { schedulePanelClose(150) },
     // click 保留：触屏 tap / 键盘 focus+Enter 的 fallback + 手动开关
-    onClick: () => { cancelPanelClose(); setPanelOpen(!isPanelOpen()) },
+    // #112 去闪关：hover 已开窗的同手势跟进单击是“确认/保持”，不是“取反关”——
+    // mouseEnter 先开了窗，click 再按旧状态取反就会闪关；标记消费一次，
+    // 原位第二次单击即走取反（可手动关，不粘住）。超窗视为稳态，同样取反。
+    onClick: () => {
+      cancelPanelClose()
+      if (isPanelOpen() && takeHoverOpen(HOVER_CLICK_GRACE_MS)) return
+      setPanelOpen(!isPanelOpen())
+    },
   }, [
     // 图标：灯泡（提醒/点子语义）+ 小星芒（智能建议）—— 方案 C
     h('svg', { width: 14 * entryFontScale, height: 14 * entryFontScale, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--dsw-specific-accent,#f0a45c)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } }, [

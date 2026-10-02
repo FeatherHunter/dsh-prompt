@@ -6,9 +6,26 @@ const listeners = new Set<(v: boolean) => void>()
 let closeTimer: ReturnType<typeof setTimeout> | null = null
 
 export function isPanelOpen(): boolean { return panelOpen }
+/**
+ * #112 hover-click 同手势标记：入口按钮 hover 开窗时打点，click 凭它区分
+ * “同手势跟进单击（保持开，防闪关）”与“稳态明确单击（取反，可手动关）”。
+ * 读一次消费一次——第二次 click 即走取反；超窗视为稳态（过期不算同手势）；
+ * 关窗即手势结束——任何关窗都清点，不留给下一次开窗（code-review Spec c1）。
+ */
+let hoverOpenedAt = 0
+export function noteHoverOpen(): void { hoverOpenedAt = Date.now() }
+export function takeHoverOpen(graceMs: number): boolean {
+  if (hoverOpenedAt === 0) return false
+  const age = Date.now() - hoverOpenedAt
+  hoverOpenedAt = 0
+  return age <= graceMs
+}
+/** 仅供测试：重置同手势标记 */
+export function __resetHoverOpen(): void { hoverOpenedAt = 0 }
 export function setPanelOpen(v: boolean): void {
   if (panelOpen !== v) {
     panelOpen = v
+    if (!v) hoverOpenedAt = 0
     listeners.forEach((fn) => { try { fn(v) } catch (e) { /* ignore */ } })
   }
 }

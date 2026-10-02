@@ -16,4 +16,4 @@ Single-context layout: one `CONTEXT.md` + `docs/adr/` at the repo root. See `doc
 
 ## Release
 
-Ship npm releases by running `scripts/publish-window.ps1` directly (it opens an interactive 2FA window via a schtasks `/IT` task — usage is in the script header); never hand the publish/OTP steps back to the user.
+Ship npm releases by running `scripts/publish-window.ps1` directly (it opens an interactive 2FA window via a schtasks `/IT` task — usage is in the script header); never hand the publish/OTP steps back to the user. Token unattended path (prefer when a write-capable token exists, no human clicks needed): set `$env:NODE_AUTH_TOKEN` (name only, never paste the value) → `pwsh -NoProfile -File scripts\publish-token.ps1 -Probe` first (must be PROBE-OK) → `pwsh -NoProfile -File scripts\publish-token.ps1` (gates → publish → one-pass sampling; add `-FullPost` before announcing). Accepted ≠ visible: `E409 previously-staged` means received, wait minutes, do not republish or bump.

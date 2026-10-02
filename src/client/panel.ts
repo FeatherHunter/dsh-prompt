@@ -23,9 +23,9 @@ import {
   ensureLoaded, subscribeStore,
 } from './store'
 import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './state'
-import { getRemotePrefs, subscribeRemote, ensureRemoteLoaded } from './remote'
+import { getRemotePrefs, getEnvOrientation, subscribeRemote, ensureRemoteLoaded } from './remote'
 import {
-  deriveRemoteOrientation, resolveRemoteOrientation, computeRemoteView, remoteTagOptions, remoteSizeScale,
+  deriveRemoteOrientation, resolveEffectiveOrientation, computeRemoteView, remoteTagOptions, remoteSizeScale,
   normalizeRemoteDensity,
   type RemoteOrientation,
 } from './remoteView'
@@ -1017,11 +1017,15 @@ export function TemplateBrowser(props: BrowserProps): any {
     ? remoteListBase.filter((x) => templateHaystack(x).indexOf(remoteQl) >= 0)
     : remoteListBase
   const remoteSorted = sortedTemplatesBottomUp(remoteFiltered)
-  // 最终方向：方向偏好锁定覆盖视口推导（去宿主化，纯插件）。
+  // 最终方向（#110 检测统一）：显式偏好赢；auto 取环境方向缓存（整机桥已知值），缺席回落视口推导。
+  // 只读缓存，永不触发网络（新鲜度由设置页/开关流负责）。
   const remotePref = (remotePrefs as any).orientation || 'auto'
-  const remoteFinalOrient: RemoteOrientation = remotePref === 'landscape' || remotePref === 'portrait'
-    ? remotePref
-    : remoteOrient
+  let remoteEnv: unknown = null
+  try {
+    const e = getEnvOrientation()
+    remoteEnv = e ? e.orientation : null
+  } catch (err) { remoteEnv = null }
+  const remoteFinalOrient: RemoteOrientation = resolveEffectiveOrientation(remotePref, remoteEnv, remoteOrient)
   const remoteView = computeRemoteView({
     ids: remoteSorted.map((x) => x.id),
     page: remotePage,

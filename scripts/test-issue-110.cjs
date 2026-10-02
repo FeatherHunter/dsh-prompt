@@ -297,6 +297,154 @@ Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage
 }
 ok('C4 entry未知不恢复整机、插件照回');
 
+// ── D) 检测统一：resolver + env缓存 + 双态caption + 发布链路 ──
+const remoteView110 = transpile(path.join(ROOT, 'src', 'client', 'remoteView.ts'), 'remoteView110.cjs');
+
+// D0：有效值裁决矩阵（显式赢；auto取env；缺席回落视口；垃圾回横屏）
+{
+  const t = remoteView110.resolveEffectiveOrientation;
+  if (typeof t !== 'function') fail('remoteView.ts 缺 resolveEffectiveOrientation 导出');
+  const cases = [
+    [['landscape', 'portrait', 'portrait'], 'landscape'],
+    [['portrait', 'landscape', 'landscape'], 'portrait'],
+    [['auto', 'portrait', 'landscape'], 'portrait'],
+    [['auto', 'landscape', 'portrait'], 'landscape'],
+    [['auto', null, 'portrait'], 'portrait'],
+    [['auto', undefined, 'landscape'], 'landscape'],
+    [['auto', 'bogus', 'bogus'], 'landscape'],
+    [['bogus', null, null], 'landscape'],
+    [['auto', 'portrait', 'bogus'], 'portrait'],
+  ];
+  for (const [args, want] of cases) {
+    if (t(args[0], args[1], args[2]) !== want) fail('裁决错误 ' + JSON.stringify(args) + ' 应 ' + want);
+  }
+}
+ok('D0 有效值裁决（显式赢/auto取env/缺席回落视口）');
+
+// D1：env缓存读写与缺席标记（复用 Part A 的 remote 实例）
+{
+  remote.__resetRemoteForTests();
+  if (remote.getEnvOrientation() !== null) fail('初始 env 应 null');
+  if (remote.isEnvUnsupported() !== false) fail('初始不应缺席');
+  remote.setEnvOrientation({ orientation: 'portrait' });
+  const e = remote.getEnvOrientation();
+  if (!e || e.orientation !== 'portrait' || e.source !== 'system' || typeof e.updatedAt !== 'number') fail('env 应存住整机值 ' + JSON.stringify(e));
+  remote.setEnvOrientation({ orientation: 'bogus' });
+  if (remote.getEnvOrientation().orientation !== 'portrait') fail('非法写入应忽略');
+  remote.markEnvUnsupported();
+  if (remote.getEnvOrientation() !== null || remote.isEnvUnsupported() !== true) fail('缺席应清空并标记');
+  remote.setEnvOrientation({ orientation: 'landscape' });
+  if (remote.isEnvUnsupported() !== false || remote.getEnvOrientation().orientation !== 'landscape') fail('成功写入应解除缺席');
+  remote.__resetRemoteForTests();
+  if (remote.getEnvOrientation() !== null || remote.isEnvUnsupported() !== false) fail('reset 应清 env 与标记');
+}
+ok('D1 env缓存读写与缺席标记');
+
+// D2：双态caption（有env示整机，无env示视口；node无window回横屏）
+{
+  const capText = (root) => {
+    const n = root.findAll((x) => x.props && x.props['data-dsh-prompt-orientation-effective'] === '1')[0];
+    if (!n) fail('缺有效值 caption 行');
+    return String((n.children || []).join(''));
+  };
+  remote2.__resetRemoteForTests();
+  remote2.setEnvOrientation({ orientation: 'landscape' });
+  globalThis.fetch = async (url) => ({ ok: true, status: 200, json: async () => ({ ok: true, value: { remote: { enabled: false, size: 5, orientation: 'auto', density: 'a' } } }) });
+  let c1;
+  await TR.act(async () => { c1 = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
+  await sleep(20);
+  const t1 = capText(c1.root);
+  // 挂载预热 GET 回 store 形状 → 整机未知 → 但预置了 env landscape
+  if (t1.indexOf('横屏') < 0) fail('caption 应示横屏，实际 ' + t1);
+  c1.unmount();
+  // 无 env：回落视口（node 无 window → 横屏兜底），来源视口
+  remote2.__resetRemoteForTests();
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (/\/store$/.test(u)) return { ok: true, status: 200, json: async () => ({ ok: true, value: { remote: { enabled: false, size: 5, orientation: 'auto', density: 'a' } } }) };
+    return { ok: true, status: 200, json: async () => ({ ok: false, error: { code: 'unsupported', message: 'no bridge' } }) };
+  };
+  let c2;
+  await TR.act(async () => { c2 = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
+  await sleep(20);
+  const t2 = capText(c2.root);
+  if (t2.indexOf('横屏') < 0 || t2.indexOf('视口') < 0) fail('无env应回落视口示横屏，实际 ' + t2);
+  c2.unmount();
+}
+ok('D2 双态caption（整机/视口来源可见）');
+
+// D3：挂载恰预热一次；缺席后不再问
+{
+  remote2.__resetRemoteForTests();
+  let gets = 0;
+  globalThis.fetch = async (url, init) => {
+    const u = String(url);
+    if (/\/store$/.test(u)) return { ok: true, status: 200, json: async () => ({ ok: true, value: { remote: { enabled: false, size: 5, orientation: 'auto', density: 'a' } } }) };
+    if (/system\/orientation$/.test(u) && (!init || !init.method || init.method === 'GET')) {
+      gets += 1;
+      return { ok: true, status: 200, json: async () => ({ ok: false, error: { code: 'unsupported', message: 'x' } }) };
+    }
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
+  };
+  let c1;
+  await TR.act(async () => { c1 = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
+  await sleep(20);
+  if (gets !== 1) fail('挂载应预热恰一次，实际 ' + gets);
+  if (remote2.isEnvUnsupported() !== true) fail('unsupported 应记负缓存');
+  c1.unmount();
+  let c2;
+  await TR.act(async () => { c2 = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
+  await sleep(20);
+  if (gets !== 1) fail('缺席后挂载不应再问，实际 ' + gets);
+  c2.unmount();
+}
+ok('D3 挂载预热一次+负缓存');
+
+// D4：锁定成功发布env且零新增GET；退出恢复成功同步env
+{
+  remote2.__resetRemoteForTests();
+  let fakeOs = 'landscape';
+  let gets = 0;
+  const posts = [];
+  globalThis.fetch = async (url, init) => {
+    const u = String(url);
+    if (/\/store$/.test(u)) return { ok: true, status: 200, json: async () => ({ ok: true, value: { remote: { enabled: false, size: 5, orientation: 'auto', density: 'a' } } }) };
+    if (/system\/orientation$/.test(u) && init && init.method === 'POST') {
+      posts.push(JSON.parse(init.body).orientation);
+      fakeOs = JSON.parse(init.body).orientation;
+      return { ok: true, status: 200, json: async () => ({ ok: true, orientation: fakeOs, changed: true }) };
+    }
+    if (/system\/orientation$/.test(u)) { gets += 1; return { ok: true, status: 200, json: async () => ({ ok: true, orientation: fakeOs }) }; }
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
+  };
+  let created;
+  await TR.act(async () => { created = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
+  await sleep(20);
+  const getsAfterMount = gets;
+  const toggle = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
+  await TR.act(async () => { toggle.props.onChange({ target: { checked: true } }); await sleep(30); });
+  const getsAfterEnter = gets;
+  const portrait = created.root.findAll((x) => x.props && x.props['data-dsh-prompt-orientation'] === 'portrait')[0];
+  await TR.act(async () => { portrait.props.onClick(); await sleep(30); });
+  if (remote2.getEnvOrientation().orientation !== 'portrait') fail('锁定成功应发布env竖屏');
+  if (gets !== getsAfterEnter) fail('锁定不应新增GET（复用已知），实际多 ' + (gets - getsAfterEnter));
+  const toggle2 = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
+  await TR.act(async () => { toggle2.props.onChange({ target: { checked: false } }); await sleep(50); });
+  if (remote2.getEnvOrientation().orientation !== 'landscape') fail('退出恢复成功应同步env横屏');
+  if (JSON.stringify(posts) !== JSON.stringify(['portrait', 'landscape'])) fail('POST 应为锁定+恢复各一次，实际 ' + JSON.stringify(posts));
+  created.unmount();
+}
+ok('D4 发布链路零新增调用（锁定/恢复复用已知）');
+
+// D5：面板层永不直调整机桥（源码级）
+{
+  const panelSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'panel.ts'), 'utf8');
+  if (/system\/orientation/.test(panelSrc)) fail('面板不得直调整机桥 URL');
+  if (/getSystemOrientation|setSystemOrientation/.test(panelSrc)) fail('面板不得直调整机桥函数（只读 remote env 缓存）');
+  if (!/getEnvOrientation/.test(panelSrc) || !/resolveEffectiveOrientation/.test(panelSrc)) fail('面板应经 env 缓存 + 有效值裁决');
+}
+ok('D5 面板只读缓存不碰桥');
+
 delete globalThis.fetch;
 remote2.__resetRemoteForTests();
 unstubLocalStorage();

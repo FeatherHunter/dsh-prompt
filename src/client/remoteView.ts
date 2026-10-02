@@ -21,8 +21,9 @@ export type RemoteOrientation = 'landscape' | 'portrait'
 export type RemoteTierName = 'small' | 'medium' | 'large'
 
 /**
- * 方向偏好（去宿主化，纯插件）：
- * auto 跟视口走，landscape/portrait 强制锁定。非法回 auto（调用方兜底，不抛）。
+ * 方向偏好（三档语义，#110 检测统一后）：
+ * auto 跟整机方向（环境方向缓存命中即用，缺席回落视口比例）；
+ * landscape/portrait 强制锁定。非法回 auto（调用方兜底，不抛）。
  */
 export type RemoteOrientationPref = 'auto' | 'landscape' | 'portrait'
 
@@ -33,6 +34,8 @@ export function normalizeRemoteOrientationPref(v: unknown): RemoteOrientationPre
 /**
  * 解析最终方向（纯函数，去宿主化后的唯一方向入口）：
  * 偏好非 auto 即锁定值；auto 则按视口比例（宽不小于高即横屏，否则竖屏；非法回横屏）。
+ * #110 检测统一后 auto 的首选是环境方向缓存（见 resolveEffectiveOrientation），
+ * 本函数保留为视口回落原语，不动既有调用点。
  */
 export function resolveRemoteOrientation(width: unknown, height: unknown, pref: unknown): RemoteOrientation {
   try {
@@ -40,6 +43,22 @@ export function resolveRemoteOrientation(width: unknown, height: unknown, pref: 
     if (p === 'landscape') return 'landscape'
     if (p === 'portrait') return 'portrait'
     return deriveRemoteOrientation(width, height)
+  } catch (e) {
+    return 'landscape'
+  }
+}
+
+/**
+ * 解析有效方向（#110 检测统一，纯函数）：
+ * 显式偏好赢；auto 取环境方向缓存（整机桥已知值）；缓存缺席/非法回落视口推导。
+ * 调用方传已算好的视口方向（面板侧用监听值、设置页用现算值），本函数只做优先级裁决。
+ */
+export function resolveEffectiveOrientation(pref: unknown, env: unknown, viewport: unknown): RemoteOrientation {
+  try {
+    if (pref === 'landscape' || pref === 'portrait') return pref
+    if (env === 'landscape' || env === 'portrait') return env
+    if (viewport === 'landscape' || viewport === 'portrait') return viewport
+    return 'landscape'
   } catch (e) {
     return 'landscape'
   }

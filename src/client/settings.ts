@@ -16,9 +16,10 @@ import {
   getRemotePrefs, subscribeRemote, ensureRemoteLoaded,
   setRemoteEnabled, setRemoteSize, setRemoteOrientation, setRemoteDensity,
   getRemotePersistState,
+  getEnvOrientation, setEnvOrientation, isEnvUnsupported, markEnvUnsupported,
   type RemoteOrientationPref, type RemoteDensity,
 } from './remote'
-import { remoteSizeScale } from './remoteView'
+import { remoteSizeScale, resolveEffectiveOrientation, deriveRemoteOrientation } from './remoteView'
 import { setSystemOrientation, getSystemOrientation, isSystemOrientation, shouldRestoreSystemOrientation } from './systemOrientation'
 import { getLang, tr, STR } from './i18n'
 
@@ -228,6 +229,24 @@ export function SettingsPage(props: any): any {
         persistState[1](getRemotePersistState())
       } catch (e) { /* ignore */ }
     })
+  }, [])
+  // #110 检测统一：挂载预热环境方向缓存（推测性查询；缺席记负缓存，本会话不再问；
+  // 用户显式锁定不受影响）。解析后刷一次界面，让有效值 caption 落到现值。
+  react.useEffect(() => {
+    try {
+      if (isEnvUnsupported()) return undefined
+      getSystemOrientation().then(
+        (r: any) => {
+          try {
+            if (r && r.ok) setEnvOrientation({ orientation: r.orientation })
+            else if (r && r.error && r.error.code === 'unsupported') markEnvUnsupported()
+            remoteState[1](getRemotePrefs())
+          } catch (e) { /* ignore */ }
+        },
+        () => { /* 读不到 → 视口回落，不打扰 */ },
+      )
+    } catch (e) { /* ignore */ }
+    return undefined
   }, [])
   // #82 配置键直达的落点：打开设置页后滚动到远程段（globalThis 钩子供 remote.openRemoteSettings 调用）。
   // 2026-09-29：自家设置弹窗同样挂载本组件；卸载时只清自己注册的钩子，不清别人的（多实例共存）。
@@ -448,6 +467,8 @@ export function SettingsPage(props: any): any {
       }
       if (r && r.ok) {
         try { if (getRemotePrefs().enabled === true) sessionOsTouched = true } catch (e) { /* ignore */ }
+        // #110 检测统一：锁定成功即已知整机现值，复用为环境缓存（零新增调用）
+        try { setEnvOrientation({ orientation: v }) } catch (e) { /* ignore */ }
         landOrientation(v, '')
       } else {
         const code = (r && r.error && r.error.code) || 'unknown'
@@ -460,6 +481,27 @@ export function SettingsPage(props: any): any {
   // 卡片内 hairline 分隔（苹果改版）：行与行之间一线，纯装饰无钩子；颜色走统一 token。
   const hairline = (key: string): any =>
     h('div', { key, style: { borderTop: '1px solid ' + TOK.border } })
+
+  // #110 检测统一：有效方向（显式偏好赢；auto 取环境缓存，缺席回落视口）。
+  // 开关态同规显示，附来源角标，让 auto 的行为可见。
+  const orientPref: RemoteOrientationPref = (remote as any).orientation || 'auto'
+  let viewportOrient: unknown = null
+  try {
+    if (typeof window !== 'undefined'
+      && typeof (window as any).innerWidth === 'number'
+      && typeof (window as any).innerHeight === 'number') {
+      viewportOrient = deriveRemoteOrientation((window as any).innerWidth, (window as any).innerHeight)
+    }
+  } catch (e) { viewportOrient = null }
+  let envOrient: unknown = null
+  try {
+    const e = getEnvOrientation()
+    envOrient = e ? e.orientation : null
+  } catch (err) { envOrient = null }
+  const effectiveOrient = resolveEffectiveOrientation(orientPref, envOrient, viewportOrient)
+  const effectiveCaption = t('remoteEffectiveNow')
+    .replace('{orient}', effectiveOrient === 'landscape' ? t('remoteOrientationLandscape') : t('remoteOrientationPortrait'))
+    .replace('{source}', t(envOrient ? 'remoteSourceSystem' : 'remoteSourceViewport'))
 
   const remoteGroup = h('section', {
     key: 'remote',
@@ -477,22 +519,28 @@ export function SettingsPage(props: any): any {
         onChange: (e: any) => {
           const on = !!e.target.checked
           if (on === true && !remote.enabled) {
-            // #110 进入：整机 O0 最佳努力快照（失败记未知，不挡总闸；锁定点会等它落定）
+            // #110 进入：整机 O0 最佳努力快照（失败记未知，不挡总闸；锁定点会等它落定）。
+            // 成功同时发布环境缓存（显示与 auto 共用，零新增调用）；缺席记负缓存。
             sessionOsTouched = false
             sessionOsEntry = null
             try {
-              const q: Promise<unknown> = getSystemOrientation() as unknown as Promise<unknown>
-              sessionOsEntryQuery = q
-              q.then(
-                (r: any) => {
-                  sessionOsEntry = r && r.ok ? r.orientation : null
-                  if (sessionOsEntryQuery === q) sessionOsEntryQuery = null
-                },
-                () => {
-                  sessionOsEntry = null
-                  if (sessionOsEntryQuery === q) sessionOsEntryQuery = null
-                },
-              )
+              if (!isEnvUnsupported()) {
+                const q: Promise<unknown> = getSystemOrientation() as unknown as Promise<unknown>
+                sessionOsEntryQuery = q
+                q.then(
+                  (r: any) => {
+                    sessionOsEntry = r && r.ok ? r.orientation : null
+                    if (r && r.ok) setEnvOrientation({ orientation: r.orientation })
+                    else if (r && r.error && r.error.code === 'unsupported') markEnvUnsupported()
+                    if (sessionOsEntryQuery === q) sessionOsEntryQuery = null
+                    try { remoteState[1](getRemotePrefs()) } catch (e) { /* ignore */ }
+                  },
+                  () => {
+                    sessionOsEntry = null
+                    if (sessionOsEntryQuery === q) sessionOsEntryQuery = null
+                  },
+                )
+              }
             } catch (err) { sessionOsEntry = null; sessionOsEntryQuery = null }
           }
           const next = setRemoteEnabled(on)
@@ -512,7 +560,9 @@ export function SettingsPage(props: any): any {
                   if (!shouldRestoreSystemOrientation(entry, true, cur && cur.ok ? cur.orientation : null)) return
                   setSystemOrientation(entry).then(
                     (r: any) => {
-                      if (!r.ok) orientNoteState[1](t('remoteOrientationRestoreFail').replace('{code}', r.error.code))
+                      // #110 检测统一：恢复成功即已知整机现值，复用为环境缓存
+                      if (r.ok) { try { setEnvOrientation({ orientation: entry }) } catch (e) { /* ignore */ } }
+                      else orientNoteState[1](t('remoteOrientationRestoreFail').replace('{code}', r.error.code))
                     },
                     () => { orientNoteState[1](t('remoteOrientationRestoreFail').replace('{code}', 'unknown')) },
                   )
@@ -566,13 +616,19 @@ export function SettingsPage(props: any): any {
       ]),
     ]),
     hairline('sep-size-orient'),
-    // 方向偏好（真切整机优先的本插件闭环）：自动跟视口；锁定先调 OS，真切失败回落自家锁定并明示。
+    // 方向偏好（#110 检测统一）：自动跟整机方向（环境缓存命中即用，缺席回落视口）；
+    // 锁定先调 OS，真切失败回落自家锁定并明示。有效值见下一行 caption（开关态同规）。
     h(SettingRow, {
       key: 'remote-orientation',
       label: t('remoteOrientation'),
       description: t('remoteOrientationHint'),
-      control: orientationControl((remote as any).orientation || 'auto', onPickOrientation, orientBusy, !remote.enabled),
+      control: orientationControl(orientPref, onPickOrientation, orientBusy, !remote.enabled),
     }),
+    h('div', {
+      key: 'remote-orientation-effective',
+      style: { ...noteStyle, paddingTop: 0, paddingBottom: 8 },
+      'data-dsh-prompt-orientation-effective': '1',
+    }, effectiveCaption),
     hairline('sep-orient-density'),
     // 密度档（#90）：方向偏好行之后，两段手动切换；切档页码归零由面板侧执行。
     h(SettingRow, {

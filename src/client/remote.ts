@@ -201,6 +201,51 @@ function clearStoredSnapshot(): void {
   } catch (e) { /* ignore */ }
 }
 
+/* ── 环境方向缓存（#110 检测统一）：整机方向的只读缓存 ──
+ *
+ * 职责：给“自动”档与设置页提供整机方向读数。只读不写——写整机永远走整机桥。
+ * 新鲜度由用户动作事件界定（设置页挂载预热、开远程进入查询、锁定/恢复成功复用已知结果），
+ * 不做轮询；hover/面板只读缓存，永不触发网络。内存态，reload 即失（视口回落接管）。
+ */
+
+export interface EnvOrientation {
+  orientation: 'landscape' | 'portrait'
+  /** 来源（现仅整机桥；视口回落由调用方现算，不进缓存） */
+  source: 'system'
+  updatedAt: number
+}
+
+/** 缓存的整机方向（null = 未知，走视口回落） */
+let envOrientation: EnvOrientation | null = null
+/** 桥永久缺席（本会话内不再做推测性查询；用户显式锁定不受影响，照调照报） */
+let envUnsupported = false
+
+/** 读环境方向缓存（返回拷贝；null 即未知） */
+export function getEnvOrientation(): EnvOrientation | null {
+  return envOrientation ? { ...envOrientation } : null
+}
+
+/** 写环境方向缓存（非法输入忽略，不抛；成功写入同时解除缺席标记） */
+export function setEnvOrientation(v: unknown): void {
+  try {
+    const o = (v as any) && (v as any).orientation
+    if (o !== 'landscape' && o !== 'portrait') return
+    envOrientation = { orientation: o, source: 'system', updatedAt: Date.now() }
+    envUnsupported = false
+  } catch (e) { /* ignore */ }
+}
+
+/** 记桥缺席（本会话跳过推测性查询；已缓存的值一并作废，避免拿 stale 冒充现值） */
+export function markEnvUnsupported(): void {
+  envUnsupported = true
+  envOrientation = null
+}
+
+/** 桥是否已确认缺席 */
+export function isEnvUnsupported(): boolean {
+  return envUnsupported === true
+}
+
 function notifyRemote(): void {
   listeners.forEach((fn) => { try { fn() } catch (e) { /* ignore */ } })
 }
@@ -436,10 +481,12 @@ export function setRemoteDensity(d: RemoteDensity): RemotePrefs {
   return { ...next }
 }
 
-/** 仅供测试：重置内存态（会话快照一并清；落盘键由用例自管，不碰） */
+/** 仅供测试：重置内存态（会话快照与环境缓存一并清；落盘键由用例自管，不碰） */
 export function __resetRemoteForTests(): void {
   cache = { ...REMOTE_DEFAULTS }
   sessionSnapshot = null
+  envOrientation = null
+  envUnsupported = false
   remoteLoaded = false
   loadPromise = null
   loadRetried = false

@@ -111,6 +111,7 @@ export const STR = {
   remoteEffectiveNow: { zh: '当前：{orient}（{source}）', en: 'Now: {orient} ({source})' },
   remoteSourceSystem: { zh: '整机', en: 'system display' },
   remoteSourceViewport: { zh: '视口', en: 'viewport' },
+  remoteLockedOrientation: { zh: '锁定为{orient}', en: 'Locked to {orient}' },
   remoteDensity: { zh: '宫格密度', en: 'Grid density' },
   remoteDensityA: { zh: '12宫格', en: '12' },
   remoteDensityB: { zh: '8宫格', en: '8 large' },

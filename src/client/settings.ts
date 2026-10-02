@@ -499,9 +499,13 @@ export function SettingsPage(props: any): any {
     envOrient = e ? e.orientation : null
   } catch (err) { envOrient = null }
   const effectiveOrient = resolveEffectiveOrientation(orientPref, envOrient, viewportOrient)
-  const effectiveCaption = t('remoteEffectiveNow')
-    .replace('{orient}', effectiveOrient === 'landscape' ? t('remoteOrientationLandscape') : t('remoteOrientationPortrait'))
-    .replace('{source}', t(envOrient ? 'remoteSourceSystem' : 'remoteSourceViewport'))
+  const orientLabel = effectiveOrient === 'landscape' ? t('remoteOrientationLandscape') : t('remoteOrientationPortrait')
+  // 来源角标只属于 auto：显式锁定的有效值即锁定值，若缀整机会把偏好的选择算到整机头上。
+  const effectiveCaption = (orientPref === 'landscape' || orientPref === 'portrait')
+    ? t('remoteLockedOrientation').replace('{orient}', orientLabel)
+    : t('remoteEffectiveNow')
+      .replace('{orient}', orientLabel)
+      .replace('{source}', t(envOrient ? 'remoteSourceSystem' : 'remoteSourceViewport'))
 
   const remoteGroup = h('section', {
     key: 'remote',

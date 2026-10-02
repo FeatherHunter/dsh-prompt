@@ -373,6 +373,23 @@ ok('D1 env缓存读写与缺席标记');
 }
 ok('D2 双态caption（整机/视口来源可见）');
 
+// D2c：显式锁定 caption 不带来源（偏好的选择不算到整机头上）
+{
+  remote2.__resetRemoteForTests();
+  remote2.setEnvOrientation({ orientation: 'landscape' });
+  globalThis.fetch = async (url) => ({ ok: true, status: 200, json: async () => ({ ok: true, value: { remote: { enabled: false, size: 5, orientation: 'portrait', density: 'a' } } }) });
+  let c;
+  await TR.act(async () => { c = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
+  await sleep(20);
+  const n = c.root.findAll((x) => x.props && x.props['data-dsh-prompt-orientation-effective'] === '1')[0];
+  const t = String((n.children || []).join(''));
+  if (t.indexOf('锁定') < 0 || t.indexOf('竖屏') < 0) fail('显式锁定应示锁定为竖屏，实际 ' + t);
+  if (t.indexOf('整机') >= 0 || t.indexOf('视口') >= 0) fail('显式锁定不得带来源角标，实际 ' + t);
+  c.unmount();
+  remote2.__resetRemoteForTests();
+}
+ok('D2c 显式锁定caption无来源误标');
+
 // D3：挂载恰预热一次；缺席后不再问
 {
   remote2.__resetRemoteForTests();

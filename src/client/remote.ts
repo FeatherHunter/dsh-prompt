@@ -434,6 +434,28 @@ export function setRemoteEnabled(on: boolean): RemotePrefs {
   return { ...next }
 }
 
+/** 读会话快照（进入前方向；null = 非会话中或无快照） */
+export function getSessionSnapshotOrientation(): RemoteOrientationPref | null {
+  return sessionSnapshot
+}
+
+/**
+ * 设为默认（#110 收尾）：把会话内当前方向记为以后进出的默认值。
+ * 只在会话中有效（enabled 且有快照）；非会话直接返回现状。
+ * 实现 = 快照跟进当前值（内存 + 落盘双份），偏好本身已由会话内切换持久化，无需再写。
+ * 退出时即按新默认恢复（等于无操作），崩溃恢复同样跟进。
+ */
+export function commitSessionOrientationAsDefault(): RemotePrefs {
+  try {
+    if (cache.enabled !== true || sessionSnapshot === null) return { ...cache }
+    if (sessionSnapshot === cache.orientation) return { ...cache }
+    sessionSnapshot = cache.orientation
+    writeStoredSnapshot(cache.orientation)
+    notifyRemote()
+  } catch (e) { /* ignore */ }
+  return { ...cache }
+}
+
 /**
  * 跨插件页内 API（#93）：globalThis.__dshPromptSetRemote 的实现本体。
  *

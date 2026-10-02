@@ -462,6 +462,68 @@ ok('D4 发布链路零新增调用（锁定/恢复复用已知）');
 }
 ok('D5 面板只读缓存不碰桥');
 
+// D6：设为默认——快照跟进，会话退出保持新默认
+{
+  // D6a 纯函数：非会话 no-op；会话内干净 no-op；脏时跟进
+  remote.__resetRemoteForTests();
+  Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
+  let r = remote.commitSessionOrientationAsDefault();
+  if (r.orientation !== 'auto') fail('非会话设默认应 no-op');
+  remote.setRemoteOrientation('landscape');
+  remote.setRemoteEnabled(true);
+  r = remote.commitSessionOrientationAsDefault();
+  if (r.orientation !== 'landscape') fail('干净快照设默认应 no-op');
+  if (remote.getSessionSnapshotOrientation() !== 'landscape') fail('快照应为进入值横屏');
+  remote.setRemoteOrientation('portrait');
+  r = remote.commitSessionOrientationAsDefault();
+  if (remote.getSessionSnapshotOrientation() !== 'portrait') fail('设默认后快照应跟进竖屏');
+  if (JSON.parse(globalThis.localStorage.getItem('__dshPromptPreRemote')).orientation !== 'portrait') fail('落盘快照应同步跟进');
+  remote.setRemoteEnabled(false);
+  if (remote.getRemotePrefs().orientation !== 'portrait') fail('设默认后退出应保持竖屏，实际 ' + remote.getRemotePrefs().orientation);
+  if (globalThis.localStorage.getItem('__dshPromptPreRemote') !== null) fail('退出后快照应清');
+  remote.__resetRemoteForTests();
+  Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
+}
+ok('D6a 设默认纯语义（非会话/干净no-op，脏时跟进，退出保持）');
+
+// D6b 渲染器：按钮按需出现，点击确认并退出保持
+{
+  remote2.__resetRemoteForTests();
+  Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
+  globalThis.fetch = async (url, init) => {
+    const u = String(url);
+    if (/\/store$/.test(u)) return { ok: true, status: 200, json: async () => ({ ok: true, value: { remote: { enabled: false, size: 5, orientation: 'landscape', density: 'a' } } }) };
+    if (/system\/orientation$/.test(u) && init && init.method === 'POST') return { ok: true, status: 200, json: async () => ({ ok: true, orientation: JSON.parse(init.body).orientation, changed: true }) };
+    if (/system\/orientation$/.test(u)) return { ok: true, status: 200, json: async () => ({ ok: true, orientation: 'landscape' }) };
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
+  };
+  let created;
+  await TR.act(async () => { created = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
+  await sleep(20);
+  const bySetDefault = () => created.root.findAll((x) => x.type === 'button' && x.props && x.props['data-dsh-prompt-orientation-set-default'] === '1');
+  if (bySetDefault().length !== 0) fail('关时不应出现设为默认');
+  const toggle = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
+  await TR.act(async () => { toggle.props.onChange({ target: { checked: true } }); await sleep(30); });
+  if (bySetDefault().length !== 0) fail('干净会话不应出现设为默认');
+  const autoBtn = created.root.findAll((x) => x.props && x.props['data-dsh-prompt-orientation'] === 'auto')[0];
+  await TR.act(async () => { autoBtn.props.onClick(); await sleep(20); });
+  if (bySetDefault().length !== 1) fail('变脏后应出现设为默认');
+  const btn = bySetDefault()[0];
+  if (!btn.props.title) fail('设为默认应有说明 title');
+  await TR.act(async () => { btn.props.onClick(); await sleep(20); });
+  if (bySetDefault().length !== 0) fail('设默认后按钮应消失（已跟进）');
+  const notes = created.root.findAll((x) => x.props && x.props['data-dsh-prompt-orientation-default-note'] === '1');
+  if (notes.length !== 1 || String((notes[0].children || []).join('')).indexOf('已设为默认') < 0) fail('设默认后应有确认回执');
+  if (remote2.getSessionSnapshotOrientation() !== 'auto') fail('快照应跟进自动');
+  const toggle2 = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
+  await TR.act(async () => { toggle2.props.onChange({ target: { checked: false } }); await sleep(50); });
+  if (remote2.getRemotePrefs().orientation !== 'auto') fail('设默认后退出应保持自动，实际 ' + remote2.getRemotePrefs().orientation);
+  created.unmount();
+  remote2.__resetRemoteForTests();
+  Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
+}
+ok('D6b 设默认渲染器（按需出现/确认回执/退出保持）');
+
 delete globalThis.fetch;
 remote2.__resetRemoteForTests();
 unstubLocalStorage();

@@ -17,6 +17,7 @@ import {
   setRemoteEnabled, setRemoteSize, setRemoteOrientation, setRemoteDensity,
   getRemotePersistState,
   getEnvOrientation, setEnvOrientation, isEnvUnsupported, markEnvUnsupported,
+  getSessionSnapshotOrientation, commitSessionOrientationAsDefault,
   type RemoteOrientationPref, type RemoteDensity,
 } from './remote'
 import { remoteSizeScale, resolveEffectiveOrientation, deriveRemoteOrientation } from './remoteView'
@@ -105,12 +106,22 @@ function Btn(props: any): any {
     : tone === 'danger'
       ? { ...base, border: '1px solid ' + (hover ? TOK.danger : TOK.border), background: 'transparent', color: hover ? TOK.danger : TOK.labelSecondary }
       : { ...base, border: '1px solid ' + TOK.border, background: hover ? TOK.bgHover : TOK.bgLayer, color: TOK.labelPrimary }
+  // #110 收尾：透传 title/disabled/data-*/aria-*（设为默认按钮要挂钩子与说明；既有用法定制不改）。
+  const extra: any = {}
+  try {
+    if (props.title !== undefined) extra.title = props.title
+    if (props.disabled !== undefined) extra.disabled = props.disabled
+    for (const k of Object.keys(props || {})) {
+      if (k.indexOf('data-') === 0 || k.indexOf('aria-') === 0) extra[k] = (props as any)[k]
+    }
+  } catch (e) { /* ignore */ }
   return h('button', {
     type: 'button',
-    style,
+    style: props.disabled ? { ...style, cursor: 'not-allowed', opacity: 0.6 } : style,
     onMouseEnter: () => hoverState[1](true),
     onMouseLeave: () => hoverState[1](false),
     onClick: props.onClick,
+    ...extra,
   }, props.children)
 }
 
@@ -439,11 +450,15 @@ export function SettingsPage(props: any): any {
   const orientBusy = orientBusyState[0]
   const orientNoteState = react.useState('')
   const orientNote = orientNoteState[0]
+  // #110 收尾：设为默认的确认回执（与 OS note 分开，不互相覆盖）。
+  const defaultNoteState = react.useState('')
+  const defaultNote = defaultNoteState[0]
   const landOrientation = (v: RemoteOrientationPref, note: string): void => {
     const next = setRemoteOrientation(v)
     remoteState[1]({ ...next })
     persistState[1](getRemotePersistState())
     orientNoteState[1](note)
+    defaultNoteState[1]('')
     orientBusyState[1](false)
   }
   const onPickOrientation = (v: RemoteOrientationPref): void => {
@@ -506,6 +521,13 @@ export function SettingsPage(props: any): any {
     : t('remoteEffectiveNow')
       .replace('{orient}', orientLabel)
       .replace('{source}', t(envOrient ? 'remoteSourceSystem' : 'remoteSourceViewport'))
+  // #110 收尾：设为默认入口可见性——仅会话中、快照与当前不一致时出现（需要才打扰）。
+  let sessionSnapOrient: unknown = null
+  try { sessionSnapOrient = getSessionSnapshotOrientation() } catch (e) { sessionSnapOrient = null }
+  const showSetDefault = remote.enabled === true && !orientBusy
+    && (sessionSnapOrient === 'auto' || sessionSnapOrient === 'landscape' || sessionSnapOrient === 'portrait')
+    && sessionSnapOrient !== orientPref
+  const orientPrefLabel = orientPref === 'auto' ? t('remoteOrientationAuto') : orientLabel
 
   const remoteGroup = h('section', {
     key: 'remote',
@@ -550,6 +572,7 @@ export function SettingsPage(props: any): any {
           const next = setRemoteEnabled(on)
           remoteState[1]({ ...next })
           persistState[1](getRemotePersistState())
+          defaultNoteState[1]('')
           if (on === false) {
             // #110 退出：插件偏好已由 setRemoteEnabled 同步恢复；
             // 整机按判定异步恢复（成功静默，失败明示；现值读不到则不恢复不打扰）。
@@ -630,9 +653,35 @@ export function SettingsPage(props: any): any {
     }),
     h('div', {
       key: 'remote-orientation-effective',
-      style: { ...noteStyle, paddingTop: 0, paddingBottom: 8 },
+      style: { ...noteStyle, paddingTop: 0, paddingBottom: showSetDefault || defaultNote ? 4 : 8 },
       'data-dsh-prompt-orientation-effective': '1',
     }, effectiveCaption),
+    showSetDefault
+      ? h('div', {
+        key: 'remote-orientation-set-default-row',
+        style: { display: 'flex', justifyContent: 'flex-end', paddingBottom: 8 },
+      }, [
+        h(Btn, {
+          key: 'set-default',
+          tone: 'ghost',
+          title: t('remoteSetAsDefaultHint'),
+          'data-dsh-prompt-orientation-set-default': '1',
+          onClick: () => {
+            const next = commitSessionOrientationAsDefault()
+            remoteState[1]({ ...next })
+            persistState[1](getRemotePersistState())
+            defaultNoteState[1](t('remoteSetAsDefaultDone').replace('{orient}', orientPrefLabel))
+          },
+        }, t('remoteSetAsDefault')),
+      ])
+      : null,
+    defaultNote
+      ? h('div', {
+        key: 'remote-orientation-default-note',
+        style: { ...noteStyle, paddingTop: 0, paddingBottom: 8 },
+        'data-dsh-prompt-orientation-default-note': '1',
+      }, defaultNote)
+      : null,
     hairline('sep-orient-density'),
     // 密度档（#90）：方向偏好行之后，两段手动切换；切档页码归零由面板侧执行。
     h(SettingRow, {

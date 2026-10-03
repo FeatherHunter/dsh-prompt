@@ -199,7 +199,7 @@ export function SmartCardHost(props: any): any {
     } catch (e) { /* ignore */ }
     return () => { on = false }
   }, [])
-  // 单滑块后智能卡按控制面封顶 2x（2026-09-29）；仅远程开时生效，关=正常尺寸。
+  // 单滑块后智能卡吃控制面全额（2026-09-29 去封顶）；仅远程开时生效，关=正常尺寸。
   const smartFontScale = remoteChromeScale(getRemotePrefs().enabled ? getRemotePrefs().size : 1)
 
   // 草稿来源 = 输入框真实值（轮询 + focus 事件；DOM 读不到时由 currentDraft 回退输入桥草稿）；

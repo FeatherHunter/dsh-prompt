@@ -43,7 +43,7 @@ export interface RemotePrefs {
   density: RemoteDensity
 }
 
-/** 默认值：总闸默认关（#85 US8）；大小默认 5 档（2x，用户拍板起步即大）；方向偏好默认自动；密度默认 A */
+/** 默认值：总闸默认关（#85 US8）；大小默认 5 档（3x，用户拍板起步即大）；方向偏好默认自动；密度默认 A */
 export const REMOTE_DEFAULTS: RemotePrefs = { enabled: false, size: 5, orientation: 'auto', density: 'a' }
 
 /** 大小校验：1–10 整数（纯函数） */

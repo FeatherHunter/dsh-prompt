@@ -196,7 +196,7 @@ export function EntryButton(props: any): any {
   ensureRemoteFeedbackStyle()
 
   // 单滑块跟随开关（2026-09-29 用户拍板大小跟随开关）：关=入口正常尺寸；
-  // 开时按控制面封顶 2x（全额 10x 会撑爆宿主布局）；内容面才吃全额。
+  // 开时控制面吃全额（10 档 5.5x 撑爆宿主布局的风险由用户认，2026-09-29 去封顶）；关=入口正常尺寸。
   const entryFontScale = remoteChromeScale(remote.enabled ? remote.size : 1)
   const entryControlScale = remoteChromeScale(remote.enabled ? remote.size : 1)
 

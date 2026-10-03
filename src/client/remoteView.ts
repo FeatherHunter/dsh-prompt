@@ -130,7 +130,7 @@ export function deriveRemoteOrientation(width: unknown, height: unknown): Remote
  * 后半段 25% 的增量在串流画面下与前一段手感几乎无差、顶到 325% 仍不够大，故步进加粗一倍。
  */
 export const REMOTE_SIZE_SCALES = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5]
-/** 档位→倍数：非法回默认 5 档（2x） */
+/** 档位→倍数：非法回默认 5 档（3x） */
 export function remoteSizeScale(size: unknown): number {
   const v = typeof size === 'number' && isFinite(size) ? Math.min(10, Math.max(1, Math.round(size))) : NaN
   const idx = v >= 1 && v <= 10 ? v : 5
@@ -139,7 +139,7 @@ export function remoteSizeScale(size: unknown): number {
 
 /**
  * 控制面倍数（2026-09-29 晚用户拍板去封顶：档位自由变大——入口/齿轮/智能卡跟内容面吃同一全额，
- * 不再钳在 2x；小窗挤爆风险由用户认）。
+ * 不再另设更小的封顶（2026-10-03 步进加粗后 10 档为 5.5x）；小窗挤爆风险由用户认）。
  */
 export function remoteChromeScale(size: unknown): number {
   return remoteSizeScale(size)

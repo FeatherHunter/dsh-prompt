@@ -482,13 +482,13 @@ ok('D4 锁定复用已知、退出对整机零调用');
   if (calls !== 1) fail('负缓存后本会话不应再问，实际 ' + calls);
   if (typeof remote.warmEnvOrientation('not a function') === 'undefined') fail('非函数 query 应安全返回');
   remote.__resetRemoteForTests();
-}
-ok('D7a 预热契约（覆盖旧值/单飞/失败不动/负缓存）');
+  ok('D7a 预热契约（覆盖旧值/单飞/失败不动/负缓存）');
 
-  // D7b 用户症状的最小复现：旧缓存=竖屏、整机早已转回横屏 → 开远程必须纠正为横屏
+  // D7b 用户症状的最小复现：设置页早已开着、缓存停在旧值竖屏、系统其实早已转回横屏
+  //   → 此刻「开启远程」这一步必须把方向读回来，否则面板第一眼就是竖屏（用户原话：进入远程就自动选竖屏）。
+  //   关键：必须先把挂载预热做完再把缓存改脏，否则挂载预热会把脏值洗掉，测的就不是总闸这一步了。
   remote2.__resetRemoteForTests();
   {
-    remote2.setEnvOrientation({ orientation: 'portrait' });   // 上一轮锁竖屏时缓存下来的
     let gets = 0;
     globalThis.fetch = async (url, init) => {
       const u = String(url);
@@ -497,23 +497,25 @@ ok('D7a 预热契约（覆盖旧值/单飞/失败不动/负缓存）');
       if (/system\/orientation$/.test(u)) { gets += 1; return { ok: true, status: 200, json: async () => ({ ok: true, orientation: 'landscape' }) }; }  // 系统现在是横屏
       return { ok: true, status: 200, json: async () => ({ ok: true }) };
     };
-    // 开远程前：旧缓存会让面板算出竖屏（这就是用户看到的「进入就选竖屏」）
-    const before = remoteView110.resolveEffectiveOrientation('auto', remote2.getEnvOrientation() && remote2.getEnvOrientation().orientation, 'landscape');
-    if (before !== 'portrait') fail('复现前提：开远程前旧缓存应让面板算出竖屏，实际 ' + before);
     let created;
     await TR.act(async () => { created = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
     await sleep(20);
+    if (gets !== 1) fail('挂载应预热恰一次，实际 ' + gets);
+    if (remote2.getEnvOrientation().orientation !== 'landscape') fail('挂载后 env 应是整机横屏');
+    // 此刻把缓存弄旧：模拟「上次锁竖屏时缓存下来的值」在系统转回横屏后仍留着
+    remote2.setEnvOrientation({ orientation: 'portrait' });
+    const before = remoteView110.resolveEffectiveOrientation('auto', remote2.getEnvOrientation().orientation, 'landscape');
+    if (before !== 'portrait') fail('复现前提：脏缓存下面板应算出竖屏，实际 ' + before);
     const toggle = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
     await TR.act(async () => { toggle.props.onChange({ target: { checked: true } }); await sleep(40); });
-    if (gets < 1) fail('开启远程应至少读一次整机方向');
-    const after = remote2.getEnvOrientation() && remote2.getEnvOrientation().orientation;
-    if (after !== 'landscape') fail('开远程后应以整机真值横屏覆盖旧缓存竖屏，实际 ' + after);
-    const shown = remoteView110.resolveEffectiveOrientation('auto', after, 'landscape');
-    if (shown !== 'landscape') fail('面板应算出横屏，实际 ' + shown);
+    if (gets !== 2) fail('开启远程应再读一次整机方向，实际 GET 共 ' + gets);
+    const after = remote2.getEnvOrientation().orientation;
+    if (after !== 'landscape') fail('开远程应以整机真值横屏覆盖脏缓存竖屏，实际 ' + after);
+    if (remoteView110.resolveEffectiveOrientation('auto', after, 'landscape') !== 'landscape') fail('面板应算出横屏');
     created.unmount();
     remote2.__resetRemoteForTests();
   }
-  ok('D7b 旧缓存竖屏 → 开远程纠正为横屏（用户症状最小复现）');
+  ok('D7b 脏缓存竖屏 → 开远程纠正为横屏（用户症状最小复现）');
 
   // D7c 启动即开着（刷新/崩溃恢复后重进）也必须刷新一次——源码级
   const indexSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'index.ts'), 'utf8');

@@ -87,18 +87,18 @@ ok('无 DOM 静默 no-op');
     hostfont.syncAssistantZoom(true, 5);
     if (headKids.length !== 1) fail('开应注入 1 枚 style，实际 ' + headKids.length);
     if (headKids[0].attrs['data-dsh-prompt-style'] !== 'dsh-prompt-remote-assistant') fail('style 钩子应为自家 AI 位');
-    const expect5 = '[data-chat-group-part="response"]{zoom:2;}';
+    const expect5 = '[data-chat-group-part="response"]{zoom:3;}';
     if (headKids[0].textContent !== expect5) fail('5 档应写 ' + expect5 + '，实际 ' + headKids[0].textContent);
     // 换档不叠加
     hostfont.syncAssistantZoom(true, 10);
     if (headKids.length !== 1) fail('换档不应叠加 style，实际 ' + headKids.length);
-    if (headKids[0].textContent.indexOf('zoom:3.25') < 0) fail('10 档应更新 zoom=3.25，实际 ' + headKids[0].textContent);
+    if (headKids[0].textContent.indexOf('zoom:5.5') < 0) fail('10 档应更新 zoom=5.5，实际 ' + headKids[0].textContent);
     // 1 档=100%
     hostfont.syncAssistantZoom(true, 1);
     if (headKids[0].textContent.indexOf('zoom:1;') < 0) fail('1 档应 zoom=1，实际 ' + headKids[0].textContent);
-    // 非法档回默认 5 档 zoom=2（开语义，与行桥一致）
+    // 非法档回默认 5 档 zoom:3（开语义，与行桥一致）
     hostfont.syncAssistantZoom(true, 'x');
-    if (headKids[0].textContent.indexOf('zoom:2') < 0) fail('非法档应回默认 zoom=2，实际 ' + headKids[0].textContent);
+    if (headKids[0].textContent.indexOf('zoom:3;') < 0) fail('非法档应回默认 zoom=3，实际 ' + headKids[0].textContent);
     // 关摘零残留
     hostfont.syncAssistantZoom(false, 10);
     if (headKids.length !== 0) fail('关应摘掉 style，实际残留 ' + headKids.length);
@@ -145,9 +145,9 @@ try {
   sync();
   remote.subscribeRemote(sync);
   remote.setRemoteEnabled(true);
-  if (headKids.length !== 1 || headKids[0].textContent.indexOf('zoom:2') < 0) fail('开总闸 AI 桥应写默认 5 档 zoom=2，实际 ' + (headKids[0] && headKids[0].textContent));
+  if (headKids.length !== 1 || headKids[0].textContent.indexOf('zoom:3;') < 0) fail('开总闸 AI 桥应写默认 5 档 zoom=3，实际 ' + (headKids[0] && headKids[0].textContent));
   remote.setRemoteSize(10);
-  if (headKids[0].textContent.indexOf('zoom:3.25') < 0) fail('拖到 10 档 AI 桥应 zoom=3.25，实际 ' + headKids[0].textContent);
+  if (headKids[0].textContent.indexOf('zoom:5.5') < 0) fail('拖到 10 档 AI 桥应 zoom=5.5，实际 ' + headKids[0].textContent);
   remote.setRemoteEnabled(false);
   if (headKids.length !== 0) fail('关总闸 AI 桥应摘除，实际残留 ' + headKids.length);
   ok('AI 桥全链路（开关/拖档落到 zoom 写操作）');

@@ -247,7 +247,7 @@ for (const marker of ['remoteDensity', 'remoteDensityA', 'remoteDensityB']) {
   if (!i18nSrc.includes(marker)) fail('i18n 缺密度文案: ' + marker);
 }
 // 定稿1/2：两 hint 行整行删除，i18n 键无他用一并删除
-for (const dead of ['remoteSizeHint', 'remoteDensityHint', '1档100%，10档325%；开远程生效。', '12宫格标准 / 8宫格；切档页码归零。']) {
+for (const dead of ['remoteSizeHint', 'remoteDensityHint', '1档100%，10档550%；开远程生效。', '12宫格标准 / 8宫格；切档页码归零。']) {
   if (i18nSrc.includes(dead)) fail('i18n 不应残留已删 hint: ' + dead);
   if (settingsSrc.includes(dead)) fail('settings 不应残留已删 hint: ' + dead);
 }
@@ -299,7 +299,7 @@ ok('渲染器：滑块字符串值可落地（浏览器真值）');
   TR.act(() => { remote2.setRemoteEnabled(true); remote2.setRemoteSize(10); });
   const sliderOn = root.findAll((x) => x.props && x.props['data-dsh-prompt-size-slider'] === '1')[0];
   if (!sliderOn || sliderOn.props.disabled === true) fail('开时滑块应可用');
-  if (sliderOn.props.style.transform !== 'scale(1, 3.25)') fail('开10档滑块应 scale(1, 3.25)，实际 ' + sliderOn.props.style.transform);
+  if (sliderOn.props.style.transform !== 'scale(1, 5.5)') fail('开10档滑块应 scale(1, 5.5)，实际 ' + sliderOn.props.style.transform);
   const toggleOn = root.findAll((x) => x.props && x.props['data-dsh-prompt-remote-toggle'] === '1')[0];
   if (!toggleOn) fail('开时总闸开关应存在');
   const toggleInput = toggleOn.findAll((x) => x.type === 'input' && x.props && x.props.type === 'checkbox')[0];
@@ -369,7 +369,7 @@ const sizeVal = root.findAll((x) => x.props && x.props['data-dsh-prompt-size-val
 if (!sizeVal) fail('设置页缺档位值行 [data-dsh-prompt-size-value]');
 // 开 10 档时设置页根吃全额（calc 相对缩放，与 compact 同构）
 const settingsRootOn = created.toJSON().props.style;
-if (settingsRootOn.fontSize !== 'calc(var(--dsw-font-markdown-base-font-size) * 3.25)') fail('开10档设置页根应跟全额，实际 ' + settingsRootOn.fontSize);
+if (settingsRootOn.fontSize !== 'calc(var(--dsw-font-markdown-base-font-size) * 5.5)') fail('开10档设置页根应跟全额，实际 ' + settingsRootOn.fontSize);
 // 关时根落宿主基准（em 子项锚点，与旧 px 视觉一致）
 TR.act(() => { remote2.setRemoteEnabled(false); });
 const settingsRootOff = created.toJSON().props.style;

@@ -108,16 +108,16 @@ let vs = view.computeRemoteView({ ids: mkIds(5), page: 0, orientation: 'landscap
 if (vs.cols !== 4 || vs.rows !== 3 || vs.per !== 12) fail('小内容不应减行，应仍为 4×3=12');
 ok('十二槽恒定、卡片收缩、不减行');
 
-// 单滑块倍数表：1档100%，之后125/150/175/200/225/250/275/300/325；非法回默认5档；控制面去封顶（档档自由变大）
-if (view.remoteSizeScale(1) !== 1 || view.remoteSizeScale(10) !== 3.25) fail('1/10 档倍数应为 1/3.25');
-if (view.remoteSizeScale(2) !== 1.25 || view.remoteSizeScale(4) !== 1.75 || view.remoteSizeScale(7) !== 2.5) fail('2/4/7 档应为 1.25/1.75/2.5');
-if (view.remoteSizeScale(99) !== 3.25 || view.remoteSizeScale(0) !== 1) fail('越界应钳制到边缘');
-if (view.remoteSizeScale('x') !== 2) fail('非数值应回默认 5 档（2x）');
-if (view.remoteChromeScale(10) !== 3.25 || view.remoteChromeScale(1) !== 1) fail('控制面去封顶：应跟全额（1/3.25）');
+// 单滑块倍数表：1档100%，之后150/200/250/300/350/400/450/500/550；非法回默认5档；控制面去封顶（档档自由变大）
+if (view.remoteSizeScale(1) !== 1 || view.remoteSizeScale(10) !== 5.5) fail('1/10 档倍数应为 1/5.5');
+if (view.remoteSizeScale(2) !== 1.5 || view.remoteSizeScale(4) !== 2.5 || view.remoteSizeScale(7) !== 4) fail('2/4/7 档应为 1.5/2.5/4');
+if (view.remoteSizeScale(99) !== 5.5 || view.remoteSizeScale(0) !== 1) fail('越界应钳制到边缘');
+if (view.remoteSizeScale('x') !== 3) fail('非数值应回默认 5 档（3x）');
+if (view.remoteChromeScale(10) !== 5.5 || view.remoteChromeScale(1) !== 1) fail('控制面去封顶：应跟全额（1/5.5）');
 let va = view.computeRemoteView({ ids: mkIds(27), page: 0, orientation: 'landscape', enabled: true, size: 1, hostCaps: ABSENT, searchOpen: false });
 let vb = view.computeRemoteView({ ids: mkIds(27), page: 0, orientation: 'landscape', enabled: true, size: 10, hostCaps: ABSENT, searchOpen: false });
 if (va.slots.length !== 12 || vb.slots.length !== 12 || va.totalPages !== vb.totalPages) fail('换档不应减槽');
-if (va.fontScale !== 1 || vb.fontScale !== 3.25 || vb.controlScale !== 3.25) fail('视图应回单滑块倍数');
+if (va.fontScale !== 1 || vb.fontScale !== 5.5 || vb.controlScale !== 5.5) fail('视图应回单滑块倍数');
 ok('单滑块倍数（线性档位、越界钳制、非法回默认、控制面去封顶）');
 // #90 B 档换大小档不减槽（8 槽恒定，页数不变）
 let ba = view.computeRemoteView({ ids: mkIds(27), page: 0, orientation: 'landscape', enabled: true, size: 1, hostCaps: ABSENT, searchOpen: false, density: 'b' });
@@ -127,12 +127,12 @@ ok('B 档换大小档不减槽');
 // #92：宿主内容字纯函数 hostContentFontPx（round(scale*14)，非法回 14；本文件禁 DOM 保持纯）
 if (typeof view.hostContentFontPx !== 'function') fail('remoteView.ts 缺 hostContentFontPx 纯函数（#92）');
 if (view.hostContentFontPx(1) !== 14) fail('1 档宿主字应为 14px，实际 ' + view.hostContentFontPx(1));
-if (view.hostContentFontPx(10) !== 46) fail('10 档宿主字应为 46px（round(3.25*14)），实际 ' + view.hostContentFontPx(10));
-if (view.hostContentFontPx(2) !== 18) fail('2 档宿主字应为 18px（round(1.25*14)），实际 ' + view.hostContentFontPx(2));
+if (view.hostContentFontPx(10) !== 77) fail('10 档宿主字应为 77px（round(5.5*14)），实际 ' + view.hostContentFontPx(10));
+if (view.hostContentFontPx(2) !== 21) fail('2 档宿主字应为 21px（round(1.5*14)），实际 ' + view.hostContentFontPx(2));
 for (const bad of ['x', NaN, undefined, null, {}, Infinity]) {
   if (view.hostContentFontPx(bad) !== 14) fail('非法宿主字应回 14，输入 ' + String(bad) + ' 实际 ' + view.hostContentFontPx(bad));
 }
-ok('宿主内容字纯函数（1档14/10档46/非法14）');
+ok('宿主内容字纯函数（1档14/10档77/非法14）');
 // #92：无 DOM 时 syncHostFont 静默 no-op、不抛（typeof document/element 守卫 + fail-soft）
 {
   let hostSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'hostfont.ts'), 'utf8');
@@ -175,13 +175,13 @@ ok('宿主字桥接线（双写落点、无新日志事件）');
   try { globalThis.fetch = undefined; } catch (e) { /* ignore */ }
   const FAUCET = '--dsh-content-font-size';
   const hostfont2 = require(path.join(DIR, 'hostfont.cjs'));
-  // 开 2 档 → 双写 18px（= hostContentFontPx(2) + 'px'）
+  // 开 2 档 → 双写 21px（= hostContentFontPx(2) + 'px'）
   hostfont2.syncHostFont(true, 2);
-  if (seen.join(';') !== 'root|set|' + FAUCET + '|18px;body|set|' + FAUCET + '|18px') fail('开2档应双写 18px，实际 ' + seen.join(';'));
-  // 开 10 档 → 双写 46px
+  if (seen.join(';') !== 'root|set|' + FAUCET + '|21px;body|set|' + FAUCET + '|21px') fail('开2档应双写 21px，实际 ' + seen.join(';'));
+  // 开 10 档 → 双写 77px
   seen.length = 0;
   hostfont2.syncHostFont(true, 10);
-  if (seen.join(';') !== 'root|set|' + FAUCET + '|46px;body|set|' + FAUCET + '|46px') fail('开10档应双写 46px，实际 ' + seen.join(';'));
+  if (seen.join(';') !== 'root|set|' + FAUCET + '|77px;body|set|' + FAUCET + '|77px') fail('开10档应双写 77px，实际 ' + seen.join(';'));
   // 开 + 非法档 → 仍写默认 14px（开语义，不删）
   seen.length = 0;
   hostfont2.syncHostFont(true, 'x');
@@ -207,13 +207,13 @@ ok('宿主字桥接线（双写落点、无新日志事件）');
   const uniqSeen = () => [...new Set(seen)].join(';');
   seen.length = 0;
   remote92.setRemoteEnabled(true);
-  if (uniqSeen() !== 'root|set|' + FAUCET + '|28px;body|set|' + FAUCET + '|28px') fail('开总闸应写默认5档 28px，实际 ' + uniqSeen());
+  if (uniqSeen() !== 'root|set|' + FAUCET + '|42px;body|set|' + FAUCET + '|42px') fail('开总闸应写默认5档 42px，实际 ' + uniqSeen());
   seen.length = 0;
   remote92.setRemoteSize(10);
-  if (uniqSeen() !== 'root|set|' + FAUCET + '|46px;body|set|' + FAUCET + '|46px') fail('拖到10档应写 46px，实际 ' + uniqSeen());
+  if (uniqSeen() !== 'root|set|' + FAUCET + '|77px;body|set|' + FAUCET + '|77px') fail('拖到10档应写 77px，实际 ' + uniqSeen());
   seen.length = 0;
   remote92.setRemoteSize(5);
-  if (uniqSeen() !== 'root|set|' + FAUCET + '|28px;body|set|' + FAUCET + '|28px') fail('拖到5档应写 28px，实际 ' + uniqSeen());
+  if (uniqSeen() !== 'root|set|' + FAUCET + '|42px;body|set|' + FAUCET + '|42px') fail('拖到5档应写 42px，实际 ' + uniqSeen());
   seen.length = 0;
   remote92.setRemoteEnabled(false);
   if (uniqSeen() !== 'root|del|' + FAUCET + ';body|del|' + FAUCET) fail('关总闸应删变量，实际 ' + uniqSeen());
@@ -252,18 +252,18 @@ ok('宿主字桥接线（双写落点、无新日志事件）');
     querySelector: () => headKids[0] || null,
     createElement: (tag) => (tag === 'style' ? mkStyleTag() : null),
   };
-  // 开 5 档 → 注入 1 枚 style，zoom=2（=remoteSizeScale(5) 全额），选择器只走 data-row-key
+  // 开 5 档 → 注入 1 枚 style，zoom=3（=remoteSizeScale(5) 全额），选择器只走 data-row-key
   hostfontRows.syncRemoteRows(true, 5);
   if (headKids.length !== 1) fail('开应注入 1 枚 style，实际 ' + headKids.length);
   if (headKids[0].attrs['data-dsh-prompt-style'] !== 'dsh-prompt-remote-rows') fail('style 钩子应为自家位');
-  if (headKids[0].textContent !== '[data-row-key^="session:"],[data-row-key^="workspace:"]{zoom:2;}') fail('应写 zoom=2，实际 ' + headKids[0].textContent);
+  if (headKids[0].textContent !== '[data-row-key^="session:"],[data-row-key^="workspace:"]{zoom:3;}') fail('应写 zoom=3，实际 ' + headKids[0].textContent);
   // 换档 → 原位更新不叠加
   hostfontRows.syncRemoteRows(true, 10);
   if (headKids.length !== 1) fail('换档不应叠加 style，实际 ' + headKids.length);
-  if (headKids[0].textContent.indexOf('zoom:3.25') < 0) fail('换 10 档应更新 zoom=3.25，实际 ' + headKids[0].textContent);
-  // 非法档 → 回默认 5 档 zoom=2（不断删，开语义）
+  if (headKids[0].textContent.indexOf('zoom:5.5') < 0) fail('换 10 档应更新 zoom=5.5，实际 ' + headKids[0].textContent);
+  // 非法档 → 回默认 5 档 zoom:3（不断删，开语义）
   hostfontRows.syncRemoteRows(true, 'x');
-  if (headKids[0].textContent.indexOf('zoom:2') < 0) fail('非法档应回默认 zoom=2，实际 ' + headKids[0].textContent);
+  if (headKids[0].textContent.indexOf('zoom:3;') < 0) fail('非法档应回默认 zoom=3，实际 ' + headKids[0].textContent);
   // 关 → 摘掉，零残留
   hostfontRows.syncRemoteRows(false, 10);
   if (headKids.length !== 0) fail('关应摘掉 style，实际残留 ' + headKids.length);

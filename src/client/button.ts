@@ -526,11 +526,17 @@ export function EntryButton(props: any): any {
       if (typeof b === 'string' && b !== '') pickerSessionId = b
     }
   } catch (e) { pickerSessionId = undefined }
+  // #104 底部让位（用户 2026-10-03 拍板：弹窗底边在触控栏之上，触控栏仍可见）。
+  // Dock 占位真值只算这一处（picker 侧不重算 Dock math）：
+  //   底留边 DOCK_MARGIN + pill 高（键高 gearBox=26*scale + 上下内边距 0.5em*12*scale*2=12*scale）+ 8px 呼吸缝。
+  // remoteChromeScale 与 picker 侧 remoteSizeScale 同值（remoteView.ts:142），两条尺寸轴同源。
+  const dockReservePx = DOCK_MARGIN + (26 * entryControlScale) + (12 * entryControlScale) + 8
   const pickerModalNode = !pickerOpen ? null : h(ModalPortal, { key: 'dsh-prompt-workspace-picker' },
     h(WorkspacePicker, {
       faces: wsFaces,
       currentId: pickerSessionId,
       remoteSize: remote.size,
+      dockReservePx,
       onClose: () => { closePicker() },
     }),
   )

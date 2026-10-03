@@ -62,6 +62,11 @@ export interface PickerProps {
    * 测试可显式钉死。v7 C 横屏即此形（左轨 hugging + 右展）。
    */
   wide?: boolean
+  /**
+   * 底部让位（px）：触控栏占位，由 button.ts 按 Dock 真实尺寸算好后传入（尺寸真值只留一处，
+   * 这里不重算 Dock math）。抽屉底边抬到这条线之上，触控栏仍可见；0 = 贴底（无 Dock 场景）。
+   */
+  dockReservePx?: number
   /** 关闭（switchedId 有值 = 切换成功并切到该会话；无值 = 原地关闭/取消） */
   onClose: (switchedId?: string) => void
 }
@@ -166,7 +171,10 @@ function SessionCard(props: {
     onMouseDown: keepComposerFocus,
     onClick: () => onPick(s.id),
     style: {
-      display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
+      // 卡片形（用户 2026-10-03 拍板：偏长方形/正方形、方便点）：块级卡 + 最小高 + 纵向排布，
+      // 网格里同行等高（grid 默认 stretch），点面从单行条变成整块卡。
+      display: 'flex', flexDirection: 'column', alignItems: 'stretch',
+      width: '100%', minHeight: '4.5em', textAlign: 'left', cursor: 'pointer',
       // 当前行信号只用边框 + 内圈（原型口径；实心 tint 底系 creep，已按审查 #17 回退）。
       background: 'var(--dsw-alias-bg-layer-3)',
       border: '1px solid ' + (current ? '#7fd08a' : 'var(--dsw-alias-border-l1)'),
@@ -175,6 +183,7 @@ function SessionCard(props: {
       padding: '10px 12px', fontSize: '0.92em', minWidth: 0,
       fontFamily: 'var(--dsw-font-family)',
     },
+    'data-dsh-prompt-picker-card': '1',
   }, [
     h('div', { key: 'ct', style: { fontWeight: 700, lineHeight: 1.45, wordBreak: 'break-word' } }, [
       ...badges,
@@ -216,6 +225,17 @@ export function WorkspacePicker(props: PickerProps): any {
     if (typeof window !== 'undefined' && window.innerWidth > window.innerHeight) wideAuto = true
   } catch (e) { wideAuto = false }
   const wide = typeof props.wide === 'boolean' ? props.wide : wideAuto
+  // 卡片网格列数（用户 2026-10-03 拍板：竖屏 2 列、横屏 3 列）
+  const gridCols = wide ? 3 : 2
+  // 底部让位：Dock 占位（button.ts 传入的真值），抽屉底边抬到触控栏之上。
+  const dockReserve = typeof props.dockReservePx === 'number' && isFinite(props.dockReservePx) && props.dockReservePx > 0
+    ? Math.round(props.dockReservePx)
+    : 0
+  const gridStyle: any = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(' + gridCols + ', minmax(0, 1fr))',
+    gap: 8, alignItems: 'stretch',
+  }
 
   ensurePickerAnimStyle()
 
@@ -390,11 +410,15 @@ export function WorkspacePicker(props: PickerProps): any {
     position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)',
   }
   const sheetStyle: any = {
-    position: 'absolute', left: 0, right: 0, bottom: 0,
+    // 底边抬到触控栏之上（用户 2026-10-03 拍板）：dockReserve=0 时与今天等价（贴底）。
+    position: 'absolute', left: 0, right: 0, bottom: dockReserve > 0 ? dockReserve + 'px' : 0,
     background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
     backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
-    borderRadius: '18px 18px 0 0', borderTop: '1px solid var(--dsw-alias-border-l1)',
-    display: 'flex', flexDirection: 'column', maxHeight: '88%',
+    // 抬起来之后四边都有外露，圆角补齐（贴底时只留上圆角）。
+    borderRadius: 18, border: '1px solid var(--dsw-alias-border-l1)',
+    display: 'flex', flexDirection: 'column',
+    // 上限仍是「内容定高、88% 内滚」口径（v7），只是要从 88% 里扣掉让位高度，否则会顶出视口。
+    maxHeight: dockReserve > 0 ? 'calc(88% - ' + dockReserve + 'px)' : '88%',
     fontSize: 'calc(1em * ' + uiScale + ')',
     fontFamily: 'var(--dsw-font-family)', color: 'var(--dsw-alias-label-primary)',
   }
@@ -482,7 +506,7 @@ export function WorkspacePicker(props: PickerProps): any {
     const flat = filtered.slice().sort((a, b) => b.updatedAt - a.updatedAt)
     listContent = h('div', { key: 'flat', 'data-dsh-prompt-picker-flat': hasQuery ? 'query' : 'single' }, [
       switchingNote,
-      h('div', { key: 'list', style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+      h('div', { key: 'list', 'data-dsh-prompt-picker-grid': String(gridCols), style: gridStyle },
         flat.map((s) => renderCard(s, hasQuery))),
     ])
   } else if (wide) {
@@ -501,7 +525,8 @@ export function WorkspacePicker(props: PickerProps): any {
         }, groups.map((g) => renderWcard(g, !!openG && openG.key === g.key, false))),
         openG ? h('div', {
           key: 'clist',
-          style: { flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 },
+          'data-dsh-prompt-picker-grid': String(gridCols),
+          style: { ...gridStyle, flex: '1 1 auto', minWidth: 0 },
         }, openG.items.map((s) => renderCard(s, false))) : null,
       ]),
     ])
@@ -510,10 +535,11 @@ export function WorkspacePicker(props: PickerProps): any {
       switchingNote,
       ...groups.map((g) => {
         const isOpen = openKey === g.key
-        // 一级卡只留名与计数（v7：删掉“最新”整行，防杂乱）
+        // 一级卡只留名与计数（v7：删掉“最新”整行，防杂乱）；组内会话走卡片网格
         const list = !isOpen ? null : h('div', {
           key: 'items:' + g.key,
-          style: { display: 'flex', flexDirection: 'column', gap: 8, margin: '0 0 8px' },
+          'data-dsh-prompt-picker-grid': String(gridCols),
+          style: { ...gridStyle, margin: '0 0 8px' },
         }, g.items.map((s) => renderCard(s, false)))
         return h('div', { key: 'g:' + g.key }, [renderWcard(g, isOpen, true), list])
       }),

@@ -558,6 +558,47 @@ async function rendererChecks() {
   pkWide.unmount();
   ok('渲染器：横屏 rail + 右展');
 
+  // 卡片网格（用户 2026-10-03 拍板）：竖 2 列 / 横 3 列；卡片有最小高（点得中）；底边抬到 Dock 之上
+  const gridOf = (r) => r.findAll((x) => x.props && x.props['data-dsh-prompt-picker-grid']).map((x) => x.props['data-dsh-prompt-picker-grid']);
+  let pkGridP, pkGridW;
+  await TR.act(async () => {
+    pkGridP = TR.create(React.createElement(pickerMod.WorkspacePicker, {
+      faces: twoGroups, currentId: '', remoteSize: 5, wide: false, dockReservePx: 96, onClose: () => {},
+    }));
+  });
+  await TR.act(async () => { await new Promise((r) => setTimeout(r, 400)); });
+  if (gridOf(pkGridP.root).join(',') !== '2') fail('#104 竖屏应为 2 列网格，实际 ' + JSON.stringify(gridOf(pkGridP.root)));
+  const pCard = pkGridP.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-card'] === '1');
+  if (pCard.length !== 1) fail('#104 卡片应带 card 钩子，实际 ' + pCard.length);
+  if (pCard[0].props.style.minHeight !== '4.5em') fail('#104 卡片应有最小高（方便点击），实际 ' + pCard[0].props.style.minHeight);
+  if (pCard[0].props.style.display !== 'flex') fail('#104 卡片应为块级卡布局（纵向排布）');
+  const pSheet = pkGridP.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-sheet'] === '1')[0];
+  if (pSheet.props.style.bottom !== '96px') fail('#104 抽屉底边应抬到 Dock 之上（96px），实际 ' + pSheet.props.style.bottom);
+  if (pSheet.props.style.maxHeight !== 'calc(88% - 96px)') fail('#104 上限应扣掉让位高度，实际 ' + pSheet.props.style.maxHeight);
+  pkGridP.unmount();
+  await TR.act(async () => {
+    pkGridW = TR.create(React.createElement(pickerMod.WorkspacePicker, {
+      faces: twoGroups, currentId: '', remoteSize: 5, wide: true, dockReservePx: 0, onClose: () => {},
+    }));
+  });
+  await TR.act(async () => { await new Promise((r) => setTimeout(r, 400)); });
+  if (gridOf(pkGridW.root).join(',') !== '3') fail('#104 横屏应为 3 列网格，实际 ' + JSON.stringify(gridOf(pkGridW.root)));
+  const wSheet = pkGridW.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-sheet'] === '1')[0];
+  if (wSheet.props.style.bottom !== 0) fail('#104 让位为 0 时应贴底（无 Dock 场景），实际 ' + wSheet.props.style.bottom);
+  if (wSheet.props.style.maxHeight !== '88%') fail('#104 让位为 0 时上限应仍 88%，实际 ' + wSheet.props.style.maxHeight);
+  pkGridW.unmount();
+  ok('渲染器：卡片网格 2/3 列 + 卡片最小高 + 底边让位 Dock');
+
+  // 让位值由 button.ts 按 Dock 真值算出并传入（尺寸真值只留一处）
+  {
+    const btnSrcGrid = fs.readFileSync(path.join(ROOT, 'src', 'client', 'button.ts'), 'utf8');
+    if (!/const dockReservePx = DOCK_MARGIN \+ \(26 \* entryControlScale\) \+ \(12 \* entryControlScale\) \+ 8/.test(btnSrcGrid)) {
+      fail('#104 button.ts 应按 Dock 真值算 dockReservePx');
+    }
+    if (!/dockReservePx,\s*\n\s*onClose/.test(btnSrcGrid)) fail('#104 dockReservePx 应传给 WorkspacePicker');
+  }
+  ok('源码面：Dock 让位真值只在 button.ts 算一次并传入');
+
   // 审查 #6：槽 props 无 sessionId 时回退 smartstore（已在行点之直接关，不发真切换）
   let fbSwitches = [];
   const fbFaces = mkFaces({

@@ -10,7 +10,8 @@ import { buildPromptSource } from './trigger'
 import { SmartCardHost } from './smart'
 import { setSmartInput } from './smartstore'
 import { ensureLoaded } from './store'
-import { ensureRemoteLoaded, subscribeRemote, getRemotePrefs } from './remote'
+import { ensureRemoteLoaded, subscribeRemote, getRemotePrefs, warmEnvOrientation } from './remote'
+import { getSystemOrientation } from './systemOrientation'
 import { syncHostFont, syncRemoteRows, syncAssistantZoom } from './hostfont'
 import { getLang, tr, STR } from './i18n'
 import { isPanelOpen, onPanelOpen } from './state'
@@ -121,7 +122,18 @@ export function apply(ctx: ClientContext): void {
   // #20：client 启动即拉 host 快照（失败 warn + 内存默认，不阻塞装配）
   ctx.effect(() => { ensureLoaded().catch(() => undefined) }, 'dsh-prompt: store load')
   // #82：远程偏好同理（总闸默认关，host 不可达时当次默认、下次恢复默认并明示）
-  ctx.effect(() => { ensureRemoteLoaded().catch(() => undefined) }, 'dsh-prompt: remote load')
+  ctx.effect(() => {
+    ensureRemoteLoaded()
+      // #110 陈旧值修复：刷新后远程仍开着的话，把整机方向读回来一次——否则本会话的「自动」档
+      // 只会拿到面板永不询问的缓存（空 → 视口回落；旧值 → 系统早转过了还在说谎）。
+      .then(() => {
+        try {
+          if (getRemotePrefs().enabled !== true) return
+          warmEnvOrientation(() => getSystemOrientation() as unknown as Promise<any>).catch(() => undefined)
+        } catch (e) { /* ignore */ }
+      })
+      .catch(() => undefined)
+  }, 'dsh-prompt: remote load')
   // #92：宿主内容字跟随（野路子）：开则双写变量、关则两边 removeProperty 恢复原样；
   // 工作区列表跟随（D-targeted 二期）：同订阅同路，开注 zoom 关摘，无新设置 UI；
   // 主会话 AI 跟随（#103 野路子三期）：同订阅同路，开注 zoom 关摘，无新设置 UI；

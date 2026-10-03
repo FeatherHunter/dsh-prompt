@@ -16,7 +16,7 @@ import {
   getRemotePrefs, subscribeRemote, ensureRemoteLoaded,
   setRemoteEnabled, setRemoteSize, setRemoteOrientation, setRemoteDensity,
   getRemotePersistState,
-  getEnvOrientation, setEnvOrientation, isEnvUnsupported, markEnvUnsupported,
+  getEnvOrientation, setEnvOrientation, warmEnvOrientation,
   type RemoteOrientationPref, type RemoteDensity,
 } from './remote'
 import { remoteSizeScale, resolveEffectiveOrientation, deriveRemoteOrientation } from './remoteView'
@@ -231,21 +231,13 @@ export function SettingsPage(props: any): any {
       } catch (e) { /* ignore */ }
     })
   }, [])
-  // #110 检测统一：挂载预热环境方向缓存（推测性查询；缺席记负缓存，本会话不再问；
+  // #110 检测统一 + 陈旧值修复：挂载预热环境方向缓存（缺席记负缓存，本会话不再问；
   // 用户显式锁定不受影响）。解析后刷一次界面，让有效值 caption 落到现值。
   react.useEffect(() => {
     try {
-      if (isEnvUnsupported()) return undefined
-      getSystemOrientation().then(
-        (r: any) => {
-          try {
-            if (r && r.ok) setEnvOrientation({ orientation: r.orientation })
-            else if (r && r.error && r.error.code === 'unsupported') markEnvUnsupported()
-            remoteState[1](getRemotePrefs())
-          } catch (e) { /* ignore */ }
-        },
-        () => { /* 读不到 → 视口回落，不打扰 */ },
-      )
+      warmEnvOrientation(() => getSystemOrientation() as unknown as Promise<any>).then(() => {
+        try { remoteState[1](getRemotePrefs()) } catch (e) { /* ignore */ }
+      })
     } catch (e) { /* ignore */ }
     return undefined
   }, [])
@@ -523,9 +515,18 @@ export function SettingsPage(props: any): any {
           // #110 改判：进出总闸只翻一个键，方向既不快照也不还原——会话内选的方向常驻。
           // 退出时对整机零调用：屏幕保持用户最后锁定的样子，不闪屏、不夺回控制权。
           const on = !!e.target.checked
+          const entering = on === true && remote.enabled !== true
           const next = setRemoteEnabled(on)
           remoteState[1]({ ...next })
           persistState[1](getRemotePersistState())
+          // #110 陈旧值修复：开启远程时刷新一次整机方向（只读、零 OS 副作用、不闪屏）。
+          // 这是面板侧「自动」档唯一的真值来源——面板按设计永不碰桥，不在这里问就只剩视口回落
+          //（桌面恒定一个形状）或沿用上一次缓存下来的旧值。
+          if (entering) {
+            try {
+              warmEnvOrientation(() => getSystemOrientation() as unknown as Promise<any>).catch(() => undefined)
+            } catch (e) { /* ignore */ }
+          }
         },
       }),
     }),

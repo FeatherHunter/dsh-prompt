@@ -168,7 +168,7 @@ function purgeLegacySnapshot(): void {
 /* ── 环境方向缓存（#110 检测统一）：整机方向的只读缓存 ──
  *
  * 职责：给“自动”档与设置页提供整机方向读数。只读不写——写整机永远走整机桥。
- * 新鲜度由用户动作事件界定（设置页挂载预热、开远程进入查询、锁定/恢复成功复用已知结果），
+ * 新鲜度由用户动作事件界定（设置页挂载预热、开远程刷新、启动且远程已开时刷新、锁定成功复用已知），
  * 不做轮询；hover/面板只读缓存，永不触发网络。内存态，reload 即失（视口回落接管）。
  */
 
@@ -208,6 +208,42 @@ export function markEnvUnsupported(): void {
 /** 桥是否已确认缺席 */
 export function isEnvUnsupported(): boolean {
   return envUnsupported === true
+}
+
+/** 预热在途（同刻只发一次；查询期间不重复打桥） */
+let envWarmInFlight: Promise<void> | null = null
+
+/**
+ * 刷新环境方向缓存（#110 陈旧值修复，2026-10-03）。
+ *
+ * 为什么必须有这个：缓存是内存态、无 TTL，而唯一的读取方（远程大面板）按设计永不碰桥——
+ * 于是「谁负责刷新」全落在外部动作上。原先只有设置页挂载会问一次，于是有两种坏结局：
+ * 1. 用户不进设置页就开远程 → `auto` 只能回落视口比例（桌面浏览器视口恒定一个形状，等于没有信号）；
+ * 2. 更糟的是沿用上一次缓存下来的旧值——系统后来转过了，插件仍按旧值显示、并把它标成「整机」，
+ *    那是**在说谎**，比回落更伤信任（用户原话：「进入远程模式就自动选择的是竖屏，感觉好奇怪」）。
+ *
+ * 故把刷新钉在两个用户动作上：**开启远程模式**、**插件启动且远程已开**（刷新/崩溃恢复后重进）。
+ * 两者都只读不写、零 OS 副作用、不闪屏。
+ *
+ * query 由调用方注入（与 systemOrientation 的 fetch 注入同体例）：本模块不引依赖，仍是零 import 叶子。
+ * 缺席负缓存语义不变——桥确认 unsupported 后本会话不再做推测性查询。
+ */
+export function warmEnvOrientation(query: () => Promise<any>): Promise<void> {
+  if (envWarmInFlight) return envWarmInFlight
+  if (typeof query !== 'function') return Promise.resolve()
+  if (envUnsupported) return Promise.resolve()
+  envWarmInFlight = (async (): Promise<void> => {
+    try {
+      const r = await query()
+      if (r && r.ok === true && (r.orientation === 'landscape' || r.orientation === 'portrait')) {
+        setEnvOrientation({ orientation: r.orientation })
+        notifyRemote()
+        return
+      }
+      if (r && r.error && r.error.code === 'unsupported') markEnvUnsupported()
+    } catch (e) { /* 读不到 → 保持原值（视口回落兜底），不打扰 */ }
+  })().finally(() => { envWarmInFlight = null })
+  return envWarmInFlight
 }
 
 function notifyRemote(): void {
@@ -415,11 +451,12 @@ export function setRemoteDensity(d: RemoteDensity): RemotePrefs {
   return { ...next }
 }
 
-/** 仅供测试：重置内存态（环境缓存一并清；不碰任何持久化存储） */
+/** 仅供测试：重置内存态（环境缓存与预热在途一并清；不碰任何持久化存储） */
 export function __resetRemoteForTests(): void {
   cache = { ...REMOTE_DEFAULTS }
   envOrientation = null
   envUnsupported = false
+  envWarmInFlight = null
   remoteLoaded = false
   loadPromise = null
   loadRetried = false

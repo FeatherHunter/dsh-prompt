@@ -221,8 +221,11 @@ Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage
   let created;
   await TR.act(async () => { created = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
   await sleep(20);
+  const getsAfterMount = sysGets;
   const toggle = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
   await TR.act(async () => { toggle.props.onChange({ target: { checked: true } }); await sleep(30); });
+  if (sysGets !== getsAfterMount + 1) fail('开启远程应刷新一次整机方向，实际 GET ' + sysGets);
+  const getsAfterEnter = sysGets;
   const portrait = created.root.findAll((x) => x.props && x.props['data-dsh-prompt-orientation'] === 'portrait')[0];
   await TR.act(async () => { portrait.props.onClick(); await sleep(30); });
   if (remote2.getRemotePrefs().orientation !== 'portrait') fail('会话中切竖屏应落地');
@@ -232,14 +235,14 @@ Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage
   if (remote2.getRemotePrefs().orientation !== 'portrait') fail('退出后插件应保持竖屏，实际 ' + remote2.getRemotePrefs().orientation);
   if (fakeOs !== 'portrait') fail('退出后整机应保持竖屏（不转回），实际 ' + fakeOs);
   if (sysPosts.length !== 1) fail('退出不得再调 OS，实际 POST ' + sysPosts.length + ' 次：' + JSON.stringify(sysPosts));
-  if (sysGets !== 1) fail('进出不应额外查询整机（仅挂载预热一次），实际 ' + sysGets);
+  if (sysGets !== getsAfterEnter) fail('退出不应查询整机（不还原、不预热），实际多 ' + (sysGets - getsAfterEnter));
   const notes = created.root.findAll((x) => x.props && x.props['data-dsh-prompt-orientation-note'] === '1');
   if (notes.length !== 0) fail('退出不还原，成功应静默无 note');
   created.unmount();
 }
 ok('C2 开切关全链路（插件+整机都保持竖屏，OS 只写一次）');
 
-// C3：进出总闸对整机零读写（既不进入查询、也不退出恢复）
+// C3：进出总闸对整机零写入（进入只读一次、退出零调用）
 remote2.__resetRemoteForTests();
 Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
 {
@@ -258,13 +261,15 @@ Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage
   const getsAfterMount = sysGets;
   const toggle = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
   await TR.act(async () => { toggle.props.onChange({ target: { checked: true } }); await sleep(30); });
+  const getsAfterEnter = sysGets;
   const toggle2 = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
   await TR.act(async () => { toggle2.props.onChange({ target: { checked: false } }); await sleep(50); });
   if (sysPosts !== 0) fail('进出总闸不应写整机，实际 ' + sysPosts);
-  if (sysGets !== getsAfterMount) fail('进出总闸不应查询整机，实际多 ' + (sysGets - getsAfterMount));
+  if (getsAfterEnter !== getsAfterMount + 1) fail('进入应恰读一次整机方向，实际多 ' + (getsAfterEnter - getsAfterMount));
+  if (sysGets !== getsAfterEnter) fail('退出不应查询整机，实际多 ' + (sysGets - getsAfterEnter));
   created.unmount();
 }
-ok('C3 进出总闸对整机零读写');
+ok('C3 进出总闸：进入只读一次、退出零读写');
 
 // C4：整机查询失败（bridge denied）不影响锁定与退出后的保持
 remote2.__resetRemoteForTests();
@@ -445,10 +450,77 @@ ok('D3 挂载预热一次+负缓存');
   await TR.act(async () => { toggle2.props.onChange({ target: { checked: false } }); await sleep(50); });
   if (remote2.getEnvOrientation().orientation !== 'portrait') fail('退出后 env 应仍是锁定值竖屏，实际 ' + JSON.stringify(remote2.getEnvOrientation()));
   if (JSON.stringify(posts) !== JSON.stringify(['portrait'])) fail('POST 应只有锁定那一次，实际 ' + JSON.stringify(posts));
-  if (gets !== getsAfterMount) fail('进出总闸不应查询整机，实际多 ' + (gets - getsAfterMount));
+  if (gets !== getsAfterEnter) fail('退出不应查询整机（锁定与退出都复用已知），实际多 ' + (gets - getsAfterEnter));
   created.unmount();
 }
-ok('D4 锁定复用已知、进出对整机零调用');
+ok('D4 锁定复用已知、退出对整机零调用');
+
+// D7：陈旧 env 修复——进入远程必须把整机方向读回来（用户症状的最小复现）
+{
+  // D7a 纯函数契约：warmEnvOrientation 覆盖旧值、单飞去重、缺席记负缓存、失败不动原值
+  remote.__resetRemoteForTests();
+  if (typeof remote.warmEnvOrientation !== 'function') fail('remote.ts 缺 warmEnvOrientation 导出');
+  remote.setEnvOrientation({ orientation: 'portrait' });          // 上一轮遗留下来的旧值
+  let calls = 0;
+  await remote.warmEnvOrientation(async () => { calls += 1; return { ok: true, orientation: 'landscape' } });
+  if (calls !== 1) fail('预热应恰打一次桥，实际 ' + calls);
+  if (remote.getEnvOrientation().orientation !== 'landscape') fail('预热应以整机真值覆盖旧缓存，实际 ' + JSON.stringify(remote.getEnvOrientation()));
+  // 单飞：同刻并发只发一次
+  calls = 0;
+  const slow = async () => { calls += 1; await sleep(20); return { ok: true, orientation: 'portrait' } };
+  await Promise.all([remote.warmEnvOrientation(slow), remote.warmEnvOrientation(slow), remote.warmEnvOrientation(slow)]);
+  if (calls !== 1) fail('同刻并发预热应去重，实际 ' + calls);
+  // 失败保持原值，不写脏
+  remote.setEnvOrientation({ orientation: 'landscape' });
+  await remote.warmEnvOrientation(async () => ({ ok: false, error: { code: 'denied', message: 'd' } }));
+  if (remote.getEnvOrientation().orientation !== 'landscape') fail('查询失败应保持原值，不写脏');
+  // unsupported 记负缓存且本会话不再问
+  calls = 0;
+  await remote.warmEnvOrientation(async () => { calls += 1; return { ok: false, error: { code: 'unsupported', message: 'x' } } });
+  if (calls !== 1 || remote.isEnvUnsupported() !== true) fail('unsupported 应记负缓存');
+  await remote.warmEnvOrientation(async () => { calls += 1; return { ok: true, orientation: 'portrait' } });
+  if (calls !== 1) fail('负缓存后本会话不应再问，实际 ' + calls);
+  if (typeof remote.warmEnvOrientation('not a function') === 'undefined') fail('非函数 query 应安全返回');
+  remote.__resetRemoteForTests();
+}
+ok('D7a 预热契约（覆盖旧值/单飞/失败不动/负缓存）');
+
+  // D7b 用户症状的最小复现：旧缓存=竖屏、整机早已转回横屏 → 开远程必须纠正为横屏
+  remote2.__resetRemoteForTests();
+  {
+    remote2.setEnvOrientation({ orientation: 'portrait' });   // 上一轮锁竖屏时缓存下来的
+    let gets = 0;
+    globalThis.fetch = async (url, init) => {
+      const u = String(url);
+      if (/\/store$/.test(u)) return { ok: true, status: 200, json: async () => ({ ok: true, value: { remote: { enabled: false, size: 5, orientation: 'auto', density: 'a' } } }) };
+      if (/system\/orientation$/.test(u) && init && init.method === 'POST') return { ok: true, status: 200, json: async () => ({ ok: true, orientation: 'portrait', changed: true }) };
+      if (/system\/orientation$/.test(u)) { gets += 1; return { ok: true, status: 200, json: async () => ({ ok: true, orientation: 'landscape' }) }; }  // 系统现在是横屏
+      return { ok: true, status: 200, json: async () => ({ ok: true }) };
+    };
+    // 开远程前：旧缓存会让面板算出竖屏（这就是用户看到的「进入就选竖屏」）
+    const before = remoteView110.resolveEffectiveOrientation('auto', remote2.getEnvOrientation() && remote2.getEnvOrientation().orientation, 'landscape');
+    if (before !== 'portrait') fail('复现前提：开远程前旧缓存应让面板算出竖屏，实际 ' + before);
+    let created;
+    await TR.act(async () => { created = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
+    await sleep(20);
+    const toggle = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
+    await TR.act(async () => { toggle.props.onChange({ target: { checked: true } }); await sleep(40); });
+    if (gets < 1) fail('开启远程应至少读一次整机方向');
+    const after = remote2.getEnvOrientation() && remote2.getEnvOrientation().orientation;
+    if (after !== 'landscape') fail('开远程后应以整机真值横屏覆盖旧缓存竖屏，实际 ' + after);
+    const shown = remoteView110.resolveEffectiveOrientation('auto', after, 'landscape');
+    if (shown !== 'landscape') fail('面板应算出横屏，实际 ' + shown);
+    created.unmount();
+    remote2.__resetRemoteForTests();
+  }
+  ok('D7b 旧缓存竖屏 → 开远程纠正为横屏（用户症状最小复现）');
+
+  // D7c 启动即开着（刷新/崩溃恢复后重进）也必须刷新一次——源码级
+  const indexSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'index.ts'), 'utf8');
+  if (!/warmEnvOrientation/.test(indexSrc)) fail('启动路径应预热 env（刷新后远程仍开着时）');
+  if (!/enabled !== true/.test(indexSrc)) fail('启动预热应只在远程已开时进行');
+}
+ok('D7c 启动且远程已开也刷新');
 
 // D5：面板层永不直调整机桥（源码级）
 {

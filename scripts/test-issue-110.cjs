@@ -1,7 +1,8 @@
-// 回归测试 #110：远程会话方向快照恢复 + 远程关时去强调色置灰
-// 覆盖 Agent Brief 验收：
-//  A) 插件偏好：横进竖切退回横（反向亦然）；无变进出不产生多余写入；崩溃重启恢复一次；页内 setter 同语义
-//  B) 整机：仅会话内动过且退出不一致才恢复；未动过零 POST；entry 未知不恢复；失败只锁自家
+// 回归测试 #110：远程关闭时去强调色置灰 + 方向进出不还原
+// 改判（2026-10-03，用户拍板）：退出远程**不还原**方向——用户最后锁定的方向优先级最高。
+// 覆盖：
+//  A) 插件偏好：进出只翻总闸，方向原样保持；崩溃重启不回退；旧版遗留快照键被清
+//  B) 整机：退出零调用（不闪屏、不夺回控制权）；锁定那次仍是唯一 OS 写
 //  C) 样式：远程关时方向/密度选中项无 accent、不可触发、有说明
 // 口径：纯函数走转译断言，接线走渲染器（沿用 test-86 harness 形态）。
 const fs = require('node:fs');
@@ -39,10 +40,10 @@ function stubLocalStorage() {
 function unstubLocalStorage() { try { delete globalThis.localStorage; } catch (e) { /* ignore */ } }
 
 (async () => {
-// ── A) 插件偏好会话快照（remote.ts 独立转译，零 import 不变） ──
+// ── A) 插件偏好：进出不还原（#110 改判） ──
 const remote = transpile(REMOTE_TS, 'remote110.cjs');
 
-// A1：横进竖切退回横（issue 原话用例）
+// A1：横进竖切，退出后仍是竖屏（issue 原话用例的反转）
 remote.__resetRemoteForTests();
 stubLocalStorage();
 remote.setRemoteOrientation('landscape');
@@ -53,9 +54,9 @@ remote.setRemoteEnabled(false);
 {
   const p = remote.getRemotePrefs();
   if (p.enabled !== false) fail('退出后总闸应关');
-  if (p.orientation !== 'landscape') fail('退出后应恢复进入前横屏，实际 ' + p.orientation);
+  if (p.orientation !== 'portrait') fail('退出后应保持会话内最后选择竖屏，实际 ' + p.orientation);
 }
-ok('A1 横进竖切退回横');
+ok('A1 横进竖切退出保持竖屏（不还原）');
 
 // A2：反向亦然
 remote.__resetRemoteForTests();
@@ -64,10 +65,10 @@ remote.setRemoteOrientation('portrait');
 remote.setRemoteEnabled(true);
 remote.setRemoteOrientation('landscape');
 remote.setRemoteEnabled(false);
-if (remote.getRemotePrefs().orientation !== 'portrait') fail('退出后应恢复进入前竖屏，实际 ' + remote.getRemotePrefs().orientation);
-ok('A2 竖进横切退回竖');
+if (remote.getRemotePrefs().orientation !== 'landscape') fail('退出后应保持会话内最后选择横屏，实际 ' + remote.getRemotePrefs().orientation);
+ok('A2 竖进横切退出保持横屏（不还原）');
 
-// A3：无变进出不产生多余 orientation 写入（单次落盘即开关本身）
+// A3：进出只落盘总闸，方向原样带过，且不再产生任何快照键
 remote.__resetRemoteForTests();
 Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
 const posts = [];
@@ -84,68 +85,58 @@ await sleep(30);
   const bodies = posts.filter((b) => typeof b.enabled === 'boolean');
   if (bodies.length !== 2) fail('无变进出应恰两次落盘（开与关），实际 ' + bodies.length);
   if (bodies[0].enabled !== true || bodies[1].enabled !== false) fail('落盘应为开后关');
-  if (bodies[1].orientation !== 'landscape') fail('关的落盘方向应保持进入值');
+  if (bodies[1].orientation !== 'landscape') fail('关的落盘方向应原样保持，实际 ' + bodies[1].orientation);
+  if (globalThis.localStorage.getItem('__dshPromptPreRemote') !== null) fail('改判后不得再写进入快照键');
 }
-ok('A3 无变进出无多余写入');
+ok('A3 进出只翻总闸、方向原样、零快照');
 
-// A4：非过渡调用不建快照（重复开不覆盖进入值）
+// A4：重复开不产生任何方向副作用
 remote.__resetRemoteForTests();
 Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
 posts.length = 0;
 remote.setRemoteOrientation('landscape');
 remote.setRemoteEnabled(true);
-remote.setRemoteEnabled(true); // 重复开：不应重建快照
+remote.setRemoteEnabled(true); // 重复开：幂等，不碰方向
 remote.setRemoteOrientation('portrait');
 remote.setRemoteEnabled(false);
-if (remote.getRemotePrefs().orientation !== 'landscape') fail('重复开不应丢进入快照，实际 ' + remote.getRemotePrefs().orientation);
-ok('A4 重复开不覆盖快照');
+if (remote.getRemotePrefs().orientation !== 'portrait') fail('重复开后仍应保持最后选择竖屏，实际 ' + remote.getRemotePrefs().orientation);
+ok('A4 重复开不碰方向');
 
-// A5：页内 setter 同语义（跨插件关同样恢复）
+// A5：页内 setter 同语义（跨插件关同样不还原）
 remote.__resetRemoteForTests();
 Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
 remote.setRemoteOrientation('landscape');
 remote.setRemoteFromExternal(true);
 remote.setRemoteOrientation('portrait');
 remote.setRemoteFromExternal({ enabled: false });
-if (remote.getRemotePrefs().orientation !== 'landscape') fail('页内关应同样恢复横屏');
+if (remote.getRemotePrefs().orientation !== 'portrait') fail('页内关应同样保持竖屏，实际 ' + remote.getRemotePrefs().orientation);
 ok('A5 页内 setter 同语义');
 
-// A6：崩溃重启恢复一次（内存丢、localStorage 留、host 仍开着 P1）
+// A6：崩溃重启不回退（host 快照是最后选择），且旧版遗留的进入快照键被一次性清掉
 remote.__resetRemoteForTests();
 Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
-remote.setRemoteOrientation('landscape');
-remote.setRemoteEnabled(true);
-remote.setRemoteOrientation('portrait');
-// 模拟崩溃：只清内存，快照留盘
-remote.__resetRemoteForTests();
+// 模拟旧版遗留：盘上躺着「进入前横屏」的快照，host 那边存的是用户最后选的竖屏
+globalThis.localStorage.setItem('__dshPromptPreRemote', JSON.stringify({ orientation: 'landscape' }));
 globalThis.fetch = async (url) => {
   if (String(url).endsWith('/store')) return { ok: true, status: 200, json: async () => ({ ok: true, value: { remote: { enabled: true, size: 5, orientation: 'portrait', density: 'a' } } }) };
   return { ok: true, status: 200, json: async () => ({ ok: true }) };
 };
 await remote.ensureRemoteLoaded();
 await sleep(20);
-if (remote.getRemotePrefs().orientation !== 'landscape') fail('崩溃重启后应恢复进入前横屏，实际 ' + remote.getRemotePrefs().orientation);
-if (globalThis.localStorage.getItem('__dshPromptPreRemote') !== null) fail('恢复后快照应清理（仅一次）');
-ok('A6 崩溃重启恢复一次');
+if (remote.getRemotePrefs().orientation !== 'portrait') fail('崩溃重启后应保持最后选择竖屏，实际 ' + remote.getRemotePrefs().orientation);
+if (globalThis.localStorage.getItem('__dshPromptPreRemote') !== null) fail('遗留进入快照键应被清理，否则日后会把选择翻回去');
+ok('A6 崩溃重启保持最后选择 + 清遗留快照键');
 delete globalThis.fetch;
 remote.__resetRemoteForTests();
 unstubLocalStorage();
 
-// ── B) 整机恢复判定纯函数（systemOrientation.ts 独立转译） ──
+// ── B) 整机恢复判定已退役 ──
 const sys = transpile(SYS_TS, 'sys110.cjs');
-if (typeof sys.shouldRestoreSystemOrientation !== 'function') fail('systemOrientation.ts 缺 shouldRestoreSystemOrientation 导出');
-{
-  const t = sys.shouldRestoreSystemOrientation;
-  if (t('landscape', false, 'portrait') !== false) fail('未动过不应恢复');
-  if (t(null, true, 'portrait') !== false) fail('entry 未知不应恢复');
-  if (t('unknown', true, 'portrait') !== false) fail('entry 非法不应恢复');
-  if (t('landscape', true, 'landscape') !== false) fail('已一致不应恢复');
-  if (t('landscape', true, 'bogus') !== false) fail('现值非法不应恢复');
-  const r = t('landscape', true, 'portrait');
-  if (r !== true) fail('动过且不一致应恢复，实际 ' + r);
-  if (t('portrait', true, 'landscape') !== true) fail('反向亦应恢复');
+if (typeof sys.shouldRestoreSystemOrientation === 'function') fail('shouldRestoreSystemOrientation 应已删除（退出不再还原）');
+for (const fn of ['isSystemOrientation', 'normalizeOrientCode', 'getSystemOrientation', 'setSystemOrientation']) {
+  if (typeof sys[fn] !== 'function') fail('systemOrientation.ts 缺 ' + fn + ' 导出');
 }
-ok('B 整机恢复判定（未动/未知/一致不恢，不一致必恢）');
+ok('B 恢复判定已删除，真切/查询契约仍在');
 
 // ── C) 设置页接线 + 去强调色（渲染器） ──
 const MODULES = [
@@ -208,7 +199,7 @@ stubLocalStorage();
 }
 ok('C1 远程关时去强调色置灰（无accent/不可点/有说明）');
 
-// C2：开→切竖屏→关：插件恢复 + 整机恢复各一次，成功静默
+// C2：开→切竖屏→关：插件与整机都保持竖屏，OS 只被写过一次（锁定那次）
 remote2.__resetRemoteForTests();
 Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
 {
@@ -232,47 +223,50 @@ Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage
   await sleep(20);
   const toggle = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
   await TR.act(async () => { toggle.props.onChange({ target: { checked: true } }); await sleep(30); });
-  if (sysGets < 1) fail('开远程应查询整机 entry');
   const portrait = created.root.findAll((x) => x.props && x.props['data-dsh-prompt-orientation'] === 'portrait')[0];
   await TR.act(async () => { portrait.props.onClick(); await sleep(30); });
   if (remote2.getRemotePrefs().orientation !== 'portrait') fail('会话中切竖屏应落地');
   if (sysPosts.length !== 1 || sysPosts[0] !== 'portrait') fail('锁定应调 OS 一次竖屏，实际 ' + JSON.stringify(sysPosts));
   const toggle2 = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
   await TR.act(async () => { toggle2.props.onChange({ target: { checked: false } }); await sleep(50); });
-  if (remote2.getRemotePrefs().orientation !== 'landscape') fail('退出后插件应恢复横屏，实际 ' + remote2.getRemotePrefs().orientation);
-  if (fakeOs !== 'landscape') fail('退出后整机应恢复横屏，实际 ' + fakeOs);
-  if (sysPosts.length !== 2 || sysPosts[1] !== 'landscape') fail('退出恢复应调 OS 一次横屏，实际 ' + JSON.stringify(sysPosts));
+  if (remote2.getRemotePrefs().orientation !== 'portrait') fail('退出后插件应保持竖屏，实际 ' + remote2.getRemotePrefs().orientation);
+  if (fakeOs !== 'portrait') fail('退出后整机应保持竖屏（不转回），实际 ' + fakeOs);
+  if (sysPosts.length !== 1) fail('退出不得再调 OS，实际 POST ' + sysPosts.length + ' 次：' + JSON.stringify(sysPosts));
+  if (sysGets !== 1) fail('进出不应额外查询整机（仅挂载预热一次），实际 ' + sysGets);
   const notes = created.root.findAll((x) => x.props && x.props['data-dsh-prompt-orientation-note'] === '1');
-  if (notes.length !== 0) fail('成功恢复应静默无 note');
+  if (notes.length !== 0) fail('退出不还原，成功应静默无 note');
   created.unmount();
 }
-ok('C2 开切关全链路（插件+整机各恢复一次，成功静默）');
+ok('C2 开切关全链路（插件+整机都保持竖屏，OS 只写一次）');
 
-// C3：未动过整机 → 退出零 OS POST
+// C3：进出总闸对整机零读写（既不进入查询、也不退出恢复）
 remote2.__resetRemoteForTests();
 Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
 {
   let sysPosts = 0;
+  let sysGets = 0;
   globalThis.fetch = async (url, init) => {
     const u = String(url);
     if (/\/store$/.test(u)) return { ok: true, status: 200, json: async () => ({ ok: true, value: { remote: { enabled: false, size: 5, orientation: 'auto', density: 'a' } } }) };
     if (/system\/orientation$/.test(u) && init && init.method === 'POST') { sysPosts += 1; return { ok: true, status: 200, json: async () => ({ ok: true, orientation: 'portrait', changed: true }) }; }
-    if (/system\/orientation$/.test(u)) return { ok: true, status: 200, json: async () => ({ ok: true, orientation: 'landscape' }) };
+    if (/system\/orientation$/.test(u)) { sysGets += 1; return { ok: true, status: 200, json: async () => ({ ok: true, orientation: 'landscape' }) }; }
     return { ok: true, status: 200, json: async () => ({ ok: true }) };
   };
   let created;
   await TR.act(async () => { created = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
   await sleep(20);
+  const getsAfterMount = sysGets;
   const toggle = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
   await TR.act(async () => { toggle.props.onChange({ target: { checked: true } }); await sleep(30); });
   const toggle2 = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
   await TR.act(async () => { toggle2.props.onChange({ target: { checked: false } }); await sleep(50); });
-  if (sysPosts !== 0) fail('未动过整机退出时应零 OS POST，实际 ' + sysPosts);
+  if (sysPosts !== 0) fail('进出总闸不应写整机，实际 ' + sysPosts);
+  if (sysGets !== getsAfterMount) fail('进出总闸不应查询整机，实际多 ' + (sysGets - getsAfterMount));
   created.unmount();
 }
-ok('C3 未动整机退出零 POST');
+ok('C3 进出总闸对整机零读写');
 
-// C4：entry 未知（GET 失败）→ 不恢复整机但插件照回
+// C4：整机查询失败（bridge denied）不影响锁定与退出后的保持
 remote2.__resetRemoteForTests();
 Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
 {
@@ -293,11 +287,11 @@ Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage
   await TR.act(async () => { portrait.props.onClick(); await sleep(30); });
   const toggle2 = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
   await TR.act(async () => { toggle2.props.onChange({ target: { checked: false } }); await sleep(50); });
-  if (remote2.getRemotePrefs().orientation !== 'landscape') fail('entry 未知时插件仍应恢复横屏');
-  if (sysPosts !== 1) fail('entry 未知时退出不应再 POST 整机（仅锁定那一次），实际 ' + sysPosts);
+  if (remote2.getRemotePrefs().orientation !== 'portrait') fail('查询失败时锁定仍应落地并保持，实际 ' + remote2.getRemotePrefs().orientation);
+  if (sysPosts !== 1) fail('查询失败时退出不应再 POST 整机（仅锁定那一次），实际 ' + sysPosts);
   created.unmount();
 }
-ok('C4 entry未知不恢复整机、插件照回');
+ok('C4 查询失败不影响锁定与保持');
 
 // ── D) 检测统一：resolver + env缓存 + 双态caption + 发布链路 ──
 const remoteView110 = transpile(path.join(ROOT, 'src', 'client', 'remoteView.ts'), 'remoteView110.cjs');
@@ -419,7 +413,7 @@ ok('D2c 显式锁定caption无来源误标');
 }
 ok('D3 挂载预热一次+负缓存');
 
-// D4：锁定成功发布env且零新增GET；退出恢复成功同步env
+// D4：锁定成功发布 env 且零新增 GET；退出对整机零调用、env 保持锁定值
 {
   remote2.__resetRemoteForTests();
   let fakeOs = 'landscape';
@@ -449,11 +443,12 @@ ok('D3 挂载预热一次+负缓存');
   if (gets !== getsAfterEnter) fail('锁定不应新增GET（复用已知），实际多 ' + (gets - getsAfterEnter));
   const toggle2 = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
   await TR.act(async () => { toggle2.props.onChange({ target: { checked: false } }); await sleep(50); });
-  if (remote2.getEnvOrientation().orientation !== 'landscape') fail('退出恢复成功应同步env横屏');
-  if (JSON.stringify(posts) !== JSON.stringify(['portrait', 'landscape'])) fail('POST 应为锁定+恢复各一次，实际 ' + JSON.stringify(posts));
+  if (remote2.getEnvOrientation().orientation !== 'portrait') fail('退出后 env 应仍是锁定值竖屏，实际 ' + JSON.stringify(remote2.getEnvOrientation()));
+  if (JSON.stringify(posts) !== JSON.stringify(['portrait'])) fail('POST 应只有锁定那一次，实际 ' + JSON.stringify(posts));
+  if (gets !== getsAfterMount) fail('进出总闸不应查询整机，实际多 ' + (gets - getsAfterMount));
   created.unmount();
 }
-ok('D4 发布链路零新增调用（锁定/恢复复用已知）');
+ok('D4 锁定复用已知、进出对整机零调用');
 
 // D5：面板层永不直调整机桥（源码级）
 {
@@ -464,31 +459,25 @@ ok('D4 发布链路零新增调用（锁定/恢复复用已知）');
 }
 ok('D5 面板只读缓存不碰桥');
 
-// D6：设为默认——快照跟进，会话退出保持新默认
+// D6：恢复机制整体退役——「设为默认」入口与相关导出/文案不得复活
 {
-  // D6a 纯函数：非会话 no-op；会话内干净 no-op；脏时跟进
+  // D6a 纯语义：会话快照相关导出已不存在，退出后方向即最终方向
   remote.__resetRemoteForTests();
   Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
-  let r = remote.commitSessionOrientationAsDefault();
-  if (r.orientation !== 'auto') fail('非会话设默认应 no-op');
+  for (const fn of ['getSessionSnapshotOrientation', 'commitSessionOrientationAsDefault']) {
+    if (typeof remote[fn] === 'function') fail(fn + ' 应已删除（无临时覆盖即无快照可提交）');
+  }
   remote.setRemoteOrientation('landscape');
   remote.setRemoteEnabled(true);
-  r = remote.commitSessionOrientationAsDefault();
-  if (r.orientation !== 'landscape') fail('干净快照设默认应 no-op');
-  if (remote.getSessionSnapshotOrientation() !== 'landscape') fail('快照应为进入值横屏');
   remote.setRemoteOrientation('portrait');
-  r = remote.commitSessionOrientationAsDefault();
-  if (remote.getSessionSnapshotOrientation() !== 'portrait') fail('设默认后快照应跟进竖屏');
-  if (JSON.parse(globalThis.localStorage.getItem('__dshPromptPreRemote')).orientation !== 'portrait') fail('落盘快照应同步跟进');
   remote.setRemoteEnabled(false);
-  if (remote.getRemotePrefs().orientation !== 'portrait') fail('设默认后退出应保持竖屏，实际 ' + remote.getRemotePrefs().orientation);
-  if (globalThis.localStorage.getItem('__dshPromptPreRemote') !== null) fail('退出后快照应清');
+  if (remote.getRemotePrefs().orientation !== 'portrait') fail('退出应保持最后选择，实际 ' + remote.getRemotePrefs().orientation);
   remote.__resetRemoteForTests();
   Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
 }
-ok('D6a 设默认纯语义（非会话/干净no-op，脏时跟进，退出保持）');
+ok('D6a 快照导出已删除、退出即最终方向');
 
-// D6b 渲染器：按钮按需出现，点击确认并退出保持
+// D6b 渲染器：界面不再有「设为默认」，且源码级无恢复残留
 {
   remote2.__resetRemoteForTests();
   Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
@@ -503,28 +492,31 @@ ok('D6a 设默认纯语义（非会话/干净no-op，脏时跟进，退出保持
   await TR.act(async () => { created = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
   await sleep(20);
   const bySetDefault = () => created.root.findAll((x) => x.type === 'button' && x.props && x.props['data-dsh-prompt-orientation-set-default'] === '1');
-  if (bySetDefault().length !== 0) fail('关时不应出现设为默认');
+  if (bySetDefault().length !== 0) fail('不应再有设为默认按钮');
   const toggle = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
   await TR.act(async () => { toggle.props.onChange({ target: { checked: true } }); await sleep(30); });
-  if (bySetDefault().length !== 0) fail('干净会话不应出现设为默认');
   const autoBtn = created.root.findAll((x) => x.props && x.props['data-dsh-prompt-orientation'] === 'auto')[0];
   await TR.act(async () => { autoBtn.props.onClick(); await sleep(20); });
-  if (bySetDefault().length !== 1) fail('变脏后应出现设为默认');
-  const btn = bySetDefault()[0];
-  if (!btn.props.title) fail('设为默认应有说明 title');
-  await TR.act(async () => { btn.props.onClick(); await sleep(20); });
-  if (bySetDefault().length !== 0) fail('设默认后按钮应消失（已跟进）');
-  const notes = created.root.findAll((x) => x.props && x.props['data-dsh-prompt-orientation-default-note'] === '1');
-  if (notes.length !== 1 || String((notes[0].children || []).join('')).indexOf('已设为默认') < 0) fail('设默认后应有确认回执');
-  if (remote2.getSessionSnapshotOrientation() !== 'auto') fail('快照应跟进自动');
+  if (bySetDefault().length !== 0) fail('改了方向也不应再出现设为默认（退出不还原，本就已生效）');
   const toggle2 = created.root.find((x) => x.props && x.props['data-dsh-prompt-remote-toggle']);
   await TR.act(async () => { toggle2.props.onChange({ target: { checked: false } }); await sleep(50); });
-  if (remote2.getRemotePrefs().orientation !== 'auto') fail('设默认后退出应保持自动，实际 ' + remote2.getRemotePrefs().orientation);
+  if (remote2.getRemotePrefs().orientation !== 'auto') fail('退出应保持自动，实际 ' + remote2.getRemotePrefs().orientation);
   created.unmount();
   remote2.__resetRemoteForTests();
   Object.keys(globalThis.localStorage._map).forEach((k) => globalThis.localStorage.removeItem(k));
+
+  // 源码级：恢复机制的任何残迹都不许回来
+  const remoteSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'remote.ts'), 'utf8');
+  const setSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'settings.ts'), 'utf8');
+  const sysSrc = fs.readFileSync(SYS_TS, 'utf8');
+  const i18nSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'i18n.ts'), 'utf8');
+  if (/setItem\(\s*['"]__dshPromptPreRemote/.test(remoteSrc)) fail('remote.ts 不得再写进入快照键');
+  if (/sessionSnapshot|writeStoredSnapshot|readStoredSnapshot/.test(remoteSrc)) fail('remote.ts 残留会话快照代码');
+  if (/shouldRestoreSystemOrientation|remoteOrientationRestoreFail|remoteSetAsDefault/.test(setSrc + sysSrc + i18nSrc)) fail('恢复判定/文案有残留');
+  if (/data-dsh-prompt-orientation-set-default/.test(setSrc)) fail('设置页不得再有设为默认入口');
+  if (!/__dshPromptPreRemote/.test(remoteSrc)) fail('remote.ts 应保留遗留键的清理常量');
 }
-ok('D6b 设默认渲染器（按需出现/确认回执/退出保持）');
+ok('D6b 设为默认入口与恢复残留全退役');
 
 delete globalThis.fetch;
 remote2.__resetRemoteForTests();

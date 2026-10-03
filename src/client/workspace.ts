@@ -111,17 +111,24 @@ function sessionBlankOf(raw: any, title: string): boolean {
   } catch (e) { return false }
 }
 
-/** 单条归一（fail-soft：无 id 回 null，调用方过滤） */
-export function normalizeSession(raw: any, workspaceNames?: Map<string, string> | Record<string, string>): WorkspaceSession | null {
+/** 单条归一（fail-soft：无 id 回 null，调用方过滤）。
+ *  归属优先取 `index`（工作区登记反查，见 buildWorkspaceIndex）；查不到才退回会话自身字段探测。 */
+export function normalizeSession(
+  raw: any,
+  workspaceNames?: Map<string, string> | Record<string, string>,
+  index?: Map<string, WorkspaceIndexEntry>,
+): WorkspaceSession | null {
   try {
     if (!raw || typeof raw !== 'object') return null
     const id = asString((raw as any).id || (raw as any).sid || (raw as any).sessionId)
     if (id === '') return null
-    const wsId = sessionWorkspaceIdOf(raw)
-    let wsName = ''
+    let hit: WorkspaceIndexEntry | null = null
+    try { hit = index && typeof index.get === 'function' ? (index.get(id) || null) : null } catch (e) { hit = null }
+    const wsId = hit ? hit.workspaceId : sessionWorkspaceIdOf(raw)
+    let wsName = hit ? hit.workspaceName : ''
     try {
-      if (workspaceNames instanceof Map) wsName = workspaceNames.get(wsId || '') || ''
-      else if (workspaceNames && typeof workspaceNames === 'object') wsName = (workspaceNames as any)[wsId || ''] || ''
+      if (workspaceNames instanceof Map) wsName = wsName || workspaceNames.get(wsId || '') || ''
+      else if (workspaceNames && typeof workspaceNames === 'object') wsName = wsName || (workspaceNames as any)[wsId || ''] || ''
     } catch (e) { /* ignore */ }
     if (!wsName && raw && typeof raw === 'object') {
       const cands = [(raw as any).workspaceName, (raw as any).workspace_name, (raw as any).groupName]
@@ -130,12 +137,13 @@ export function normalizeSession(raw: any, workspaceNames?: Map<string, string> 
       }
     }
     const title = sessionTitleOf(raw, id)
+    const ownCwd = sessionCwdOf(raw)
     return {
       id,
       title,
       workspaceId: wsId,
       workspaceName: wsName || (wsId || ''),
-      cwd: sessionCwdOf(raw),
+      cwd: ownCwd || (hit ? hit.path : ''),
       updatedAt: sessionTimeOf(raw),
       blank: sessionBlankOf(raw, title),
     }
@@ -163,13 +171,17 @@ export function rawSessionItems(input: unknown): any[] {
 }
 
 /** 批量归一（去重保首见序，无 id 行丢弃，不抛） */
-export function normalizeSessions(input: unknown, workspaceNames?: Map<string, string> | Record<string, string>): WorkspaceSession[] {
+export function normalizeSessions(
+  input: unknown,
+  workspaceNames?: Map<string, string> | Record<string, string>,
+  index?: Map<string, WorkspaceIndexEntry>,
+): WorkspaceSession[] {
   try {
     const raws = rawSessionItems(input)
     const out: WorkspaceSession[] = []
     const seen = new Set<string>()
     for (const r of raws) {
-      const s = normalizeSession(r, workspaceNames)
+      const s = normalizeSession(r, workspaceNames, index)
       if (!s || seen.has(s.id)) continue
       seen.add(s.id)
       out.push(s)
@@ -178,11 +190,37 @@ export function normalizeSessions(input: unknown, workspaceNames?: Map<string, s
   } catch (e) { return [] }
 }
 
+/**
+ * 从多态工作区登记里捞出原始登记数组（数组 / {items} / {workspaces} / {list} / {byId} / 单体，不抛）。
+ * 名字表与反查索引共用这一条形态解析，两处不再各认一份形状。
+ */
+export function rawWorkspaceItems(input: unknown): any[] {
+  try {
+    if (!input) return []
+    if (Array.isArray(input)) return input as any[]
+    const o = input as any
+    if (Array.isArray(o.items)) return o.items
+    if (Array.isArray(o.workspaces)) return o.workspaces
+    if (Array.isArray(o.list)) return o.list
+    if (o.byId && typeof o.byId === 'object') {
+      try {
+        return Object.keys(o.byId).map((k) => {
+          const r = o.byId[k]
+          if (r && typeof r === 'object' && typeof r.id === 'string') return r
+          if (typeof r === 'string') return { id: k, name: r }
+          return { id: k, name: '' }
+        })
+      } catch (e) { return [] }
+    }
+    if (typeof o === 'object' && typeof o.id === 'string' && o.id !== '') return [o]
+    return []
+  } catch (e) { return [] }
+}
+
 /** 从多态工作区登记里捞出 id→名（数组 / {items} / {byId} / 单体，不抛） */
 export function normalizeWorkspaceNames(input: unknown): Map<string, string> {
   const out = new Map<string, string>()
   try {
-    if (!input) return out
     const pushOne = (r: any): void => {
       try {
         if (!r || typeof r !== 'object') return
@@ -192,25 +230,45 @@ export function normalizeWorkspaceNames(input: unknown): Map<string, string> {
         if (!out.has(id)) out.set(id, name)
       } catch (e) { /* ignore */ }
     }
-    if (Array.isArray(input)) { (input as any[]).forEach(pushOne); return out }
-    const o = input as any
-    if (Array.isArray(o.items)) { o.items.forEach(pushOne); return out }
-    if (Array.isArray(o.workspaces)) { o.workspaces.forEach(pushOne); return out }
-    if (Array.isArray(o.list)) { o.list.forEach(pushOne); return out }
-    if (o.byId && typeof o.byId === 'object') {
-      try {
-        for (const k of Object.keys(o.byId)) {
-          const r = o.byId[k]
-          if (r && typeof r === 'object' && typeof r.id === 'string') pushOne(r)
-          else if (typeof r === 'string') { if (!out.has(k)) out.set(k, r) }
-          else pushOne({ id: k, name: '' })
-        }
-      } catch (e) { /* ignore */ }
-      return out
-    }
-    if (typeof o === 'object' && typeof o.id === 'string' && o.id !== '') { pushOne(o); return out }
+    for (const r of rawWorkspaceItems(input)) pushOne(r)
     return out
   } catch (e) { return out }
+}
+
+/** 一条归属（反查索引的值：工作区 id + 展示名 + 路径） */
+export interface WorkspaceIndexEntry {
+  workspaceId: string
+  workspaceName: string
+  path: string
+}
+
+/**
+ * 工作区登记 → `sessionId → 归属` 反查索引（**归属的权威来源**）。
+ *
+ * 宿主的归属关系存在**工作区这一侧**：`workspaceView` 的形状是
+ * `{ workspaceId, path, title, sessionIds: string[], createdAt, updatedAt }`，
+ * 会话对象自身**不带任何 workspaceId 字段**。所以归属只能从工作区登记反查——
+ * 去会话身上找字段那条路恒为 null，会让所有会话塌进未归属桶、分组整面失效。
+ * 登记里没有的会话保持无归属（调用方归未归属桶），不猜、不按 path 兜底。
+ */
+export function buildWorkspaceIndex(input: unknown): Map<string, WorkspaceIndexEntry> {
+  const out = new Map<string, WorkspaceIndexEntry>()
+  try {
+    for (const r of rawWorkspaceItems(input)) {
+      if (!r || typeof r !== 'object') continue
+      const workspaceId = asString(r.workspaceId || r.id || r.key)
+      if (workspaceId === '') continue
+      const workspaceName = asString(r.title || r.name || r.label) || workspaceId
+      const path = asString(r.path)
+      const ids = Array.isArray(r.sessionIds) ? r.sessionIds : []
+      for (const sid of ids) {
+        const id = asString(sid)
+        if (id === '' || out.has(id)) continue
+        out.set(id, { workspaceId, workspaceName, path })
+      }
+    }
+  } catch (e) { return out }
+  return out
 }
 
 /**
@@ -276,11 +334,6 @@ export function groupWorkspaceSessions(
     })
     return groups
   } catch (e) { return [] }
-}
-
-/** 单工作区退化：组数 ≤1 即隐藏组头退化平铺（#111 US9） */
-export function isSingleWorkspace(groups: WorkspaceGroup[]): boolean {
-  try { return Array.isArray(groups) && groups.length <= 1 } catch (e) { return true }
 }
 
 /** 搜索 haystack（标题 + 工作区名，未归属行用展示名回填，保证搜“未归属”可达；拼音/cwd 全文首版不做，留缝） */
@@ -538,14 +591,43 @@ async function resolveWorkspaceRaws(workspaces: any): Promise<any[]> {
   } catch (e) { return [] }
 }
 
+/**
+ * 从 workspaces 面捞归档会话 id 集（快照 `archivedSessionIds` / 面直挂同名属性，多态容错，不抛）。
+ * 归档 = 用户主动收起的会话，挑选器默认不列（否则快速切换列表会被历史垃圾淹没）。
+ */
+async function resolveArchivedSessionIds(workspaces: any): Promise<Set<string>> {
+  const out = new Set<string>()
+  const eat = (v: unknown): void => {
+    if (!Array.isArray(v)) return
+    for (const x of v) { const s = asString(x); if (s !== '') out.add(s) }
+  }
+  const eatSnapshot = (snap: unknown): void => {
+    if (snap && typeof snap === 'object') eat((snap as any).archivedSessionIds)
+  }
+  try {
+    if (!workspaces || typeof workspaces !== 'object') return out
+    try {
+      const lst = (workspaces as any).list
+      if (lst && typeof lst.getSnapshot === 'function') eatSnapshot(await awaitMaybe(callMaybeFn(lst.getSnapshot())))
+    } catch (e) { /* 下一个形态 */ }
+    try {
+      if (typeof (workspaces as any).getSnapshot === 'function') eatSnapshot(await awaitMaybe(callMaybeFn((workspaces as any).getSnapshot())))
+    } catch (e) { /* 下一个形态 */ }
+    try { eat((workspaces as any).archivedSessionIds) } catch (e) { /* ignore */ }
+  } catch (e) { /* ignore */ }
+  return out
+}
+
 export interface WorkspaceSnapshot {
   sessions: WorkspaceSession[]
   names: Map<string, string>
+  /** 归档会话 id（已在 sessions 里滤掉，这里只作透传备查） */
+  archived: Set<string>
 }
 
 /**
  * 枚举（每次打开重探，抄 sidebarCtl 晚到模式）：
- * - 成功回 {sessions, names}（空数组即真无，由调用方进空态，不是失败）；
+ * - 成功回 {sessions, names, archived}（空数组即真无，由调用方进空态，不是失败）；
  * - 双面全空（连一个条目都捞不到且同步门控本就不满足）抛错，由调用方进失败/探测缺席；
  * - 全程异步全捕获，不抛宿主原生错以外的错。
  */
@@ -553,20 +635,25 @@ export async function enumerateWorkspaceSessions(faces: WorkspaceFaces | null | 
   try {
     if (!faces || typeof faces !== 'object') throw new Error('probe-absent')
     const gates = probeWorkspaceGates(faces)
-    const [sRaws, wRaws] = await Promise.all([
+    const [sRaws, wRaws, archived] = await Promise.all([
       resolveSessionRaws((faces as any).sessions),
       resolveWorkspaceRaws((faces as any).workspaces),
+      resolveArchivedSessionIds((faces as any).workspaces),
     ])
     const names = normalizeWorkspaceNames(wRaws)
-    const sessions = normalizeSessions(sRaws, names)
+    // 归属只能从工作区登记反查（宿主把归属存在工作区侧 sessionIds[]，会话自身没有归属字段）。
+    const index = buildWorkspaceIndex(wRaws)
+    const sessions = normalizeSessions(sRaws, names, index)
     // 回填登记名（含单体 current 形态）
-    const filled = sessions.map((s) => {
-      if (s.workspaceName && s.workspaceName !== '') return s
-      if (!s.workspaceId) return { ...s, workspaceName: '' }
-      return { ...s, workspaceName: names.get(s.workspaceId) || s.workspaceId }
-    })
+    const filled = sessions
+      .filter((s) => !archived.has(s.id))
+      .map((s) => {
+        if (s.workspaceName && s.workspaceName !== '') return s
+        if (!s.workspaceId) return { ...s, workspaceName: '' }
+        return { ...s, workspaceName: names.get(s.workspaceId) || s.workspaceId }
+      })
     if (filled.length === 0 && !gates.enumerable) throw new Error('probe-absent')
-    return { sessions: filled, names }
+    return { sessions: filled, names, archived }
   } catch (e) {
     throw e instanceof Error ? e : new Error('probe-absent')
   }

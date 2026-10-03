@@ -40,18 +40,6 @@ export function normalizeOrientCode(v: unknown): SystemOrientCode {
   return v === 'unsupported' || v === 'busy' || v === 'denied' || v === 'unknown' ? v : 'unknown'
 }
 
-/**
- * 退出恢复判定（#110，纯函数）：
- * 仅当会话内动过整机（touched）、entry 与现值皆为合法横/竖、且两者不一致时恢复；
- * 未动过、entry 未知、现值非法、已一致 → 一律不动（零调用）。
- */
-export function shouldRestoreSystemOrientation(entry: unknown, touched: unknown, current: unknown): boolean {
-  if (touched !== true) return false
-  if (!isSystemOrientation(entry)) return false
-  if (!isSystemOrientation(current)) return false
-  return entry !== current
-}
-
 /** 归一化对端回包（纯函数；宿主旧版本/手造坏包走此，不抛） */
 export function normalizeSystemOrientResponse(data: unknown): SystemOrientResult {
   try {

@@ -17,11 +17,10 @@ import {
   setRemoteEnabled, setRemoteSize, setRemoteOrientation, setRemoteDensity,
   getRemotePersistState,
   getEnvOrientation, setEnvOrientation, isEnvUnsupported, markEnvUnsupported,
-  getSessionSnapshotOrientation, commitSessionOrientationAsDefault,
   type RemoteOrientationPref, type RemoteDensity,
 } from './remote'
 import { remoteSizeScale, resolveEffectiveOrientation, deriveRemoteOrientation } from './remoteView'
-import { setSystemOrientation, getSystemOrientation, isSystemOrientation, shouldRestoreSystemOrientation } from './systemOrientation'
+import { setSystemOrientation, getSystemOrientation, isSystemOrientation } from './systemOrientation'
 import { getLang, tr, STR } from './i18n'
 
 /** 取日志能力（装在槽里的那个实例）；能力缺席时返回 null，界面据此走「不可用」分支，不静默。 */
@@ -184,15 +183,6 @@ async function copyText(text: string): Promise<boolean> {
     return false
   }
 }
-
-/* ── #110 会话整机快照（模块级：会话跨设置弹窗开关存活；单会话假设） ── */
-
-/** O0 进入值（GET 失败记 null = 未知，退出不恢复整机；插件偏好恢复不受影响） */
-let sessionOsEntry: unknown = null
-/** 会话内插件是否成功切过整机（仅成功 POST 置 true） */
-let sessionOsTouched = false
-/** 进入查询在途（锁定点先等它落定，避免 entry 读到切后值造成恢复目标错位） */
-let sessionOsEntryQuery: Promise<unknown> | null = null
 
 export function SettingsPage(props: any): any {
   const react = getReact()
@@ -450,15 +440,11 @@ export function SettingsPage(props: any): any {
   const orientBusy = orientBusyState[0]
   const orientNoteState = react.useState('')
   const orientNote = orientNoteState[0]
-  // #110 收尾：设为默认的确认回执（与 OS note 分开，不互相覆盖）。
-  const defaultNoteState = react.useState('')
-  const defaultNote = defaultNoteState[0]
   const landOrientation = (v: RemoteOrientationPref, note: string): void => {
     const next = setRemoteOrientation(v)
     remoteState[1]({ ...next })
     persistState[1](getRemotePersistState())
     orientNoteState[1](note)
-    defaultNoteState[1]('')
     orientBusyState[1](false)
   }
   const onPickOrientation = (v: RemoteOrientationPref): void => {
@@ -469,11 +455,9 @@ export function SettingsPage(props: any): any {
     if (!isSystemOrientation(v)) return
     orientBusyState[1](true)
     orientNoteState[1](t('remoteOrientationBusy'))
-    // #110：先等进入查询落定（避免 entry 读到切后值），再调 OS；
-    // 会话内成功切过整机记 touched（退出恢复用），失败仍回落自家并明示。
-    const waitEntry = sessionOsEntryQuery
+    // #110 改判：锁定即刻生效且**常驻**——退出远程不还原，用户最后锁的方向就是最终方向。
+    // 整机成功即已知现值，复用为环境缓存（零新增调用），供 auto 与 caption 显示。
     const run = (async (): Promise<void> => {
-      try { if (waitEntry) await waitEntry } catch (e) { /* entry 未知按未知处理 */ }
       let r: any
       try {
         r = await setSystemOrientation(v)
@@ -481,8 +465,6 @@ export function SettingsPage(props: any): any {
         r = { ok: false, error: { code: 'unknown', message: 'orientation-failed' } }
       }
       if (r && r.ok) {
-        try { if (getRemotePrefs().enabled === true) sessionOsTouched = true } catch (e) { /* ignore */ }
-        // #110 检测统一：锁定成功即已知整机现值，复用为环境缓存（零新增调用）
         try { setEnvOrientation({ orientation: v }) } catch (e) { /* ignore */ }
         landOrientation(v, '')
       } else {
@@ -522,12 +504,7 @@ export function SettingsPage(props: any): any {
       .replace('{orient}', orientLabel)
       .replace('{source}', t(envOrient ? 'remoteSourceSystem' : 'remoteSourceViewport'))
   // #110 收尾：设为默认入口可见性——仅会话中、快照与当前不一致时出现（需要才打扰）。
-  let sessionSnapOrient: unknown = null
-  try { sessionSnapOrient = getSessionSnapshotOrientation() } catch (e) { sessionSnapOrient = null }
-  const showSetDefault = remote.enabled === true && !orientBusy
-    && (sessionSnapOrient === 'auto' || sessionSnapOrient === 'landscape' || sessionSnapOrient === 'portrait')
-    && sessionSnapOrient !== orientPref
-  const orientPrefLabel = orientPref === 'auto' ? t('remoteOrientationAuto') : orientLabel
+  // #110 改判：方向无「临时覆盖」，故无「设为默认」入口——会话内选的就是默认，退出后原样保持。
 
   const remoteGroup = h('section', {
     key: 'remote',
@@ -543,61 +520,12 @@ export function SettingsPage(props: any): any {
         checked: !!remote.enabled,
         'data-dsh-prompt-remote-toggle': '1',
         onChange: (e: any) => {
+          // #110 改判：进出总闸只翻一个键，方向既不快照也不还原——会话内选的方向常驻。
+          // 退出时对整机零调用：屏幕保持用户最后锁定的样子，不闪屏、不夺回控制权。
           const on = !!e.target.checked
-          if (on === true && !remote.enabled) {
-            // #110 进入：整机 O0 最佳努力快照（失败记未知，不挡总闸；锁定点会等它落定）。
-            // 成功同时发布环境缓存（显示与 auto 共用，零新增调用）；缺席记负缓存。
-            sessionOsTouched = false
-            sessionOsEntry = null
-            try {
-              if (!isEnvUnsupported()) {
-                const q: Promise<unknown> = getSystemOrientation() as unknown as Promise<unknown>
-                sessionOsEntryQuery = q
-                q.then(
-                  (r: any) => {
-                    sessionOsEntry = r && r.ok ? r.orientation : null
-                    if (r && r.ok) setEnvOrientation({ orientation: r.orientation })
-                    else if (r && r.error && r.error.code === 'unsupported') markEnvUnsupported()
-                    if (sessionOsEntryQuery === q) sessionOsEntryQuery = null
-                    try { remoteState[1](getRemotePrefs()) } catch (e) { /* ignore */ }
-                  },
-                  () => {
-                    sessionOsEntry = null
-                    if (sessionOsEntryQuery === q) sessionOsEntryQuery = null
-                  },
-                )
-              }
-            } catch (err) { sessionOsEntry = null; sessionOsEntryQuery = null }
-          }
           const next = setRemoteEnabled(on)
           remoteState[1]({ ...next })
           persistState[1](getRemotePersistState())
-          defaultNoteState[1]('')
-          if (on === false) {
-            // #110 退出：插件偏好已由 setRemoteEnabled 同步恢复；
-            // 整机按判定异步恢复（成功静默，失败明示；现值读不到则不恢复不打扰）。
-            const entry = sessionOsEntry
-            const touched = sessionOsTouched
-            sessionOsEntry = null
-            sessionOsTouched = false
-            sessionOsEntryQuery = null
-            if (touched === true && isSystemOrientation(entry)) {
-              getSystemOrientation().then(
-                (cur: any) => {
-                  if (!shouldRestoreSystemOrientation(entry, true, cur && cur.ok ? cur.orientation : null)) return
-                  setSystemOrientation(entry).then(
-                    (r: any) => {
-                      // #110 检测统一：恢复成功即已知整机现值，复用为环境缓存
-                      if (r.ok) { try { setEnvOrientation({ orientation: entry }) } catch (e) { /* ignore */ } }
-                      else orientNoteState[1](t('remoteOrientationRestoreFail').replace('{code}', r.error.code))
-                    },
-                    () => { orientNoteState[1](t('remoteOrientationRestoreFail').replace('{code}', 'unknown')) },
-                  )
-                },
-                () => { /* 现值读不到 → 不恢复 */ },
-              )
-            }
-          }
         },
       }),
     }),
@@ -653,35 +581,9 @@ export function SettingsPage(props: any): any {
     }),
     h('div', {
       key: 'remote-orientation-effective',
-      style: { ...noteStyle, paddingTop: 0, paddingBottom: showSetDefault || defaultNote ? 4 : 8 },
+      style: { ...noteStyle, paddingTop: 0, paddingBottom: 8 },
       'data-dsh-prompt-orientation-effective': '1',
     }, effectiveCaption),
-    showSetDefault
-      ? h('div', {
-        key: 'remote-orientation-set-default-row',
-        style: { display: 'flex', justifyContent: 'flex-end', paddingBottom: 8 },
-      }, [
-        h(Btn, {
-          key: 'set-default',
-          tone: 'ghost',
-          title: t('remoteSetAsDefaultHint'),
-          'data-dsh-prompt-orientation-set-default': '1',
-          onClick: () => {
-            const next = commitSessionOrientationAsDefault()
-            remoteState[1]({ ...next })
-            persistState[1](getRemotePersistState())
-            defaultNoteState[1](t('remoteSetAsDefaultDone').replace('{orient}', orientPrefLabel))
-          },
-        }, t('remoteSetAsDefault')),
-      ])
-      : null,
-    defaultNote
-      ? h('div', {
-        key: 'remote-orientation-default-note',
-        style: { ...noteStyle, paddingTop: 0, paddingBottom: 8 },
-        'data-dsh-prompt-orientation-default-note': '1',
-      }, defaultNote)
-      : null,
     hairline('sep-orient-density'),
     // 密度档（#90）：方向偏好行之后，两段手动切换；切档页码归零由面板侧执行。
     h(SettingRow, {

@@ -37,6 +37,40 @@ const ws = require(path.join(DIR, 'workspace.cjs'));
   ok('纯函数：归一容错（多态 id/cwd/时间/空白，去重）');
 }
 {
+  // ── 归属反查（2026-10-03 修复）──────────────────────────────────────────
+  // 真实宿主形状（读 ~/.dsh/storages/workspace.json + dsh-api-workspace-controller 的
+  // workspaceView() 源码核对过）：归属存在**工作区这一侧**的 sessionIds[]，
+  // 会话对象自身不带任何 workspaceId 字段。
+  // 真机回归：11 个工作区却全部塌进未归属桶 → 单组 → 组头被 US9 藏掉，整面看起来像"没有工作区"。
+  const registry = [
+    { workspaceId: 'w1', path: 'D:\\a', title: '工程A', sessionIds: ['s1', 's2'], createdAt: 'x', updatedAt: 'y' },
+    { workspaceId: 'w2', path: 'D:\\b', title: '工程B', sessionIds: ['s4'], createdAt: 'x', updatedAt: 'y' },
+  ];
+  const idx = ws.buildWorkspaceIndex(registry);
+  if (!(idx instanceof Map) || idx.size !== 3) fail('反查索引应覆盖 3 条会话，实际 ' + idx.size);
+  if (idx.get('s1').workspaceId !== 'w1' || idx.get('s1').workspaceName !== '工程A') fail('s1 应归 w1/工程A');
+  if (idx.get('s4').workspaceId !== 'w2') fail('s4 应归 w2');
+  if (idx.has('s5')) fail('未登记会话不应进索引');
+  // 快照形态（{items:[...]}）也要认：face.list.getSnapshot() 就是这个形状
+  if (ws.buildWorkspaceIndex({ items: registry }).size !== 3) fail('{items} 快照形态应识别');
+  if (ws.buildWorkspaceIndex(null).size !== 0) fail('空面应回空索引');
+  if (ws.buildWorkspaceIndex([{ workspaceId: 'w9', title: '空组' }]).size !== 0) fail('无 sessionIds 的工作区应产出空索引');
+  // 端到端：会话**只有 id/title**（无任何归属字段）也必须分出组 —— 这正是真机塌掉的场景
+  const real = ws.normalizeSessions(
+    [{ id: 's1', title: 'A', updatedAt: 3 }, { id: 's4', title: 'B', updatedAt: 2 }, { id: 's5', title: '孤儿', updatedAt: 1 }],
+    ws.normalizeWorkspaceNames(registry),
+    idx,
+  );
+  if (real.length !== 3) fail('端到端应保留 3 条');
+  if (real[0].workspaceId !== 'w1' || real[0].workspaceName !== '工程A') fail('s1 应经索引拿到 w1/工程A，实际 ' + JSON.stringify(real[0]));
+  if (real[0].cwd !== 'D:\\a') fail('cwd 应回填工作区 path，实际 ' + real[0].cwd);
+  if (real[2].workspaceId !== null) fail('未登记会话应保持无归属，不猜');
+  const realGroups = ws.groupWorkspaceSessions(real, ws.normalizeWorkspaceNames(registry), '未归属');
+  if (realGroups.length !== 3) fail('端到端应分 3 组（一级=工作区），实际 ' + realGroups.length);
+  if (realGroups[2].ungrouped !== true) fail('未归属桶应置底');
+  ok('纯函数：归属反查（宿主 sessionIds[] 形状 → 一级工作区分组，端到端 3 组）');
+}
+{
   // 分组：未归属置底、组内更新倒序、组间组内最新倒序、单组退化、搜索、冲突尾段
   const now = Date.now();
   const sessions = [
@@ -56,8 +90,6 @@ const ws = require(path.join(DIR, 'workspace.cjs'));
   if (!(keys.indexOf('w2') < keys.indexOf('w1'))) fail('组间应按组内最新倒序，实际 ' + keys.join(','));
   const s3 = groups.find((g) => g.key === 'w1').items.find((x) => x.id === 's3');
   if (!s3.collision) fail('同标题跨组应打 collision');
-  if (ws.isSingleWorkspace([groups[0]]) !== true) fail('单组应退化');
-  if (ws.isSingleWorkspace(groups) !== false) fail('多组不应退化');
   const f = ws.filterWorkspaceSessions(sessions, '工程b');
   if (f.length !== 1 || f[0].id !== 's4') fail('搜索应标题+工作区名不敏感子串，实际 ' + JSON.stringify(f.map((x) => x.id)));
   if (ws.filterWorkspaceSessions(sessions, '').length !== 5) fail('空查询应回全量');
@@ -203,10 +235,14 @@ async function asyncChecks() {
     'data-dsh-prompt-picker-retry', 'data-dsh-prompt-picker-cancel', 'data-dsh-prompt-picker-loading',
     'data-dsh-prompt-picker-rail', 'data-dsh-prompt-picker-dot',
     'MODAL_Z', 'maxHeight', '88%', 'keepComposerFocus', 'enumerateWorkspaceSessions', 'switchWorkspaceSession',
-    'filterWorkspaceSessions', 'groupWorkspaceSessions', 'isSingleWorkspace',
+    'filterWorkspaceSessions', 'groupWorkspaceSessions',
     'workspaceColor', 'workspaceShortCode']) {
     if (!pickerSrc.includes(marker)) fail('#104 picker.ts 缺标记: ' + marker);
   }
+  // 2026-10-03：US9「单工作区不显示组头」已撤（用户拍板组头恒显示），不得回潮
+  if (pickerSrc.includes('isSingleWorkspace')) fail('#104 picker 不得再用 isSingleWorkspace 平铺（组头恒显示）');
+  if (/data-dsh-prompt-picker-flat'\s*:\s*hasQuery/.test(pickerSrc)) fail('#104 picker 展平标记不应再随 query 摇摆');
+  if (!pickerSrc.includes("'data-dsh-prompt-picker-flat': 'query'")) fail('#104 picker 展平应只由搜索触发');
   // 审查 #1：根容器必须定 MODAL_Z 层级，旧 z10/z11 不得残留（真机必输给 DOCK_Z=8000）
   if (!/zIndex:\s*MODAL_Z/.test(pickerSrc)) fail('#104 picker 根容器应 zIndex: MODAL_Z（与齿轮弹窗同层）');
   if (/zIndex:\s*10\b/.test(stripComments(pickerSrc)) || /zIndex:\s*11\b/.test(stripComments(pickerSrc))) fail('#104 picker 不得残留 z10/z11（会被 Dock 盖住）');
@@ -500,20 +536,31 @@ async function rendererChecks() {
   ok('渲染器：挑选器与齿轮弹窗同层、盖住 Dock（审查 #1）');
 
   // 多组竖屏手风琴：组头色点 + 展开态边框 + 默认展开最新组（审查 #3/#4）
+  // 夹具按**真实宿主形状**造（2026-10-03 修正）：归属存在工作区侧 sessionIds[]，会话自身没有归属字段。
+  // 旧夹具给会话硬塞 workspaceId，等于拿 bug 的假设去断 bug，所以长期全绿而真机整面塌掉。
   const twoGroups = {
     sessions: {
       list: {
         getSnapshot: () => ({
           items: [
-            { id: 'a1', title: '旧会话A', workspaceId: 'w1', cwd: '/a', updatedAt: now - 100000 },
-            { id: 'a2', title: '新会话A', workspaceId: 'w1', cwd: '/a', updatedAt: now - 90000 },
-            { id: 'b1', title: '最新会话B', workspaceId: 'w2', cwd: '/b', updatedAt: now - 100 },
+            { id: 'a1', title: '旧会话A', cwd: '/a', updatedAt: now - 100000 },
+            { id: 'a2', title: '新会话A', cwd: '/a', updatedAt: now - 90000 },
+            { id: 'b1', title: '最新会话B', cwd: '/b', updatedAt: now - 100 },
           ],
         }),
       },
       open: () => Promise.resolve(),
     },
-    workspaces: { list: { getSnapshot: () => [{ id: 'w1', name: '工程A' }, { id: 'w2', name: '工程B' }] } },
+    workspaces: {
+      list: {
+        getSnapshot: () => ({
+          items: [
+            { workspaceId: 'w1', path: '/a', title: '工程A', sessionIds: ['a1', 'a2'] },
+            { workspaceId: 'w2', path: '/b', title: '工程B', sessionIds: ['b1'] },
+          ],
+        }),
+      },
+    },
     uiWorkspace: { openSession: () => Promise.resolve() },
   };
   let pkPortrait;
@@ -557,6 +604,61 @@ async function rendererChecks() {
   }
   pkWide.unmount();
   ok('渲染器：横屏 rail + 右展');
+
+  // 2026-10-03（用户原话「我现在连某个会话属于哪个工作区都看不出来」）：
+  // 只有一个工作区时，**组头仍必须渲染**。旧口径 US9 在此平铺成一行，等于把
+  // 「分组整个没生效」和「确实只有一个工作区」表现成同一件事，把硬故障藏没了。
+  const oneGroup = {
+    sessions: {
+      list: {
+        getSnapshot: () => ({
+          items: [
+            { id: 'c1', title: '会话一', cwd: '/c', updatedAt: now - 5000 },
+            { id: 'c2', title: '会话二', cwd: '/c', updatedAt: now - 1000 },
+          ],
+        }),
+      },
+      open: () => Promise.resolve(),
+    },
+    workspaces: {
+      list: {
+        getSnapshot: () => ({
+          items: [{ workspaceId: 'w1', path: '/c', title: '工程A', sessionIds: ['c1', 'c2'] }],
+        }),
+      },
+    },
+    uiWorkspace: { openSession: () => Promise.resolve() },
+  };
+  let pkOne;
+  await TR.act(async () => {
+    pkOne = TR.create(React.createElement(pickerMod.WorkspacePicker, {
+      faces: oneGroup, currentId: '', remoteSize: 5, wide: false, onClose: () => {},
+    }));
+  });
+  await TR.act(async () => { await new Promise((r) => setTimeout(r, 400)); });
+  if (pkOne.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-flat']).length !== 0) {
+    fail('#104 单工作区不得平铺（组头恒显示）');
+  }
+  const oneHeads = pkOne.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-group']);
+  if (oneHeads.length !== 1) fail('#104 单工作区仍应有 1 个一级工作区卡，实际 ' + oneHeads.length);
+  const oneCounts = pkOne.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-count'] !== undefined);
+  if (oneCounts.length !== 1 || String(oneCounts[0].props['data-dsh-prompt-picker-count']) !== '2') {
+    fail('#104 一级卡应带会话计数 2，实际 ' + JSON.stringify(oneCounts.map((x) => x.props['data-dsh-prompt-picker-count'])));
+  }
+  if (pkOne.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-dot'] === '1').length !== 1) {
+    fail('#104 单工作区一级卡也应带色点');
+  }
+  const oneRows = pkOne.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-row']);
+  if (oneRows.length !== 2) fail('#104 默认展开该组，行数应 2，实际 ' + oneRows.length);
+  // 搜索时才展平
+  const searchBtn = pkOne.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-search'])[0];
+  await TR.act(async () => { searchBtn.props.onChange({ target: { value: '会话' } }); });
+  await TR.act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+  if (pkOne.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-flat'] === 'query').length !== 1) {
+    fail('#104 有查询才展平');
+  }
+  pkOne.unmount();
+  ok('渲染器：单工作区组头恒显示 + 计数色点（US9 已撤）');
 
   // 卡片网格（用户 2026-10-03 拍板）：竖 2 列 / 横 3 列；卡片有最小高（点得中）；底边抬到 Dock 之上
   const gridOf = (r) => r.findAll((x) => x.props && x.props['data-dsh-prompt-picker-grid']).map((x) => x.props['data-dsh-prompt-picker-grid']);

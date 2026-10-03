@@ -14,7 +14,6 @@ import {
   enumerateWorkspaceSessions,
   filterWorkspaceSessions,
   groupWorkspaceSessions,
-  isSingleWorkspace,
   relativeWorkspaceTime,
   absoluteWorkspaceTime,
   switchWorkspaceSession,
@@ -324,7 +323,6 @@ export function WorkspacePicker(props: PickerProps): any {
   try {
     groups = groupWorkspaceSessions(filtered, names, ungroupedName)
   } catch (e) { groups = [] }
-  const single = isSingleWorkspace(groupWorkspaceSessions(sessions, names, ungroupedName))
 
   // 搜索框常驻（审查 #5 的故意 diverged：原型 C 无查询时藏搜索框，但那是个演示洞——
   // 藏了就没法发起搜索，直接违反 #111 US12 文字；此处规格优先，几何仍沿原型 .search slim 形）。
@@ -500,11 +498,14 @@ export function WorkspacePicker(props: PickerProps): any {
       style: { fontSize: '0.78em', color: 'var(--dsw-alias-label-tertiary)', padding: '6px 0 0', flex: 'none' },
     }, tr(lang, STR.pickerSwitching) + '…')
     : null
-  // 列表区（C 手风琴：无查询多组 → 手风琴；有查询/单组 → 自动展平 + 短码，#111 US9/US12）。
+  // 列表区（C 手风琴：无查询 → 恒走手风琴/横屏轨，一级工作区组头**总是**渲染；
+  // 有查询 → 展平成带短码的卡片网格，#111 US12）。
+  // 2026-10-03 用户拍板：去掉 #111 US9「单工作区不显示组头」——那条规则把「分组整个没生效」
+  // 和「确实只有一个工作区」混成同一种表现，把硬故障藏成了看不见。现在组头恒在。
   let listContent: any = null
-  if (single || hasQuery) {
+  if (hasQuery) {
     const flat = filtered.slice().sort((a, b) => b.updatedAt - a.updatedAt)
-    listContent = h('div', { key: 'flat', 'data-dsh-prompt-picker-flat': hasQuery ? 'query' : 'single' }, [
+    listContent = h('div', { key: 'flat', 'data-dsh-prompt-picker-flat': 'query' }, [
       switchingNote,
       h('div', { key: 'list', 'data-dsh-prompt-picker-grid': String(gridCols), style: gridStyle },
         flat.map((s) => renderCard(s, hasQuery))),

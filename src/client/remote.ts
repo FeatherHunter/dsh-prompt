@@ -7,8 +7,9 @@
  *   持久化失败当次有效、下次恢复默认并明示（fail-soft）。
  * - 门槛：去宿主化——总闸恒以自家面能否真变大为准，无宿主门控、无灰行、无待宿主文案。
  * - 配置键直达：以本插件 DOM 链/自家弹窗为官方路径（宿主若提供稳定打开则顺手用之，不门控）。
- * - 会话快照（#110）：进入（关→开）记住方向偏好，退出（开→关）恢复进入值；
- *   快照内存 + 落盘双份（reload/崩溃后恢复一次即清）；会话中改的方向视为临时覆盖。
+ * - 方向不参与会话（#110 改判，2026-10-03 用户拍板）：退出远程**不还原**方向。
+ *   会话内选的方向就是最终选择（插件偏好与整机屏幕都保持），锁定的优先级高于「回到进入前」。
+ *   故无快照、无恢复、无「设为默认」；总闸只翻 enabled 一个键。
  *
  * 新模块用 TS（map 约束）；纯函数走转译断言（见 scripts/test-issue-82.cjs）。
  */
@@ -145,59 +146,22 @@ let persistFailed = false
 let persistMessage = ''
 const listeners = new Set<() => void>()
 
-/* ── 会话快照（#110）：进入记住方向偏好，退出恢复 ── */
+/* ── 遗留清理（#110 改判）：旧版「进入快照」键一次性作废 ── */
 
-/** 快照落盘键（独立于主偏好键；只存进入前方向，恢复一次即清） */
-const PRE_REMOTE_KEY = '__dshPromptPreRemote'
+/**
+ * 旧版（2026-10-02 那版）把进入前的方向写进 localStorage `__dshPromptPreRemote`，
+ * 退出或崩溃重启时据此把方向改回进入值。改判后本键再无消费者，
+ * 若不清掉，下次加载仍会命中旧的崩溃恢复分支把用户最后选的方向翻回去——正是本次要治的病。
+ * 故启动时无条件删一次（幂等、无网络、失败静默），键名只作字符串常量留档。
+ */
+const LEGACY_PRE_REMOTE_KEY = '__dshPromptPreRemote'
 
-/** 会话内存快照：进入远程那一刻的方向偏好（null = 非会话中） */
-let sessionSnapshot: RemoteOrientationPref | null = null
-
-type SnapshotStorage = {
-  getItem(k: string): string | null
-  setItem(k: string, v: string): void
-  removeItem(k: string): void
-}
-
-/** 取快照存储（浏览器 localStorage；缺席回 null，调用方走纯内存路径，不抛） */
-function snapshotStorage(): SnapshotStorage | null {
+/** 删掉遗留进入快照键（缺席存储或被禁写时静默 no-op） */
+function purgeLegacySnapshot(): void {
   try {
     const g = globalThis as any
     const s = g && g.localStorage
-    if (s && typeof s.getItem === 'function' && typeof s.setItem === 'function' && typeof s.removeItem === 'function') {
-      return s as SnapshotStorage
-    }
-    return null
-  } catch (e) { return null }
-}
-
-/** 读盘上快照（无键/坏包回 null，不抛） */
-function readStoredSnapshot(): RemoteOrientationPref | null {
-  try {
-    const s = snapshotStorage()
-    if (!s) return null
-    const raw = s.getItem(PRE_REMOTE_KEY)
-    if (!raw) return null
-    const v = (JSON.parse(raw) as any).orientation
-    return isRemoteOrientationPref(v) ? v : null
-  } catch (e) { return null }
-}
-
-/** 写盘上快照（失败静默，内存快照为准，不抛） */
-function writeStoredSnapshot(v: RemoteOrientationPref): void {
-  try {
-    const s = snapshotStorage()
-    if (!s) return
-    s.setItem(PRE_REMOTE_KEY, JSON.stringify({ orientation: v }))
-  } catch (e) { /* ignore */ }
-}
-
-/** 清盘上快照（失败静默，不抛） */
-function clearStoredSnapshot(): void {
-  try {
-    const s = snapshotStorage()
-    if (!s) return
-    s.removeItem(PRE_REMOTE_KEY)
+    if (s && typeof s.removeItem === 'function') s.removeItem(LEGACY_PRE_REMOTE_KEY)
   } catch (e) { /* ignore */ }
 }
 
@@ -301,17 +265,9 @@ export function ensureRemoteLoaded(): Promise<void> {
         })
         persistFailed = false
         persistMessage = ''
-        // #110 崩溃恢复：盘上有进入快照且 host 仍开着（上次会话没正常退出，
-        // reload 同理）→ 方向回进入值一次并清快照；关着只清 stale 键不动偏好。
-        const stored = readStoredSnapshot()
-        if (stored !== null) {
-          if (cache.enabled === true && stored !== cache.orientation) {
-            cache = normalizeRemotePrefs({ ...cache, orientation: stored })
-            persistRemote()
-          }
-          clearStoredSnapshot()
-          notifyRemote()
-        }
+        // #110 改判：不再有进入快照与崩溃恢复——用户最后选的方向就是最终方向。
+        // 旧版遗留的 `__dshPromptPreRemote` 键在此无条件作废，防止它日后被误当真相来源。
+        purgeLegacySnapshot()
         logEvent('store.snapshot.ok', { customs: 0, pinned: 0, latencyMs: Date.now() - startedAt })
       } else {
         // 旧快照无远程键 → 默认（不算失败，静默用默认；首启即此分支）
@@ -403,57 +359,13 @@ function applyPatch(patch: Partial<RemotePrefs>): RemotePrefs {
 }
 
 /** 总闸：开/关（开=大、关=小；不许大/小直接互切由调用方保证——本函数只做二值切换）
- * #110 会话语义：关→开快照进入前方向（内存 + 落盘，重复开不覆盖）；
- * 开→关恢复进入值（与当前一致则单写开关，不多写；快照一次性，用后即清）。 */
+ * #110 改判：进出只翻 enabled 一个键，**不碰方向**。
+ * 会话内选的方向（插件偏好与整机屏幕）退出后原样保持，用户锁定的优先级高于「回到进入前」。 */
 export function setRemoteEnabled(on: boolean): RemotePrefs {
-  const want = !!on
-  if (want === true && cache.enabled === false) {
-    sessionSnapshot = cache.orientation
-    writeStoredSnapshot(cache.orientation)
-    const next = applyPatch({ enabled: true })
-    // 注意：事件名必须写字面量（日志回归扫描只认 logEvent('字面量', {...}) 调用点，变量转交会被判“声明了却没人打”）。
-    logEvent('settings.remote.toggle', { on: next.enabled, size: next.size })
-    return { ...next }
-  }
-  if (want === false && cache.enabled === true) {
-    const snap = sessionSnapshot !== null ? sessionSnapshot : readStoredSnapshot()
-    let next: RemotePrefs
-    if (snap !== null && snap !== cache.orientation) {
-      next = applyPatch({ enabled: false, orientation: snap })
-    } else {
-      next = applyPatch({ enabled: false })
-    }
-    sessionSnapshot = null
-    clearStoredSnapshot()
-    logEvent('settings.remote.toggle', { on: next.enabled, size: next.size })
-    return { ...next }
-  }
-  const next = applyPatch({ enabled: want })
+  const next = applyPatch({ enabled: !!on })
   // 注意：事件名必须写字面量（日志回归扫描只认 logEvent('字面量', {...}) 调用点，变量转交会被判“声明了却没人打”）。
   logEvent('settings.remote.toggle', { on: next.enabled, size: next.size })
   return { ...next }
-}
-
-/** 读会话快照（进入前方向；null = 非会话中或无快照） */
-export function getSessionSnapshotOrientation(): RemoteOrientationPref | null {
-  return sessionSnapshot
-}
-
-/**
- * 设为默认（#110 收尾）：把会话内当前方向记为以后进出的默认值。
- * 只在会话中有效（enabled 且有快照）；非会话直接返回现状。
- * 实现 = 快照跟进当前值（内存 + 落盘双份），偏好本身已由会话内切换持久化，无需再写。
- * 退出时即按新默认恢复（等于无操作），崩溃恢复同样跟进。
- */
-export function commitSessionOrientationAsDefault(): RemotePrefs {
-  try {
-    if (cache.enabled !== true || sessionSnapshot === null) return { ...cache }
-    if (sessionSnapshot === cache.orientation) return { ...cache }
-    sessionSnapshot = cache.orientation
-    writeStoredSnapshot(cache.orientation)
-    notifyRemote()
-  } catch (e) { /* ignore */ }
-  return { ...cache }
 }
 
 /**
@@ -503,10 +415,9 @@ export function setRemoteDensity(d: RemoteDensity): RemotePrefs {
   return { ...next }
 }
 
-/** 仅供测试：重置内存态（会话快照与环境缓存一并清；落盘键由用例自管，不碰） */
+/** 仅供测试：重置内存态（环境缓存一并清；不碰任何持久化存储） */
 export function __resetRemoteForTests(): void {
   cache = { ...REMOTE_DEFAULTS }
-  sessionSnapshot = null
   envOrientation = null
   envUnsupported = false
   remoteLoaded = false

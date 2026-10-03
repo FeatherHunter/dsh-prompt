@@ -1,0 +1,97 @@
+<!doctype html>
+<!-- 版式校对稿（一次性，非源码）：复刻 0.2.9 picker.ts 的样式常量 + 用户真机 11 个工作区数据。
+     目的是发版前先给用户看版式，避免"升级后才发现不一样"。 -->
+<html lang="zh"><head><meta charset="utf-8">
+<title>picker · 一级工作区卡片网格</title>
+<style>
+  :root{
+    --bg:#1b1b1d; --layer1:#26262a; --layer3:#313136; --line:#3a3a40;
+    --pri:#e9e9ec; --sec:#a8a8b0; --ter:#76767e; --acc:#f0a45c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#0f0f10;color:var(--pri);
+       font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;}
+  .frame{width:430px;margin:0 auto;padding:0 0 0;}
+  .sheet{position:relative;background:var(--bg);border-radius:18px 18px 0 0;
+         padding:14px 12px 0;box-sizing:border-box;}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .search{flex:1;height:38px;border-radius:9px;border:1px solid var(--line);
+          background:var(--layer3);display:flex;align-items:center;padding:0 12px;
+          color:var(--ter);font-size:13px;margin-right:8px}
+  .x{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);
+     display:flex;align-items:center;justify-content:center;color:var(--sec);font-size:15px}
+
+  /* —— 一级工作区卡网格（本次改动）—— */
+  .ggrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+         align-items:stretch;margin:0 0 10px}
+  .gcard{display:flex;flex-direction:column;align-items:stretch;width:100%;
+         min-height:4.5em;min-width:0;text-align:left;background:var(--layer3);
+         border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+         font-size:.92em;cursor:pointer}
+  .gcard.open{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+  .grow{display:flex;align-items:center;gap:8px;flex:none}
+  .dot{flex:none;width:10px;height:10px;border-radius:50%}
+  .sp{flex:1;min-width:0}
+  .cnt{flex:none;font-size:.75em;color:var(--ter);background:var(--layer1);
+       border:1px solid var(--line);border-radius:999px;padding:0 9px;font-weight:400}
+  .gnm{font-weight:700;line-height:1.4;word-break:break-word;margin-top:6px;flex:1 1 auto}
+
+  /* —— 会话卡网格 —— */
+  .sgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+         align-items:stretch;padding-bottom:12px}
+  .card{display:flex;flex-direction:column;align-items:stretch;width:100%;
+        min-height:4.5em;min-width:0;text-align:left;background:var(--layer3);
+        border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+        font-size:.92em;cursor:pointer}
+  .card.cur{border-color:#7fd08a;box-shadow:inset 0 0 0 1px #7fd08a}
+  .ct{font-weight:700;line-height:1.45;word-break:break-word}
+  .time{float:right;font-size:.82em;color:var(--ter);white-space:nowrap;
+        margin:.22em 0 .1em .7em;font-variant-numeric:tabular-nums;font-weight:400}
+  .badge{display:inline-block;vertical-align:middle;margin:0 .55em 0 0;font-size:.72em;
+         font-weight:700;border-radius:999px;padding:1px 8px;line-height:1.6;
+         border:1px solid var(--ter);color:var(--ter)}
+  .dock{height:96px;background:#000;border-top:1px solid var(--line);
+        display:flex;align-items:center;padding:0 12px;gap:10px}
+  .dbtn{height:52px;border-radius:12px;border:1px solid var(--line);background:var(--layer3);
+        display:flex;align-items:center;justify-content:center;color:var(--sec)}
+  .dmain{flex:1;color:var(--acc);font-size:19px;font-weight:600;gap:10px}
+  .cap{width:390px;margin:10px auto 0;color:var(--ter);font-size:12px;line-height:1.7}
+</style></head><body>
+<div class="frame">
+  <div class="sheet">
+    <div class="top">
+      <div class="search">搜索会话或工作区…</div>
+      <div class="x">✕</div>
+    </div>
+
+    <div class="ggrid">
+      <div class="gcard open"><div class="grow"><span class="dot" style="background:#b388ff"></span><span class="sp"></span><span class="cnt">5</span></div><div class="gnm">dsh-prompt</div></div>
+      <div class="gcard"><div class="grow"><span class="dot" style="background:#f0a45c"></span><span class="sp"></span><span class="cnt">6</span></div><div class="gnm">ilife</div></div>
+      <div class="gcard"><div class="grow"><span class="dot" style="background:#7fd08a"></span><span class="sp"></span><span class="cnt">2</span></div><div class="gnm">dsh-opencode-palette</div></div>
+      <div class="gcard"><div class="grow"><span class="dot" style="background:#6cb8e0"></span><span class="sp"></span><span class="cnt">1</span></div><div class="gnm">.db</div></div>
+      <div class="gcard"><div class="grow"><span class="dot" style="background:#b388ff"></span><span class="sp"></span><span class="cnt">5</span></div><div class="gnm">dsh-mattpocock-skills-deck</div></div>
+      <div class="gcard"><div class="grow"><span class="dot" style="background:#b388ff"></span><span class="sp"></span><span class="cnt">2</span></div><div class="gnm">dsh-plugin-update</div></div>
+      <div class="gcard"><div class="grow"><span class="dot" style="background:#8ad0c8"></span><span class="sp"></span><span class="cnt">2</span></div><div class="gnm">dsh-im-companion</div></div>
+      <div class="gcard"><div class="grow"><span class="dot" style="background:#7fd08a"></span><span class="sp"></span><span class="cnt">2</span></div><div class="gnm">xiaowan</div></div>
+      <div class="gcard"><div class="grow"><span class="dot" style="background:#f0a45c"></span><span class="sp"></span><span class="cnt">1</span></div><div class="gnm">xiaoyan</div></div>
+      <div class="gcard"><div class="grow"><span class="dot" style="background:#6cb8e0"></span><span class="sp"></span><span class="cnt">1</span></div><div class="gnm">xinghuo</div></div>
+      <div class="gcard"><div class="grow"><span class="dot" style="background:#6cb8e0"></span><span class="sp"></span><span class="cnt">1</span></div><div class="gnm">default-workspace</div></div>
+    </div>
+
+    <div class="sgrid">
+      <div class="card cur"><div class="ct"><span class="time">2分 ›</span>工作区归属反查修复</div></div>
+      <div class="card"><div class="ct"><span class="time">3时 ›</span><span class="badge">空白</span>新的对话</div></div>
+      <div class="card"><div class="ct"><span class="time">1天 ›</span>挑选器卡片网格</div></div>
+      <div class="card"><div class="ct"><span class="time">2天 ›</span>发布流程核对</div></div>
+      <div class="card"><div class="ct"><span class="time">4天 ›</span>远程模式字号档</div></div>
+    </div>
+  </div>
+  <div class="dock">
+    <div class="dbtn dmain">💡 Prompt</div>
+    <div class="dbtn" style="width:56px">⚙</div>
+    <div class="dbtn" style="width:56px">◧</div>
+    <div class="dbtn" style="width:56px">▤</div>
+  </div>
+</div>
+<div class="cap">版式校对稿 · 数据为真机 11 个工作区 · 橙色边=当前展开组</div>
+</body></html>

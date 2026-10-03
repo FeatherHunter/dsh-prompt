@@ -234,10 +234,15 @@ async function asyncChecks() {
     'data-dsh-prompt-picker-search', 'data-dsh-prompt-picker-row', 'data-dsh-prompt-picker-close',
     'data-dsh-prompt-picker-retry', 'data-dsh-prompt-picker-cancel', 'data-dsh-prompt-picker-loading',
     'data-dsh-prompt-picker-rail', 'data-dsh-prompt-picker-dot',
+    'data-dsh-prompt-picker-groupcard', 'data-dsh-prompt-picker-groupgrid',
     'MODAL_Z', 'maxHeight', '88%', 'keepComposerFocus', 'enumerateWorkspaceSessions', 'switchWorkspaceSession',
     'filterWorkspaceSessions', 'groupWorkspaceSessions',
     'workspaceColor', 'workspaceShortCode']) {
     if (!pickerSrc.includes(marker)) fail('#104 picker.ts 缺标记: ' + marker);
+  }
+  // 2026-10-03 用户拍板「工作区列表也做成卡片式」：一级卡不得再是 width:100% 的单行整宽条
+  if (/display:\s*'block',\s*width:\s*'100%'/.test(stripComments(pickerSrc))) {
+    fail('#104 一级工作区卡不得回退成整宽单行条（应卡片网格）');
   }
   // 2026-10-03：US9「单工作区不显示组头」已撤（用户拍板组头恒显示），不得回潮
   if (pickerSrc.includes('isSingleWorkspace')) fail('#104 picker 不得再用 isSingleWorkspace 平铺（组头恒显示）');
@@ -587,6 +592,40 @@ async function rendererChecks() {
   pkPortrait.unmount();
   ok('渲染器：一级卡色点 + 展开态边框 + 默认展开最新组');
 
+  // 2026-10-03 用户拍板「工作区列表也做成卡片式」（太宽占地方 / 太窄点不准）：
+  // 一级卡必须是网格里的卡片，且组头网格在会话网格**上方**（不是交替纵排）。
+  let pkWc;
+  await TR.act(async () => {
+    pkWc = TR.create(React.createElement(pickerMod.WorkspacePicker, {
+      faces: twoGroups, currentId: '', remoteSize: 5, wide: false, onClose: () => {},
+    }));
+  });
+  await TR.act(async () => { await new Promise((r) => setTimeout(r, 400)); });
+  const gg = pkWc.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-groupgrid']);
+  if (gg.length !== 1 || String(gg[0].props['data-dsh-prompt-picker-groupgrid']) !== '2') {
+    fail('#104 竖屏一级工作区应是 2 列卡片网格，实际 ' + JSON.stringify(gg.map((x) => x.props['data-dsh-prompt-picker-groupgrid'])));
+  }
+  if (!/repeat\(2, minmax\(0, 1fr\)\)/.test(String(gg[0].props.style.gridTemplateColumns))) {
+    fail('#104 一级卡网格应是 2 列 repeat，实际 ' + gg[0].props.style.gridTemplateColumns);
+  }
+  const gcards = pkWc.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-groupcard'] === '1');
+  if (gcards.length !== 2) fail('#104 一级工作区卡应有 2 张，实际 ' + gcards.length);
+  for (const c of gcards) {
+    if (c.props.style.minHeight !== '4.5em') fail('#104 一级卡应有最小高（手指点得中），实际 ' + c.props.style.minHeight);
+    if (c.props.style.display !== 'flex') fail('#104 一级卡应纵排卡布局，实际 ' + c.props.style.display);
+    if (c.props.style.width !== '100%') fail('#104 一级卡应撑满网格单元而非整宽，实际 ' + c.props.style.width);
+  }
+  // 组头网格里不得混入会话卡（会话网格在它下面单独一层）
+  const insideGrid = gg[0].findAll((x) => x.props && x.props['data-dsh-prompt-picker-card'] === '1');
+  if (insideGrid.length !== 0) fail('#104 会话卡不应嵌在组头网格内，实际 ' + insideGrid.length);
+  const belowGrids = pkWc.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-grid']);
+  if (belowGrids.length !== 1) fail('#104 组头网格下方应另有 1 个会话网格，实际 ' + belowGrids.length);
+  if (belowGrids[0].findAll((x) => x.props && x.props['data-dsh-prompt-picker-groupcard'] === '1').length !== 0) {
+    fail('#104 会话网格里不得混进一级工作区卡');
+  }
+  pkWc.unmount();
+  ok('渲染器：一级工作区卡也是卡片网格（2 列 + 最小高 + 上下分层）');
+
   // 横屏 rail + 右展（审查 #2）：左轨两卡 + 右侧放组一行
   let pkWide;
   await TR.act(async () => {
@@ -597,6 +636,14 @@ async function rendererChecks() {
   await TR.act(async () => { await new Promise((r) => setTimeout(r, 400)); });
   if (pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-rail'] === '1').length !== 1) {
     fail('#104 横屏应渲染 rail + 右展');
+  }
+  // 横屏左轨也是卡片网格（轨宽 ~38%，固定 2 列而不是 gridCols=3）
+  const railGrid = pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-groupgrid']);
+  if (railGrid.length !== 1 || String(railGrid[0].props['data-dsh-prompt-picker-groupgrid']) !== '2') {
+    fail('#104 横屏轨内一级卡应是 2 列网格，实际 ' + JSON.stringify(railGrid.map((x) => x.props['data-dsh-prompt-picker-groupgrid'])));
+  }
+  if (pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-groupcard'] === '1').length !== 2) {
+    fail('#104 横屏轨内应渲染 2 张一级卡');
   }
   const wideRows = pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-row']);
   if (wideRows.length !== 1 || wideRows[0].props['data-dsh-prompt-picker-row'] !== 'b1') {

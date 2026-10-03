@@ -235,6 +235,9 @@ export function WorkspacePicker(props: PickerProps): any {
     gridTemplateColumns: 'repeat(' + gridCols + ', minmax(0, 1fr))',
     gap: 8, alignItems: 'stretch',
   }
+  // 一级工作区卡网格（用户 2026-10-03 拍板：工作区列表也做卡片式）。
+  // 与会话网格同列数同间距，只是末尾多一段下边距：组头网格在上、展开的会话网格紧随其下。
+  const groupGridStyle: any = { ...gridStyle, margin: '0 0 10px' }
 
   ensurePickerAnimStyle()
 
@@ -444,7 +447,10 @@ export function WorkspacePicker(props: PickerProps): any {
       withShort,
       onPick: doPick,
     })
-  // 一级卡（v7：名 + 计数 + 色点，无“最新”整行；展开态 accent 边框给态感，审查 #3/#4）。
+  // 一级工作区卡（v7：名 + 计数 + 色点，无“最新”整行；展开态 accent 边框给态感，审查 #3/#4）。
+  // 2026-10-03 用户拍板「工作区列表也做成卡片式」：此前是 width:100% 的单行整宽条——
+  // 横向铺满浪费空间、纵向只有一行手指又按不准。改为与会话卡同一套卡片语汇（纵排 + 最小高），
+  // 放进网格：一行放多张，窄了不占地、也够大点得中。
   const renderWcard = (g: WorkspaceGroup, isOpen: boolean, allowCollapse: boolean): any =>
     h('button', {
       key: 'head:' + g.key,
@@ -457,17 +463,21 @@ export function WorkspacePicker(props: PickerProps): any {
         try { setOpenGroup(allowCollapse && isOpen ? '__none' : g.key) } catch (e) { /* ignore */ }
       },
       style: {
-        display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
+        display: 'flex', flexDirection: 'column', alignItems: 'stretch',
+        width: '100%', minHeight: '4.5em', minWidth: 0, textAlign: 'left', cursor: 'pointer',
         background: 'var(--dsw-alias-bg-layer-3)',
         border: '1px solid ' + (isOpen ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-border-l1)'),
+        boxShadow: isOpen ? 'inset 0 0 0 1px var(--dsw-specific-accent,#f0a45c)' : 'none',
         color: 'var(--dsw-alias-label-primary)', borderRadius: 12,
-        padding: '10px 12px', fontSize: '0.92em', marginBottom: 8,
+        padding: '10px 12px', fontSize: '0.92em',
         fontFamily: 'var(--dsw-font-family)',
       },
+      'data-dsh-prompt-picker-groupcard': '1',
     }, [
-      h('span', {
-        key: 'wnm',
-        style: { display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 },
+      // 头排：色点靠左、计数靠右（长工作区名截断也不挤掉它们）
+      h('div', {
+        key: 'row',
+        style: { display: 'flex', alignItems: 'center', gap: 8, flex: 'none' },
       }, [
         h('span', {
           key: 'dot',
@@ -477,7 +487,7 @@ export function WorkspacePicker(props: PickerProps): any {
             background: workspaceColor(g.workspaceId),
           },
         }),
-        h('span', { key: 'nm' }, g.name),
+        h('span', { key: 'sp', style: { flex: 1, minWidth: 0 } }),
         h('span', {
           key: 'cnt',
           'data-dsh-prompt-picker-count': String(g.items.length),
@@ -489,6 +499,14 @@ export function WorkspacePicker(props: PickerProps): any {
           },
         }, String(g.items.length)),
       ]),
+      // 名占满剩余高度并允许换行（工作区名比会话标题长得多，窄卡里必须能折行）
+      h('div', {
+        key: 'nm',
+        style: {
+          fontWeight: 700, lineHeight: 1.4, wordBreak: 'break-word',
+          marginTop: 6, flex: '1 1 auto',
+        },
+      }, g.name),
     ])
   const openKey = openGroup || (groups.length > 0 ? groups[0].key : '__none')
   const switchingNote = phase === 'switching' && switchingId
@@ -511,7 +529,8 @@ export function WorkspacePicker(props: PickerProps): any {
         flat.map((s) => renderCard(s, hasQuery))),
     ])
   } else if (wide) {
-    // 横屏 rail + 右展（v7 C 横屏形，审查 #2）：左轨 hugging 宽只列一级卡，右侧展开放组卡片。
+    // 横屏 rail + 右展（v7 C 横屏形，审查 #2）：左轨列一级卡（**2 列卡片网格**，不再是整宽单行条），
+    // 右侧展开放组会话卡。轨宽只有 ~38%，故固定 2 列而不是 gridCols=3。
     const openG = groups.find((g) => g.key === openKey) || groups[0] || null
     listContent = h('div', { key: 'widewrap' }, [
       switchingNote,
@@ -522,7 +541,12 @@ export function WorkspacePicker(props: PickerProps): any {
       }, [
         h('div', {
           key: 'crail',
-          style: { flex: '0 0 auto', maxWidth: '38%', minWidth: 0, display: 'flex', flexDirection: 'column' },
+          'data-dsh-prompt-picker-groupgrid': '2',
+          style: {
+            flex: '0 0 auto', maxWidth: '38%', minWidth: 0,
+            display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))',
+            gap: 8, alignItems: 'stretch',
+          },
         }, groups.map((g) => renderWcard(g, !!openG && openG.key === g.key, false))),
         openG ? h('div', {
           key: 'clist',
@@ -532,18 +556,21 @@ export function WorkspacePicker(props: PickerProps): any {
       ]),
     ])
   } else {
+    // 竖屏：先一屏工作区卡网格，选中/默认组的会话卡排在网格**下方**。
+    // （此前是「组头整宽行 + 紧跟它的会话」交替纵排；11 个工作区要滚很久才看得到全部组。）
+    const openG = groups.find((g) => g.key === openKey) || null
     listContent = h('div', { key: 'acc' }, [
       switchingNote,
-      ...groups.map((g) => {
-        const isOpen = openKey === g.key
-        // 一级卡只留名与计数（v7：删掉“最新”整行，防杂乱）；组内会话走卡片网格
-        const list = !isOpen ? null : h('div', {
-          key: 'items:' + g.key,
-          'data-dsh-prompt-picker-grid': String(gridCols),
-          style: { ...gridStyle, margin: '0 0 8px' },
-        }, g.items.map((s) => renderCard(s, false)))
-        return h('div', { key: 'g:' + g.key }, [renderWcard(g, isOpen, true), list])
-      }),
+      h('div', {
+        key: 'ggrid',
+        'data-dsh-prompt-picker-groupgrid': String(gridCols),
+        style: { ...groupGridStyle },
+      }, groups.map((g) => renderWcard(g, openKey === g.key, true))),
+      openG ? h('div', {
+        key: 'gitems',
+        'data-dsh-prompt-picker-grid': String(gridCols),
+        style: gridStyle,
+      }, openG.items.map((s) => renderCard(s, false))) : null,
     ])
   }
 

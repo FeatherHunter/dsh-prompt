@@ -1,0 +1,97 @@
+<!doctype html>
+<!-- 一次性版式对照稿（非源码）：左=0.2.8 改前（整宽单行条），右=0.2.9 改后（卡片网格）。 -->
+<html lang="zh"><head><meta charset="utf-8">
+<title>picker 一级工作区列表：改前 / 改后</title>
+<style>
+  :root{--bg:#1b1b1d;--layer1:#26262a;--layer3:#313136;--line:#3a3a40;
+        --pri:#e9e9ec;--ter:#76767e;--acc:#f0a45c}
+  *{box-sizing:border-box}
+  body{margin:0;background:#0f0f10;color:var(--pri);padding:18px;
+       font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  .wrap{display:flex;gap:18px;align-items:flex-start}
+  .col{width:400px}
+  h2{font-size:14px;margin:0 0 4px;font-weight:700}
+  .sub{font-size:11.5px;color:var(--ter);margin:0 0 10px;line-height:1.6}
+  .sheet{background:var(--bg);border-radius:16px;padding:12px}
+
+  /* 改前：整宽单行条（width:100% + 一行） */
+  .oldrow{display:block;width:100%;text-align:left;background:var(--layer3);
+          border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+          font-size:.92em;margin-bottom:8px;cursor:pointer}
+  .oldrow.open{border-color:var(--acc)}
+  .oldin{display:flex;align-items:center;gap:8px;font-weight:700}
+  .dot{flex:none;width:10px;height:10px;border-radius:50%}
+  .cnt{flex:none;margin-left:auto;font-size:.75em;color:var(--ter);
+       background:var(--layer1);border:1px solid var(--line);
+       border-radius:999px;padding:0 9px;font-weight:400}
+
+  /* 改后：卡片网格 */
+  .ggrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+         align-items:stretch;margin:0 0 10px}
+  .gcard{display:flex;flex-direction:column;align-items:stretch;width:100%;
+         min-height:4.5em;min-width:0;text-align:left;background:var(--layer3);
+         border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+         font-size:.92em;cursor:pointer}
+  .gcard.open{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+  .grow{display:flex;align-items:center;gap:8px;flex:none}
+  .sp{flex:1;min-width:0}
+  .gnm{font-weight:700;line-height:1.4;word-break:break-word;margin-top:6px;flex:1 1 auto}
+
+  .sgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .card{display:flex;flex-direction:column;width:100%;min-height:4.5em;min-width:0;
+        text-align:left;background:var(--layer3);border:1px solid var(--line);
+        border-radius:12px;padding:10px 12px;font-size:.92em;cursor:pointer}
+  .ct{font-weight:700;line-height:1.45;word-break:break-word}
+  .time{float:right;font-size:.82em;color:var(--ter);white-space:nowrap;
+        margin:.22em 0 .1em .7em;font-weight:400}
+  .foot{font-size:11.5px;color:var(--ter);line-height:1.7;margin-top:10px}
+</style></head><body>
+<div class="wrap">
+
+  <div class="col">
+    <h2>改前 · 0.2.8（整宽单行条）</h2>
+    <p class="sub">width:100% 单行，横向铺满 11 屏宽；纵向只有一行 → 手指按不准</p>
+    <div class="sheet">
+      <div class="oldrow open"><div class="oldin"><span class="dot" style="background:#b388ff"></span>dsh-prompt<span class="cnt">5</span></div></div>
+      <div class="oldrow"><div class="oldin"><span class="dot" style="background:#f0a45c"></span>ilife<span class="cnt">6</span></div></div>
+      <div class="oldrow"><div class="oldin"><span class="dot" style="background:#7fd08a"></span>dsh-opencode-palette<span class="cnt">2</span></div></div>
+      <div class="oldrow"><div class="oldin"><span class="dot" style="background:#6cb8e0"></span>.db<span class="cnt">1</span></div></div>
+      <div class="oldrow"><div class="oldin"><span class="dot" style="background:#b388ff"></span>dsh-mattpocock-skills-deck<span class="cnt">5</span></div></div>
+      <div class="oldrow"><div class="oldin"><span class="dot" style="background:#b388ff"></span>dsh-plugin-update<span class="cnt">2</span></div></div>
+      <div class="oldrow"><div class="oldin"><span class="dot" style="background:#8ad0c8"></span>dsh-im-companion<span class="cnt">2</span></div></div>
+      <div class="oldrow"><div class="oldin"><span class="dot" style="background:#7fd08a"></span>xiaowan<span class="cnt">2</span></div></div>
+      <div class="oldrow"><div class="oldin"><span class="dot" style="background:#f0a45c"></span>xiaoyan<span class="cnt">1</span></div></div>
+      <div class="oldrow"><div class="oldin"><span class="dot" style="background:#6cb8e0"></span>xinghuo<span class="cnt">1</span></div></div>
+      <div class="oldrow"><div class="oldin"><span class="dot" style="background:#6cb8e0"></span>default-workspace<span class="cnt">1</span></div></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>改后 · 0.2.9（卡片网格）</h2>
+    <p class="sub">2 列卡片，minHeight 4.5em 与会话卡同尺寸；一屏看完全部 11 个工作区</p>
+    <div class="sheet">
+      <div class="ggrid">
+        <div class="gcard open"><div class="grow"><span class="dot" style="background:#b388ff"></span><span class="sp"></span><span class="cnt">5</span></div><div class="gnm">dsh-prompt</div></div>
+        <div class="gcard"><div class="grow"><span class="dot" style="background:#f0a45c"></span><span class="sp"></span><span class="cnt">6</span></div><div class="gnm">ilife</div></div>
+        <div class="gcard"><div class="grow"><span class="dot" style="background:#7fd08a"></span><span class="sp"></span><span class="cnt">2</span></div><div class="gnm">dsh-opencode-palette</div></div>
+        <div class="gcard"><div class="grow"><span class="dot" style="background:#6cb8e0"></span><span class="sp"></span><span class="cnt">1</span></div><div class="gnm">.db</div></div>
+        <div class="gcard"><div class="grow"><span class="dot" style="background:#b388ff"></span><span class="sp"></span><span class="cnt">5</span></div><div class="gnm">dsh-mattpocock-skills-deck</div></div>
+        <div class="gcard"><div class="grow"><span class="dot" style="background:#b388ff"></span><span class="sp"></span><span class="cnt">2</span></div><div class="gnm">dsh-plugin-update</div></div>
+        <div class="gcard"><div class="grow"><span class="dot" style="background:#8ad0c8"></span><span class="sp"></span><span class="cnt">2</span></div><div class="gnm">dsh-im-companion</div></div>
+        <div class="gcard"><div class="grow"><span class="dot" style="background:#7fd08a"></span><span class="sp"></span><span class="cnt">2</span></div><div class="gnm">xiaowan</div></div>
+        <div class="gcard"><div class="grow"><span class="dot" style="background:#f0a45c"></span><span class="sp"></span><span class="cnt">1</span></div><div class="gnm">xiaoyan</div></div>
+        <div class="gcard"><div class="grow"><span class="dot" style="background:#6cb8e0"></span><span class="sp"></span><span class="cnt">1</span></div><div class="gnm">xinghuo</div></div>
+        <div class="gcard"><div class="grow"><span class="dot" style="background:#6cb8e0"></span><span class="sp"></span><span class="cnt">1</span></div><div class="gnm">default-workspace</div></div>
+      </div>
+      <div class="sgrid">
+        <div class="card"><div class="ct"><span class="time">2分 ›</span>工作区归属反查修复</div></div>
+        <div class="card"><div class="ct"><span class="time">3时 ›</span>新的对话</div></div>
+        <div class="card"><div class="ct"><span class="time">1天 ›</span>挑选器卡片网格</div></div>
+        <div class="card"><div class="ct"><span class="time">2天 ›</span>发布流程核对</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<p class="foot">对照稿 · 数据为真机 11 个工作区 · 橙色边=当前展开组 · 会话卡网格在组头网格下方单独一层</p>
+</body></html>

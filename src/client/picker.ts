@@ -3,12 +3,16 @@
  *
  * 定稿 v7 = C 手风琴 + 标题全显换行第一优先 + 时间尾随 + 徽标行内 + 一级卡只留名与计数
  * + 自适应抽屉（内容定高、上限 88% 内滚、禁大片空白）。
+ * #115（用户 2026-10-05 拍板，architect 版）：近全屏内缩面板（内容定高、天花板近满屏）
+ * + 竖屏会话在上、tab 条中、底部操作栏［工‹｜会‹｜会›｜工›］…［×］（层色边框＋点击脉冲）
+ * + 真分页纯模型（pager.ts）+ × 跟字号放大；横屏维持现状；整体压紧多装。
  * 状态机（#107 Q1/#111）：关闭→探测→加载→就绪/空/失败→切换中→关闭或留屏；
  * 成功才关，其余留屏；失败不自动关；取消只取消等待。
  * 约束：不进持久化、不记新日志、不读写草稿（沿 #111）。
  */
 import { getReact, keepComposerFocus, MODAL_Z } from './panel'
 import { remoteSizeScale } from './remoteView'
+import { pageCount, clampPage, pageOf, perPageFromMeasure, PAGER_DEFAULT_PER_PAGE } from './pager'
 import { getLang, tr, STR } from './i18n'
 import {
   enumerateWorkspaceSessions,
@@ -30,6 +34,8 @@ const PICKER_ANIM_STYLE_ID = 'dsh-prompt-picker-anim'
 const PICKER_ANIM_CSS = [
   '@keyframes dsh-prompt-picker-slide { from { margin-left: -40%; } to { margin-left: 100%; } }',
   '.dsh-prompt-picker-load-i { height: 100%; width: 40%; border-radius: 99px; background: var(--dsw-specific-accent,#f0a45c); animation: dsh-prompt-picker-slide 1s infinite linear; }',
+  // #115 操作栏层暗示：点哪层、哪层脉冲（字形 span 重挂载触发一次，无定时器、不丢焦点）。
+  '@keyframes dsh-prompt-pager-pulse { 0% { transform: scale(1); } 35% { transform: scale(1.25); } 100% { transform: scale(1); } }',
 ].join('\n')
 let pickerAnimReady = false
 function ensurePickerAnimStyle(): void {
@@ -61,11 +67,6 @@ export interface PickerProps {
    * 测试可显式钉死。v7 C 横屏即此形（左轨 hugging + 右展）。
    */
   wide?: boolean
-  /**
-   * 底部让位（px）：触控栏占位，由 button.ts 按 Dock 真实尺寸算好后传入（尺寸真值只留一处，
-   * 这里不重算 Dock math）。抽屉底边抬到这条线之上，触控栏仍可见；0 = 贴底（无 Dock 场景）。
-   */
-  dockReservePx?: number
   /** 关闭（switchedId 有值 = 切换成功并切到该会话；无值 = 原地关闭/取消） */
   onClose: (switchedId?: string) => void
 }
@@ -179,7 +180,7 @@ function SessionCard(props: {
       border: '1px solid ' + (current ? '#7fd08a' : 'var(--dsw-alias-border-l1)'),
       boxShadow: current ? 'inset 0 0 0 1px #7fd08a' : 'none',
       color: 'var(--dsw-alias-label-primary)', borderRadius: 12,
-      padding: '10px 12px', fontSize: '0.92em', minWidth: 0,
+      padding: '0.6em 0.75em', fontSize: '0.92em', minWidth: 0,
       fontFamily: 'var(--dsw-font-family)',
     },
     'data-dsh-prompt-picker-card': '1',
@@ -224,20 +225,22 @@ export function WorkspacePicker(props: PickerProps): any {
     if (typeof window !== 'undefined' && window.innerWidth > window.innerHeight) wideAuto = true
   } catch (e) { wideAuto = false }
   const wide = typeof props.wide === 'boolean' ? props.wide : wideAuto
-  // 卡片网格列数（用户 2026-10-03 拍板：竖屏 2 列、横屏 3 列）
+  // 会话卡片网格列数（用户 2026-10-03 拍板：竖屏 2 列、横屏 3 列；#115 仅竖屏走双栏，横屏维持现状）
   const gridCols = wide ? 3 : 2
-  // 底部让位：Dock 占位（button.ts 传入的真值），抽屉底边抬到触控栏之上。
-  const dockReserve = typeof props.dockReservePx === 'number' && isFinite(props.dockReservePx) && props.dockReservePx > 0
-    ? Math.round(props.dockReservePx)
-    : 0
   const gridStyle: any = {
     display: 'grid',
     gridTemplateColumns: 'repeat(' + gridCols + ', minmax(0, 1fr))',
-    gap: 8, alignItems: 'stretch',
+    gap: '0.4em', alignItems: 'stretch',
   }
-  // 一级工作区卡网格（用户 2026-10-03 拍板：工作区列表也做卡片式）。
-  // 与会话网格同列数同间距，只是末尾多一段下边距：组头网格在上、展开的会话网格紧随其下。
-  const groupGridStyle: any = { ...gridStyle, margin: '0 0 10px' }
+  // #115 tab 条（architect 版 Q3b）：tab 定宽是均匀页的前提（与 pager 联动）；后人改回内容宽须重做页边界。
+  const TAB_W = '9em'
+  // 翻页键体：2.5em 正方形，主次小于 × 3em；常量 token 化（勿散写魔法数）。
+  const PAGER_BOX = '2.5em'
+  // tab 行：横向 flex，横滑；竖屏单列纵排已退役（#115 对调：会话上、tab 条下）。
+  // 横屏 rail 维持现状（2 列纵排卡）。
+  const tabRowStyle: any = {
+    display: 'flex', flexDirection: 'row', gap: '0.4em', alignItems: 'stretch',
+  }
 
   ensurePickerAnimStyle()
 
@@ -268,6 +271,28 @@ export function WorkspacePicker(props: PickerProps): any {
   const openGroupState = react.useState(null as string | null)
   const openGroup = openGroupState[0] as string | null
   const setOpenGroup = openGroupState[1]
+  // #115 页态（architect 版）：页模型是纯函数（pager.ts），组件只存页号＋每页项数；
+  // 量尺寸在 effect＋ResizeObserver，无 DOM（测试渲染器）时全走 fallback 默认。
+  const tabPageState = react.useState(0)
+  const tabPage = tabPageState[0] as number
+  const setTabPage = tabPageState[1]
+  const tabPerPageState = react.useState(PAGER_DEFAULT_PER_PAGE)
+  const tabPerPage = tabPerPageState[0] as number
+  const setTabPerPage = tabPerPageState[1]
+  const ssPageState = react.useState(0)
+  const ssPage = ssPageState[0] as number
+  const setSsPage = ssPageState[1]
+  const ssPerPageState = react.useState(PAGER_DEFAULT_PER_PAGE)
+  const ssPerPage = ssPerPageState[0] as number
+  const setSsPerPage = ssPerPageState[1]
+  // #115 层脉冲计数：点哪层、哪层字形重挂脉冲一次（无定时器、不丢焦点）。
+  const wsFlashState = react.useState(0)
+  const wsFlash = wsFlashState[0] as number
+  const setWsFlash = wsFlashState[1]
+  const ssFlashState = react.useState(0)
+  const ssFlash = ssFlashState[0] as number
+  const setSsFlash = ssFlashState[1]
+  const pagerRefs = react.useRef({} as any)
 
   // 打开即重探 + 重置搜索（#111 US13；抄 sidebarCtl 晚到模式，每次打开重探）
   react.useEffect(() => {
@@ -326,6 +351,74 @@ export function WorkspacePicker(props: PickerProps): any {
   try {
     groups = groupWorkspaceSessions(filtered, names, ungroupedName)
   } catch (e) { groups = [] }
+  // #115 量尺寸＋页重算（architect 版）：ResizeObserver 守卫；无 RO/无 DOM（测试渲染器）
+  // 全走 fallback 默认。页钳制防每页项数变化后的越界。放 groups 之后（deps 读 groups.length，避 TDZ）。
+  react.useEffect(() => {
+    let alive = true
+    const fontPxOf = (el: any): number => {
+      try {
+        const g = (globalThis as any).getComputedStyle
+        if (typeof g !== 'function' || !el) return NaN
+        const v = parseFloat(g(el).fontSize)
+        return isFinite(v) && v > 0 ? v : NaN
+      } catch (e) { return NaN }
+    }
+    const recompute = (): void => {
+      if (!alive) return
+      try {
+        const R = pagerRefs.current || {}
+        const ws = R.ws
+        if (ws && typeof ws.clientWidth === 'number' && ws.clientWidth > 0) {
+          let tabW = NaN
+          try {
+            const first = ws.querySelector ? ws.querySelector('[data-dsh-prompt-picker-groupcard]') : null
+            if (first && typeof first.offsetWidth === 'number' && first.offsetWidth > 0) tabW = first.offsetWidth
+          } catch (e) { /* ignore */ }
+          const fp = fontPxOf(ws)
+          const gap = isFinite(fp) ? fp * 0.5 : 8
+          const pitch = isFinite(tabW) && (tabW as number) > 0 ? (tabW as number) + gap : NaN
+          if (isFinite(pitch) && (pitch as number) > 0) R.wsPitch = pitch
+          const per = perPageFromMeasure(ws.clientWidth, isFinite(pitch) ? pitch : NaN, PAGER_DEFAULT_PER_PAGE)
+          try { setTabPerPage(per) } catch (e) { /* ignore */ }
+          try { setTabPage((p: number) => clampPage(p, groups.length, per)) } catch (e) { /* ignore */ }
+        }
+        const ss = R.ss
+        if (ss && typeof ss.clientHeight === 'number' && ss.clientHeight > 0) {
+          let cardH = NaN
+          try {
+            const first = ss.querySelector ? ss.querySelector('[data-dsh-prompt-picker-card]') : null
+            if (first && typeof first.offsetHeight === 'number' && first.offsetHeight > 0) cardH = first.offsetHeight
+          } catch (e) { /* ignore */ }
+          const fp = fontPxOf(ss)
+          const gap = isFinite(fp) ? fp * 0.5 : 8
+          const rows = isFinite(cardH) && (cardH as number) > 0
+            ? Math.max(1, Math.floor((ss.clientHeight + gap) / ((cardH as number) + gap)))
+            : 2
+          const per = Math.max(1, gridCols * rows)
+          try { setSsPerPage(per) } catch (e) { /* ignore */ }
+          const key = openGroup || (groups.length > 0 ? groups[0].key : '__none')
+          const og = groups.find((g) => g.key === key) || null
+          const total = hasQuery ? filtered.length : (og ? og.items.length : 0)
+          try { setSsPage((p: number) => clampPage(p, total, per)) } catch (e) { /* ignore */ }
+        }
+      } catch (e) { /* ignore */ }
+    }
+    recompute()
+    let ro: any = null
+    try {
+      const RO = (globalThis as any).ResizeObserver
+      const R = pagerRefs.current || {}
+      if (typeof RO === 'function' && (R.ws || R.ss)) {
+        ro = new RO(() => { try { recompute() } catch (e) { /* ignore */ } })
+        try { if (R.ws && typeof R.ws.clientWidth === 'number') ro.observe(R.ws) } catch (e) { /* ignore */ }
+        try { if (R.ss && typeof R.ss.clientHeight === 'number') ro.observe(R.ss) } catch (e) { /* ignore */ }
+      }
+    } catch (e) { /* ignore */ }
+    return () => {
+      alive = false
+      try { if (ro && typeof ro.disconnect === 'function') ro.disconnect() } catch (e) { /* ignore */ }
+    }
+  }, [groups.length, filtered.length, gridCols])
 
   // 搜索框常驻（审查 #5 的故意 diverged：原型 C 无查询时藏搜索框，但那是个演示洞——
   // 藏了就没法发起搜索，直接违反 #111 US12 文字；此处规格优先，几何仍沿原型 .search slim 形）。
@@ -406,37 +499,90 @@ export function WorkspacePicker(props: PickerProps): any {
   // 根容器定层级（审查 #1 Blocking 修复）：整块包进 MODAL_Z stacking root，
   // 与齿轮设置弹窗同层、高于 Dock（DOCK_Z），打开即盖住触控栏（#111 US3 / #113 US15）。
   // 之前 mask z10 / sheet z11 是抄原型的框内层级，在真机全局比拼中必输给 Dock——注释写同层而代码没做到。
-  const rootStyle: any = { position: 'fixed', inset: 0, zIndex: MODAL_Z }
+  // #115：em 缩放锚上移到根，遮罩留边（0.5em）与面板内容同比缩放（有意偏离齿轮 vh/vw，见 #115 Q7）。
+  const rootStyle: any = { position: 'fixed', inset: 0, zIndex: MODAL_Z, fontSize: 'calc(1em * ' + uiScale + ')' }
   const maskStyle: any = {
     position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '0.5em', boxSizing: 'border-box',
   }
   const sheetStyle: any = {
-    // 底边抬到触控栏之上（用户 2026-10-03 拍板）：dockReserve=0 时与今天等价（贴底）。
-    position: 'absolute', left: 0, right: 0, bottom: dockReserve > 0 ? dockReserve + 'px' : 0,
+    // #115 近全屏内缩面板（用户 2026-10-05 拍板）：内容定高、天花板为遮罩内容区 100%
+    // （≈ 视口 − 1em）；小内容矮板、大内容顶满后内栏滚动，v7「禁大片空白」保留。
+    // dockReservePx 已退役：近全屏后面板恒盖住触控栏，让位无意义（且旧值收起 Dock 不收缩）。
+    position: 'relative', width: '100%', height: 'auto', maxHeight: '100%',
+    margin: 0,
     background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
     backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
-    // 抬起来之后四边都有外露，圆角补齐（贴底时只留上圆角）。
-    borderRadius: 18, border: '1px solid var(--dsw-alias-border-l1)',
-    display: 'flex', flexDirection: 'column',
-    // 上限仍是「内容定高、88% 内滚」口径（v7），只是要从 88% 里扣掉让位高度，否则会顶出视口。
-    maxHeight: dockReserve > 0 ? 'calc(88% - ' + dockReserve + 'px)' : '88%',
-    fontSize: 'calc(1em * ' + uiScale + ')',
+    borderRadius: 14, border: '1px solid var(--dsw-alias-border-l1)',
+    display: 'flex', flexDirection: 'column', overflow: 'hidden',
+    fontSize: '1em',
     fontFamily: 'var(--dsw-font-family)', color: 'var(--dsw-alias-label-primary)',
   }
-  const headStyle: any = { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px 2px', flex: 'none' }
+  const headStyle: any = { display: 'flex', alignItems: 'center', gap: 8, padding: '0.3em 0.5em 0.05em', flex: 'none' }
+  // #115 × 跟字号：3em 圆盒（1 档约 45px，比旧 40px 大一圈；10 档 5.5 倍），字形另包 1.4em。
   const xStyle: any = {
-    marginLeft: 'auto', flex: 'none', width: 40, height: 40, borderRadius: 9, cursor: 'pointer',
+    marginLeft: 'auto', flex: 'none', width: '3em', height: '3em', minWidth: '3em', borderRadius: '50%', cursor: 'pointer',
     border: '1px solid var(--dsw-alias-border-l1)',
     background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-alias-label-primary)',
-    fontSize: '1.2em', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '1em', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
   }
+  const xGlyphStyle: any = { fontSize: '1.4em', lineHeight: 1 }
   const searchStyle: any = {
-    margin: '4px 12px 0', padding: '8px 12px', borderRadius: 9, minHeight: 46,
+    margin: '0.2em 0.4em 0', padding: '0.5em 0.75em', borderRadius: 9, minHeight: '2.5em',
     border: '1px solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-3)',
-    color: 'var(--dsw-alias-label-primary)', fontSize: '0.9em', width: 'calc(100% - 24px)',
+    color: 'var(--dsw-alias-label-primary)', fontSize: '0.9em', width: 'calc(100% - 1em)',
     flex: 'none', boxSizing: 'border-box', fontFamily: 'var(--dsw-font-family)', outline: 'none',
   }
-  const bodyStyle: any = { overflowY: 'auto', padding: '8px 12px 14px', minHeight: 0, minWidth: 0 }
+  // #115 tab 条体（architect 版）：会话栏在上占剩余区域，会话滚区＋右下悬浮翻页；
+  // 底部 tab 条（工作区横滑＋右侧方形翻页键）。悬浮无布局代价，显隐零抖动。
+  const bodyStyle: any = {
+    display: 'flex', flexDirection: 'column', overflow: 'hidden',
+    padding: '0.25em 0.4em 0.4em', minHeight: 0, minWidth: 0, flex: '1 1 auto',
+  }
+  // 会话栏：相对定位祖先（悬浮翻页键锚它；overflow hidden 裁剪不出逃）。
+  const ssPaneStyle: any = {
+    flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column',
+    overflow: 'hidden', position: 'relative',
+  }
+  const ssScrollStyle: any = { flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '0.1em 0.1em 0.4em' }
+  // 底部 tab 条：定高行，不伸缩；标题已删（条自明，省一行高）。
+  const wsPaneStyle: any = {
+    flex: 'none', display: 'flex', flexDirection: 'row', alignItems: 'center',
+    gap: '0.4em', marginTop: '0.35em', minHeight: 0,
+  }
+  const wsScrollStyle: any = {
+    flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'row',
+    gap: '0.4em', overflowX: 'auto', overflowY: 'hidden', padding: '0.1em',
+  }
+  // #115 内外层色（静态暗示）：外层工作区＝accent 橙，内层会话＝当前绿；边框即身份。
+  const LAYER_WS = 'var(--dsw-specific-accent,#f0a45c)'
+  const LAYER_SS = '#7fd08a'
+  // 底部操作栏：翻页簇居左、关闭居右，细线与内容分隔；定高行。
+  const opBarStyle: any = {
+    flex: 'none', display: 'flex', flexDirection: 'row', alignItems: 'center',
+    gap: '0.5em', marginTop: '0.35em', paddingTop: '0.35em',
+    borderTop: '1px solid var(--dsw-alias-border-l1)',
+  }
+  // 翻页键：PAGER_BOX 正方形＋层色边框；禁用三件套（disabled＋aria＋半透明）。
+  const pagerBtnStyle = (disabled: boolean, accent: string): any => ({
+    flex: 'none', width: PAGER_BOX, height: PAGER_BOX, minWidth: PAGER_BOX,
+    borderRadius: 9, cursor: disabled ? 'not-allowed' : 'pointer',
+    border: '1px solid ' + accent,
+    background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-alias-label-primary)',
+    fontSize: '1em', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    opacity: disabled ? 0.38 : 1,
+  })
+  // 脉冲字形：flash>0 才挂动画；key 带计数重挂触发一次（键本体不动，不丢焦点）。
+  const pagerGlyphStyle = (flash: number): any => ({
+    fontSize: '1.2em', lineHeight: 1, display: 'inline-block',
+    animation: flash > 0 ? 'dsh-prompt-pager-pulse 0.35s ease-out' : undefined,
+  })
+  const sectionTitleStyle: any = {
+    flex: 'none', fontSize: '0.78em', fontWeight: 700,
+    color: 'var(--dsw-alias-label-tertiary)', letterSpacing: '0.02em',
+    padding: '0.2em 0.2em 0.2em',
+  }
 
   const renderCard = (s: WorkspaceSession, withShort: boolean): any =>
     h(SessionCard, {
@@ -447,68 +593,152 @@ export function WorkspacePicker(props: PickerProps): any {
       withShort,
       onPick: doPick,
     })
-  // 一级工作区卡（v7：名 + 计数 + 色点，无“最新”整行；展开态 accent 边框给态感，审查 #3/#4）。
-  // 2026-10-03 用户拍板「工作区列表也做成卡片式」：此前是 width:100% 的单行整宽条——
-  // 横向铺满浪费空间、纵向只有一行手指又按不准。改为与会话卡同一套卡片语汇（纵排 + 最小高），
-  // 放进网格：一行放多张，窄了不占地、也够大点得中。
-  const renderWcard = (g: WorkspaceGroup, isOpen: boolean, allowCollapse: boolean): any =>
+  // 工作区行（#115：名 + 计数 + 色点并一行，单列；选中态 accent 边框给态感，沿审查 #3/#4）。
+  // 2026-10-03「工作区列表也做成卡片式」已被 #115 取代：双网格把会话顶出可视区，
+  // 单列行才是「两个列表」的形状；色条等多余形状不加（抗 creep）。
+  // asTab=true 时为底部 tab 条形态：定宽 TAB_W（均匀页前提，与 pager 联动）＋ tab 语义。
+  const renderWcard = (g: WorkspaceGroup, isOpen: boolean, allowCollapse: boolean, asTab?: boolean, tabIdx?: number): any =>
     h('button', {
-      key: 'head:' + g.key,
+      key: (asTab ? 'tab:' : 'head:') + g.key,
       type: 'button',
       'data-dsh-prompt-picker-group': g.key,
-      'aria-pressed': isOpen ? 'true' : 'false',
+      role: asTab ? 'tab' : undefined,
+      'aria-selected': asTab ? (isOpen ? 'true' : 'false') : undefined,
+      'aria-pressed': asTab ? undefined : (isOpen ? 'true' : 'false'),
       onMouseDown: keepComposerFocus,
       onClick: () => {
         // 收起规则（v7 bind 口径，审查 #12）：竖屏允许收到全空，横屏重 sockaddr 点保持展开。
         try { setOpenGroup(allowCollapse && isOpen ? '__none' : g.key) } catch (e) { /* ignore */ }
+        // 页驱动选中：tab 点后所在页滚入可见（确定性偏移，不用 scrollIntoView）。
+        if (asTab && typeof tabIdx === 'number') ensureTabPage(tabIdx)
       },
+      title: g.name,
       style: {
-        display: 'flex', flexDirection: 'column', alignItems: 'stretch',
-        width: '100%', minHeight: '4.5em', minWidth: 0, textAlign: 'left', cursor: 'pointer',
+        display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8,
+        width: asTab ? TAB_W : '100%', flex: asTab ? 'none' : undefined,
+        minHeight: '2.6em', minWidth: 0, textAlign: 'left', cursor: 'pointer',
         background: 'var(--dsw-alias-bg-layer-3)',
         border: '1px solid ' + (isOpen ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-border-l1)'),
         boxShadow: isOpen ? 'inset 0 0 0 1px var(--dsw-specific-accent,#f0a45c)' : 'none',
         color: 'var(--dsw-alias-label-primary)', borderRadius: 12,
-        padding: '10px 12px', fontSize: '0.92em',
+        padding: '0.5em 0.75em', fontSize: '0.92em',
         fontFamily: 'var(--dsw-font-family)',
       },
       'data-dsh-prompt-picker-groupcard': '1',
     }, [
-      // 头排：色点靠左、计数靠右（长工作区名截断也不挤掉它们）
-      h('div', {
-        key: 'row',
-        style: { display: 'flex', alignItems: 'center', gap: 8, flex: 'none' },
-      }, [
-        h('span', {
-          key: 'dot',
-          'data-dsh-prompt-picker-dot': '1',
-          style: {
-            flex: 'none', width: 10, height: 10, borderRadius: '50%',
-            background: workspaceColor(g.workspaceId),
-          },
-        }),
-        h('span', { key: 'sp', style: { flex: 1, minWidth: 0 } }),
-        h('span', {
-          key: 'cnt',
-          'data-dsh-prompt-picker-count': String(g.items.length),
-          style: {
-            flex: 'none', fontSize: '0.75em', color: 'var(--dsw-alias-label-tertiary)',
-            background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
-            border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 999,
-            padding: '0 9px', fontWeight: 400,
-          },
-        }, String(g.items.length)),
-      ]),
-      // 名占满剩余高度并允许换行（工作区名比会话标题长得多，窄卡里必须能折行）
-      h('div', {
+      // 单行：色点靠左、名占中（超长省略，title 给全名）、计数靠右胶囊。
+      h('span', {
+        key: 'dot',
+        'data-dsh-prompt-picker-dot': '1',
+        style: {
+          flex: 'none', width: 10, height: 10, borderRadius: '50%',
+          background: workspaceColor(g.workspaceId),
+        },
+      }),
+      h('span', {
         key: 'nm',
         style: {
-          fontWeight: 700, lineHeight: 1.4, wordBreak: 'break-word',
-          marginTop: 6, flex: '1 1 auto',
+          flex: '1 1 auto', minWidth: 0, fontWeight: 700, lineHeight: 1.4,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         },
       }, g.name),
+      h('span', {
+        key: 'cnt',
+        'data-dsh-prompt-picker-count': String(g.items.length),
+        style: {
+          flex: 'none', fontSize: '0.75em', color: 'var(--dsw-alias-label-tertiary)',
+          background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+          border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 999,
+          padding: '0 9px', fontWeight: 400,
+        },
+      }, String(g.items.length)),
     ])
   const openKey = openGroup || (groups.length > 0 ? groups[0].key : '__none')
+  // #115 翻页 helpers（architect 版）：tab 项等宽→按节距精确定位；会话卡高不定→按视口翻。
+  //  asymmetry 是诚实的：均匀内容用项模型，不均匀内容用视口模型（见票）。
+  const wsScrollToPage = (n: number, per: number): void => {
+    try {
+      const R = pagerRefs.current || {}
+      const el = R.ws
+      if (!el || typeof el.scrollTo !== 'function') return
+      const pitch = R.wsPitch
+      const x = (typeof pitch === 'number' && pitch > 0)
+        ? n * per * pitch
+        : n * (typeof el.clientWidth === 'number' && el.clientWidth > 0 ? el.clientWidth : 0)
+      try { el.scrollTo({ left: x, behavior: 'smooth' }) }
+      catch (e2) { try { el.scrollTo(x, 0) } catch (e3) { try { el.scrollLeft = x } catch (e4) { /* ignore */ } } }
+    } catch (e) { /* ignore */ }
+  }
+  const ssScrollToPage = (n: number): void => {
+    try {
+      const el = (pagerRefs.current || {}).ss
+      if (!el || typeof el.scrollTo !== 'function') return
+      const h = typeof el.clientHeight === 'number' && el.clientHeight > 0 ? el.clientHeight : 0
+      const y = n * h
+      try { el.scrollTo({ top: y, behavior: 'smooth' }) }
+      catch (e2) { try { el.scrollTo(0, y) } catch (e3) { try { el.scrollTop = y } catch (e4) { /* ignore */ } } }
+    } catch (e) { /* ignore */ }
+  }
+  const ssTotalOf = (): number => {
+    try {
+      const key = openGroup || (groups.length > 0 ? groups[0].key : '__none')
+      const og = groups.find((g) => g.key === key) || null
+      return og ? og.items.length : 0
+    } catch (e) { return 0 }
+  }
+  const tabGo = (dir: 1 | -1): void => {
+    const n = clampPage(tabPage + dir, groups.length, tabPerPage)
+    setTabPage(n)
+    try { setWsFlash((f: number) => f + 1) } catch (e) { /* ignore */ }
+    wsScrollToPage(n, tabPerPage)
+  }
+  const ssGo = (dir: 1 | -1): void => {
+    const total = ssTotalOf()
+    const n = clampPage(ssPage + dir, total, ssPerPage)
+    setSsPage(n)
+    try { setSsFlash((f: number) => f + 1) } catch (e) { /* ignore */ }
+    ssScrollToPage(n)
+  }
+  // 页驱动选中（不用 scrollIntoView：页号确定、偏移确定，可断言；浏览器启发式不可）。
+  const ensureTabPage = (idx: number): void => {
+    try {
+      const n = clampPage(pageOf(idx, tabPerPage), groups.length, tabPerPage)
+      setTabPage(n)
+      wsScrollToPage(n, tabPerPage)
+    } catch (e) { /* ignore */ }
+  }
+  const onWsScroll = (e: any): void => {
+    try {
+      const el = (e && e.target) || null
+      if (!el || typeof el.scrollLeft !== 'number') return
+      const cw = typeof el.clientWidth === 'number' && el.clientWidth > 0 ? el.clientWidth : 1
+      const pitch = (pagerRefs.current || {}).wsPitch
+      const pageW = (typeof pitch === 'number' && pitch > 0 ? tabPerPage * pitch : cw)
+      const w = pageW > 0 ? pageW : 1
+      setTabPage(clampPage(Math.round(el.scrollLeft / w), groups.length, tabPerPage))
+    } catch (e) { /* ignore */ }
+  }
+  const onSsScroll = (e: any): void => {
+    try {
+      const el = (e && e.target) || null
+      if (!el || typeof el.scrollTop !== 'number') return
+      const h = typeof el.clientHeight === 'number' && el.clientHeight > 0 ? el.clientHeight : 1
+      setSsPage(clampPage(Math.round(el.scrollTop / h), ssTotalOf(), ssPerPage))
+    } catch (e) { /* ignore */ }
+  }
+  // 操作栏翻页键：kind 即内外层身份（ws 外层 / ss 内层），层色边框＋脉冲字形双暗示。
+  const pagerBtn = (kind: 'ws-prev' | 'ss-prev' | 'ss-next' | 'ws-next', layerLabel: any, dirLabel: any, disabled: boolean, accent: string, flash: number, go: () => void): any =>
+    h('button', {
+      key: kind, type: 'button',
+      'data-dsh-prompt-picker-pager': kind,
+      disabled: disabled ? true : undefined,
+      'aria-disabled': disabled ? 'true' : 'false',
+      'aria-label': tr(lang, layerLabel) + tr(lang, dirLabel),
+      title: tr(lang, layerLabel) + tr(lang, dirLabel),
+      onMouseDown: keepComposerFocus,
+      onClick: () => { if (!disabled) { try { go() } catch (e) { /* ignore */ } } },
+      style: pagerBtnStyle(disabled, accent),
+    }, h('span', { key: 'g' + flash, style: pagerGlyphStyle(flash), 'aria-hidden': 'true' }, (kind === 'ws-prev' || kind === 'ss-prev') ? '‹' : '›'))
   const switchingNote = phase === 'switching' && switchingId
     ? h('div', {
       key: 'switching',
@@ -516,23 +746,29 @@ export function WorkspacePicker(props: PickerProps): any {
       style: { fontSize: '0.78em', color: 'var(--dsw-alias-label-tertiary)', padding: '6px 0 0', flex: 'none' },
     }, tr(lang, STR.pickerSwitching) + '…')
     : null
-  // 列表区（C 手风琴：无查询 → 恒走手风琴/横屏轨，一级工作区组头**总是**渲染；
-  // 有查询 → 展平成带短码的卡片网格，#111 US12）。
+  // 列表区（#115 操作栏版：无查询 → 会话栏在上、tab 条中、底部操作栏；
+  // 横屏维持 rail + 右展；有查询 → 展平成带短码的卡片网格，#111 US12）。
+  // tab 恒渲染（沿 2026-10-03 撤 US9 的结论：工作区恒显示，单列行改横 tab 后沿用）。
   // 2026-10-03 用户拍板：去掉 #111 US9「单工作区不显示组头」——那条规则把「分组整个没生效」
   // 和「确实只有一个工作区」混成同一种表现，把硬故障藏成了看不见。现在组头恒在。
   let listContent: any = null
   if (hasQuery) {
     const flat = filtered.slice().sort((a, b) => b.updatedAt - a.updatedAt)
-    listContent = h('div', { key: 'flat', 'data-dsh-prompt-picker-flat': 'query' }, [
+    listContent = h('div', {
+      key: 'flat', 'data-dsh-prompt-picker-flat': 'query',
+      style: { display: 'flex', flexDirection: 'column', minHeight: 0, flex: '1 1 auto', overflow: 'hidden' },
+    }, [
       switchingNote,
-      h('div', { key: 'list', 'data-dsh-prompt-picker-grid': String(gridCols), style: gridStyle },
-        flat.map((s) => renderCard(s, hasQuery))),
+      h('div', { key: 'ssscroll', 'data-dsh-prompt-picker-ssscroll': '1', style: ssScrollStyle }, [
+        h('div', { key: 'list', 'data-dsh-prompt-picker-grid': String(gridCols), style: gridStyle },
+          flat.map((s) => renderCard(s, hasQuery))),
+      ]),
     ])
   } else if (wide) {
     // 横屏 rail + 右展（v7 C 横屏形，审查 #2）：左轨列一级卡（**2 列卡片网格**，不再是整宽单行条），
     // 右侧展开放组会话卡。轨宽只有 ~38%，故固定 2 列而不是 gridCols=3。
     const openG = groups.find((g) => g.key === openKey) || groups[0] || null
-    listContent = h('div', { key: 'widewrap' }, [
+    listContent = h('div', { key: 'widewrap', style: { overflowY: 'auto', minHeight: 0, flex: '1 1 auto' } }, [
       switchingNote,
       h('div', {
         key: 'rail',
@@ -556,21 +792,80 @@ export function WorkspacePicker(props: PickerProps): any {
       ]),
     ])
   } else {
-    // 竖屏：先一屏工作区卡网格，选中/默认组的会话卡排在网格**下方**。
-    // （此前是「组头整宽行 + 紧跟它的会话」交替纵排；11 个工作区要滚很久才看得到全部组。）
+    // 竖屏（#115 tab 条版）：上 = 会话栏（选中组会话网格占剩余区域＋右下悬浮翻页）＋
+    // 下 = 底部 tab 条（工作区横滑＋右侧方形翻页键）。未归属桶是 tab 普通一项；
+    // 重开回到默认组、不记选中（沿现状 openGroup 初始化）。搜索时本分支不走（展平分支）。
     const openG = groups.find((g) => g.key === openKey) || null
-    listContent = h('div', { key: 'acc' }, [
+    const openItems = openG ? openG.items : []
+    const tabPages = pageCount(groups.length, tabPerPage)
+    const tabPrevOff = tabPage <= 0
+    const tabNextOff = tabPage >= tabPages - 1
+    const ssPages = pageCount(openItems.length, ssPerPage)
+    const ssPrevOff = ssPage <= 0
+    const ssNextOff = ssPage >= ssPages - 1
+    listContent = h('div', {
+      key: 'acc',
+      style: { display: 'flex', flexDirection: 'column', minHeight: 0, flex: '1 1 auto', overflow: 'hidden' },
+    }, [
       switchingNote,
+      h('div', { key: 'sspane', 'data-dsh-prompt-picker-sspane': '1', style: ssPaneStyle }, [
+        h('div', { key: 'sst', 'data-dsh-prompt-picker-sstitle': '1', style: sectionTitleStyle }, tr(lang, STR.pickerSessions)),
+        h('div', {
+          key: 'ssscroll', 'data-dsh-prompt-picker-ssscroll': '1', style: ssScrollStyle,
+          ref: (el: any) => { try { pagerRefs.current.ss = el } catch (e) { /* ignore */ } },
+          onScroll: onSsScroll,
+        }, [
+          openG ? h('div', {
+            key: 'gitems',
+            'data-dsh-prompt-picker-grid': String(gridCols),
+            style: gridStyle,
+          }, openG.items.map((s) => renderCard(s, false))) : null,
+        ]),
+      ]),
       h('div', {
-        key: 'ggrid',
-        'data-dsh-prompt-picker-groupgrid': String(gridCols),
-        style: { ...groupGridStyle },
-      }, groups.map((g) => renderWcard(g, openKey === g.key, true))),
-      openG ? h('div', {
-        key: 'gitems',
-        'data-dsh-prompt-picker-grid': String(gridCols),
-        style: gridStyle,
-      }, openG.items.map((s) => renderCard(s, false))) : null,
+        key: 'wspane', 'data-dsh-prompt-picker-wspane': '1',
+        role: 'tablist', 'aria-label': tr(lang, STR.pickerWorkspaces),
+        style: wsPaneStyle,
+      }, [
+        h('div', {
+          key: 'wsscroll', 'data-dsh-prompt-picker-wsscroll': '1', style: wsScrollStyle,
+          ref: (el: any) => { try { pagerRefs.current.ws = el } catch (e) { /* ignore */ } },
+          onScroll: onWsScroll,
+        }, [
+          h('div', {
+            key: 'tabrow',
+            'data-dsh-prompt-picker-tabrow': String(tabPerPage),
+            style: tabRowStyle,
+          }, groups.map((g, idx) => renderWcard(g, openKey === g.key, true, true, idx))),
+        ]),
+      ]),
+      // 底部操作栏（用户 2026-10-05 拍板）：外层工作区 pair 在两侧、内层会话 pair 居中、
+      // 关闭居右。层色边框＋点击脉冲双暗示，不用读字也知道管哪层。
+      h('div', {
+        key: 'opbar', 'data-dsh-prompt-picker-opbar': '1',
+        role: 'toolbar', 'aria-label': tr(lang, STR.pickerOpBar),
+        style: opBarStyle,
+      }, [
+        pagerBtn('ws-prev', STR.pickerWorkspaces, STR.pickerPrev, tabPrevOff, LAYER_WS, wsFlash, () => tabGo(-1)),
+        pagerBtn('ss-prev', STR.pickerSessions, STR.pickerPrev, ssPrevOff, LAYER_SS, ssFlash, () => ssGo(-1)),
+        pagerBtn('ss-next', STR.pickerSessions, STR.pickerNext, ssNextOff, LAYER_SS, ssFlash, () => ssGo(1)),
+        pagerBtn('ws-next', STR.pickerWorkspaces, STR.pickerNext, tabNextOff, LAYER_WS, wsFlash, () => tabGo(1)),
+        h('button', {
+          key: 'opclose', type: 'button',
+          'data-dsh-prompt-picker-closebar': '1',
+          'aria-label': tr(lang, STR.close),
+          title: tr(lang, STR.close),
+          onMouseDown: keepComposerFocus,
+          onClick: () => { try { props.onClose() } catch (e) { /* ignore */ } },
+          style: {
+            marginLeft: 'auto', flex: 'none', width: '3em', height: '3em', minWidth: '3em',
+            borderRadius: '50%', cursor: 'pointer',
+            border: '1px solid var(--dsw-alias-border-l1)',
+            background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-alias-label-primary)',
+            fontSize: '1em', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          },
+        }, h('span', { key: 'ocg', style: xGlyphStyle, 'aria-hidden': 'true' }, '×')),
+      ]),
     ])
   }
 
@@ -661,7 +956,6 @@ export function WorkspacePicker(props: PickerProps): any {
       'data-dsh-prompt-picker-sheet': '1',
       style: sheetStyle,
     }, [
-      h('div', { key: 'grab', style: { width: 44, height: 4, borderRadius: 99, background: 'var(--dsw-alias-border-l1)', margin: '8px auto 0', flex: 'none' } }),
       h('div', { key: 'head', style: headStyle }, [
         h('h2', { key: 't', style: { margin: 0, fontSize: '0.95em', flex: 'none' } }, tr(lang, STR.workspacePicker)),
         h('button', {
@@ -671,7 +965,7 @@ export function WorkspacePicker(props: PickerProps): any {
           'data-dsh-prompt-picker-close': '1',
           onMouseDown: keepComposerFocus,
           onClick: () => { try { props.onClose() } catch (e) { /* ignore */ } },
-        }, '×'),
+        }, h('span', { key: 'xg', style: xGlyphStyle, 'aria-hidden': 'true' }, '×')),
       ]),
       h('input', {
         key: 'q',

@@ -76,6 +76,7 @@
     "test:issue-104": "node scripts/test-issue-104.cjs",
     "test:issue-110": "node scripts/test-issue-110.cjs",
     "test:issue-112": "node scripts/test-issue-112.cjs",
+    "test:issue-116": "node scripts/test-issue-116.cjs",
     "test:marketplace": "node scripts/check-marketplace-readme.mjs",
     "test": "npm run test:lib-sync && npm run test:modal && npm run test:issue-14"
   },
@@ -97,7 +98,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.5.0",
-    "dsh-plugin-update": "0.2.0",
+    "dsh-plugin-update": "0.3.0",
     "esbuild": "^0.28.2",
     "marked": "^18.0.9",
     "react": "^18.3.1",

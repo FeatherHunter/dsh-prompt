@@ -19,7 +19,7 @@ import {
   getEnvOrientation, setEnvOrientation, warmEnvOrientation,
   type RemoteOrientationPref, type RemoteDensity,
 } from './remote'
-import { remoteSizeScale, resolveEffectiveOrientation, deriveRemoteOrientation } from './remoteView'
+import { remoteSizeScale, resolveEffectiveOrientation, deriveRemoteOrientation, scaledBaseFontSize } from './remoteView'
 import { setSystemOrientation, getSystemOrientation, isSystemOrientation } from './systemOrientation'
 import { getLang, tr, STR } from './i18n'
 
@@ -636,12 +636,10 @@ export function SettingsPage(props: any): any {
 
   // 单滑块跟随（用户拍板，封顶时代“设置页自身不跟”已废）：开吃全额，与 compact 小列表
   // uiFontScale 同构；子项全 em 化，故根在关时也锚到宿主基准 var（=14px，em 按 px/14 换算后与旧 px 视觉一致）。
-  const settingsFontScale = remoteSizeScale(remote.enabled ? remote.size : 1)
+  // #116：缩放根走收敛点（开吃全额、关回基准；与折叠小列表根同构，防漂移）。子项全 em 化，关时锚到宿主基准 var。
   const settingsRootStyle: any = {
     padding: 4, display: 'flex', flexDirection: 'column',
-    fontSize: remote.enabled
-      ? 'calc(var(--dsw-font-markdown-base-font-size) * ' + settingsFontScale + ')'
-      : 'var(--dsw-font-markdown-base-font-size)',
+    fontSize: scaledBaseFontSize(remote.enabled, remote.size),
   }
   // #37：旧的一行文字链接（⛭ GitHub 仓库 / ⚠ 反馈故障）已由顶部右上角两个图标按钮取代，不再保留第二处入口。
   return h('div', { style: settingsRootStyle }, [

@@ -26,7 +26,7 @@ import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppre
 import { getRemotePrefs, getEnvOrientation, subscribeRemote, ensureRemoteLoaded } from './remote'
 import {
   deriveRemoteOrientation, resolveEffectiveOrientation, computeRemoteView, remoteTagOptions, remoteSizeScale,
-  normalizeRemoteDensity,
+  normalizeRemoteDensity, scaledBaseFontSize,
   type RemoteOrientation,
 } from './remoteView'
 import { getLang, tr, STR, type Lang } from './i18n'
@@ -1088,7 +1088,8 @@ export function TemplateBrowser(props: BrowserProps): any {
       }
     : {
         display: 'flex', flexDirection: 'column', gap: 6, padding: '6px 8px',
-        fontFamily: 'var(--dsw-font-family)', fontSize: 'var(--dsw-font-markdown-base-font-size)', color: base,
+        // #116：设置页折叠小列表跟远程档（var 基重算，与设置页根/悬浮小列表同构；禁用 1em 基，防复乘）。
+        fontFamily: 'var(--dsw-font-family)', fontSize: scaledBaseFontSize(remotePrefs.enabled, remotePrefs.size), color: base,
       }
   const headStyle: any = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderBottom: line }
   const titleStyle: any = { fontWeight: 700, fontSize: '1em' }

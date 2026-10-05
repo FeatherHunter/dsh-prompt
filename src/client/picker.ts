@@ -558,16 +558,18 @@ export function WorkspacePicker(props: PickerProps): any {
   // #115 内外层色（静态暗示）：外层工作区＝accent 橙，内层会话＝当前绿；边框即身份。
   const LAYER_WS = 'var(--dsw-specific-accent,#f0a45c)'
   const LAYER_SS = '#7fd08a'
-  // 底部操作栏：翻页簇居左、关闭居右，细线与内容分隔；定高行。
+  // 底部操作栏：整栏靠右（用户 2026-10-05 拍板），细线与内容分隔；定高行。
   const opBarStyle: any = {
     flex: 'none', display: 'flex', flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: '0.5em', marginTop: '0.35em', paddingTop: '0.35em',
     borderTop: '1px solid var(--dsw-alias-border-l1)',
   }
-  // 翻页键：PAGER_BOX 正方形＋层色边框；禁用三件套（disabled＋aria＋半透明）。
-  const pagerBtnStyle = (disabled: boolean, accent: string): any => ({
+  // 翻页键：PAGER_BOX 盒＋层色边框＋层形状（工作区圆呼应色点、会话方呼应卡片；
+  // 形状是主通道——压缩串流下颜色不可靠。禁用三件套（disabled＋aria＋半透明）。
+  const pagerBtnStyle = (disabled: boolean, accent: string, radius: number | string): any => ({
     flex: 'none', width: PAGER_BOX, height: PAGER_BOX, minWidth: PAGER_BOX,
-    borderRadius: 9, cursor: disabled ? 'not-allowed' : 'pointer',
+    borderRadius: radius, cursor: disabled ? 'not-allowed' : 'pointer',
     border: '1px solid ' + accent,
     background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-alias-label-primary)',
     fontSize: '1em', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -726,7 +728,7 @@ export function WorkspacePicker(props: PickerProps): any {
       setSsPage(clampPage(Math.round(el.scrollTop / h), ssTotalOf(), ssPerPage))
     } catch (e) { /* ignore */ }
   }
-  // 操作栏翻页键：kind 即内外层身份（ws 外层 / ss 内层），层色边框＋脉冲字形双暗示。
+  // 操作栏翻页键：kind 即内外层身份（ws 外层 / ss 内层），层形状＋层色边框＋脉冲字形三暗示。
   const pagerBtn = (kind: 'ws-prev' | 'ss-prev' | 'ss-next' | 'ws-next', layerLabel: any, dirLabel: any, disabled: boolean, accent: string, flash: number, go: () => void): any =>
     h('button', {
       key: kind, type: 'button',
@@ -737,7 +739,7 @@ export function WorkspacePicker(props: PickerProps): any {
       title: tr(lang, layerLabel) + tr(lang, dirLabel),
       onMouseDown: keepComposerFocus,
       onClick: () => { if (!disabled) { try { go() } catch (e) { /* ignore */ } } },
-      style: pagerBtnStyle(disabled, accent),
+      style: pagerBtnStyle(disabled, accent, (kind === 'ws-prev' || kind === 'ws-next') ? '50%' : 9),
     }, h('span', { key: 'g' + flash, style: pagerGlyphStyle(flash), 'aria-hidden': 'true' }, (kind === 'ws-prev' || kind === 'ss-prev') ? '‹' : '›'))
   const switchingNote = phase === 'switching' && switchingId
     ? h('div', {
@@ -858,7 +860,7 @@ export function WorkspacePicker(props: PickerProps): any {
           onMouseDown: keepComposerFocus,
           onClick: () => { try { props.onClose() } catch (e) { /* ignore */ } },
           style: {
-            marginLeft: 'auto', flex: 'none', width: '3em', height: '3em', minWidth: '3em',
+            flex: 'none', width: '3em', height: '3em', minWidth: '3em',
             borderRadius: '50%', cursor: 'pointer',
             border: '1px solid var(--dsw-alias-border-l1)',
             background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-alias-label-primary)',

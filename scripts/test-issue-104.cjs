@@ -681,6 +681,7 @@ async function rendererChecks() {
   const opbars = pkWc.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-opbar'] === '1');
   if (opbars.length !== 1) fail('#115 应有 1 个底部操作栏，实际 ' + opbars.length);
   if (opbars[0].props.role !== 'toolbar') fail('#115 操作栏应为 toolbar');
+  if (opbars[0].props.style.justifyContent !== 'flex-end') fail('#115 操作栏应整栏靠右');
   const pagers = opbars[0].findAll((x) => x.props && x.props['data-dsh-prompt-picker-pager']);
   const order = pagers.map((x) => x.props['data-dsh-prompt-picker-pager']).join(',');
   if (order !== 'ws-prev,ss-prev,ss-next,ws-next') fail('#115 操作栏顺序应 [工‹][会‹][会›][工›]，实际 ' + order);
@@ -694,6 +695,9 @@ async function rendererChecks() {
   const ssPrev = pagers.find((x) => x.props['data-dsh-prompt-picker-pager'] === 'ss-prev');
   if (!/f0a45c/.test(String(wsPrev.props.style.border))) fail('#115 外层工作区键应橙边，实际 ' + wsPrev.props.style.border);
   if (!/7fd08a/.test(String(ssPrev.props.style.border))) fail('#115 内层会话键应绿边，实际 ' + ssPrev.props.style.border);
+  if (wsPrev.props.style.borderRadius !== '50%') fail('#115 外层工作区键应圆形（呼应色点），实际 ' + wsPrev.props.style.borderRadius);
+  const ssNext = pagers.find((x) => x.props['data-dsh-prompt-picker-pager'] === 'ss-next');
+  if (ssPrev.props.style.borderRadius !== 9 || ssNext.props.style.borderRadius !== 9) fail('#115 内层会话键应方形（呼应卡片）');
   if (wsPrev.props['aria-label'] !== '工作区上一页') fail('#115 外层键名应工作区上一页，实际 ' + wsPrev.props['aria-label']);
   if (ssPrev.props['aria-label'] !== '会话上一页') fail('#115 内层键名应会话上一页，实际 ' + ssPrev.props['aria-label']);
   const opClose = opbars[0].findAll((x) => x.props && x.props['data-dsh-prompt-picker-closebar'] === '1');
@@ -706,7 +710,7 @@ async function rendererChecks() {
     fail('#115 悬浮翻页组应已退役');
   }
   pkWc.unmount();
-  ok('渲染器：底部操作栏＋内外层色＋顺序＋退役悬浮（#115）');
+  ok('渲染器：底部操作栏＋内外层形色＋顺序＋退役悬浮（#115）');
 
   // 横屏 rail + 右展（审查 #2）：左轨两卡 + 右侧放组一行
   let pkWide;

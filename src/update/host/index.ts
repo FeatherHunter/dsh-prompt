@@ -156,7 +156,10 @@ export async function createUpdateCapability(
         pluginId: PLUGIN_ID,
         prefix: PHONE_PREFIX,
         targetPackageName: TARGET_PACKAGE_NAME,
-        // 其余全走包默认值（官方源、家目录、超时、凭证有效期、轮询间隔），本票一个都不动。
+        // 版本通道显式 opt-in 预发布（包 README §5.6）：latest 指稳定版时与 stable 通道行为一字不差；
+        // latest 指预发布（如 0.2.0-rc.2）时才端出来可装，安装仍只装精确版。
+        releaseChannel: 'prerelease',
+        // 其余全走包默认值（官方源、家目录、超时、凭证有效期、轮询间隔）。
       },
     )
   } catch (e) {

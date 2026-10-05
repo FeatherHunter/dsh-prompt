@@ -132,6 +132,7 @@ const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 
       if (!deps || typeof deps.logCtx === 'undefined') fail('宿主应把 bridgeLog 交给包（logCtx 缺席）');
       if (config.pluginId !== 'dsh-prompt' || config.prefix !== 'prompt' || config.targetPackageName !== 'dsh-prompt')
         fail('宿主传给包的配置不对：' + JSON.stringify(config));
+      if (config.releaseChannel !== 'prerelease') fail('宿主应显式 opt-in 预发布通道（releaseChannel=prerelease），实为 ' + JSON.stringify(config.releaseChannel));
       return {
         phoneNames: { ...phoneNames },
         handlers: {

@@ -215,7 +215,7 @@ const kids = tree.children;
 // ⇒ 顶层又回到 6 块，入口不再是独立的一块。四条保证一条不减，只是入口换了住处。
 const hasCheckbox = (node) => !!(node && ((node.props && node.props.type === 'checkbox')
   || (Array.isArray(node.children) && node.children.some(hasCheckbox))));
-// #129（0.3.1 整组件）：更新卡是独立第 3 块（模板卡后，embedded 面板），顶层 5 → 6。
+// #129（0.3.1 整组件）：更新卡是独立第 3 块（模板卡后，dialog 面板挂载点），顶层 5 → 6。
 eq(kids.length, 6, '设置页顶层六块：身份行（含更新入口）/ 模板列表卡 / 更新卡 / 远程模式 / 诊断日志 / 引流区');
 eq(jsonAnchors(kids[0]).map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '第 0 块是右上角两个按钮（顺序：🌟 仓库、💬 ISSUE）');
 eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 0 块左边有插件名字');

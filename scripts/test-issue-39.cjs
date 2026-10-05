@@ -6,9 +6,9 @@
 // 本票覆盖：
 //  0) 退役干净（derive 入口缺席、bridge/gen/垫片缺席、host 新家存在）
 //  1) 构建产物内联（lib/update.js 无裸导入 + 版本标记与 devDeps 耦合）
-//  2) 三条路径三处同值（host/paths.ts × lib/index.js × update-http.ts 经 resolveHttpPath）
+//  2) 四条路径三处同值（host/paths.ts × lib/index.js × update-http.ts 经 resolveHttpPath）
 //  3) 电话名与配置三要素（buildPhoneNames(prompt) × host PHONE_PREFIX/TARGET/PLUGIN_ID × 导出数≤5）
-//  4) 宿主能力真跑（假包注入：三条路由分派 + 快照六字段 + 电话名透传）
+//  4) 宿主能力真跑（假包注入：四条路由分派 + 快照六字段 + 电话名透传）
 //  5) 能力缺席诚实失败（dep-load-fail → degraded，路由回 update-capability-unavailable）
 //  6) 网关裸回包（lib/index.js 更新分支 writeJson(naked)，不包信封；他路仍包信封）
 //  7) 回包整形裸必需（shapeHttpReply 直传裸快照、剥 diagnostic、非记录抛 transport-failed）
@@ -38,6 +38,7 @@ const ROUTES = {
   status: '/_dsh/dsh-prompt/update/status',
   check: '/_dsh/dsh-prompt/update/check',
   install: '/_dsh/dsh-prompt/update/install',
+  changelog: '/_dsh/dsh-prompt/update/changelog',
 };
 const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 'canInstall', 'blockedReason', 'job'];
 
@@ -84,7 +85,7 @@ const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 
     fail('scripts/update/build-host.mjs 又把 dsh-plugin-update 写进 external 了');
   ok('lib/update.js 已内联 dsh-plugin-update@' + versionMark[1] + '（无裸导入，版本耦合）');
 
-  /* ── 2) 三条路径三处同值（经 http helper 落点） ── */
+  /* ── 2) 四条路径三处同值（经 http helper 落点） ── */
   const hostPathsSrc = readSrc('src/update/host/paths.ts');
   const indexSrc = readSrc('lib/index.js');
   const updateHttpSrc = readSrc('src/client/update-http.ts');
@@ -96,21 +97,22 @@ const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 
     fail('src/update/host/index.ts 里出现了路径字面量（应引用 ./paths.js）');
   if (!readSrc('src/update/host/index.ts').includes('./paths.js'))
     fail('src/update/host/index.ts 应从 ./paths.js 取路径');
-  ok('三条路径在 host/paths.ts × lib/index.js 同值，宿主半无字面量');
+  ok('四条路径在 host/paths.ts × lib/index.js 同值，宿主半无字面量');
   // update-http.ts 的三要素 + routes 表经上游 resolveHttpPath 落到同一三条
   if (!updateHttpSrc.includes("UPDATE_PLUGIN_ID = 'dsh-prompt'")) fail('update-http.ts PLUGIN_ID 应为 dsh-prompt');
   if (!updateHttpSrc.includes("UPDATE_PREFIX = 'prompt'")) fail('update-http.ts PREFIX 应为 prompt');
   if (!updateHttpSrc.includes("UPDATE_BASE_URL = '/_dsh/dsh-prompt/update'")) fail('update-http.ts BASE_URL 不对');
   const { resolveHttpPath, shapeHttpReply } = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'http.js')).href);
-  const httpOpts = { prefix: 'prompt', baseUrl: '/_dsh/dsh-prompt/update', routes: { updateStatus: 'status', updateCheck: 'check', updateInstall: 'install' } };
+  const httpOpts = { prefix: 'prompt', baseUrl: '/_dsh/dsh-prompt/update', routes: { updateStatus: 'status', updateCheck: 'check', updateInstall: 'install', updateChangelog: 'changelog' } };
   eq(resolveHttpPath(httpOpts, 'prompt.updateStatus'), ROUTES.status, 'http status 落点');
   eq(resolveHttpPath(httpOpts, 'prompt.updateCheck'), ROUTES.check, 'http check 落点');
   eq(resolveHttpPath(httpOpts, 'prompt.updateInstall'), ROUTES.install, 'http install 落点');
-  ok('update-http 三要素经 resolveHttpPath 与宿主三条路由逐字一致');
+  eq(resolveHttpPath(httpOpts, 'prompt.updateChangelog'), ROUTES.changelog, 'http changelog 落点');
+  ok('update-http 三要素经 resolveHttpPath 与宿主四条路由逐字一致');
 
   /* ── 3) 电话名与配置三要素 ── */
   const { buildPhoneNames } = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'config.js')).href);
-  eq(buildPhoneNames('prompt'), { updateStatus: 'prompt.updateStatus', updateCheck: 'prompt.updateCheck', updateInstall: 'prompt.updateInstall' }, 'buildPhoneNames(prompt) 口径');
+  eq(buildPhoneNames('prompt'), { updateStatus: 'prompt.updateStatus', updateCheck: 'prompt.updateCheck', updateInstall: 'prompt.updateInstall', updateChangelog: 'prompt.updateChangelog' }, 'buildPhoneNames(prompt) 口径（0.4.0 四电话）');
   const hostSrc = readSrc('src/update/host/index.ts');
   if (quotedAfter(hostSrc, 'PHONE_PREFIX =', 'host') !== 'prompt') fail('宿主 PHONE_PREFIX 应为 prompt');
   if (quotedAfter(hostSrc, 'TARGET_PACKAGE_NAME =', 'host') !== 'dsh-prompt') fail('宿主 TARGET 应为 dsh-prompt');
@@ -139,6 +141,7 @@ const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 
           [phoneNames.updateStatus]: async () => { seen.push('status'); return { ok: true, snapshot: canned, manual: null, receipt: null }; },
           [phoneNames.updateCheck]: async () => { seen.push('check'); return { ok: true, snapshot: canned, manual: 'cmd', receipt: null }; },
           [phoneNames.updateInstall]: async () => { seen.push('install'); return { ok: true, snapshot: canned, manual: null, receipt: { checkId: 'c1' } }; },
+          [phoneNames.updateChangelog]: async ({ version }) => { seen.push('changelog'); return { ok: true, version, markdown: null }; },
         },
       };
     }
@@ -147,16 +150,19 @@ const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 
   // 若实现按电话名查表，unknown phone 会抛；这里三条都应通。
   const cap = await updateMod.createUpdateCapability({ hostUpdate: fakeHostUpdate, logReady: Promise.resolve(null) });
   if (!cap.ok) fail('假包注入后能力应 ok:true');
-  eq(cap.paths, ROUTES, '能力 paths 与三条路由一致');
+  eq(cap.paths, ROUTES, '能力 paths 与四条路由一致');
   eq(cap.snapshotFields, SNAPSHOT_FIELDS, '能力 snapshotFields 六字段');
   eq(cap.phoneNames, phoneNames, '能力 phoneNames 透传包口径');
-  for (const [p, want] of [[ROUTES.status, 'status'], [ROUTES.check, 'check'], [ROUTES.install, 'install']]) {
+  for (const [p, want] of [[ROUTES.status, 'status'], [ROUTES.check, 'check'], [ROUTES.install, 'install'], [ROUTES.changelog, 'changelog']]) {
     seen.length = 0;
     const res = await cap.runRoute(p, {});
     if (!res || res.ok !== true) fail(p + ' 应 ok:true，实为 ' + JSON.stringify(res));
     if (seen[0] !== want) fail(p + ' 应分派到 ' + want + '，实为 ' + JSON.stringify(seen));
   }
-  ok('宿主能力三条路由分派正确（status/check/install）');
+  ok('宿主能力四条路由分派正确（status/check/install/changelog）');
+  const clog = await cap.runRoute(ROUTES.changelog, { version: '0.3.0' });
+  if (!clog || clog.ok !== true || !('markdown' in clog)) fail('取日志电话应回 {ok,version,markdown}，实为 ' + JSON.stringify(clog));
+  else ok('取日志电话回包形状对（version + markdown）');
   const badRoute = await cap.runRoute('/_dsh/dsh-prompt/update/nope', {}).catch(e => ({ ok: false, error: String(e && e.message || e) }));
   if (badRoute && badRoute.ok === true) fail('未知路由应失败');
   ok('未知路由不命中更新能力');
@@ -191,5 +197,5 @@ const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 
   if (!threw) fail('非记录回包应抛 transport-failed');
   ok('非记录回包走传输失败通道（不进稳定码分支）');
 
-  console.log('\nALL PASS: #39 host+build+gateway+http（0.3.1 口径）');
+  console.log('\nALL PASS: #39 host+build+gateway+http（0.4.0 口径）');
 })();

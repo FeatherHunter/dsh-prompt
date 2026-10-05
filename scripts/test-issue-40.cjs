@@ -1,10 +1,10 @@
-// 回归 #40（#129 重写，0.3.1 整组件口径）：设置页更新入口 + 内嵌面板
+// 回归 #40（#129 重写，0.3.1 整组件口径）：设置页更新入口 + 弹窗面板
 // 旧自研弹窗（update.ts/updauto.ts/upddialog.ts + ModalPortal 更新窗 + 跳过/自动装文案）已在 #127 删除，
 // 新形态是 update-http.ts 的 UpdateEntryButton（头行 🌟/💬 之前）+ UpdatePanelEmbedded（模板卡后更新卡，embedded 默认主题）。
 // 本票覆盖：
 //  0) 旧弹窗退役（settings 不再引旧三件套/bridge/派生；i18n 不再有旧弹窗专属键才算干净？——只断导入，不绑文案）
 //  1) 接线源码口径（pluginId/prefix/baseUrl/routes + variant/mode/theme + autoCheck/openOn 只查）
-//  2) 设置页真渲染：头行有更新入口、模板卡后有更新卡（embedded 面板容器）、两者 fail-soft（fetch 抛错不挡其余卡）
+//  2) 设置页真渲染：头行有更新入口、模板卡后有更新卡（dialog 面板容器）、两者 fail-soft（fetch 抛错不挡其余卡）
 //  3) 入口只查：更新入口的挂载不发 install 电话（fetch  spy），面板挂载查一次、安装只走点击（#41 细化，这里只到挂载不装）
 //
 // 不覆盖：宿主三条路由分派（#39）、自动周期与跳过（#41）、入口定位（#35）。
@@ -34,7 +34,7 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
   else ok('settings 只引 update-http，不引旧三件套/bridge/派生');
   if (!settingsSrc.includes('UpdateEntryButton') || !settingsSrc.includes('UpdatePanelEmbedded'))
     bad('settings.ts 必须同时用 UpdateEntryButton + UpdatePanelEmbedded');
-  else ok('settings 同时挂入口按钮与内嵌面板');
+  else ok('settings 同时挂入口按钮与弹窗面板');
   if (failures) { console.log('FAIL: 退役面未干净'); process.exit(1); }
 
   /* ── 1) 接线源码口径 ── */
@@ -46,9 +46,10 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
     ['updateStatus:', 'routes.updateStatus'],
     ['updateCheck:', 'routes.updateCheck'],
     ['updateInstall:', 'routes.updateInstall'],
+    ['updateChangelog:', 'routes.updateChangelog'],
     ["variant: 'button'", 'entry variant button'],
     ["theme: 'default'", 'theme default'],
-    ["mode: 'embedded'", 'panel mode embedded'],
+    ["mode: 'dialog'", 'panel mode dialog'],
     ["autoCheck: 'mount'", 'entry autoCheck mount'],
     ["openOn: 'has-update'", 'entry openOn has-update'],
     ['mountUpdateEntryHttp', 'entry 经 http 万能插头'],
@@ -72,7 +73,7 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
   const updateDef = settingsSrc.indexOf("const updateGroup = h(SettingGroup");
   if (listCard < 0 || updateUse < 0 || panelUse < 0 || !(updateUse > listCard && panelUse >= 0 && updateDef >= 0 && settingsSrc.slice(updateDef, updateDef + 300).includes('UpdatePanelEmbedded')))
     bad('更新卡应落在模板卡（list）之后并挂 UpdatePanelEmbedded');
-  else ok('更新卡在模板卡后并挂 embedded 面板');
+  else ok('更新卡在模板卡后并挂 dialog 面板');
   // about 头行接受 entry（可选，不传仍只有两图标——#37 兼容）
   const aboutSrc = readSrc('src/client/about.ts');
   if (!aboutSrc.includes('entry?') && !aboutSrc.includes('entry:')) bad('about.ts SettingsHeaderLinks 应接受可选 entry');
@@ -158,5 +159,5 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
   globalThis.fetch = realFetch;
 
   if (failures) { console.log('\nFAIL: #40 ' + failures + ' 条未过'); process.exit(1); }
-  console.log('\nALL PASS: #40 settings 入口+内嵌面板（0.3.1 口径）');
+  console.log('\nALL PASS: #40 settings 入口+弹窗面板（0.4.0 口径）');
 })();

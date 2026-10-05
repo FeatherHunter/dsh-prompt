@@ -1,10 +1,10 @@
 // 回归 #41（#129 重写，0.3.1 整组件口径）：只查不自动装 + 无旧自动轮询/跳过
 // 旧形态（updauto.ts：启动延迟自动查 + 同窗重弹 + 跳过此版本 localStorage + 弹窗打开才轮询）已在 #127 删除。
 // 新语义（#128）：入口 mountUpdateEntryHttp(button, autoCheck mount/openOn has-update，源码级禁装）+
-// 面板 mountUpdatePanelHttp(embedded 默认主题，挂载查一次，安装只走用户点击）；后台无自家 interval/localStorage。
+// 面板 mountUpdatePanelHttp(dialog 默认主题，挂载查一次，安装只走用户点击）；后台无自家 interval/localStorage。
 // 本票覆盖：
 //  0) 旧自动退役（updauto/upddialog/update 缺席；src 无 AUTO_CHECK_DELAY/UPD_POLL/subscribeAutoTick；update-http 无 timers/LS）
-//  1) 源码口径（entry autoCheck mount + openOn has-update + variant button；panel embedded；入口禁装走上游 guard）
+//  1) 源码口径（entry autoCheck mount + openOn has-update + variant button；panel dialog；入口禁装走上游 guard）
 //  2) 真挂：入口 mount+refresh 只打 status/check、不打 install（有新版也不自动装）；guarded install 调即抛
 //  3) 真挂：面板 mount 查一次、安装只走 act('install')（点击前无 install，点击后有）
 //  4) 卸载干净（entry/panel unmount 不抛；面板只停轮询——二次 refresh 仍可查，安装不受影响的反向由上游保证，这里只到不抛）
@@ -45,7 +45,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     ["autoCheck: 'mount'", 'entry autoCheck mount（挂载静默查一次，只读）'],
     ["openOn: 'has-update'", 'entry openOn has-update（有新版才开面板）'],
     ["variant: 'button'", 'entry variant button'],
-    ["mode: 'embedded'", 'panel mode embedded'],
+    ["mode: 'dialog'", 'panel mode embedded'],
     ["theme: 'default'", 'theme default（不用 d5-paper）'],
     ['mountUpdateEntryHttp', 'entry 走 http 万能插头（内含源码级禁装 guard）'],
     ['mountUpdatePanelHttp', 'panel 走 http 万能插头'],
@@ -119,7 +119,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     panel = mountUpdatePanelHttp(panelBox, {
       pluginId: 'dsh-prompt', prefix: 'prompt', baseUrl: '/_dsh/dsh-prompt/update',
       routes: { updateStatus: 'status', updateCheck: 'check', updateInstall: 'install' },
-      mode: 'embedded', theme: 'default', fetch: fakeFetch,
+      mode: 'dialog', theme: 'default', fetch: fakeFetch,
     });
   } catch (e) { bad('面板 mount 抛错：' + (e && e.message || e)); }
   await sleep(400);
@@ -141,5 +141,5 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   try { panel.unmount(); ok('面板 unmount 不抛（只停轮询）'); } catch (e) { bad('面板 unmount 抛错'); }
 
   if (failures) { console.log('\nFAIL: #41 ' + failures + ' 条未过'); process.exit(1); }
-  console.log('\nALL PASS: #41 只查不自动装（0.3.1 口径）');
+  console.log('\nALL PASS: #41 只查不自动装（0.4.0 口径）');
 })();

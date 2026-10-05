@@ -57,6 +57,7 @@ export interface CreateHostUpdateDeps {
   readerOverrides?: ReaderOverrides
 }
 import {
+  UPDATE_CHANGELOG_PATH,
   UPDATE_CHECK_PATH,
   UPDATE_INSTALL_PATH,
   UPDATE_STATUS_PATH,
@@ -102,7 +103,7 @@ export interface UpdateCapability {
   ok: boolean
   reason?: string
   phoneNames: Record<string, string>
-  paths: { status: string; check: string; install: string }
+  paths: { status: string; check: string; install: string; changelog: string }
   snapshotFields: string[]
   runRoute(path: string, args?: Record<string, unknown>): Promise<UpdatePhoneResult>
 }
@@ -167,17 +168,19 @@ export async function createUpdateCapability(
   }
 
   const phoneNames = update.phoneNames
-  /** 本能力的三条电话（更新包给什么就是什么；宿主半不自己拼名字）。 */
+  /** 本能力的四条电话（更新包给什么就是什么；宿主半不自己拼名字）。 */
   const phones = {
     status: phoneNames.updateStatus,
     check: phoneNames.updateCheck,
     install: phoneNames.updateInstall,
+    changelog: phoneNames.updateChangelog,
   }
   /** 路由路径 → 电话名（宿主半唯一的分流表）。 */
   const routes: Record<string, string | undefined> = {
     [UPDATE_STATUS_PATH]: phones.status,
     [UPDATE_CHECK_PATH]: phones.check,
     [UPDATE_INSTALL_PATH]: phones.install,
+    [UPDATE_CHANGELOG_PATH]: phones.changelog,
   }
 
   /**
@@ -195,7 +198,7 @@ export async function createUpdateCapability(
   return {
     ok: true,
     phoneNames: { ...phoneNames } as Record<string, string>,
-    paths: { status: UPDATE_STATUS_PATH, check: UPDATE_CHECK_PATH, install: UPDATE_INSTALL_PATH },
+    paths: { status: UPDATE_STATUS_PATH, check: UPDATE_CHECK_PATH, install: UPDATE_INSTALL_PATH, changelog: UPDATE_CHANGELOG_PATH },
     /** 快照六字段名（只读常量，给回归脚本与将来的面板对账用）。 */
     snapshotFields: SNAPSHOT_FIELDS,
     /**
@@ -238,7 +241,7 @@ function degradedCapability(
     ok: false,
     reason,
     phoneNames: {},
-    paths: { status: UPDATE_STATUS_PATH, check: UPDATE_CHECK_PATH, install: UPDATE_INSTALL_PATH },
+    paths: { status: UPDATE_STATUS_PATH, check: UPDATE_CHECK_PATH, install: UPDATE_INSTALL_PATH, changelog: UPDATE_CHANGELOG_PATH },
     snapshotFields: SNAPSHOT_FIELDS,
     async runRoute(): Promise<UpdatePhoneResult> {
       return failed(UNAVAILABLE, reason)

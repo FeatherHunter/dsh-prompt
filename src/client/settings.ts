@@ -638,7 +638,7 @@ export function SettingsPage(props: any): any {
   // 单滑块跟随（用户拍板，封顶时代“设置页自身不跟”已废）：开吃全额，与 compact 小列表
   // uiFontScale 同构；子项全 em 化，故根在关时也锚到宿主基准 var（=14px，em 按 px/14 换算后与旧 px 视觉一致）。
   // #116：缩放根走收敛点（开吃全额、关回基准；与折叠小列表根同构，防漂移）。子项全 em 化，关时锚到宿主基准 var。
-  // #128 新整组件面板：embedded + 默认主题，落设置页模板卡之后（只查，安装走用户点击）。
+  // #128 新整组件面板：0.4.0 起 dialog + 默认主题（Esc 可关），落设置页模板卡之后（只查，安装走用户点击；更新日志自动展示）。
   const updateGroup = h(SettingGroup, { key: 'update', title: '更新' }, [
     h(UpdatePanelEmbedded, { key: 'panel' }),
   ])

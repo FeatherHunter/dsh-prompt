@@ -121,7 +121,10 @@ ok('发送键与解释文案已删（Sheet零引用，i18n键兼容保留，绝�
 // 底贴遥控栏顶部向上展开、占满至屏顶；会话区＋工作区（两行）左右滑动；工作区名全显；两层翻页键保留。
 if (!pickerSrc.includes("alignItems: 'flex-end'")) fail('挑选器遮罩应底贴（flex-end），自遥控栏顶部向上展开');
 if (!pickerSrc.includes('5em')) fail('挑选器遮罩底垫应留 Dock 位（5em，同输入镜）');
-if (!pickerSrc.includes('calc(100dvh - 5.5em)')) fail('挑选器面板高应 calc(100dvh-5.5em)，自遥控栏占满至屏顶');
+if (!pickerSrc.includes('calc(100dvh - 5.5em)')) fail('挑选器面板上限应 calc(100dvh-5.5em)，自遥控栏占满至屏顶');
+if (!pickerSrc.includes("height: 'auto'")) fail('会话少时面板高应 auto 自适应（多时顶满内滚）');
+if (!pickerSrc.includes("justifyContent: 'flex-end'")) fail('会话区应沉底（justifyContent flex-end，内容贴工作区上方）');
+if (!pickerSrc.includes("alignContent: 'end'")) fail('会话网格应底对齐（alignContent end）');
 if (!pickerSrc.includes("overflowX: 'auto'") || !pickerSrc.includes("overflowY: 'hidden'")) fail('会话滚动区应横滑（overflowX auto / overflowY hidden）');
 if (!pickerSrc.includes("gridAutoFlow: 'column'")) fail('会话/工作区应 gridAutoFlow column 横滑');
 if (!pickerSrc.includes("gridTemplateRows: 'repeat(2,")) fail('会话/工作区应两行（repeat(2, ...)）');
@@ -133,7 +136,7 @@ for (const k of ["'ws-prev'", "'ss-prev'", "'ss-next'", "'ws-next'", 'tabGo', 's
 }
 // 当前会话所在工作区优先展开（打开即见当前）
 if (!pickerSrc.includes('当前会话所在工作区优先') && !pickerSrc.includes('当前会话')) fail('挑选器应优先展开当前会话所在工作区');
-ok('会话弹窗新规格：底贴向上占满＋双区横滑＋两行＋名全显＋双层翻页＋当前优先');
+ok('会话弹窗新规格：底贴向上占满＋双区横滑＋两行＋名全显＋双层翻页＋当前优先＋少时自适应沉底');
 
 // ── 4) Dock注册式＋顺序冻结＋门控隐藏 ──
 const btnCode = strip(btnSrc);

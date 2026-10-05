@@ -234,7 +234,8 @@ export function WorkspacePicker(props: PickerProps): any {
     gridTemplateRows: 'repeat(2, minmax(0, auto))',
     gridAutoFlow: 'column',
     gridAutoColumns: 'minmax(14em, 18em)',
-    gap: '0.4em', alignItems: 'stretch',
+    gap: '0.4em', alignItems: 'stretch', alignContent: 'end',
+    flex: 'none', width: 'max-content', minWidth: '100%',
   }
   // #115 tab 条（architect 版 Q3b）：tab 定宽是均匀页的前提（与 pager 联动）；后人改回内容宽须重做页边界。
   const TAB_W = '9em'
@@ -538,10 +539,11 @@ export function WorkspacePicker(props: PickerProps): any {
     padding: '0 0.5em 5em', boxSizing: 'border-box',
   }
   const sheetStyle: any = {
-    // #115 近全屏内缩面板（用户 2026-10-05 拍板）＋2026-10-06 遥控栏顶部向上展开：
-    // 底贴遥控栏顶部（遮罩底垫 5em Dock 位）、顶达屏幕顶部（高 calc(100dvh-5.5em)），会话最全。
+    // #115 近全屏内缩面板（用户 2026-10-05 拍板）＋2026-10-06 遥控栏顶部向上展开＋会话少时自适应：
+    // 底贴遥控栏顶部（遮罩底垫 5em Dock 位）、顶至屏顶为上限（maxHeight calc(100dvh-5.5em)），
+    // 高 auto 自适应（会话少时收矮，内容沉底贴工作区；会话多时顶满后内滚）。
     // dockReservePx 已退役：近全屏后面板恒盖住触控栏，让位无意义（且旧值收起 Dock 不收缩）。
-    position: 'relative', width: '100%', height: 'calc(100dvh - 5.5em)', maxHeight: 'calc(100dvh - 5.5em)',
+    position: 'relative', width: '100%', height: 'auto', maxHeight: 'calc(100dvh - 5.5em)',
     margin: 0,
     background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
     backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
@@ -572,11 +574,12 @@ export function WorkspacePicker(props: PickerProps): any {
     padding: '0.25em 0.4em 0.4em', minHeight: 0, minWidth: 0, flex: '1 1 auto',
   }
   // 会话栏：相对定位祖先（悬浮翻页键锚它；overflow hidden 裁剪不出逃）。
+  // 2026-10-06 会话少时沉底：pane 底对齐 + 滚区底对齐，内容贴工作区上方；多时顶满内滚。
   const ssPaneStyle: any = {
-    flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column',
+    flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
     overflow: 'hidden', position: 'relative',
   }
-  const ssScrollStyle: any = { flex: '1 1 auto', minHeight: 0, overflowX: 'auto', overflowY: 'hidden', padding: '0.1em 0.1em 0.4em' }
+  const ssScrollStyle: any = { flex: '1 1 auto', minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', overflowX: 'auto', overflowY: 'hidden', padding: '0.1em 0.1em 0.4em' }
   // 底部 tab 条：两行高，不伸缩；标题已删（条自明，省一行高）。
   const wsPaneStyle: any = {
     flex: 'none', display: 'flex', flexDirection: 'row', alignItems: 'center',

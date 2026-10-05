@@ -25,7 +25,7 @@ import {
 import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './state'
 import { getRemotePrefs, getEnvOrientation, subscribeRemote, ensureRemoteLoaded } from './remote'
 import {
-  deriveRemoteOrientation, resolveEffectiveOrientation, computeRemoteView, remoteTagOptions, remoteSizeScale,
+  deriveRemoteOrientation, resolveEffectiveOrientation, computeRemoteView, remoteSizeScale,
   normalizeRemoteDensity, scaledBaseFontSize,
   type RemoteOrientation,
 } from './remoteView'
@@ -835,9 +835,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   const compState = react.useState(false)
   const composing = compState[0]
   // #83 远程大列表本体（只动 TemplateBrowser 分支）：总闸开=大、关=小，零中间态。
-  // 独立选中/查询/页码/搜索展开态（远程标签域只留全部+在用动态词，与悬浮云互不串扰）。
-  const remoteSelState = react.useState(null as string | null)
-  const remoteSelected = remoteSelState[0]
+  // #132 标签区已移除：不再持有远程选中态；过滤只走搜索框全文（含标签可达），域 matchLabel/haystack 不动。
   const remoteQState = react.useState('')
   const remoteQ = remoteQState[0]
   const remotePageState = react.useState(0)
@@ -1007,11 +1005,8 @@ export function TemplateBrowser(props: BrowserProps): any {
   // 标签域收敛为全部加在用动态词单选（预置与自定义平权，走 matchLabel 单选包含）。
   const remotePrefs = getRemotePrefs()
   const isRemoteBig = compact && !!remotePrefs.enabled
-  const remoteOptions = remoteTagOptions(allKnownLabels())
-  const remoteListBase = allTemplates().filter((x) => {
-    if (remoteSelected === null) return true
-    return matchLabel(x, remoteSelected)
-  })
+  // #132 标签区移除：远程不再按标签收敛，全量直通搜索（搜标签词仍经 haystack 可达）
+  const remoteListBase = allTemplates()
   const remoteQl = remoteQ.trim().toLowerCase()
   const remoteFiltered = remoteQl
     ? remoteListBase.filter((x) => templateHaystack(x).indexOf(remoteQl) >= 0)
@@ -1195,8 +1190,8 @@ export function TemplateBrowser(props: BrowserProps): any {
   }
 
   // REMOTE-BIG-LIST-START (#83 大列表十二槽本体：只动 TemplateBrowser 分支)
-  // 远程开=大列表分支：固定十二槽、虚线空位、搜索收起行内顶起、标签双行横滚、
-  // 置顶聚底复用既有排序、卡面标题加简介各一行、底栏大翻页与搜索同栏、字号控件三档乘数。
+  // 远程开=大列表分支：固定十二槽、虚线空位、搜索收起行内顶起、#132 标签区已移除、
+  // 置顶聚底复用既有排序、卡面标题加简介各一行、底栏新增+搜索+大翻页同栏、字号控件三档乘数。
   // 定位取锚点上方全部可用高度、宽度近全宽；内部以相对单位随面板缩放。
   if (isRemoteBig) {
     const remoteCols = remoteView.cols
@@ -1324,15 +1319,15 @@ export function TemplateBrowser(props: BrowserProps): any {
       padding: '0.5rem', borderTop: remoteThin,
       flex: 'none', flexWrap: 'nowrap', overflowX: 'auto', minWidth: '0',
     }
-    // 底栏必须单行：左侧标签区弹性占满，右侧动作组固定不换行；
-    // 动作键高度跟标签区齐（stretch），宽度 em 适中、随档位放大缩小。
+    // 底栏必须单行：#132 去标签后动作组直接左起单行不换行；
+    // 动作键高度靠 stretch 齐平，宽度 em 适中、随档位放大缩小。
     const remoteActionsStyle: any = {
       display: 'flex', gap: '0.5rem', alignItems: 'stretch',
       flex: 'none', alignSelf: 'stretch',
     }
     const remoteBtnStyle = (enabledBtn: boolean): any => ({
       flex: 'none', alignSelf: 'stretch', minWidth: '2.8em',
-      // 图标键：宽高全走 em，随档位放大缩小；高度靠 stretch 跟左侧标签区齐平。
+      // 图标键：宽高全走 em，随档位放大缩小；高度靠 stretch 与底栏齐平。
       padding: '0 0.6em', borderRadius: '0.6em', border: remoteThin,
       background: enabledBtn ? 'var(--dsw-alias-bg-layer-3)' : 'transparent',
       color: enabledBtn ? base : dim,
@@ -1342,19 +1337,13 @@ export function TemplateBrowser(props: BrowserProps): any {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       whiteSpace: 'nowrap', overflow: 'hidden',
     })
-    const remoteTagsWrap: any = {
-      flex: '1 1 auto', minWidth: '0',
-      display: 'grid', gridTemplateRows: 'repeat(2, auto)', gridAutoFlow: 'column',
-      gridAutoColumns: 'minmax(4em, auto)', gap: '0.35rem',
-      overflowX: 'auto', overflowY: 'hidden', alignContent: 'center', padding: '0.15rem',
+    // #132 标签区已删：底栏不再有弹性标签区，动作组直接左起单行；新增键防裁字单独覆写宽度。
+    const remoteAddStyle: any = {
+      ...remoteBtnStyle(true),
+      minWidth: '4.2em', padding: '0 0.8em',
+      border: '0.07em solid var(--dsw-specific-accent,#f0a45c)',
+      color: 'var(--dsw-specific-accent,#f0a45c)', fontWeight: 800,
     }
-    const remoteTagBtn = (on: boolean): any => ({
-      minWidth: '0', padding: '0.35rem 0.5rem', borderRadius: '0.4em', border: remoteThin,
-      background: on ? 'var(--dsw-specific-accent,#f0a45c)' : 'transparent',
-      color: on ? '#1a1a1e' : muted,
-      cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.9em',
-      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-    })
     const remoteNoteStyle: any = {
       flex: 'none', padding: '0 0.75em 0.6em',
       fontSize: '0.85em', color: dim, whiteSpace: 'nowrap',
@@ -1423,20 +1412,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         ]),
       ])
     })
-    const remoteTagNodes = remoteOptions.map((label) => {
-      const on = (remoteSelected === null && label === '全部') || remoteSelected === label
-      return h('button', {
-        key: label, style: remoteTagBtn(on),
-        'aria-pressed': on ? 'true' : 'false',
-        onMouseDown: keepComposerFocus,
-        onClick: () => {
-          const next = on ? null : (label === '全部' ? null : label)
-          remoteSelState[1](next)
-          remotePageState[1](0)
-          refresh()
-        },
-      }, label)
-    })
+    // #132 标签节点已删（过滤只走搜索框）。
     const remoteSearchToggle = (): void => {
       const next = !remoteSearchOpen
       remoteSearchState[1](next)
@@ -1472,10 +1448,17 @@ export function TemplateBrowser(props: BrowserProps): any {
         }),
       ]) : null,
       h('div', { style: remoteBarStyle }, [
-        h('div', { style: remoteTagsWrap, 'data-dsh-prompt-remote-tags': '1' }, remoteTagNodes),
         h('div', { style: remoteActionsStyle }, [
           h('button', {
-            style: remoteBtnStyle(true),
+            key: 'remote-add', style: remoteAddStyle,
+            'data-dsh-prompt-remote-add': '1',
+            title: t('add'),
+            'aria-label': t('add'),
+            onMouseDown: keepComposerFocus,
+            onClick: () => { modalState[1]({ kind: 'add' }) },
+          }, '＋ ' + t('addShort')),
+          h('button', {
+            key: 'remote-search', style: remoteBtnStyle(true),
             'data-dsh-prompt-remote-search': '1',
             'aria-pressed': remoteSearchOpen ? 'true' : 'false',
             title: t('searchPh'),
@@ -1492,7 +1475,7 @@ export function TemplateBrowser(props: BrowserProps): any {
           ])),
           // 翻页一对相邻（2026-09-29 用户拍板：上一页紧贴下一页左侧），纯图标键、单行不换行。
           h('button', {
-            style: remoteBtnStyle(remoteView.bottomBar.hasPrev),
+            key: 'remote-prev', style: remoteBtnStyle(remoteView.bottomBar.hasPrev),
             disabled: !remoteView.bottomBar.hasPrev,
             'data-dsh-prompt-remote-prev': '1',
             title: '上一页',
@@ -1506,7 +1489,7 @@ export function TemplateBrowser(props: BrowserProps): any {
             h('polygon', { key: 'p', points: '16,4 6,12 16,20' }),
           ])),
           h('button', {
-            style: remoteBtnStyle(remoteView.bottomBar.hasNext),
+            key: 'remote-next', style: remoteBtnStyle(remoteView.bottomBar.hasNext),
             disabled: !remoteView.bottomBar.hasNext,
             'data-dsh-prompt-remote-next': '1',
             title: '下一页',
@@ -1519,9 +1502,9 @@ export function TemplateBrowser(props: BrowserProps): any {
           }, [
             h('polygon', { key: 'p', points: '8,4 18,12 8,20' }),
           ])),
-          h('span', { style: { ...remoteMetaStyle, alignSelf: 'center', flex: 'none' }, 'data-dsh-prompt-remote-page': '1' }, remoteView.bottomBar.pageText),
+          h('span', { key: 'remote-page', style: { ...remoteMetaStyle, alignSelf: 'center', flex: 'none' }, 'data-dsh-prompt-remote-page': '1' }, remoteView.bottomBar.pageText),
           h('button', {
-            style: { ...remoteCloseStyle, alignSelf: 'center' }, title: t('close'),
+            key: 'remote-close', style: { ...remoteCloseStyle, alignSelf: 'center' }, title: t('close'),
             'data-dsh-prompt-remote-close': '1',
             onMouseDown: keepComposerFocus,
             onClick: () => setPanelOpen(false),

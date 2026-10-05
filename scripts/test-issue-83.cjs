@@ -2,7 +2,7 @@
 // 覆盖 #83 验收自查（规格以 #85 为准）：
 //  1) 十二槽大触控面：横屏 4×3、竖屏 3×4；不满页虚线空位同尺寸占位不拉伸不可点高度稳定；满页拉伸填满零空白
 //  2) 尺寸：面板取锚点上方全部可用高度、内部相对缩放、无长度封顶、12 槽恒定不减行；原型演示常量一律不得沿用
-//  3) 搜索底栏收起行内顶起、输入法组词保留；标签双行横滚全部加动态词单选；置顶聚底用量升序卡显用量；标题加简介各一行
+//  3) 搜索底栏收起行内顶起、输入法组词保留；#132 标签区已移除、底栏首位为新增键；置顶聚底用量升序卡显用量；标题加简介各一行
 //  4) 底栏大翻页与搜索同栏，两步到达；统一大小滑块 1–10（单滑块字号控件联动）持久化在配置面板远程段；方向偏好三档纯插件（去宿主化，无整机）
 //  5) 唯一新缝纯视图模型，复用既有排序与匹配；只断外部行为，不刺探样式与 DOM 细节
 // 口径：纯函数走转译断言，装配走渲染器，六格走同一组用例换参（#85 Testing Decisions）。
@@ -340,7 +340,7 @@ for (const marker of [
   'data-dsh-prompt-remote-card', 'data-dsh-prompt-remote-empty',
   'data-dsh-prompt-remote-prev', 'data-dsh-prompt-remote-next',
   'data-dsh-prompt-remote-search', 'data-dsh-prompt-remote-search-input',
-  'data-dsh-prompt-remote-tags', 'data-dsh-prompt-remote-close',
+  'data-dsh-prompt-remote-add', 'data-dsh-prompt-remote-close',
   'data-dsh-prompt-remote-page',
   'data-dsh-prompt-remote-orient',
 ]) {
@@ -417,8 +417,8 @@ const flat = JSON.stringify(on1.toJSON());
 if (byAttr('data-dsh-prompt-remote-use', '1').length === 0) fail('卡面应显用量红色数字');
 if (!/\d/.test(flat)) fail('卡面应显用量数');
 if (/整机待宿主/.test(flat)) fail('去宿主化后不应有灰字');
-// 底栏键同栏：上页/搜索/下页 + 标签 + 关闭 + 页码
-for (const [k, name] of [['data-dsh-prompt-remote-prev', '上页'], ['data-dsh-prompt-remote-next', '下页'], ['data-dsh-prompt-remote-search', '搜索'], ['data-dsh-prompt-remote-tags', '标签'], ['data-dsh-prompt-remote-close', '关闭'], ['data-dsh-prompt-remote-page', '页码']]) {
+// 底栏键同栏（#132）：新增 + 上页/搜索/下页 + 关闭 + 页码（标签已移除）
+for (const [k, name] of [['data-dsh-prompt-remote-add', '新增'], ['data-dsh-prompt-remote-prev', '上页'], ['data-dsh-prompt-remote-next', '下页'], ['data-dsh-prompt-remote-search', '搜索'], ['data-dsh-prompt-remote-close', '关闭'], ['data-dsh-prompt-remote-page', '页码']]) {
   if (byAttr(k, '1').length === 0) fail('底栏缺 ' + name + ' [' + k + ']');
 }
 ok('渲染器：开=大列表十二槽位、底栏键同栏、无灰字');
@@ -439,19 +439,18 @@ if (cards2.length === 0) fail('搜“复盘”应有命中');
 if (typeof input.props.onCompositionStart !== 'function' || typeof input.props.onCompositionEnd !== 'function') fail('搜索应保留输入法组词期处理');
 ok('渲染器：搜索收起行内顶起、子串过滤、组词保留');
 
-// 标签单选：点第二词过滤，槽位仍恒十二
-const tagsWrap = byAttr('data-dsh-prompt-remote-tags', '1')[0];
-if (!tagsWrap) fail('缺标签域');
+// #132 标签区已移除：底栏无标签域，过滤只走搜索框；新增键在搜索左侧紧邻，点击开新增弹窗
+if (byAttr('data-dsh-prompt-remote-tags', '1').length !== 0) fail('标签域应已移除（#132）');
 // 收起搜索避免叠加过滤
 TR.act(() => { byAttr('data-dsh-prompt-remote-search', '1')[0].props.onClick(); });
-const tagBtns = tagsWrap.findAll((x) => x.type === 'button');
-if (tagBtns.length < 2) fail('标签域应有全部加动态词，实际 ' + tagBtns.length);
-if (tagBtns[0].children && String(tagBtns[0].children[0]) !== '全部') fail('标签首项应为全部');
-TR.act(() => { tagBtns[1].props.onClick(); });
-let cards3 = byAttr('data-dsh-prompt-remote-card', '1');
-let empties3 = byAttr('data-dsh-prompt-remote-empty', '1');
-if (cards3.length + empties3.length !== 12) fail('标签过滤后槽位仍恒十二');
-ok('渲染器：标签双行域单选过滤、槽位恒十二');
+const addBtn = byAttr('data-dsh-prompt-remote-add', '1')[0];
+if (!addBtn) fail('底栏缺新增键（#132）');
+const addText = Array.isArray(addBtn.children) ? addBtn.children.join('') : String(addBtn.children || '');
+if (!/新增/.test(addText)) fail('新增键文案应含“新增”，实际 ' + addText);
+if (addBtn.props['aria-label'] !== addBtn.props.title) fail('新增键名称应与可见标签一致（WCAG 2.5.3）');
+TR.act(() => { addBtn.props.onClick(); });
+if (root.findAll((x) => x.props && x.props['data-dsh-prompt-modal'] === '').length === 0) fail('点新增键应打开新增弹窗（#132）');
+ok('渲染器：#132 去标签、新增键在搜索左侧并可开弹窗');
 
 // 翻页：24 条预制下两页，翻页后仍恒十二
 remote2.__resetRemoteForTests();

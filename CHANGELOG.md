@@ -2,7 +2,7 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
-## [Unreleased]
+## [0.3.1] - 2026-10-05
 
 ### Added
 - 更新面板切弹窗形式（dialog，默认主题；Esc 可关），更新日志有新版自动展示。

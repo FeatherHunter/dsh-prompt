@@ -2,6 +2,15 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
+## [0.3.2] - 2026-10-06
+
+### Added
+- 跟进 `dsh-plugin-update` 0.5.0：弹窗关闭落地（点“关闭”/按 Esc 由调用方撤 DOM，包随后自停轮询；入口打开的 dialog 包已内置闭环）。
+- 更新面板与入口换新主题首选名 `archive`。
+
+### Fixed
+- 弹窗点“关闭”没反应（此前只停轮询不撤 DOM，入口打开的 dialog 还会卡死；现走关闭落地）。
+
 ## [0.3.1] - 2026-10-05
 
 ### Added

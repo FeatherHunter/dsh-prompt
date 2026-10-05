@@ -32,10 +32,12 @@ const MODULES = [
   ['remoteView.cjs', path.join(ROOT, 'src', 'client', 'remoteView.ts'), []],
   ['systemOrientation.cjs', path.join(ROOT, 'src', 'client', 'systemOrientation.ts'), []],
   ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView']],
-  ['settings.cjs', path.join(ROOT, 'src', 'client', 'settings.ts'), ['./panel', './about', './update', './smartstore', './remote', './remoteView', './systemOrientation', './i18n']],
+  ['settings.cjs', path.join(ROOT, 'src', 'client', 'settings.ts'), ['./panel', './about', './update', './update-http', './smartstore', './remote', './remoteView', './systemOrientation', './i18n']],
 ];
 fs.writeFileSync(path.join(DIR, 'about.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;');
 fs.writeFileSync(path.join(DIR, 'update.cjs'), 'module.exports.UpdateEntry=()=>null;');
+// #127 后 settings 改引 ./update-http（本票只断模板列表缩放，更新入口桩掉）
+fs.writeFileSync(path.join(DIR, 'update-http.cjs'), 'module.exports.UpdateEntryButton=()=>null;module.exports.UpdatePanelEmbedded=()=>null;');
 for (const [outName, srcPath, deps] of MODULES) {
   const src = fs.readFileSync(srcPath, 'utf8');
   let js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true } }).outputText;
@@ -93,6 +95,23 @@ if (browserExp && browserExp.props.style.fontSize !== 'calc(' + BASE_VAR + ' * 5
 const emTitles = pageExp.root.findAll((n) => n.type === 'span' && n.props && n.props.style && n.props.style.fontSize === '0.98em');
 if (emTitles.length === 0) fail('行标题应走 em（0.98em）锚到缩放根');
 if (failures === 0) ok('展开态：行渲染 + 根跟档 + 行标题 em 链完好');
+
+// ── G) 「＋ 新增」按钮：背景跟字走＋高档不换行（#116 跟进） ──
+{
+  const cands = pageExp.root.findAll((n) => n.type === 'button' && n.props && n.props.style && n.props.style.width === 'auto');
+  const plusAdd = cands.filter((n) => {
+    try { return String((n.children || []).join('')).indexOf('＋') === 0; } catch (e) { return false; }
+  })[0];
+  if (!plusAdd) fail('头行应找到「＋ 新增」按钮（width auto）');
+  else {
+    if (plusAdd.props.style.fontSize !== '0.92em') fail('新增按钮字号应保持 0.92em，实际 ' + plusAdd.props.style.fontSize);
+    if (!/em/.test(String(plusAdd.props.style.padding || ''))) fail('新增按钮背景横向 padding 应 em 化（跟档），实际 ' + plusAdd.props.style.padding);
+    if (!/em/.test(String(plusAdd.props.style.borderRadius == null ? '' : plusAdd.props.style.borderRadius))) fail('新增按钮背景圆角应 em 化（跟档），实际 ' + plusAdd.props.style.borderRadius);
+    if (plusAdd.props.style.whiteSpace !== 'nowrap') fail('新增按钮应 nowrap 锁单行（防高档挤压换行），实际 ' + plusAdd.props.style.whiteSpace);
+    if (plusAdd.props.style.flex !== 'none') fail('新增按钮应 flex:none 不参与头行收缩，实际 ' + plusAdd.props.style.flex);
+  }
+}
+if (failures === 0) ok('新增按钮：背景跟档＋单行锁定');
 
 // ── E) compact 悬浮分支行为不变（关=小列表 calc(var * 1)；开=远程大面板 calc(1em * 5.5)，既有行为） ──
 remote2.__resetRemoteForTests();

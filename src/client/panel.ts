@@ -1680,7 +1680,9 @@ export function TemplateBrowser(props: BrowserProps): any {
       h('span', { style: { fontSize: '0.85em', color: dim, marginLeft: 6 } }, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
       h('div', { style: { flex: 1 } }),
       h('button', {
-        style: { ...addBtn, width: 'auto', padding: '0 12px', fontSize: '0.92em' }, title: t('add'),
+        // #116跟进：背景跟着字走——padding/圆角全 em 化（1x 下与旧 12px/7px 视觉一致：0.93em≈12px、0.54em≈7px，均按按钮自身 0.92em 锚算）。
+        // 高档挤压防换行：nowrap 锁单行（'＋ 新增'中间空格可断行是祸根）＋flex:none 不参与头行收缩（内容多宽就多宽，绝不被压窄）。
+        style: { ...addBtn, width: 'auto', padding: '0 0.93em', borderRadius: '0.54em', fontSize: '0.92em', whiteSpace: 'nowrap', flex: 'none' }, title: t('add'),
         // 收起态也留着「新增」：点它只开新增弹窗，**不**顺手把列表展开（stopPropagation）。
         onClick: (e: any) => {
           if (e && typeof e.stopPropagation === 'function') e.stopPropagation()

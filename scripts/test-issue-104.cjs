@@ -263,8 +263,8 @@ async function asyncChecks() {
   for (const marker of ['data-dsh-prompt-picker-root', 'data-dsh-prompt-picker-sheet', 'data-dsh-prompt-picker-mask',
     'data-dsh-prompt-picker-search', 'data-dsh-prompt-picker-row', 'data-dsh-prompt-picker-close',
     'data-dsh-prompt-picker-retry', 'data-dsh-prompt-picker-cancel', 'data-dsh-prompt-picker-loading',
-    'data-dsh-prompt-picker-rail', 'data-dsh-prompt-picker-dot',
-    'data-dsh-prompt-picker-groupcard', 'data-dsh-prompt-picker-groupgrid',
+    'data-dsh-prompt-picker-dot',
+    'data-dsh-prompt-picker-groupcard',
     'data-dsh-prompt-picker-wspane', 'data-dsh-prompt-picker-sspane',
     'data-dsh-prompt-picker-tabrow', 'data-dsh-prompt-picker-pager',
     'data-dsh-prompt-picker-opbar', 'data-dsh-prompt-picker-closebar',
@@ -712,7 +712,7 @@ async function rendererChecks() {
   pkWc.unmount();
   ok('渲染器：底部操作栏＋内外层形色＋顺序＋退役悬浮（#115）');
 
-  // 横屏 rail + 右展（审查 #2）：左轨两卡 + 右侧放组一行
+  // #124 横竖统一：横屏同用 tab 条＋操作栏（rail 退役），仅会话网格为 3 列
   let pkWide;
   await TR.act(async () => {
     pkWide = TR.create(React.createElement(pickerMod.WorkspacePicker, {
@@ -720,23 +720,24 @@ async function rendererChecks() {
     }));
   });
   await TR.act(async () => { await new Promise((r) => setTimeout(r, 400)); });
-  if (pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-rail'] === '1').length !== 1) {
-    fail('#104 横屏应渲染 rail + 右展');
+  if (pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-rail'] === '1').length !== 0) {
+    fail('#124 横屏 rail 应已退役');
   }
-  // 横屏左轨也是卡片网格（轨宽 ~38%，固定 2 列而不是 gridCols=3）
-  const railGrid = pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-groupgrid']);
-  if (railGrid.length !== 1 || String(railGrid[0].props['data-dsh-prompt-picker-groupgrid']) !== '2') {
-    fail('#104 横屏轨内一级卡应是 2 列网格，实际 ' + JSON.stringify(railGrid.map((x) => x.props['data-dsh-prompt-picker-groupgrid'])));
+  if (pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-tabrow']).length !== 1) {
+    fail('#124 横屏亦应渲染 tab 行');
+  }
+  if (pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-opbar'] === '1').length !== 1) {
+    fail('#124 横屏亦应渲染底部操作栏');
   }
   if (pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-groupcard'] === '1').length !== 2) {
-    fail('#104 横屏轨内应渲染 2 张一级卡');
+    fail('#124 横屏应渲染 2 个 tab');
   }
   const wideRows = pkWide.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-row']);
   if (wideRows.length !== 1 || wideRows[0].props['data-dsh-prompt-picker-row'] !== 'b1') {
-    fail('#104 横屏右侧应展开放组（b1），实际 ' + JSON.stringify(wideRows.map((x) => x.props['data-dsh-prompt-picker-row'])));
+    fail('#124 横屏应展开默认组（b1），实际行 ' + JSON.stringify(wideRows.map((x) => x.props['data-dsh-prompt-picker-row'])));
   }
   pkWide.unmount();
-  ok('渲染器：横屏 rail + 右展');
+  ok('渲染器：横竖统一 tab 条＋操作栏（#124）');
 
   // 2026-10-03（用户原话「我现在连某个会话属于哪个工作区都看不出来」）：
   // 只有一个工作区时，**组头仍必须渲染**。旧口径 US9 在此平铺成一行，等于把

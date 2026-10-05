@@ -5,7 +5,7 @@
  * + 自适应抽屉（内容定高、上限 88% 内滚、禁大片空白）。
  * #115（用户 2026-10-05 拍板，architect 版）：近全屏内缩面板（内容定高、天花板近满屏）
  * + 竖屏会话在上、tab 条中、底部操作栏［工‹｜会‹｜会›｜工›］…［×］（层色边框＋点击脉冲）
- * + 真分页纯模型（pager.ts）+ × 跟字号放大；横屏维持现状；整体压紧多装。
+ * + 真分页纯模型（pager.ts）+ × 跟字号放大；#124 横竖统一（rail 退役）；整体压紧多装。
  * 状态机（#107 Q1/#111）：关闭→探测→加载→就绪/空/失败→切换中→关闭或留屏；
  * 成功才关，其余留屏；失败不自动关；取消只取消等待。
  * 约束：不进持久化、不记新日志、不读写草稿（沿 #111）。
@@ -63,8 +63,8 @@ export interface PickerProps {
   /** 远程大小档 1–10（只做 em 相对缩放，不写 px 常量） */
   remoteSize?: number
   /**
-   * 宽布局（横屏 rail + 右展）。缺席时按打开瞬间视口宽高比自判（宽>高即宽），
-   * 测试可显式钉死。v7 C 横屏即此形（左轨 hugging + 右展）。
+   * 宽布局（#124 起仅决定会话网格 3 列还是 2 列，布局横竖同一套）。
+   * 缺席时按打开瞬间视口宽高比自判（宽>高即宽），测试可显式钉死。
    */
   wide?: boolean
   /** 关闭（switchedId 有值 = 切换成功并切到该会话；无值 = 原地关闭/取消） */
@@ -219,13 +219,14 @@ export function WorkspacePicker(props: PickerProps): any {
   const faces = props.faces
   const currentId = typeof props.currentId === 'string' ? props.currentId : ''
   const size = typeof props.remoteSize === 'number' ? props.remoteSize : 5
-  // 宽布局：显式 prop 优先，否则按打开瞬间视口宽高比自判（横屏 rail + 右展，v7 C 横屏形）。
+  // 宽布局：显式 prop 优先，否则按打开瞬间视口宽高比自判；#124 起仅决定会话网格列数
+  // （横竖同一套布局，rail 已退役）。
   let wideAuto = false
   try {
     if (typeof window !== 'undefined' && window.innerWidth > window.innerHeight) wideAuto = true
   } catch (e) { wideAuto = false }
   const wide = typeof props.wide === 'boolean' ? props.wide : wideAuto
-  // 会话卡片网格列数（用户 2026-10-03 拍板：竖屏 2 列、横屏 3 列；#115 仅竖屏走双栏，横屏维持现状）
+  // 会话卡片网格列数（用户 2026-10-03 拍板：竖屏 2 列、横屏 3 列；#124 横竖同一套，仅列数不同）
   const gridCols = wide ? 3 : 2
   const gridStyle: any = {
     display: 'grid',
@@ -236,8 +237,7 @@ export function WorkspacePicker(props: PickerProps): any {
   const TAB_W = '9em'
   // 翻页键体：2.5em 正方形，主次小于 × 3em；常量 token 化（勿散写魔法数）。
   const PAGER_BOX = '2.5em'
-  // tab 行：横向 flex，横滑；竖屏单列纵排已退役（#115 对调：会话上、tab 条下）。
-  // 横屏 rail 维持现状（2 列纵排卡）。
+  // tab 行：横向 flex，横滑；横竖同一套（#124 rail 退役）。
   const tabRowStyle: any = {
     display: 'flex', flexDirection: 'row', gap: '0.4em', alignItems: 'stretch',
   }
@@ -748,8 +748,9 @@ export function WorkspacePicker(props: PickerProps): any {
       style: { fontSize: '0.78em', color: 'var(--dsw-alias-label-tertiary)', padding: '6px 0 0', flex: 'none' },
     }, tr(lang, STR.pickerSwitching) + '…')
     : null
-  // 列表区（#115 操作栏版：无查询 → 会话栏在上、tab 条中、底部操作栏；
-  // 横屏维持 rail + 右展；有查询 → 展平成带短码的卡片网格，#111 US12）。
+  // 列表区（#124 横竖统一：无查询 → 会话栏在上、tab 条中、底部操作栏，两方向同一套，
+  // 仅会话网格列数随宽窄变（gridCols）；有查询 → 展平成带短码的卡片网格，#111 US12）。
+  // rail 左轨＋右展已退役（v7 C 横屏形随之退役，两套列表语义合一）。
   // tab 恒渲染（沿 2026-10-03 撤 US9 的结论：工作区恒显示，单列行改横 tab 后沿用）。
   // 2026-10-03 用户拍板：去掉 #111 US9「单工作区不显示组头」——那条规则把「分组整个没生效」
   // 和「确实只有一个工作区」混成同一种表现，把硬故障藏成了看不见。现在组头恒在。
@@ -766,36 +767,9 @@ export function WorkspacePicker(props: PickerProps): any {
           flat.map((s) => renderCard(s, hasQuery))),
       ]),
     ])
-  } else if (wide) {
-    // 横屏 rail + 右展（v7 C 横屏形，审查 #2）：左轨列一级卡（**2 列卡片网格**，不再是整宽单行条），
-    // 右侧展开放组会话卡。轨宽只有 ~38%，故固定 2 列而不是 gridCols=3。
-    const openG = groups.find((g) => g.key === openKey) || groups[0] || null
-    listContent = h('div', { key: 'widewrap', style: { overflowY: 'auto', minHeight: 0, flex: '1 1 auto' } }, [
-      switchingNote,
-      h('div', {
-        key: 'rail',
-        'data-dsh-prompt-picker-rail': '1',
-        style: { display: 'flex', gap: 10, alignItems: 'flex-start' },
-      }, [
-        h('div', {
-          key: 'crail',
-          'data-dsh-prompt-picker-groupgrid': '2',
-          style: {
-            flex: '0 0 auto', maxWidth: '38%', minWidth: 0,
-            display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))',
-            gap: 8, alignItems: 'stretch',
-          },
-        }, groups.map((g) => renderWcard(g, !!openG && openG.key === g.key, false))),
-        openG ? h('div', {
-          key: 'clist',
-          'data-dsh-prompt-picker-grid': String(gridCols),
-          style: { ...gridStyle, flex: '1 1 auto', minWidth: 0 },
-        }, openG.items.map((s) => renderCard(s, false))) : null,
-      ]),
-    ])
   } else {
-    // 竖屏（#115 tab 条版）：上 = 会话栏（选中组会话网格占剩余区域＋右下悬浮翻页）＋
-    // 下 = 底部 tab 条（工作区横滑＋右侧方形翻页键）。未归属桶是 tab 普通一项；
+    // #124 统一分支（横竖同一套）：上 = 会话栏（选中组会话网格占剩余区域）＋
+    // 中 = 底部 tab 条（工作区横滑）＋ 下 = 底部操作栏。未归属桶是 tab 普通一项；
     // 重开回到默认组、不记选中（沿现状 openGroup 初始化）。搜索时本分支不走（展平分支）。
     const openG = groups.find((g) => g.key === openKey) || null
     const openItems = openG ? openG.items : []

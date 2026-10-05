@@ -20,7 +20,14 @@
  * - 事件名漂移自报：`unknown-event` 只落一次（事件名漂移是**状态**，不是每次调用都会变的事实）。
  */
 
-import type { UpdateLogCtx } from 'dsh-plugin-update'
+/**
+ * 更新包日志口形状（#128：0.3.1 自带 d.ts 不再导出 UpdateLogCtx，手写垫片已随 #127 删除；
+ * 形状逐字对包 dist/host.js 的 phoneLogCtx.fire(level, event, fields) 三参调用，
+ * 结构上满足包 createHostUpdate 的 logCtx 入参，不按名引用）。
+ */
+export interface UpdateLogCtx {
+  fire(level: string, event: string, fields?: Record<string, unknown>): void
+}
 import { hash8 } from './hash.js'
 import { safeFields, UPDATE_ROUTE_FAMILY } from './safe-values.js'
 

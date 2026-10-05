@@ -28,11 +28,34 @@
  * esbuild 的入口仍是本文件，产物 `lib/update.js` 依旧是一个自包含文件。
  */
 
-import type {
-  CreateHostUpdateDeps,
-  HostUpdate,
-  UpdatePhoneResult,
-} from 'dsh-plugin-update'
+import type { HostUpdate, ReaderOverrides } from 'dsh-plugin-update'
+
+/**
+ * 电话回包形状（#128：0.3.1 自带 d.ts 不再导出 UpdatePhoneResult，手写垫片已删；
+ * 逐字对包 loggedPhone：成功 { ok:true, snapshot, manual, receipt }，
+ * 失败 { ok:false, error, errorKind }，多余键（queue/env/diag 等）透传）。
+ */
+export interface UpdatePhoneResult {
+  ok: boolean
+  snapshot?: unknown
+  manual?: unknown
+  receipt?: unknown
+  error?: string
+  errorKind?: string
+  [k: string]: unknown
+}
+
+/**
+ * 宿主建能力依赖（#128：0.3.1 不再导出 CreateHostUpdateDeps，按包 createHostUpdate 真名重写；
+ * readerOverrides 用包导出的 ReaderOverrides 真名，生产不传、仅回归透传）。
+ */
+export interface CreateHostUpdateDeps {
+  ctx?: unknown
+  logCtx?: { fire(level: string, event: string, fields?: Record<string, unknown>): void } | null
+  desktopPnpm?: unknown
+  pluginManager?: unknown
+  readerOverrides?: ReaderOverrides
+}
 import {
   UPDATE_CHECK_PATH,
   UPDATE_INSTALL_PATH,
@@ -96,7 +119,7 @@ export interface CreateUpdateCapabilityOptions {
    * 回归要验真集成，就在临时目录造可识别布局并经此透传（targetPackageDir / profileDir / homeDir）。
    * 缺省即不传，包走默认自动探测，生产行为一个字节都不变。
    */
-  readerOverrides?: Record<string, unknown>
+  readerOverrides?: ReaderOverrides
   /** 能力起不来时的告警口（默认什么都不做）。 */
   onFallback?: (reason: string) => void
   /**
@@ -183,7 +206,7 @@ export async function createUpdateCapability(
         return failed('unknown-phone', `no update phone for ${path}`)
       }
       try {
-        return await update.handlers[phone](args ?? {})
+        return (await update.handlers[phone](args ?? {})) as UpdatePhoneResult
       } catch (e) {
         const message = String((e as Error)?.message || e)
         // 电话表里没有这个电话，或包的封装在它自己的 try 之外抛了（例如 handlers 的键改名）——

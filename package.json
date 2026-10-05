@@ -1,6 +1,6 @@
 {
   "name": "dsh-prompt",
-  "version": "0.2.11",
+  "version": "0.3.0",
   "description": "DSH prompt 工具箱：预制 + 自定义 prompt 模板，点击即插入当前对话输入框（v1 常规模式 + v1.1 智能模式悬浮卡） | Prompt toolbox for DeepSeek Harness: preset + custom prompt templates, one-click insert into the conversation.",
   "keywords": [
     "dsh",
@@ -35,7 +35,6 @@
     "build:update-host": "node scripts/update/build-host.mjs",
     "ensure:update-pkg": "node scripts/update/ensure-latest.mjs",
     "prepare": "npm run build",
-    "derive:update-values": "node node_modules/dsh-plugin-update/derive-client-values.mjs --prefix prompt --out src/update/gen/updateClient.derived.js",
     "check:update-pkg": "node scripts/check-update-pkg.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck:host",
     "typecheck:host": "tsc -p tsconfig.host.json",
@@ -98,7 +97,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.5.0",
-    "dsh-plugin-update": "0.3.0",
+    "dsh-plugin-update": "0.3.1",
     "esbuild": "^0.28.2",
     "marked": "^18.0.9",
     "react": "^18.3.1",

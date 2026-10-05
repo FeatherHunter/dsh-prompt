@@ -10,6 +10,7 @@
  */
 import { getReact, TemplateBrowser } from './panel'
 import { SettingsHeaderLinks, AuthorPlugins } from './about'
+import { UpdateEntryButton, UpdatePanelEmbedded } from './update-http'
 
 import { isSmartEnabled, setSmartEnabled } from './smartstore'
 import {
@@ -637,21 +638,26 @@ export function SettingsPage(props: any): any {
   // 单滑块跟随（用户拍板，封顶时代“设置页自身不跟”已废）：开吃全额，与 compact 小列表
   // uiFontScale 同构；子项全 em 化，故根在关时也锚到宿主基准 var（=14px，em 按 px/14 换算后与旧 px 视觉一致）。
   // #116：缩放根走收敛点（开吃全额、关回基准；与折叠小列表根同构，防漂移）。子项全 em 化，关时锚到宿主基准 var。
+  // #128 新整组件面板：embedded + 默认主题，落设置页模板卡之后（只查，安装走用户点击）。
+  const updateGroup = h(SettingGroup, { key: 'update', title: '更新' }, [
+    h(UpdatePanelEmbedded, { key: 'panel' }),
+  ])
   const settingsRootStyle: any = {
     padding: 4, display: 'flex', flexDirection: 'column',
     fontSize: scaledBaseFontSize(remote.enabled, remote.size),
   }
   // #37：旧的一行文字链接（⛭ GitHub 仓库 / ⚠ 反馈故障）已由顶部右上角两个图标按钮取代，不再保留第二处入口。
   return h('div', { style: settingsRootStyle }, [
-    // 标题栏置顶（身份行：提示词模板 + 版本 + 🌟💬）。
-    // #127 自研更新入口已删（连同 update.ts 一起），#128 用新整组件接回，落位另定。
-    h(SettingsHeaderLinks, { key: 'links', lang }),
+    // 标题栏置顶（身份行：提示词模板 + 更新入口 + 版本 + 🌟💬）。
+    // #128 新整组件接回：入口按钮落位与 #60 旧位一致（🌟/💬 之前）。
+    h(SettingsHeaderLinks, { key: 'links', lang, entry: h(UpdateEntryButton, { key: 'update' }) }),
     // 模板管理栏紧随标题栏（主体功能优先）：预制·自定义模板区为第 1 块，其余段顺序不变相对后移。
     // #77：模板区是一张**与下面几张卡同款的卡片**（此前它是一条裸行，没有壳）。折叠态只露出卡片头行，点开才是完整列表。
     // pad 取 4px 6px 8px：内嵌浏览器自带 8px 内边距，6 + 8 = 14px，与其它卡的内容左轨对齐。
     h(SettingGroup, { key: 'list', pad: '4px 6px 8px' }, [
       h(TemplateBrowser, { key: 'browser', compact: false, collapsible: true }),
     ]),
+    updateGroup,
     // 智能推荐配置区暂不放开：整组不渲染（逻辑 smart.ts、i18n 键、persist 全保留，接回即恢复）。
     remoteGroup,
     logGroup,

@@ -15,20 +15,12 @@ const SRC = (f) => path.join(__dirname, '..', 'src', 'client', f);
 const UPD = (f) => path.join(__dirname, '..', 'src', 'update', f);
 // P1：只声明根；闭包与 require 改写由共享件顺着源码 import 推导（不再是手抄表）。
 const { buildFlat } = require('./lib/transpile-client.cjs');
+// #129：旧更新三件套/bridge/派生已删（#127），本票只验头行图标+引流区，不再转译它们；
+// settings 的闭包（panel/about/update-http 等）由 buildFlat 顺 import 自动推导。
 buildFlat(DIR, [
-  SRC('templates.ts'),
-  SRC('store.ts'),
-  SRC('state.ts'),
-  SRC('i18n.ts'),
-  SRC('smartstore.ts'),
-  SRC('panel.ts'),
-  SRC('about.ts'),
-  SRC('updauto.ts'),
-  SRC('upddialog.ts'),
-  SRC('update.ts'),
   SRC('settings.ts'),
-  UPD('bridge.ts'),
-  UPD('gen/updateClient.derived.js'),
+  SRC('about.ts'),
+  SRC('panel.ts'),
 ]);
 const React = require('react');
 const TR = require('react-test-renderer');
@@ -223,26 +215,23 @@ const kids = tree.children;
 // ⇒ 顶层又回到 6 块，入口不再是独立的一块。四条保证一条不减，只是入口换了住处。
 const hasCheckbox = (node) => !!(node && ((node.props && node.props.type === 'checkbox')
   || (Array.isArray(node.children) && node.children.some(hasCheckbox))));
-eq(kids.length, 5, '设置页顶层五块：#60 身份行（含更新入口）/ 智能推荐组 / 诊断日志组 / 模板列表卡 / 引流区');
+// #129（0.3.1 整组件）：更新卡是独立第 3 块（模板卡后，embedded 面板），顶层 5 → 6。
+eq(kids.length, 6, '设置页顶层六块：身份行（含更新入口）/ 模板列表卡 / 更新卡 / 远程模式 / 诊断日志 / 引流区');
 eq(jsonAnchors(kids[0]).map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '第 0 块是右上角两个按钮（顺序：🌟 仓库、💬 ISSUE）');
 eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 0 块左边有插件名字');
-// #60 追加交付 A：入口与两个图标**同一行、同一父节点**，且排在两个图标之前 —— 三条都是可判定的。
+// #129（0.3.1 整组件，接替 #60-A）：入口是 http 挂载容器（data-dsh-prompt-update-entry，
+// 上游 button 形态，空容器 fail-soft），与两图标同属头行；更新面板是独立更新卡
+//（data-dsh-prompt-update-panel，模板卡后）。旧 STR.updateEntry 文案与版本徽标已随自研 UI 删除。
 {
   const seq0 = domSeq(kids[0]);
-  const entryNode = seq0.find((n) => n.props && n.props['data-dsh-prompt-update'] !== undefined);
-  ok(!!entryNode, '#60-A：更新入口在身份行**内部**（不再是独立的一块）');
-  eq(!!entryNode && entryNode.type, 'button', '#60-A：入口是可点的 <button>（不是纯文字）');
+  const entryNode = seq0.find((n) => n.props && n.props['data-dsh-prompt-update-entry'] !== undefined);
+  ok(!!entryNode, '#129：更新入口容器在身份行内部（data-dsh-prompt-update-entry）');
   const parents = parentMap(kids[0]);
   const host = entryNode ? parents.get(entryNode) : null;
-  eq(!!host && host.children.filter((c) => jsonAnchors(c).length > 0).length, 2,
-    '#60-A：两个图标与入口是**同一父节点下的兄弟**（同一行），顺序：入口 → 🌟 → 💬');
-  const at = (pred) => seq0.findIndex(pred);
-  const iEntry = at((n) => n.props && n.props['data-dsh-prompt-update'] !== undefined);
-  const iStar = at((n) => n.type === 'a' && n.props.href === REPO);
-  const iIssue = at((n) => n.type === 'a' && n.props.href === ISSUES);
-  eq(iEntry >= 0 && iEntry < iStar && iStar < iIssue, true, '#60-A：入口排在 🌟 / 💬 之前（DOM 顺序 ' + iEntry + ' < ' + iStar + ' < ' + iIssue + '）');
-  eq(kids.filter((k) => txt(k).indexOf(STR.updateEntry.zh) >= 0).length, 1, '#60-A：整页只有身份行那一块带入口文案（不再另起一块）');
-  eq(domSeq(entryNode).some((n) => n.props && n.props['data-dsh-prompt-update-version'] !== undefined), true, '#60-A：入口那一枚按钮里带着版本徽标');
+  eq(!!host && jsonAnchors(host).length, 2, '#129：头行仍有两个图标（入口为可选外挂，不挤掉图标）');
+  const updateCards = kids.filter((k) => domSeq(k).some((n) => n.props && n.props['data-dsh-prompt-update-panel'] !== undefined));
+  eq(updateCards.length, 1, '#129：整页恰有一块更新卡（embedded 面板容器）');
+  eq(STR.updateEntry, undefined, '#129：旧 STR.updateEntry 文案已删除（自研弹窗退役）');
 }
 // 实测版式（2026-09-30）：[0] 身份行 / [1] 模板列表 / [2] 远程模式 / [3] 诊断日志 / [4] 引流区。
 //   · 智能推荐配置区按 #36 的裁定**整组不渲染**（settings.ts 里逻辑 / i18n / persist 全保留，接回即恢复）；

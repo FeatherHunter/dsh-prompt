@@ -1,97 +1,31 @@
-// 回归 #39：更新能力的宿主接线与构建准备
-// 方法：与 test-issue-20-host.cjs 同一套 —— 把 lib/index.js 复制到临时目录、把 host-only
-// 裸导入换成本地 stub，然后在**进程内**真的跑起宿主半（fake ctx + fake HTTP），驱动既有路由
-// 处理器。差异是这里还把 lib/update.js 与 lib/log/index.js 换成「可观测的假件」，好让三条更新
-// 路由真的被走到，同时不连网、不装包、不依赖真机 DSH 宿主。
+// 回归 #39（#129 重写，0.3.1 整组件口径）：宿主接线 + 构建内联 + 网关裸回包 + http 映射
+// 旧自研 UI（src/update/bridge.ts、src/update/gen、derive:update-values、手写 d.ts 垫片）已在 #127 删除，
+// 本文件不再断言它们存在；改为断言“退役干净 + 新接线同值 + 主路径绿”。
+// 契约（#129）：test-issue-39/40/41、lib-sync、typecheck、35 入口绿，主路径绿且门禁语义与新组件一致。
 //
-// 断言（对应任务书第 3 节的 a–d）：
-//  (a) 三条路由经既有路由构造器注册后可命中（且非 POST / 未知路径不被更新能力抢走）
-//  (b) 状态快照带齐包 README 第 8 节的六字段，且与真实 dsh-plugin-update 的 buildSnapshot 对账
-//  (c) 同源防护没有被削弱：非 loopback / 跨站 / 跨 origin 请求仍被拒，同源仍放行
-//  (d) 客户端 shim 的电话名映射到上述三条端点（源码级静态断言，含与真实更新包 buildPhoneNames 对账）
-// 另有结构断言：依赖声明、构建产物把更新包**内联**（#58，见下 (p)）、四处路径常量不漂移、能力缺席时诚实失败。
+// 本票覆盖：
+//  0) 退役干净（derive 入口缺席、bridge/gen/垫片缺席、host 新家存在）
+//  1) 构建产物内联（lib/update.js 无裸导入 + 版本标记与 devDeps 耦合）
+//  2) 三条路径三处同值（host/paths.ts × lib/index.js × update-http.ts 经 resolveHttpPath）
+//  3) 电话名与配置三要素（buildPhoneNames(prompt) × host PHONE_PREFIX/TARGET/PLUGIN_ID × 导出数≤5）
+//  4) 宿主能力真跑（假包注入：三条路由分派 + 快照六字段 + 电话名透传）
+//  5) 能力缺席诚实失败（dep-load-fail → degraded，路由回 update-capability-unavailable）
+//  6) 网关裸回包（lib/index.js 更新分支 writeJson(naked)，不包信封；他路仍包信封）
+//  7) 回包整形裸必需（shapeHttpReply 直传裸快照、剥 diagnostic、非记录抛 transport-failed）
 //
-// 对抗式审查返工（#39 整改）新增/改正的断言：
-//  (e) 日志口**三参** fire（level, event, fields）：真事件名与字段一个不丢地到日志能力，
-//      两参调用（上一版的错误形状）不再被当成 host.call —— 见 8) 与 11) 两段；
-//  (f) 更新包三条事件（host.call / host.call.fail / update.install.exec）在真清单真闸门下**都落盘**，
-//      且 host.call.fail 的 pluginId 不再被字段白名单裁掉（见 8b）；
-//  (g) **真包集成**：不注入假包，用 node_modules 里的 dsh-plugin-update 真建一次能力并驱动真电话
-//      （见 12)）—— 上一版这里注入的是假包，真包返回形状从未被测覆盖；
-//  (h) 失败不许无声：能力缺席 / 降级 / 依赖加载失败都在日志里留下 update.route.fail（见 10)）。
-//
-// 第二轮整改（复审 REWORK 82/100 × 2）新增/改正的断言：
-//  (i) 能力缺席 / 降级时**不再每请求**落 update.route.fail：连打 30 次，日志行数一行都不许涨
-//      （状态型失败只在建能力时落一次）—— 见 10b。原因：warn 绕过日志开关，面板按 UPD_POLL=1000
-//      轮询时会刷成 15 MiB/天且用户关不掉（复审 V1）。
-//  (j) 桥**只判事件名**，字段原样交给日志能力（真闸门是白名单权威）：清单外的字段要真的走到闸门口、
-//      且 droppedFields 涨 —— 见 11 / 11b（复审 V3：上一版桥先按自己认识的五个键裁掉，漂移零可观测）。
-//  (k) 真包集成不止驱动 status：真 executor 驱动的 update.install.exec 成功 / 失败（exitCode 7）
-//      两条都要在断言里（复审 V3 旁证：这条事件以前只有假包覆盖）—— 见 12。
-//  (l) 真包 manual 的口径随本机 profile 变（空 home ⇒ null），断言改成与环境无关的包不变式
-//      （复审 A 的 R1：上一版断言「必须 dsh plugin 开头」，干净 clone / CI 必红）。
-//
-// 第三轮整改（复审 D 判 REWORK 80/100、触发一票否决第 1 条「敏感内容能被写进日志」）新增/改正的断言：
-//  (m) **值域安全网**（H1）：白名单只回答「这个字段能不能进」，回答不了「这个值能不能进」——
-//      闸门对白名单内字符串只管五种具名形状，正文只要不是那五种形状就逐字落盘（复审 D 实测 47 字符
-//      正文与模板名进了真日志文件）。现在桥把每个值过一遍安全字符集，不匹配就换 8 位指纹：
-//      正文/模板名不落原文，真实取值（电话名 / 机器码 / cli-process / dsh-prompt / 八位指纹）逐字不变
-//      —— 见 11c；同一条规则也用在 lib/index.js 的请求级 update.route.fail —— 见 10d。
-//  (n) **电话持续失败按状态落一次**（H2）：桥按 (method, kind)、请求级按 (route, reason)，各自
-//      「首条必落 + 成功后清账（恢复再失败重新落）」—— 见 10d / 11c。复审 D 实测 62 次持续失败
-//      124 行 / 20402 B（2 行/请求 ⇒ 按 UPD_POLL=1000ms 几十 MiB/天），与「能力缺席」是同一量级的
-//      刷屏面，逼修：不随请求数线性增长。
-//  (o) `update.install.exec` 的 `route:"none"`（没有安装配方 ⇒ 该路径**没有 exitCode 键**，也不是一条
-//      真路由）在清单 guard 里写明并由真闸门断言钉住 —— 见 8b（复审 D 的 A3）。
-//
-// #58（把更新包搬进本插件包内）新增/改正的断言：
-//  (p) **hoisted 部署布局回归**（见 13)）：把构建产物放进真机那种布局（插件包在
-//      `<profile>/node_modules/dsh-prompt`，更新包只可能在**插件包外**那一层 node_modules）里，
-//      真入口跑 status / check / install 三条电话，必须 `ok:true` + `blockedReason:null`；
-//      并且「插件包外有没有更新包」两种形态都要绿 —— 钉住「更新包住在本插件包内」这件事，
-//      否则下一个人把它改回 externals（或改回按包名解析），真机上又会静默退回 unknown-profile。
-//      （负例对照：HEAD 7ed096e 的产物在同布局下三条路由全回 unknown-profile，实测见
-//      `.wayfinder/update/58-progress.md` 与探针 `.tmp-verify/probe-58/hoisted-matrix.mjs`。）
-//
-// 发布 #44（版本号解耦）新增/改正的断言：
-//  (q) 本文件不再写死任何**本包**的版本号：受控源那个假 release 的版本、以及 executor 的 targetVersion
-//      都由 package.json 的当前版本推出来（`nextPatchVersion`，见文件顶部「版本号口径」）。
-//      旧版把假 release 写死成 `0.1.8`，本包升到 0.1.8 后它就不再「比当前新」⇒ canInstall:false ⇒
-//      (p) 段变红，而且**每次升版都会红**（发布门禁永远带一条假红）。反向验证：本包版本临时改成
-//      0.2.0 / 0.1.9 时本文件都必须全绿 —— 与版本号真正解耦的唯一判据。
+// 不覆盖（别的票的地盘）：settings 落位（#40）、只查不装（#41）、入口定位（#35）。
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const ROOT = path.join(__dirname, '..');
-const DIR = path.join(__dirname, '.rt-tmp-39');
-
-function fail(msg) { console.log('FAIL: ' + msg); process.exit(1) }
-function ok(msg) { console.log(' ok: ' + msg) }
+function fail(msg) { console.log('FAIL: ' + msg); process.exit(1); }
+function ok(msg) { console.log(' ok: ' + msg); }
 function eq(a, b, msg) {
   if (JSON.stringify(a) !== JSON.stringify(b)) fail(msg + ' got=' + JSON.stringify(a) + ' want=' + JSON.stringify(b));
+  else ok(msg);
 }
-
-const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 'canInstall', 'blockedReason', 'job'];
-const ROUTES = {
-  status: '/_dsh/dsh-prompt/update/status',
-  check: '/_dsh/dsh-prompt/update/check',
-  install: '/_dsh/dsh-prompt/update/install',
-};
-const PHONE_NAMES = {
-  updateStatus: 'prompt.updateStatus',
-  updateCheck: 'prompt.updateCheck',
-  updateInstall: 'prompt.updateInstall',
-};
-const PATH_CONST = { status: 'UPDATE_STATUS_PATH', check: 'UPDATE_CHECK_PATH', install: 'UPDATE_INSTALL_PATH' };
-const PHONE_CONST = { status: 'UPD_STATUS', check: 'UPD_CHECK', install: 'UPD_INSTALL' };
-// 三轮整改（H1）的注入样本：一段 47 字符的「提示词正文」与一个「模板名」——都能在落盘文本里做
-// 原文命中判定。它们是**样本**，不是真内容；本仓的规矩是这两类东西绝不进日志。
-const PROMPT_BODY = 'PROMPTBODY_SECRET_请把这段提示词写进日志_0123456789ABCDEF_';
-const TEMPLATE_NAME = 'TEMPLATE_SECRET_内部模板名_绝密_v3';
-
-/* ── 源码读取与静态断言小工具 ── */
-function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8') }
+function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
 function quotedAfter(src, needle, where) {
   const i = src.indexOf(needle);
   if (i < 0) fail('找不到 ' + needle + '（' + where + '）');
@@ -99,1390 +33,162 @@ function quotedAfter(src, needle, where) {
   if (!m) fail(needle + ' 后面没跟字符串字面量（' + where + '）');
   return m[1] !== undefined ? m[1] : m[2];
 }
-const squash = (s) => s.replace(/\s+/g, ' ');
+
+const ROUTES = {
+  status: '/_dsh/dsh-prompt/update/status',
+  check: '/_dsh/dsh-prompt/update/check',
+  install: '/_dsh/dsh-prompt/update/install',
+};
+const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 'canInstall', 'blockedReason', 'job'];
 
 (async () => {
-  fs.rmSync(DIR, { recursive: true, force: true });
-  fs.mkdirSync(path.join(DIR, 'log'), { recursive: true });
-
   const pkg = JSON.parse(readSrc('package.json'));
 
-  /* ── 版本号口径（发布 #44）──
-   * 本文件有三处「一个比当前版本新的版本」：受控源的假 release、受控源要反着断言的期望值、
-   * 真 executor 的 targetVersion。它们以前写成字面量 `0.1.8`；本包自己是 0.1.8 之后，假 release
-   * 就不再「比当前新」，`canInstall` 变假 —— 断言红，而且**每升一次版就红一次**（发布门禁永远
-   * 带一条假红）。口径改成从 package.json 的当前版本推出来：假 release 的版本由**唯一的版本真值**
-   * （package.json 的 `version`）加一个 patch 位得到，测试从此不认任何写死的包版本号。
-   */
-  const pkgVersion = pkg.version;                     // 唯一版本真值（旧版在本文件 13) 段里单独再读一遍，已合并到这一处）
-  /** 受控源要冒充的那个「比当前新一版」的版本号：patch 位 +1（0.1.8 → 0.1.9），与真包版本解耦。 */
-  function nextPatchVersion(version) {
-    const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(version));
-    if (!m) fail('package.json 的 version 不是三段式数字版本（' + JSON.stringify(version) + '），本测试的「下一个版本」推不出来');
-    return m[1] + '.' + m[2] + '.' + (Number(m[3]) + 1);
-  }
-  const NEXT_RELEASE_VERSION = nextPatchVersion(pkgVersion);
-
-  /* ── 0) 结构：依赖与脚本入口 ── */
-  // #58：更新包是**构建期输入**（内联进 lib/update.js），不是运行时依赖 —— 用户装到的包里不该再装它，
-  // 否则又会出现「插件包外恰好有一份更新包」那种布局依赖（真机 hoisted 下就是 unknown-profile）。
-  if (pkg.dependencies['dsh-plugin-update'] !== undefined) {
-    fail('dsh-plugin-update 不许留在 dependencies（#58 起它是构建期输入，已内联进 lib/update.js），实为 '
-      + JSON.stringify(pkg.dependencies['dsh-plugin-update']));
-  }
-  // #98 起构建期自动跟最新（地图 #96 用户拍板，覆盖 ADR-0003 人工钉版）：这里不再认任何写死的
-  // 包版本号，只认三条 —— 记录是精确值（不许 ^ / ~ / latest）、产物 banner 与记录一致（下面专段断言）、
-  // 实装与记录一致（构建门禁断言）。版本悄悄漂的确认点搬到发版前（check:update-pkg，见 #101）。
-  const pinnedUpdatePkg = pkg.devDependencies['dsh-plugin-update'];
-  if (typeof pinnedUpdatePkg !== 'string' || !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(pinnedUpdatePkg)) {
-    fail('devDependencies["dsh-plugin-update"] 必须是精确版本（构建期输入，#98 起由构建自动跟最新），实为 '
-      + JSON.stringify(pkg.devDependencies['dsh-plugin-update']));
-  }
+  /* ── 0) 退役干净 ── */
+  if (pkg.dependencies['dsh-plugin-update'] !== undefined)
+    fail('dsh-plugin-update 不许留在 dependencies（#58 起它是构建期输入），实为 ' + JSON.stringify(pkg.dependencies['dsh-plugin-update']));
+  const pinned = pkg.devDependencies['dsh-plugin-update'];
+  if (typeof pinned !== 'string' || !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(pinned))
+    fail('devDependencies["dsh-plugin-update"] 必须是精确版本，实为 ' + JSON.stringify(pinned));
   if (!pkg.devDependencies.esbuild) fail('devDependencies 缺 esbuild');
   if (!pkg.scripts['test:issue-39']) fail('package.json 缺 test:issue-39 入口');
   if (!pkg.scripts['build:update-host']) fail('package.json 缺 build:update-host 入口');
-  if (!pkg.scripts['derive:update-values']) fail('package.json 缺 derive:update-values 入口');
-  ok('依赖声明（dsh-plugin-update@' + pinnedUpdatePkg + ' 精确钉版 + esbuild + test:issue-39 + build:update-host + derive:update-values）');
-  // 400 行告警线（地图 #38 grilling 拍板）：生产代码按「文件行数」算。本脚本自己的数字不被人工数骗到
-  // （PowerShell 的 Get-Content 在 UTF-8 文件上会少报），所以这里真数一遍，超线的当场点名。
-  // 覆盖面 = **本票改动过的全部代码文件**，包括本测试脚本、探针、构建脚本，以及因事件清单条数变化
-  // 被连带改过的 scripts/test-log.cjs —— 上一版漏了 test-log.cjs 却自称「本票全部文件」，被复审 A/B 点名。
-  // 非代码文件（package.json / event-list.dsh-prompt.json / scripts/build.sh）不进这张表。
-  // 已裁决不拆的三处（地图 #38 的裁定「碰到超线文件当场报警、本轮不拆」）：
-  //   - lib/index.js：本票之前就已超线，本轮必须往里加接线；
-  //   - scripts/test-issue-39.cjs：本票新增；沿用仓内既有先例 scripts/test-log.cjs（基线 452 行、
-  //     本票连带改后 455 行），「拆测试」另开票，不在本票顺手拆（顺手拆会违反上面那条裁定的精神）；
-  //   - scripts/test-log.cjs：同一先例，本票因清单条数/kind 字面量变化连带改（+3 行），已裁决不拆。
-  // #58 追加的第四处（同一裁定、当场点名）：
-  //   - lib/update.js（#58 起远超 400 行，实测值见下面 ok 行打印的 lib/update.js=N）：**构建产物**
-  //     （esbuild 单文件输出），行数由「内联进来的第三方更新包」决定，不是人手写的代码 ——
-  //     内联前它是 337 行（0281216^ 的 externals 产物，实测），内联后必然越线。
-  //     人手写的宿主半源码仍受 400 行纪律约束（src/update/host/*.ts 全在线内），所以这里把产物
-  //     显式点名裁决，不让它挂在「未裁决超线」里当噪音。行数不写死在注释里：它随内联输入变。
-  // 其余文件若超线则点名报「未裁决」，不阻断其余断言。
-  const ALERT_LINES = 400;
-  const lineCount = (rel) => readSrc(rel).split('\n').length - (readSrc(rel).endsWith('\n') ? 1 : 0);
-  const watchFiles = [
-    'lib/index.js',
-    'lib/update.js',
-    'src/update/bridge.ts',
-    'src/update/host/index.ts',
-    // 收口轮把原来那个 500 多行的 host/index.ts 拆成四个内聚文件（值域安全网 / 节流账本 / 指纹 / 装配），
-    // 拆分件一并纳入告警线，免得「拆出来的文件」变成纪律的盲区。
-    'src/update/host/bridge-log.ts',
-    'src/update/host/safe-values.ts',
-    'src/update/host/hash.ts',
-    'src/update/dsh-plugin-update.d.ts',
-    'scripts/update/build-host.mjs',
-    'scripts/update/probe-ctx-services.mjs',
-    'scripts/build.mjs',
-    'scripts/test-issue-39.cjs',
-    'scripts/test-log.cjs',
-  ];
-  const adjudicated = ['lib/index.js', 'lib/update.js', 'scripts/test-issue-39.cjs', 'scripts/test-log.cjs'];
-  const over = watchFiles.filter((f) => lineCount(f) > ALERT_LINES);
-  const undecided = over.filter((f) => !adjudicated.includes(f));
-  const counts = watchFiles.map((f) => f + '=' + lineCount(f)).join(' ');
-  if (over.length === watchFiles.length) fail('行数统计可疑：本票所有文件全超线，先确认 readSrc 没读错（' + counts + '）');
-  ok('行数告警线（' + ALERT_LINES + '，覆盖本票全部代码文件）：' + counts +
-    (over.length ? '  ⚠️ 超线：' + over.join(' ') + '（已裁决不拆：' + over.filter((f) => adjudicated.includes(f)).join(' ') + '）' : '  全部在线的以内') +
-    (undecided.length ? '  ⚠️ 未裁决超线：' + undecided.join(' ') : ''));
+  if (pkg.scripts['derive:update-values'] !== undefined)
+    fail('derive:update-values 必须已退役（#128 起 package.json 不许再有该脚本）');
+  ok('依赖声明（dsh-plugin-update@' + pinned + ' 精确钉版 + derive 已退役）');
+  for (const gone of ['src/update/bridge.ts', 'src/update/gen/updateClient.derived.js', 'src/update/dsh-plugin-update.d.ts', 'src/client/update.ts', 'src/client/updauto.ts', 'src/client/upddialog.ts']) {
+    if (fs.existsSync(path.join(ROOT, gone))) fail('自研文件必须已删：' + gone + ' 还在');
+  }
+  ok('自研 UI 退役干净（bridge/gen/垫片/update/updauto/upddialog 全缺席）');
+  for (const stay of ['src/update/host/index.ts', 'src/update/host/paths.ts', 'src/update/host/bridge-log.ts', 'src/update/host/safe-values.ts', 'src/update/host/hash.ts', 'src/client/update-http.ts', 'scripts/update/build-host.mjs', 'scripts/build.mjs']) {
+    if (!fs.existsSync(path.join(ROOT, stay))) fail('新接线文件缺席：' + stay);
+  }
+  ok('新接线文件全在（host×4 + update-http + 构建脚本）');
 
-  /* ── 1) 构建产物存在，且更新包**必须已内联**（#58）──
-   * 上一版这里是反的：断言「lib/update.js 按包名动态 import dsh-plugin-update（externals）」。
-   * 那条断言保护的是一个**会降级的接法**：留 externals 时更新包的代码住在**插件包外**的
-   * `node_modules/dsh-plugin-update/dist/`，而它的 `dist/reader.js:102` / `dist/host.js:83` 用
-   * `containingPackage(fileURLToPath(import.meta.url), 'dsh-prompt')` 反推「正在运行的包」——
-   * 真机 profile 是 DSH 自己写死的 hoisted 布局（app.asar：`nodeLinker: hoisted`），那条上溯到盘根
-   * 都没有一个叫 dsh-prompt 的 package.json ⇒ `loaded = null` ⇒ `host.js:85` 抛 unknown-profile
-   * ⇒ 三条更新路由全降级（本脚本 13) 段有同布局的正/反例对照；负例是 HEAD 7ed096e 的产物实测跑出来的）。
-   */
+  /* ── 1) 产物内联 + 版本标记 ── */
   const built = readSrc('lib/update.js');
   if (!built.includes('createUpdateCapability')) fail('lib/update.js 里没有 createUpdateCapability（先跑 npm run build:update-host）');
-  if (/from\s*["']dsh-plugin-update["']/.test(built) || /import\(\s*["']dsh-plugin-update["']\s*\)/.test(built)) {
-    fail('lib/update.js 里出现了对 dsh-plugin-update 的裸导入（#58 起必须是内联：留 externals 会让真机 '
-      + 'hoisted 布局下三条更新路由只会回 unknown-profile，见本文件 13) 段）');
+  if (/from\s*["']dsh-plugin-update["']/.test(built) || /import\(\s*["']dsh-plugin-update["']\s*\)/.test(built))
+    fail('lib/update.js 里出现了对 dsh-plugin-update 的裸导入（#58 起必须是内联）');
+  if (!built.includes('AUTO-GENERATED')) fail('lib/update.js 缺构建产物告示行');
+  for (const marker of ['containingPackage', 'createUpdateReader', 'unknown-profile']) {
+    if (!built.includes(marker)) fail('lib/update.js 里没有内联标记 ' + JSON.stringify(marker));
   }
-  if (!built.includes('AUTO-GENERATED')) fail('lib/update.js 缺构建产物告示行（人手改过？）');
-  // 「住进来」而不是「引用」：更新包自己的函数名与它产出的机器码都得在产物里。
-  for (const marker of ['containingPackage', 'pathsForUpdate', 'createUpdateReader', 'unknown-profile']) {
-    if (!built.includes(marker)) fail('lib/update.js 里没有内联进来的更新包标记 ' + JSON.stringify(marker) + '（内联没生效？）');
-  }
-  // #58 门禁之二（复审 J 的 Top2）：产物必须自带**内联包版本标记**，并与 package.json **耦合**对账 ——
-  // 上一版产物里搜不到任何版本号（`0.1.x` / `dsh-plugin-update@x.y.z` 全 NONE），从**入库字节**看不出
-  // 它内联的是哪一版；「升了包版本却忘了重建」当时只有下面那条 devDependencies 字面量断言能挡
-  // （而它自己也正是「改版本号要连测试一起改」的那个字面量）。标记由构建脚本从 devDependencies
-  // 注入 banner（见 scripts/update/build-host.mjs 的 INLINED_UPDATE_PKG_VERSION），这里把两头钉在一起。
-  const inlinedVersion = pkg.devDependencies['dsh-plugin-update'];
   const versionMark = built.match(/INLINED_UPDATE_PKG_VERSION\s*=\s*['"]([^'"]+)['"]/);
-  if (!versionMark) {
-    fail('lib/update.js 里没有内联包版本标记 INLINED_UPDATE_PKG_VERSION（构建脚本 banner 必须注入它 —— '
-      + '先跑 node scripts/update/build-host.mjs 重建产物）');
-  }
-  if (versionMark[1] !== inlinedVersion) {
-    fail('lib/update.js 里的内联包版本标记是 ' + versionMark[1] + '，package.json 的 devDependencies["dsh-plugin-update"] 是 '
-      + JSON.stringify(inlinedVersion) + ' —— 升了包版本但产物没重建（跑 node scripts/update/build-host.mjs 重出 lib/update.js）');
-  }
-  if (!readSrc('scripts/update/build-host.mjs').includes('INLINED_UPDATE_PKG_VERSION')) {
-    fail('scripts/update/build-host.mjs 不再注入 INLINED_UPDATE_PKG_VERSION（产物里那一行会变成人手维护的，删掉重建就丢）');
-  }
-  ok('lib/update.js 自带内联包版本标记 ' + versionMark[1] + '，与 devDependencies["dsh-plugin-update"] 逐字一致'
-    + '（升包不重建 ⇒ 这条立刻变红；构建脚本是唯一注入点）');
-  // 构建脚本不许把 external 又加回来 —— 加了以后上面这几条会在下次重建时同时失效（#58 的回归就是防这个）。
-  if (/external\s*:\s*\[[^\]]*dsh-plugin-update/.test(readSrc('scripts/update/build-host.mjs'))) {
-    fail('scripts/update/build-host.mjs 又把 dsh-plugin-update 写进 external 了（#58 起它是内联输入）');
-  }
-  ok('lib/update.js 为构建产物，且更新包已**内联**（无裸导入；containingPackage 住在本插件包内 ⇒ 命中本包的 package.json）');
+  if (!versionMark) fail('lib/update.js 缺 INLINED_UPDATE_PKG_VERSION 标记');
+  if (versionMark[1] !== pinned)
+    fail('lib/update.js 内联版本 ' + versionMark[1] + ' 与 devDeps ' + JSON.stringify(pinned) + ' 不一致（升包未重建？）');
+  if (!readSrc('scripts/update/build-host.mjs').includes('INLINED_UPDATE_PKG_VERSION'))
+    fail('scripts/update/build-host.mjs 不再注入版本标记');
+  if (/external\s*:\s*\[[^\]]*dsh-plugin-update/.test(readSrc('scripts/update/build-host.mjs')))
+    fail('scripts/update/build-host.mjs 又把 dsh-plugin-update 写进 external 了');
+  ok('lib/update.js 已内联 dsh-plugin-update@' + versionMark[1] + '（无裸导入，版本耦合）');
 
-  /* ── 2) 路径常量四处不漂移：产物 / 宿主源码 / 客户端源码 / lib/index.js ── */
-  const bridgeSrc = readSrc('src/update/bridge.ts');
-  const hostSrc = readSrc('src/update/host/index.ts');
+  /* ── 2) 三条路径三处同值（经 http helper 落点） ── */
+  const hostPathsSrc = readSrc('src/update/host/paths.ts');
   const indexSrc = readSrc('lib/index.js');
-  for (const [key, route] of Object.entries(ROUTES)) {
-    const inBuilt = quotedAfter(built, PATH_CONST[key], 'lib/update.js');
-    if (inBuilt !== route) fail('lib/update.js 里 ' + key + ' 路径为 ' + inBuilt + '，期望 ' + route);
-    if (!built.includes(JSON.stringify(route))) fail('lib/update.js 里没有出现字面量 ' + route);
-    if (!bridgeSrc.includes("'" + route + "'")) fail('src/update/bridge.ts 里没有 ' + route);
+  const updateHttpSrc = readSrc('src/client/update-http.ts');
+  for (const route of Object.values(ROUTES)) {
+    if (!hostPathsSrc.includes("'" + route + "'")) fail('src/update/host/paths.ts 里没有 ' + route);
     if (!indexSrc.includes('"' + route + '"')) fail('lib/index.js 的 UPDATE_ROUTES 里没有 ' + route);
   }
-  if (!hostSrc.includes("from '../bridge.js'")) fail('src/update/host/index.ts 应从 ../bridge.js 取路径，不该自己写');
-  if (/['"]\/_dsh\/dsh-prompt\/update/.test(hostSrc)) fail('src/update/host/index.ts 里出现了路径字面量（应引用 bridge）');
-  ok('三条路径在 产物 / 宿主源码 / 客户端源码 / lib/index.js 四处同值');
+  if (/['"]\/_dsh\/dsh-prompt\/update/.test(readSrc('src/update/host/index.ts')))
+    fail('src/update/host/index.ts 里出现了路径字面量（应引用 ./paths.js）');
+  if (!readSrc('src/update/host/index.ts').includes('./paths.js'))
+    fail('src/update/host/index.ts 应从 ./paths.js 取路径');
+  ok('三条路径在 host/paths.ts × lib/index.js 同值，宿主半无字面量');
+  // update-http.ts 的三要素 + routes 表经上游 resolveHttpPath 落到同一三条
+  if (!updateHttpSrc.includes("UPDATE_PLUGIN_ID = 'dsh-prompt'")) fail('update-http.ts PLUGIN_ID 应为 dsh-prompt');
+  if (!updateHttpSrc.includes("UPDATE_PREFIX = 'prompt'")) fail('update-http.ts PREFIX 应为 prompt');
+  if (!updateHttpSrc.includes("UPDATE_BASE_URL = '/_dsh/dsh-prompt/update'")) fail('update-http.ts BASE_URL 不对');
+  const { resolveHttpPath, shapeHttpReply } = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'http.js')).href);
+  const httpOpts = { prefix: 'prompt', baseUrl: '/_dsh/dsh-prompt/update', routes: { updateStatus: 'status', updateCheck: 'check', updateInstall: 'install' } };
+  eq(resolveHttpPath(httpOpts, 'prompt.updateStatus'), ROUTES.status, 'http status 落点');
+  eq(resolveHttpPath(httpOpts, 'prompt.updateCheck'), ROUTES.check, 'http check 落点');
+  eq(resolveHttpPath(httpOpts, 'prompt.updateInstall'), ROUTES.install, 'http install 落点');
+  ok('update-http 三要素经 resolveHttpPath 与宿主三条路由逐字一致');
 
-  /* ── 3) (d) 客户端 shim：电话名 → 三条端点 ── */
-  // 派生文件直接 import 一次：它真的能加载，且导出的电话名与更新包按同一前缀拼出来的一致。
-  const derivedMod = await import(pathToFileURL(path.join(ROOT, 'src/update/gen/updateClient.derived.js')).href);
-  const derivedSrc = readSrc('src/update/gen/updateClient.derived.js');
-  if (!derivedSrc.includes('derive-client-values.mjs')) fail('派生文件缺生成命令告示行（人手改过？）');
+  /* ── 3) 电话名与配置三要素 ── */
   const { buildPhoneNames } = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'config.js')).href);
-  eq(
-    { updateStatus: derivedMod.UPD_STATUS, updateCheck: derivedMod.UPD_CHECK, updateInstall: derivedMod.UPD_INSTALL },
-    PHONE_NAMES,
-    '派生常量 ↔ README 口径的三个电话名',
-  );
-  eq(buildPhoneNames('prompt'), PHONE_NAMES, '派生电话名 ↔ 更新包 buildPhoneNames("prompt")');
-  if (derivedMod.UPD_POLL !== 1000 || derivedMod.UPD_POLL_MIN !== 250) {
-    fail('派生轮询常量应为 1000 / 250，实为 ' + derivedMod.UPD_POLL + ' / ' + derivedMod.UPD_POLL_MIN);
-  }
-  const hostPhonePrefix = quotedAfter(hostSrc, 'PHONE_PREFIX =', 'src/update/host/index.ts');
-  if (hostPhonePrefix !== 'prompt') fail('宿主半 PHONE_PREFIX 应为 prompt，实为 ' + hostPhonePrefix);
-  // bridge 的电话表：键=派生常量，值=以对应端点为参数的 call
-  const flat = squash(bridgeSrc);
-  for (const [key, route] of Object.entries(ROUTES)) {
-    if (!flat.includes('[' + PHONE_CONST[key] + ']: (args = {}) => call(' + PATH_CONST[key] + ', args)')) {
-      fail('bridge 电话表缺一行：' + PHONE_CONST[key] + ' → ' + PATH_CONST[key]);
-    }
-    if (!flat.includes('export const ' + PATH_CONST[key] + " = '" + route + "'")) {
-      fail('bridge 没声明端点常量 ' + PATH_CONST[key] + '（' + route + '）');
-    }
-  }
-  ok('(d) 客户端 shim：三个派生电话名 → 三条端点的 POST 封装（源码级断言）');
+  eq(buildPhoneNames('prompt'), { updateStatus: 'prompt.updateStatus', updateCheck: 'prompt.updateCheck', updateInstall: 'prompt.updateInstall' }, 'buildPhoneNames(prompt) 口径');
+  const hostSrc = readSrc('src/update/host/index.ts');
+  if (quotedAfter(hostSrc, 'PHONE_PREFIX =', 'host') !== 'prompt') fail('宿主 PHONE_PREFIX 应为 prompt');
+  if (quotedAfter(hostSrc, 'TARGET_PACKAGE_NAME =', 'host') !== 'dsh-prompt') fail('宿主 TARGET 应为 dsh-prompt');
+  if (quotedAfter(hostSrc, 'PLUGIN_ID =', 'host') !== 'dsh-prompt') fail('宿主 PLUGIN_ID 应为 dsh-prompt');
+  // 对外导出≤5（本仓结构规则：值为 PHONE_PREFIX/PLUGIN_ID/SNAPSHOT_FIELDS/TARGET_PACKAGE_NAME/createUpdateCapability）
+  const exported = (built.match(/export\s*\{[^}]*\}/g) || []).join(' ');
+  const exportNames = exported.replace(/^[\s\S]*?\{/, '').replace(/\}[\s\S]*$/, '').split(',').map(s => s.trim()).filter(Boolean).map(s => (s.match(/as\s+(\w+)\s*$/) || [null, s])[1]);
+  if (exportNames.length > 5) fail('lib/update.js 对外导出 ' + exportNames.length + ' 个（上限5）：' + exportNames.join(','));
+  ok('电话名 × 配置三要素 × 导出数≤5（' + exportNames.length + '）');
+  eq(SNAPSHOT_FIELDS, ['runningVersion', 'installedVersion', 'latestVersion', 'canInstall', 'blockedReason', 'job'], '快照六字段口径');
 
-  /* ── 3b) 客户端 shim 真跑一次（把 fetch 换成假的，断言它把请求发对了、回包拆对了）──
-   * tsdown 只打 src/client/index.ts 那一张图，本票不做面板入口，所以 shim 目前不在 lib/client.js 里。
-   * 这里把 bridge.ts 原样搬一份（只去一处类型标注，不动逻辑）到临时目录跑，
-   * 用假 fetch 盯住三件事：method/URL/请求体、信封拆解、失败与异常两种回包的形状。
-   */
-  // 只做「去类型」这一件事：删掉 import 类型的那一行、删掉两个 interface 与两个 type 声明
-  // （按大括号配对切，不靠正则猜内容）、再去掉剩下的标注。逻辑一行不动。
-  function stripTypes(src) {
-    let out = src.replace(/^import \{ UPD_[A-Z]+(?:, UPD_[A-Z]+)* \} from '\.\/gen\/updateClient\.derived\.js'\n/m, '')
-    for (const [kw, name] of [['interface', 'BridgeEnvelope'], ['interface', 'UpdateCallResult'], ['type', 'UpdatePhone'], ['type', 'UpdatePhoneTable']]) {
-      const start = out.indexOf(`export ${kw} ${name}`);
-      if (start < 0) fail('去类型：找不到 export ' + kw + ' ' + name + '（bridge.ts 改过了？）');
-      const open = out.indexOf('{', start);
-      if (open < 0 && kw === 'type') { out = out.slice(0, start) + out.slice(out.indexOf('\n', start) + 1); continue }
-      let depth = 0; let end = -1;
-      for (let i = open; i < out.length; i++) {
-        if (out[i] === '{') depth++;
-        else if (out[i] === '}') { depth--; if (depth === 0) { end = i; break } }
-      }
-      if (end < 0) fail('去类型：' + name + ' 的大括号没配对');
-      out = out.slice(0, start) + out.slice(out.indexOf('\n', end) + 1);
-    }
-    return out
-      .replace(/\(res: Response\): Promise<BridgeEnvelope>/g, '(res)')
-      .replace(/\(env: BridgeEnvelope\): UpdateCallResult/g, '(env)')
-      .replace(/\(raw: unknown\): BridgeEnvelope/g, '(raw)')
-      .replace(/\): UpdatePhoneTable \{/g, ') {')
-      .replace(/async \(route: string, args: Record<string, unknown>\): Promise<UpdateCallResult> => \{/g, 'async (route, args) => {')
-      .replace(/\(route: string\): string/g, '(route)')
-      .replace(/\(args: Record<string, unknown>\)/g, '(args)')
-      .replace(/const args: Record<string, unknown>/g, 'const args')
-      .replace(/const withLocation: unknown = globalThis/g, 'const withLocation = globalThis')
-      .replace(/\(withLocation as \{ location\?: \{ origin\?: string \} \}\)\.location/, 'withLocation.location')
-      .replace(/const value = env\.value !== null && typeof env\.value === 'object'\n(\s*)\? \(env\.value as \{[^}]*\}\)\n\s*: \{\}/, 'const value = env.value !== null && typeof env.value === "object" ? env.value : {}')
-      .replace(/const snapshot = value\.snapshot !== null && typeof value\.snapshot === 'object'\n(\s*)\? \(value\.snapshot as Record<string, unknown>\)\n\s*: null/, 'const snapshot = value.snapshot !== null && typeof value.snapshot === "object" ? value.snapshot : null')
-      .replace(/typeof \(raw as \{ ok\?: unknown \}\)\.ok === 'boolean'/, 'typeof raw.ok === "boolean"')
-      .replace(/return raw as BridgeEnvelope/, 'return raw')
-  }
-  const bridgeJs = stripTypes(bridgeSrc)
-  const leftOverTypes = bridgeJs.match(/:\s*(Response|BridgeEnvelope|UpdateCallResult|UpdatePhoneTable)\b/g)
-  if (leftOverTypes) fail('bridge.ts 的临时搬运没把类型标注去干净（剩 ' + leftOverTypes.join(',') + '），3b 段会跑不起来');
-  const bridgeModuleSrc = derivedSrc + '\n' + bridgeJs;
-  fs.writeFileSync(path.join(DIR, 'bridge-under-test.mjs'), bridgeModuleSrc);
-
-  const calls = [];
-  let respond = async () => ({ status: 200, body: { ok: true, value: { snapshot: { job: null }, manual: 'cmd', receipt: { checkId: 'c1' } } } });
-  // 借全局 fetch 一用，用完**原样还回**（不是 delete）：真包建读取器时要拿得到全局 fetch
-  // （dist/reader.js:91-94 —— 没有 fetchImpl 也没有全局 fetch 就直接抛），12) 段的真包集成依赖它。
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    calls.push({ url: String(url), method: init.method, body: JSON.parse(String(init.body)), headers: init.headers });
-    const r = await respond();
-    return { status: r.status, ok: r.status >= 200 && r.status < 300, json: async () => r.body };
-  };
-  const bridgeMod = await import(pathToFileURL(path.join(DIR, 'bridge-under-test.mjs')).href);
-  const table = bridgeMod.createUpdateBridge();
-  eq(Object.keys(table).sort(), Object.values(PHONE_NAMES).sort(), 'shim 电话表的键 = 三个派生电话名');
-  for (const [key, route] of Object.entries(ROUTES)) {
-    calls.length = 0;
-    const args = key === 'install' ? { checkId: 'c1', requestId: 'r1' } : {};
-    const res = await table[PHONE_NAMES[key === 'status' ? 'updateStatus' : key === 'check' ? 'updateCheck' : 'updateInstall']](args);
-    eq(calls.length, 1, key + ' 应恰好发一次 fetch');
-    eq(calls[0].method, 'POST', key + ' 应走 POST');
-    eq(calls[0].url, route, key + ' 应打到对应端点');
-    eq(calls[0].body, args, key + ' 请求体应为入参原文');
-    eq(calls[0].headers['content-type'], 'application/json', key + ' content-type');
-    eq(res.ok, true, key + ' 回包 ok');
-    eq(res.snapshot, { job: null }, key + ' 拆出 snapshot');
-    eq(res.manual, 'cmd', key + ' 拆出 manual');
-    eq(res.receipt, { checkId: 'c1' }, key + ' 拆出 receipt');
-  }
-  // 回包不是信封 / 桥 403 / fetch 抛错：三种失败都要给出 ok=false + 能读的错误码，不抛
-  respond = async () => ({ status: 200, body: { unexpected: true } });
-  let res = await table[PHONE_NAMES.updateStatus]();
-  eq(res.ok, false, '非信封回包应 ok=false');
-  eq(res.error.code, 'bridge-bad-shape', '非信封回包的错误码');
-  respond = async () => ({ status: 403, body: { ok: false, error: { code: 'forbidden', message: 'untrusted host' } } });
-  res = await table[PHONE_NAMES.updateStatus]();
-  eq(res.ok, false, '桥 403 应 ok=false');
-  eq(res.error.code, 'forbidden', '桥 403 应透出宿主的错误码');
-  respond = async () => { throw new Error('boom') };
-  res = await table[PHONE_NAMES.updateStatus]();
-  eq(res.ok, false, 'fetch 抛错应 ok=false（不往外抛）');
-  eq(res.error.code, 'bridge-unreachable', 'fetch 抛错时的错误码');
-  globalThis.fetch = originalFetch;
-  ok('(d+) shim 真跑：三条电话各打对 POST 端点、拆对信封，三类失败都不抛');
-
-  /* ── 4) 三条场景各自装一份临时宿主 ──
-   * lib/index.js 是「能力建不起来就回 degraded / null」的语义，三条场景要各验一次
-   * （正常 / 产物缺失 / 能力降级）。每份宿主住自己的目录，避免共用同一个 `./update.js`
-   * 解析结果 —— 否则「换掉 update.js 再 import」会被模块缓存吃成同一个实例。
-   */
-  const hostCopy = readSrc('lib/index.js')
-    .split('from "@deepseek-ai/dsh-storage-domain"').join('from "./dsh-storage-domain-stub.mjs"');
-  const LOG_FAKE =
-    'export const __logEvents = [];\n' +
-    'export async function installLogCapability() {\n' +
-    '  return { ok: true, log(event, fields) { __logEvents.push([event, fields]); return true } };\n' +
-    '}\n';
-  // 10d) 段要的是「真闸门在值域这一层的取舍」：日志口在记账前先过真清单真闸门，
-  // 于是「正文有没有可能落到盘上」这件事在这一段就能断言（不用另起真 dsh-log 文件台子）。
-  const LOG_FAKE_GATED =
-    'import { createEventGate } from ' + JSON.stringify(pathToFileURL(path.join(ROOT, 'lib', 'log', 'gate.js')).href) + ';\n' +
-    'import { readFileSync } from "node:fs";\n' +
-    'export const __logEvents = [];\n' +
-    'const gate = createEventGate(JSON.parse(readFileSync(' + JSON.stringify(path.join(ROOT, 'event-list.dsh-prompt.json')) + ', "utf8")), { pluginId: "dsh-prompt" });\n' +
-    'export const __gate = gate;\n' +
-    'export async function installLogCapability() {\n' +
-    '  return { ok: true, log(event, fields) { const r = gate.filter(event, fields); if (r.ok) __logEvents.push([event, r.fields]); return r.ok } };\n' +
-    '}\n';
-
-  /** 装一份宿主到 dir；update.js 内容由调用方给（null = 不放，模拟产物缺失）；logSource 缺省用不加闸门的假日志口。 */
-  function installHost(dir, updateJs, logSource) {
-    fs.mkdirSync(path.join(dir, 'log'), { recursive: true });
-    fs.writeFileSync(path.join(dir, 'dsh-storage-domain-stub.mjs'),
-      'export const defineDomain = (s) => s;\nexport const domainTable = (s) => ({ valueSchema: s });\n');
-    fs.writeFileSync(path.join(dir, 'prompt-host.mjs'), hostCopy);
-    fs.writeFileSync(path.join(dir, 'log', 'index.js'), logSource ?? LOG_FAKE);
-    if (updateJs !== null) fs.writeFileSync(path.join(dir, 'update.js'), updateJs);
-  }
-
-  /* ── 4a) 场景一：正常能力（含「更新包 → 日志口」接线与依赖注入断言） ──
-   * 假更新能力形状抄真包（loggedPhone 的三事件 + 六字段快照），把收到的入参记下来。
-   * 日志口按宿主约定只吃 { logReady }（日志能力的 Promise），这里等它就绪后把事件记到
-   * 真日志能力那本账上，好断言这条线真的通了；logReady 不是 Promise 就直接抛，防止
-   * 宿主把入参接错却测成「能力缺席」。
-   *
-   * 这里冒充的是**真包的调用点**（`dist/host.js:187,196`）：`fire(level, event, fields)` **三参**，
-   * 事件名在第二位。上一版假包写成两参 `fire(event, fields)`，把「参数位置」这个 bug 一起伪装掉了
-   * —— 修了桥也测不出来（审查 B 第 3 节爆点 1）。
-   */
-  const fakeLines = [
-    'export const __seen = [];',
-    'let logCap = null;',
-    'const SNAPSHOT = { runningVersion: "' + pkgVersion + '", installedVersion: "' + pkgVersion + '", latestVersion: null, canInstall: false, blockedReason: "source-install", job: null };',
-    'const phoneNames = ' + JSON.stringify(PHONE_NAMES) + ';',
-    'const routeTable = ' + JSON.stringify(ROUTES) + ';',
-    'const byRoute = { [routeTable.status]: phoneNames.updateStatus, [routeTable.check]: phoneNames.updateCheck, [routeTable.install]: phoneNames.updateInstall };',
-    'export async function createUpdateCapability(options) {',
-    '  if (!options.logReady || typeof options.logReady.then !== "function") {',
-    '    throw new Error("宿主没把日志能力的 Promise（{ logReady }）传给 createUpdateCapability，实收键：" + Object.keys(options).join(","));',
-    '  }',
-    '  logCap = await options.logReady;',
-    '  // 与真包 dist/host.js:187,196 同形：三参，事件名第二、字段第三；level 不参与分派',
-    '  const fire = (level, event, fields) => { if (logCap && typeof logCap.log === "function") logCap.log(event, fields) };',
-    '  const handlers = {',
-    '    [phoneNames.updateStatus]: async (args) => {',
-    '      __seen.push(["status", args]);',
-    '      fire("info", "host.call", { method: phoneNames.updateStatus, latencyMs: 3, ok: true, kind: "update-status", pluginId: "dsh-prompt" });',
-    '      return { ok: true, snapshot: { ...SNAPSHOT }, manual: "dsh plugin --profile web add --save-exact dsh-prompt@' + pkgVersion + '", receipt: null };',
-    '    },',
-    '    [phoneNames.updateCheck]: async (args) => {',
-    '      __seen.push(["check", args]);',
-    '      fire("info", "host.call", { method: phoneNames.updateCheck, latencyMs: 4, ok: true, kind: "update-check", pluginId: "dsh-prompt" });',
-    '      return { ok: true, snapshot: { ...SNAPSHOT }, manual: null, receipt: null };',
-    '    },',
-    '    [phoneNames.updateInstall]: async (args) => {',
-    '      __seen.push(["install", args]);',
-    '      fire("info", "update.install.exec", { route: "cli-process", ok: true, exitCode: 0, durationMs: 1, pluginId: "dsh-prompt" });',
-    '      return { ok: true, snapshot: { ...SNAPSHOT }, manual: null, receipt: { checkId: "c1" } };',
-    '    },',
-    '  };',
-    '  return { ok: true, phoneNames, paths: routeTable, snapshotFields: ' + JSON.stringify(SNAPSHOT_FIELDS) + ',',
-    '    async runRoute(path, args) {',
-    '      const name = byRoute[path];',
-    '      if (!name) return { ok: false, error: { code: "unknown-phone", message: path } };',
-    '      return await handlers[name](args);',
-    '    } };',
-    '}',
-  ];
-  const DIR_OK = path.join(DIR, 'ok');
-  installHost(DIR_OK, fakeLines.join('\n') + '\n');
-
-  /* ── 4b) 场景二：产物缺失 ── */
-  const DIR_MISSING = path.join(DIR, 'missing');
-  installHost(DIR_MISSING, null);
-
-  /* ── 4c) 场景三：产物在、但能力降级（更新包建不起来）── */
-  const DIR_DEGRADED = path.join(DIR, 'degraded');
-  installHost(DIR_DEGRADED,
-    'export async function createUpdateCapability() {\n' +
-    '  return { ok: false, reason: "dep-load-fail: simulated", phoneNames: {}, paths: {},\n' +
-    '    async runRoute() { return { ok: false, error: "update-capability-unavailable", errorKind: "dep-load-fail: simulated" } } };\n' +
-    '}\n');
-
-  /* ── 4d) 场景四：能力在、但**电话真的失败**（复审 D 的 A2 台子）──
-   * 4c 是「能力降级」（`cap.ok === false` ⇒ capabilityAbsent ⇒ 请求级一行都不落）。这一份是
-   * `cap.ok === true` 而电话回 `check-expired` —— 即真机上断网 / 凭证过期那条路：请求级
-   * `update.route.fail` 该落**首条**，之后同一 `(route, reason)` 不再落（H2），且值要过安全网（H1）。
-   * 失败码由测试改：`state.error`（null 表示这条电话这次成功）。
-   */
-  const DIR_PHONEFAIL = path.join(DIR, 'phonefail');
-  installHost(DIR_PHONEFAIL, [
-    'export const state = { error: "check-expired" };',
-    'export async function createUpdateCapability() {',
-    '  return { ok: true, phoneNames: {}, paths: {}, snapshotFields: [],',
-    '    async runRoute() {',
-    '      if (state.error === null) return { ok: true, snapshot: { job: null }, manual: null, receipt: null };',
-    '      return { ok: false, error: state.error, errorKind: state.error };',
-    '    } };',
-    '}',
-  ].join('\n') + '\n', LOG_FAKE_GATED);
-
-  const host = await import(pathToFileURL(path.join(DIR_OK, 'prompt-host.mjs')).href);
-
-  /* ── 5) fake DSH host ── */
-  function makeTable() {
-    const m = new Map();
-    return {
-      get: (k) => m.get(k),
-      put: async (k, v) => { m.set(k, v) },
-      delete: async (k) => { m.delete(k) },
-      keys: function* () { for (const k of m.keys()) yield k },
-    };
-  }
-  let globalVal = { lastUsed: null };
-  const tables = { customs: makeTable(), usage: makeTable(), pinned: makeTable() };
-  const fakeStorageDomain = {
-    open: async () => ({
-      table: (n) => tables[n],
-      global: { get: () => ({ ...globalVal }), set: async (v) => { globalVal = { ...v } } },
-    }),
-  };
-  let registered = null;
-  const fakeCtx = {
-    storageDomain: fakeStorageDomain,
-    webServer: { register: (route) => { registered = route; return () => undefined } },
-    logger: { warn: () => undefined },
-    effect: (fn) => fn(),
-  };
-  host.apply(fakeCtx, {});
-  if (!registered || registered.kind !== 'prefix' || registered.path !== '/_dsh/dsh-prompt') {
-    fail('应注册 prefix 路由 /_dsh/dsh-prompt');
-  }
-  ok('宿主装配成功（lib/index.js 未因新增更新接线而炸）');
-
-  /** 走一次注册表的处理器；dropHost 为 true 时模拟「非 loopback」请求（无 Host 头）。 */
-  async function call(route, method, body, headers, dropHost) {
-    const chunk = body === undefined ? null : Buffer.from(JSON.stringify(body));
-    const base = Object.assign({ host: '127.0.0.1:43120' }, headers || {});
-    if (dropHost) delete base.host;
-    return await drive(registered, route, method, chunk, base);
-  }
-
-  /** 把一次 HTTP 请求交给某份注册表（三条场景各自一份宿主，不能共用 registered）。 */
-  async function drive(registration, route, method, chunk, headers) {
-    const req = {
-      method, url: route, headers,
-      [Symbol.asyncIterator]: async function* () { if (chunk) yield chunk },
-    };
-    let status = 200; let text = '';
-    const res = {
-      set statusCode(v) { status = v }, get statusCode() { return status },
-      writeHead: (s) => { status = s }, end: (d) => { text = d },
-      setHeader: () => undefined,
-    };
-    await registration.handler(req, res);
-    return { status, json: text ? JSON.parse(text) : null };
-  }
-
-  /* ── 6) (a) 三条路由可命中 ── */
-  const seen = (await import(pathToFileURL(path.join(DIR_OK, 'update.js')).href)).__seen;
-  seen.length = 0;
-  for (const [key, route] of Object.entries(ROUTES)) {
-    const out = await call(route, 'POST', { probe: key });
-    eq(out.status, 200, key + ' 路由状态码');
-    eq(out.json.ok, true, key + ' 路由回包 ok（实际回包 ' + JSON.stringify(out.json) + '）');
-    eq(out.json.value.snapshot !== null, true, key + ' 路由带回快照');
-    eq(seen[seen.length - 1], [key, { probe: key }], key + ' 路由落到对应电话且入参原样转交');
-  }
-  let out = await call(ROUTES.status, 'GET');
-  eq(out.status, 404, 'GET 更新路由应落回既有 404');
-  out = await call('/_dsh/dsh-prompt/update/nope', 'POST', {});
-  eq(out.status, 404, '未知更新子路径应 404');
-  out = await call('/_dsh/dsh-prompt/store', 'GET');
-  eq(out.status, 200, '既有 store 路由未被更新接线破坏');
-  eq(out.json.value.customs, [], '既有 store 快照仍为空');
-  ok('(a) 三条更新路由可命中；既有路由与 404 语义未变');
-
-  /* ── 7) (b) 六字段快照 + 与真实更新包对账 ── */
-  // 真包验两件事：六字段口径（README 第 8 节）与失败回包形状（`loggedPhone` 的 error 是字符串）。
-  // 后者决定 lib/index.js 那个信封是谁包的一层 —— 包这一层不能靠读代码猜，得断言。
-  const realHostSrc = readSrc('node_modules/dsh-plugin-update/dist/host.js');
-  const loggedPhoneBody = realHostSrc.slice(realHostSrc.indexOf('function loggedPhone'), realHostSrc.indexOf('function createHostUpdate'));
-  // 失败回包：`return { ok: false, ...payload }`，payload 由 toUpdateErrorPayload 产出。
-  if (!/return\s*\{\s*ok:\s*false\s*,\s*\.\.\.payload\s*\}/.test(loggedPhoneBody)) {
-    fail('真实更新包 loggedPhone 失败回包不再是 { ok:false, ...payload }（形状变了，lib/index.js 的信封要跟着改）');
-  }
-  const toErrorBody = realHostSrc.slice(realHostSrc.indexOf('function toUpdateErrorPayload'), realHostSrc.indexOf('function manualOfEnv'));
-  if (!/return\s*\{\s*error:\s*code\s*,\s*errorKind:\s*code\s*\}/.test(toErrorBody) || !/error:\s*"check-failed",\s*errorKind:\s*"internal"/.test(toErrorBody)) {
-    fail('真实更新包错误载荷不再是 { error: <字符串>, errorKind: <字符串> }（lib/index.js 的信封要跟着改）');
-  }
-  const declaredResult = readSrc('src/update/dsh-plugin-update.d.ts');
-  if (!/error\?:\s*string/.test(declaredResult)) fail('本仓对 UpdatePhoneResult.error 的声明应为 string');
-  // 12b) 段是照 `dist/host.js:110` 那行接线接的（executor 的 `log` = `emitInstallLog` → `phoneLogCtx.fire`）。
-  // 那行一改，真包安装事件就绕开本仓日志口，而 12b) 段自己把 log 传进去，会照样绿 —— 所以在这里钉住它
-  // （复审 V3 的同类盲区：真包的接线只在读代码，没有被断言）。
-  const execWiring = realHostSrc.slice(realHostSrc.indexOf('const defaultRun'), realHostSrc.indexOf('sharedReader = createUpdateReader'));
-  if (!/log:\s*emitInstallLog/.test(execWiring) || !/phoneLogCtx\.fire\(level, event, fields\)/.test(realHostSrc)) {
-    fail('真实更新包不再把 executor 的 log 接到 phoneLogCtx.fire（12b 段的接线前提变了：安装事件会绕开本仓日志口）');
-  }
-  ok('包契约对账：loggedPhone 失败回包 { ok:false, error(字符串), errorKind } 与本仓声明一致');
-  const realHost = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'host.js')).href);
-  if (typeof realHost.createHostUpdate !== 'function') fail('dsh-plugin-update 的 createHostUpdate 应为函数');
-  const serviceSrc = readSrc('node_modules/dsh-plugin-update/dist/service.js');
-  const buildSnapshotBody = serviceSrc.slice(serviceSrc.indexOf('function buildSnapshot'), serviceSrc.indexOf('async function status'));
-  const returnBlock = buildSnapshotBody.slice(buildSnapshotBody.indexOf('return {'));
-  for (const field of SNAPSHOT_FIELDS) {
-    if (!new RegExp('\\b' + field + '\\b').test(returnBlock)) {
-      fail('真实更新包 buildSnapshot 的返回块里没有字段 ' + field + '（README 第 8 节的六字段口径变了？）');
-    }
-  }
-  out = await call(ROUTES.status, 'POST', {});
-  eq(Object.keys(out.json.value.snapshot).sort(), SNAPSHOT_FIELDS.slice().sort(), '快照字段集合');
-  eq(typeof out.json.value.manual, 'string', '状态快照顺带的手工兜底命令');
-  const declared = built.match(/SNAPSHOT_FIELDS\s*=\s*\[\s*([\s\S]*?)\]/);
-  if (!declared) fail('lib/update.js 里找不到 SNAPSHOT_FIELDS 声明');
-  eq([...declared[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]), SNAPSHOT_FIELDS, '宿主半声明的快照字段表');
-  ok('(b) 状态快照六字段齐（并与真实更新包 buildSnapshot 的返回块对账）');
-
-  /* ── 8) 更新包 → 日志口接线 ── */
-  const logCap = await import(pathToFileURL(path.join(DIR_OK, 'log', 'index.js')).href);
-  const events = logCap.__logEvents.map((e) => e[0]);
-  if (!events.includes('host.call')) fail('更新包的电话调用没经日志口转交（缺 host.call）');
-  if (!events.includes('update.install.exec')) fail('装更新事件没经日志口转交（缺 update.install.exec）');
-  // 事件名在第二位这件事要单独钉：上一版两参 fire 会把 "info" 当事件名交上来。
-  if (events.includes('info') || events.includes('warn')) {
-    fail('日志口收到的「事件名」里出现了级别字符串（' + JSON.stringify(events) + '）—— 说明 fire 的参数位置又错位了');
-  }
-  const callLine = logCap.__logEvents.filter((e) => e[0] === 'host.call').pop();
-  eq(callLine && callLine[1], { method: 'prompt.updateStatus', latencyMs: 3, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' },
-    'host.call 的字段一个不丢、不串位（上一版这里整条字段对象都被丢掉）');
-  ok('更新包的 host.call / update.install.exec 经 logReady 转交日志能力（三参 fire：事件名在第二位、字段原样）');
-
-  /* ── 8b) 日志能力的闸门对更新包三条事件的真实取舍（真清单真闸门真跑一次）
-   * 更新包报三条事件：host.call / host.call.fail / update.install.exec（各带 pluginId）。
-   * 本仓的事件清单是字段白名单的唯一权威 —— 上一版这里把「清单没声明、事件整条被丢掉」断言成了
-   * PASS，等于用测试把缺口焊死（审查 A 缺陷 2 / 审查 B 爆点 2）。现在断言的是**期望的落盘行为**：
-   * 三条都落盘，且 pluginId / route / exitCode 都查得到（包 README 第 12 节第 10 条的排障路径成立）。
-   */
-  const { createEventGate, hash8 } = await import(pathToFileURL(path.join(ROOT, 'lib', 'log', 'gate.js')).href);
-  const manifest = JSON.parse(readSrc('event-list.dsh-prompt.json'));
-  const gate = createEventGate(manifest, { pluginId: 'dsh-prompt' });
-  const gateVerdict = {
-    'host.call': gate.filter('host.call', { method: 'prompt.updateStatus', latencyMs: 7, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' }),
-    'host.call.fail': gate.filter('host.call.fail', { method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt' }),
-    'update.install.exec': gate.filter('update.install.exec', { route: 'cli-process', ok: true, exitCode: 0, durationMs: 12, pluginId: 'dsh-prompt' }),
-    // update.route.fail 这一段是复审 M4 的漏网：上一版只对**假**日志能力断言它，把清单里的这条声明
-    // 撤掉，本脚本照样 PASS（只有 test:log 的条数断言会红 —— 那是别的票的兜底，不是本票的依据）。
-    'update.route.fail': gate.filter('update.route.fail', { route: ROUTES.check, reason: 'check-expired', errorHash: 'deadbeef' }),
-  };
-  eq(gateVerdict['host.call'].ok, true, 'host.call 已声明 → 可落盘（更新成功轨迹查得到）');
-  eq(gateVerdict['host.call'].fields,
-    { method: 'prompt.updateStatus', latencyMs: 7, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' },
-    'host.call 落盘字段一个不丢');
-  eq(gateVerdict['update.install.exec'].ok, true, 'update.install.exec 已声明 → 可落盘（安装轨迹查得到）');
-  eq(gateVerdict['update.install.exec'].fields,
-    { route: 'cli-process', ok: true, exitCode: 0, durationMs: 12, pluginId: 'dsh-prompt' },
-    'update.install.exec 的 route / ok / exitCode / durationMs 都留下');
-  eq(gateVerdict['host.call.fail'].ok, true, 'host.call.fail 可落盘');
-  eq(gateVerdict['host.call.fail'].fields,
-    { method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt' },
-    'host.call.fail 落盘字段：pluginId 不再被白名单裁掉');
-  eq(gateVerdict['update.route.fail'].ok, true, 'update.route.fail 已声明 → 可落盘（路由失败查得到）');
-  eq(gateVerdict['update.route.fail'].fields,
-    { route: ROUTES.check, reason: 'check-expired', errorHash: 'deadbeef' },
-    'update.route.fail 的三个字段一个不丢');
-  // route:"none" 这一格（复审 D 的 A3）：真 executor 在「没有安装配方」时不发 version，包 dist/store.js:333
-  // 的 catch 用 `error?.exitCode ?? exitCode` 拿到 undefined ⇒ 键被丢，落盘行是
-  // {"route":"none","ok":false,"durationMs":0,"pluginId":…}。这不是一条真路由、也没有 exitCode，
-  // 排障者按 route/exitCode 查「装更新走的哪条路、退了几」时不能把它读成一次真实执行 ——
-  // 所以这里钉两件事：① 这一格照样落盘（诊断面不丢）；② 闸门**不补** exitCode 键；③ 清单 guard 写明了它。
-  const noneVerdict = gate.filter('update.install.exec', { route: 'none', ok: false, durationMs: 0, pluginId: 'dsh-prompt' });
-  eq(noneVerdict.ok, true, 'route:"none" 那次 update.install.exec 照样落盘（「配方没建起来」这件事查得到）');
-  eq(noneVerdict.fields, { route: 'none', ok: false, durationMs: 0, pluginId: 'dsh-prompt' },
-    'route:"none" 路径落盘字段：没有 exitCode 键（闸门只跳过 undefined，不补 0）');
-  if ('exitCode' in noneVerdict.fields) fail('route:"none" 路径凭空多出 exitCode 键（闸门不该补 0，排障者会读成退了几次）');
-  if (!manifest.events['update.install.exec'].guard.includes('route:"none"')) {
-    fail('update.install.exec 的清单 guard 必须写明 route:"none" = 没有安装配方、该路径无 exitCode 键（否则排障者把它读成一条真路由）');
-  }
-  for (const name of ['host.call', 'host.call.fail', 'update.install.exec', 'update.route.fail']) {
-    if (!gate.isDeclared(name)) fail(name + ' 没在事件清单里声明');
-  }
-  eq(gate.levelOf('host.call'), 'info', 'host.call 的级别由清单决定（不是由更新包传的 level 决定）');
-  // 级别不是装饰：日志开关默认关，`dsh-log` 的 isEnabled 对 warn/error 恒真 —— install.exec 若是 info，
-  // 「装更新退了几 / 走的哪条路由」在默认配置下就查不到（复审 V2 实测开关 off 时落盘 0 行）。
-  eq(gate.levelOf('update.install.exec'), 'warn', 'update.install.exec 必须是 warn（默认开关下也要留痕）');
-  ok('(e) 更新包四条事件在真清单真闸门下都落盘：pluginId / route / exitCode / reason 都查得到（含 route:"none" 那格无 exitCode）');
-
-  /* ── 9) (c) 同源防护没被削弱 ── */
-  const denyCases = [
-    ['非 loopback（无 Host 头）', {}, true],
-    ['跨站 sec-fetch-site', { 'sec-fetch-site': 'cross-site' }, false],
-    ['跨 origin', { origin: 'http://evil.example.com' }, false],
-    ['跨端口 origin', { origin: 'http://127.0.0.1:9999' }, false],
-  ];
-  for (const [label, headers, dropHost] of denyCases) {
-    for (const [key, route] of Object.entries(ROUTES)) {
-      const denied = await call(route, 'POST', {}, headers, dropHost);
-      if (denied.status !== 403) fail(label + ' 打 ' + key + ' 路由应 403，实为 ' + denied.status);
-    }
-    const deniedStore = await call('/_dsh/dsh-prompt/store', 'GET', undefined, headers, dropHost);
-    if (deniedStore.status !== 403) fail(label + ' 打既有 store 路由应 403，实为 ' + deniedStore.status);
-  }
-  out = await call(ROUTES.status, 'POST', {}, { origin: 'http://127.0.0.1:43120' });
-  eq(out.status, 200, '同源 origin 应放行（防护没有变成一律拒绝）');
-  out = await call(ROUTES.status, 'POST', {});
-  eq(out.status, 200, '无 origin 的同源请求应放行');
-  ok('(c) 同源防护未削弱：非 loopback / 跨站 / 跨 origin 一律 403，同源仍放行');
-
-  /* ── 10) 更新能力建不起来时诚实失败 ──
-   * lib/index.js 对更新能力是「建不起来只降级、不抛」的语义，这里用两条独立路径把它钉死：
-   * 产物缺失（capability 为 null）与产物在但能力降级（回 update-capability-unavailable）。
-   * 两条路径各用一份自己的宿主目录（见 4b / 4c），避免共用同一个 `./update.js` 解析结果
-   * 被模块缓存吃成同一个实例 —— 这类「测了假路径却像测真路径」是回归脚本自己最容易骗自己的地方。
-   */
-  let registeredMissing = null;
-  const ctxMissing = Object.assign({}, fakeCtx, { webServer: { register: (route) => { registeredMissing = route; return () => undefined } } });
-  const hostMissing = await import(pathToFileURL(path.join(DIR_MISSING, 'prompt-host.mjs')).href);
-  hostMissing.apply(ctxMissing, {});
-  out = await drive(registeredMissing, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  eq(out.status, 200, '产物缺失时状态码仍 200（失败写在回包里）');
-  eq(out.json.ok, false, '产物缺失时 ok=false（实际回包 ' + JSON.stringify(out.json) + '）');
-  eq(out.json.error.code, 'update-capability-unavailable', '产物缺失时的错误码');
-  out = await drive(registeredMissing, '/_dsh/dsh-prompt/store', 'GET', null, { host: '127.0.0.1:43120' });
-  eq(out.status, 200, '产物缺失时既有路由照常工作');
-
-  let registeredDegraded = null;
-  const ctxDegraded = Object.assign({}, fakeCtx, { webServer: { register: (route) => { registeredDegraded = route; return () => undefined } } });
-  const hostDegraded = await import(pathToFileURL(path.join(DIR_DEGRADED, 'prompt-host.mjs')).href);
-  hostDegraded.apply(ctxDegraded, {});
-  out = await drive(registeredDegraded, ROUTES.check, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  eq(out.status, 200, '能力降级时状态码仍 200');
-  eq(out.json.ok, false, '能力降级时 ok=false（实际回包 ' + JSON.stringify(out.json) + '）');
-  eq(out.json.error.code, 'update-capability-unavailable', '能力降级时的错误码');
-  if (!String(out.json.error.message).includes('simulated')) fail('能力降级时应把真实原因透出来，实为 ' + JSON.stringify(out.json.error));
-  out = await drive(registeredDegraded, '/_dsh/dsh-prompt/store', 'GET', null, { host: '127.0.0.1:43120' });
-  eq(out.status, 200, '能力降级时既有路由照常工作');
-  ok('更新能力缺席 / 降级 → 三条路由明确回 update-capability-unavailable，既有路由不受影响');
-
-  /* ── 10b) 失败不许无声（审查 F9）、但状态型失败只落一次（复审 V1）──
-   * 上一版 `catch { return null }` 把「更新能力没起来」整条吞掉：真机上更新按不动时，
-   * 日志里连一行线索都没有。现在三条路各落一条 update.route.fail（真日志能力那本账上看）：
-   *   - 产物缺失（import 失败）→ dep-load-fail；
-   *   - 能力降级（createUpdateCapability 回 ok:false）→ capability-degraded；
-   *   - 路由失败 → 只有**电话真的失败**才落。
-   * 第三条是本轮改的：能力缺席 / 降级是状态型失败，建能力时已经落过，请求级再落只会随面板轮询刷屏
-   * —— warn 绕过日志开关（dsh-log 的 isEnabled 对 warn 恒真），按 UPD_POLL=1000 外推 15 MiB/天，
-   * 用户关掉日志开关也停不住（复审 V1 实测 1.03 行/请求）。这里连打 30 次把它钉住。
-   * 顺带钉住 updateRoutes 的 logCap 参数不是死参数（审查 F8）。
-   */
-  const missingLog = (await import(pathToFileURL(path.join(DIR_MISSING, 'log', 'index.js')).href)).__logEvents;
-  const missingFails = () => missingLog.filter((e) => e[0] === 'update.route.fail').map((e) => e[1]);
-  const depFail = missingFails().find((f) => f.reason === 'dep-load-fail');
-  if (!depFail) fail('产物缺失（import 失败）没落 update.route.fail，实收 ' + JSON.stringify(missingFails()));
-  if (depFail && !/^[0-9a-f]{8}$/.test(String(depFail.errorHash))) fail('dep-load-fail 的 errorHash 应是 8 位指纹，实为 ' + JSON.stringify(depFail));
-  eq(depFail && depFail.route, '/_dsh/dsh-prompt/update', 'dep-load-fail 的 route 记更新路由这一族');
-  const missingBefore30 = missingLog.length;
-  for (let i = 0; i < 30; i++) {
-    const r = await drive(registeredMissing, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-    if (r.json?.error?.code !== 'update-capability-unavailable') fail('能力缺席时第 ' + (i + 1) + ' 次请求的回包变了：' + JSON.stringify(r.json));
-  }
-  eq(missingLog.length - missingBefore30, 0, '能力缺席时连打 30 次更新路由：日志一行都不许新增（复审 V1 的 15 MiB/天）');
-  eq(missingFails().filter((f) => f.reason === 'update-capability-unavailable').length, 0,
-    '能力缺席不再落**请求级** update.route.fail（状态型失败按状态落一次，不随请求数线性增长）');
-
-  const degradedLog = (await import(pathToFileURL(path.join(DIR_DEGRADED, 'log', 'index.js')).href)).__logEvents;
-  const degradedBefore30 = degradedLog.length;
-  for (let i = 0; i < 30; i++) {
-    const r = await drive(registeredDegraded, ROUTES.check, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-    if (r.json?.error?.code !== 'update-capability-unavailable') fail('能力降级时第 ' + (i + 1) + ' 次请求的回包变了：' + JSON.stringify(r.json));
-  }
-  eq(degradedLog.length - degradedBefore30, 0, '能力降级时连打 30 次更新路由：日志一行都不许新增（同上）');
-  const degradedFails = degradedLog.filter((e) => e[0] === 'update.route.fail').map((e) => e[1]);
-  const degraded = degradedFails.find((f) => f.reason === 'capability-degraded');
-  if (!degraded) fail('能力降级（createUpdateCapability 回 ok:false）没落 update.route.fail，实收 ' + JSON.stringify(degradedFails));
-  eq(degraded && degraded.errorHash, 'a75951d6', 'capability-degraded 的 errorHash = hash("dep-load-fail: simulated")');
-  ok('(f) 能力缺席 / 降级的三条失败路径都落 update.route.fail，且**不随请求数增长**（reason 只记机器码，原文只留 8 位指纹）');
-
-  /* ── 10d) 电话**持续失败**：状态首次落一条、之后不落；恢复后清账；值域安全网挡住正文（H1 / H2）──
-   * 复审 D 实测：能力在、电话真失败时，三条路由共 62 次请求 → 124 行 / 20402 B（2 行/请求），
-   * 按 UPD_POLL=1000ms 是几十 MiB/天、且 warn 绕过日志开关 —— 与「能力缺席」同一量级的刷屏面，
-   * 二轮只修了那一支。这里把另一半钉住：连打 62 次，请求级 update.route.fail **只涨 1 行**（首条必须落），
-   * 另两条路由各涨各的一条（不互相吃状态），恢复一次后清账、再失败重新落。
-   * 日志口这一段过**真闸门**（LOG_FAKE_GATED）：正文形状的 reason 到不了盘上（H1 的请求级那一半）。
-   */
-  let registeredPhoneFail = null;
-  const ctxPhoneFail = Object.assign({}, fakeCtx, { webServer: { register: (route) => { registeredPhoneFail = route; return () => undefined } } });
-  const hostPhoneFail = await import(pathToFileURL(path.join(DIR_PHONEFAIL, 'prompt-host.mjs')).href);
-  hostPhoneFail.apply(ctxPhoneFail, {});
-  // 四轮整改 K3：请求级账本加了「同一状态两次落盘之间的最小间隔」（生产 60s）。这一段的很多步都在
-  // 同一个毫秒里跑完，若不接管时间源，「恢复后再失败」会被间隔吃掉 —— 断言的语义（恢复后必须重新
-  // 可见）比间隔的真实秒数更重要，所以这里把时间源摊开：每一步代表 60s 过去。
-  let fakeNow = 1000000;
-  hostPhoneFail.__setRouteFailClockForTests({ now: () => fakeNow, floorMs: 60000 });
-  const pfMod = await import(pathToFileURL(path.join(DIR_PHONEFAIL, 'update.js')).href);
-  const pfLog = (await import(pathToFileURL(path.join(DIR_PHONEFAIL, 'log', 'index.js')).href)).__logEvents;
-  const pfFails = () => pfLog.filter((e) => e[0] === 'update.route.fail').map((e) => e[1]);
-  const pfBase = pfLog.length;
-  for (let i = 0; i < 62; i++) {
-    const r = await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-    if (r.json?.error?.code !== 'check-expired') fail('电话持续失败第 ' + (i + 1) + ' 次回包变了：' + JSON.stringify(r.json));
-  }
-  eq(pfLog.length - pfBase, 1, '电话连续失败 62 次：请求级 update.route.fail 只落首条（复审 D：62 次 124 行 ⇒ 现在不随请求数线性增长）');
-  eq(pfFails()[0] && pfFails()[0].reason, 'check-expired', '首条必须落，reason 是机器码（真实故障不许因去重而看不见）');
-  eq(pfFails()[0] && pfFails()[0].route, ROUTES.status, '首条的 route 记的是命中那条路由');
-  for (const key of ['check', 'install']) {
-    await drive(registeredPhoneFail, ROUTES[key], 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  }
-  eq(pfLog.length - pfBase, 3, '三条路由各自的状态各落一条（一条路由失败不吞掉另一条的）');
-  pfMod.state.error = null;
-  const healed = await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  eq(healed.json?.ok, true, '恢复那次回包 ok=true');
-  eq(pfLog.length - pfBase, 3, '恢复那次不落失败行');
-  // 恢复后**逐条**验证「真失败仍然可见」：① 间隔未到 → 不落（节流生效）；② 间隔到点 → 重新落一条。
-  // 时间线可对照调试台 .tmp-verify/rv4/drive-routefail.mjs（同一套调用序、同一套注入点，逐格对得上）。
-  fakeNow += 1000;
-  pfMod.state.error = 'check-expired';
-  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  eq(pfLog.length - pfBase, 3, '恢复后 1 秒内再失败：重落间隔（60s）未到 → 不落盘（成败交替不再退化成逐请求落行）');
-  fakeNow += 30000;
-  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  eq(pfLog.length - pfBase, 3, '间隔未到（才过 31 秒）→ 仍然不落');
-  fakeNow += 30000;
-  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  eq(pfLog.length - pfBase, 4, '恢复（成功一次）+ 间隔到点后再失败 → 重新落一条（不是「一辈子只报一次」，真失败不会因为节流而消失）');
-  eq(pfFails()[3] && pfFails()[3].errorHash, hash8('check-expired'), '重落后的 errorHash 仍是这次失败的成因指纹');
-  // K3 的残余 ②：同一状态**成因变化**必须再落一条（三轮的键里不放 errorHash ⇒ 第二种成因被静默吞掉）。
-  // 落盘时机受重落间隔约束：间隔内到达的成因**进队列不丢**，等够间隔的那一次调用把它补落。
-  fakeNow += 1000;
-  pfMod.state.error = 'update-busy';
-  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  eq(pfLog.length - pfBase, 4, '同一状态**换了成因**、但间隔未到 → 不立刻落（成因进队列，不丢）');
-  fakeNow += 60000;
-  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  eq(pfLog.length - pfBase, 5, '等够间隔的那一次调用把它补落：**成因 B 可见**（复审 F 实测成因 B 的指纹出现 0 次）');
-  eq(pfFails()[4] && pfFails()[4].reason, 'update-busy', '补落的那条 reason 就是新成因的机器码');
-  eq(pfFails()[4] && pfFails()[4].errorHash, hash8('update-busy'), '新成因的指纹在盘上可见');
-  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  eq(pfLog.length - pfBase, 5, '同一成因重复：已落过 → 不落（节流仍在，成因变化不是逐请求落行的借口）');
-  fakeNow += 60000;
-  await drive(registeredPhoneFail, ROUTES.status, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  eq(pfLog.length - pfBase, 5, '同一成因重复且间隔到点：这个成因已经落过 → 仍不落（键稳定，不随请求数增长）');
-  // K1 的请求级那一半：包回一个正文形状的错误码 → 落盘的必须是 8 位指纹
-  fakeNow += 60000;
-  pfMod.state.error = PROMPT_BODY;
-  await drive(registeredPhoneFail, ROUTES.check, 'POST', Buffer.from('{}'), { host: '127.0.0.1:43120' });
-  const injected = pfFails().pop();
-  eq(injected && injected.reason, hash8(PROMPT_BODY), '正文形状的 reason 换成 8 位指纹落盘（闸门那五条具名规则管不到它）');
-  if (JSON.stringify(injected).includes('请把这段提示词')) fail('请求级 update.route.fail 把正文原文落盘了：' + JSON.stringify(injected));
-  // K1/K2 的语义那一半：请求级 route 只认路由表里的已知取值，别的一律指纹（值来自原始请求路径）
-  eq(pfFails().filter((f) => f.route === ROUTES.check).length, 2, '已知路由逐字落盘（语义白名单不误伤正常取值）');
-  ok('(m/n) 电话持续失败：62 次只落首条、三条路由各落各的、成因变化补一条、间隔内不落、恢复后重新落；正文形状的值只落指纹');
-
-  /* ── 11) 真产物（lib/update.js）直跑：配置三要素、电话表、日志口、降级 ──
-   * 这一段不看源码，直接 import 构建产物、注入**假的包入口**（假包，只用来验宿主半自己的逻辑；
-   * 真包见 12 段 —— 上一版把这一段当成「真产物直跑」的全部，真包返回形状从未被覆盖）。
-   */
-  const builtMod = await import(pathToFileURL(path.join(ROOT, 'lib', 'update.js')).href);
-  // 结构规则：能力对外导出不超过五个（审查 B 指出上一版是 6 个 —— `UNAVAILABLE` 已收回内部）。
-  const builtExports = Object.keys(builtMod).filter((k) => k !== 'default');
-  if (builtExports.length > 5) {
-    fail('lib/update.js 对外导出 ' + builtExports.length + ' 个名字（本仓约束 ≤ 5）：' + builtExports.join(', '));
-  }
-  ok('lib/update.js 对外导出 ' + builtExports.length + ' 个 ≤ 5（' + builtExports.join(', ') + '）');
-  if (builtMod.PLUGIN_ID !== 'dsh-prompt' || builtMod.PHONE_PREFIX !== 'prompt' || builtMod.TARGET_PACKAGE_NAME !== 'dsh-prompt') {
-    fail('产物里的三要素应为 dsh-prompt / prompt / dsh-prompt，实为 ' +
-      [builtMod.PLUGIN_ID, builtMod.PHONE_PREFIX, builtMod.TARGET_PACKAGE_NAME].join(' / '));
-  }
-  eq(builtMod.SNAPSHOT_FIELDS, SNAPSHOT_FIELDS, '产物里的快照字段表');
-  let captured = null;
-  const fired = []; // 记 [事件名, 字段] 两元组，不只记事件名 —— 参数错位正是上一版的爆点
-  const fakePkg = {
+  /* ── 4) 宿主能力真跑（假包注入） ── */
+  const updateMod = await import(pathToFileURL(path.join(ROOT, 'lib', 'update.js')).href);
+  const phoneNames = buildPhoneNames('prompt');
+  const canned = { runningVersion: '0.2.11', installedVersion: '0.2.11', latestVersion: '9.9.9', canInstall: true, blockedReason: null, job: null };
+  const seen = [];
+  const fakeHostUpdate = {
     createHostUpdate(deps, config) {
-      captured = { deps, config };
+      if (!deps || typeof deps.logCtx === 'undefined') fail('宿主应把 bridgeLog 交给包（logCtx 缺席）');
+      if (config.pluginId !== 'dsh-prompt' || config.prefix !== 'prompt' || config.targetPackageName !== 'dsh-prompt')
+        fail('宿主传给包的配置不对：' + JSON.stringify(config));
       return {
-        phoneNames: { updateStatus: 'prompt.updateStatus', updateCheck: 'prompt.updateCheck', updateInstall: 'prompt.updateInstall' },
-        handlers: { 'prompt.updateStatus': async () => ({ ok: true, snapshot: { job: null } }) },
-      };
-    },
-  };
-  const builtCap = await builtMod.createUpdateCapability({
-    ctx: { get: () => undefined },
-    logReady: Promise.resolve({ log: (event, fields) => { fired.push([event, fields]); return true } }),
-    hostUpdate: fakePkg,
-  });
-  eq(builtCap.ok, true, '真产物应建起能力');
-  eq(captured.config, { pluginId: 'dsh-prompt', prefix: 'prompt', targetPackageName: 'dsh-prompt' }, '传给更新包的配置（其余走包默认值）');
-  eq(Object.keys(captured.deps).sort(), ['ctx', 'logCtx'], '传给更新包的依赖键');
-  // 日志口：按真包的三参调用（dist/host.js:187,196）。第一参是级别，本仓不据此分派。
-  fired.length = 0;
-  eq(captured.deps.logCtx.fire('info', 'host.call', { method: 'prompt.updateStatus', latencyMs: 7, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' }), undefined, '日志口 fire 应为同步无返回');
-  eq(fired, [['host.call', { method: 'prompt.updateStatus', latencyMs: 7, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' }]],
-    '产物把真事件名（第二参）与字段（第三参）原样交给日志能力');
-  fired.length = 0;
-  captured.deps.logCtx.fire('info', 'update.install.exec', { route: 'cli-process', ok: true, exitCode: 0, durationMs: 3, pluginId: 'dsh-prompt' });
-  eq(fired, [['update.install.exec', { route: 'cli-process', ok: true, exitCode: 0, durationMs: 3, pluginId: 'dsh-prompt' }]],
-    '装更新那条事件同样按第二参取事件名');
-  // 字段漂移不许在桥里被无声裁掉（复审 V3）：桥只判事件名，清单外的字段要真的走到日志能力面前 ——
-  // 裁剪与计数归真闸门（下一段的去重计数就是这条的落盘侧证据）。
-  // 三轮整改的边界（H1）：**键一个不动**（清单外字段照旧到达闸门口），变的只是**值**——
-  // 值不匹配安全字符集就换 8 位指纹，所以这里 `extraUnknown` 的键还在、值不再是那句人话。
-  fired.length = 0;
-  captured.deps.logCtx.fire('info', 'host.call',
-    { method: 'prompt.updateStatus', latencyMs: 1, ok: true, kind: 'update-status', pluginId: 'dsh-prompt', extraUnknown: 'drop me?' });
-  eq(fired.map((e) => e[0]), ['host.call'], '清单外的字段不该让整条事件一起丢掉');
-  eq(Object.keys(fired[0]?.[1] ?? {}).sort(),
-    ['extraUnknown', 'kind', 'latencyMs', 'method', 'ok', 'pluginId'],
-    '清单外的字段名照旧到达日志能力（桥不做第二道字段名白名单，漂移可观测）');
-  eq(fired[0] && fired[0][1].extraUnknown, hash8('drop me?'),
-    '但它的值过了值域安全网：不是安全字符集的形状就换 8 位指纹（H1，正文必然被挡）');
-  fired.length = 0;
-  captured.deps.logCtx.fire('host.call', { method: 'x' });
-  eq(fired.filter((e) => e[0] === 'host.call').length, 0,
-    '两参调用（上一版的错误形状）不再产生 host.call —— 参数位置错了就必须看得见');
-  eq(fired.map((e) => e[0]), ['update.route.fail'],
-    '两参调用落到 unknown-event 自报这条路上（事件名对不上就自报，不静默）');
-  eq(fired[0] && fired[0][1].reason, 'unknown-event', 'unknown-event 自报的 reason');
-  fired.length = 0;
-  eq(await builtCap.runRoute(ROUTES.status, {}), { ok: true, snapshot: { job: null } }, '产物按路由转电话');
-  const unknown = await builtCap.runRoute('/_dsh/dsh-prompt/update/nope', {});
-  eq([unknown.ok, unknown.error], [false, 'unknown-phone'], '产物对未知路由的回包');
-  eq(fired.filter((e) => e[0] === 'host.call.fail').map((e) => e[1]),
-    [{ method: hash8('/_dsh/dsh-prompt/update/nope'), kind: 'unknown-phone', errorHash: '21320883', pluginId: 'dsh-prompt' }],
-    '未知路由也要落一条 host.call.fail（审查 F9：失败不许无声；`method` 位是**上下文值**，四轮整改 K1 起'
-    + '只认三张电话名表，别的一律 8 位指纹 —— errorHash = hash8("no update phone for /_dsh/dsh-prompt/update/nope")）');
-  fired.length = 0;
-  const throwingPkg = {
-    createHostUpdate: () => ({
-      phoneNames: { updateStatus: 'prompt.updateStatus', updateCheck: 'prompt.updateCheck', updateInstall: 'prompt.updateInstall' },
-      handlers: { 'prompt.updateStatus': async () => { throw new Error('boom') } },
-    }),
-  };
-  const throwingCap = await builtMod.createUpdateCapability({
-    logReady: Promise.resolve({ log: (event, fields) => { fired.push([event, fields]); return true } }),
-    hostUpdate: throwingPkg,
-  });
-  eq(await throwingCap.runRoute(ROUTES.status, {}), { ok: false, error: 'phone-failed', errorKind: 'boom' }, '电话抛错时的回包');
-  eq(fired.map((e) => e[0]), ['host.call.fail'], '电话抛错要落一条 host.call.fail');
-  eq(fired[0] && fired[0][1], { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: '7c94b392', pluginId: 'dsh-prompt' },
-    '抛错落盘字段与更新包同形（错误原文只留 8 位指纹：hash("boom")）');
-  const broken = await builtMod.createUpdateCapability({
-    hostUpdate: { createHostUpdate() { throw new Error('unknown-profile') } },
-  });
-  eq([broken.ok, broken.reason], [false, 'unknown-profile'], '更新包建不起来时的降级原因');
-  const brokenReply = await broken.runRoute(ROUTES.check, {});
-  eq([brokenReply.ok, brokenReply.error, brokenReply.errorKind], [false, 'update-capability-unavailable', 'unknown-profile'], '降级回包的形状');
-  ok('真产物直跑：三要素/六字段/三参日志口/失败落盘/按路由转电话/降级，全部对账');
-
-  /* ── 11b) 桥 → 真闸门：字段漂移必须**可观测**（复审 V3）──
-   * 上一版桥按自己认识的五个键先裁一遍，真闸门根本看不到被丢的字段：`droppedFields` 恒 0，
-   * 上游改字段名 = 静默丢 + 零可观测。现在桥只判事件名（**字段名一个不动**地交给日志能力，
-   * 值另过三层那层值域安全网，见 11c），于是「有字段被裁」这件事在真闸门的计数里看得见 ——
-   * 这一段把生产桥接进真清单真闸门，注入一个清单外的字段，断言它被裁掉、计数涨 1。
-   */
-  const driftGate = createEventGate(manifest, { pluginId: 'dsh-prompt' });
-  const driftLanded = [];
-  let driftDeps = null;
-  await builtMod.createUpdateCapability({
-    logReady: Promise.resolve({
-      log: (event, fields) => { const r = driftGate.filter(event, fields); if (r.ok) driftLanded.push([event, r.fields]); return r.ok },
-    }),
-    hostUpdate: { createHostUpdate(deps) { driftDeps = deps; return { phoneNames: {}, handlers: {} } } },
-  });
-  const driftBefore = driftGate.stats.droppedFields;
-  driftDeps.logCtx.fire('warn', 'host.call.fail', {
-    method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt', extraUnknown: 'drop me?',
-  });
-  eq(driftLanded.map((e) => e[0]), ['host.call.fail'], '清单外的字段不该让整条事件一起丢掉');
-  eq(Object.keys(driftLanded[0]?.[1] ?? {}).sort(), ['errorHash', 'kind', 'method', 'pluginId'], '真闸门按白名单把清单外的字段裁掉');
-  eq(driftGate.stats.droppedFields - driftBefore, 1, '真闸门 droppedFields 涨 1（字段漂移从此可观测）');
-  // 同一条生产桥、同一份真闸门：把**正文**塞进白名单内的值位（复审 D 的 A1 注入手法）——
-  // 闸门那五条具名规则管不到中文/空格/标点，所以挡它的是桥的值域安全网：落盘的是 8 位指纹。
-  driftLanded.length = 0;
-  driftDeps.logCtx.fire('warn', 'host.call.fail', {
-    method: PROMPT_BODY, kind: TEMPLATE_NAME, errorHash: 'deadbeef', pluginId: 'dsh-prompt',
-  });
-  eq(driftLanded.map((e) => e[0]), ['host.call.fail'], '正文位的失败仍要落一条（不静默）');
-  eq(driftLanded[0] && [driftLanded[0][1].method, driftLanded[0][1].kind], [hash8(PROMPT_BODY), hash8(TEMPLATE_NAME)],
-    '正文 / 模板名换成 8 位指纹后才到闸门（真闸门看到的已经不是原文）');
-  if (JSON.stringify(driftLanded).includes('请把这段提示词')) fail('生产桥把正文原文交给了日志能力：' + JSON.stringify(driftLanded));
-  ok('(j) 生产桥 + 真闸门：未知字段走到闸门口并被裁掉、droppedFields 涨 1（漂移可观测）；正文形状的值只以指纹落盘');
-
-  /* ── 11c) 值域安全网（H1，一票否决项）+ 持续失败按状态落一次（H2）──
-   * H1：复审 D 用生产桥把 47 字符正文与模板名**逐字**写进了真日志文件，触发本票预置的一票否决第 1 条
-   *     （「提示词正文与模板名绝不进日志」）。修法不是再抄一份字段名白名单（那会退回 G4 拆掉的第二道
-   *     白名单、让 droppedFields 又变零可观测），而是补「值能不能安全落盘」这一层：每个值过安全字符集，
-   *     不匹配就换 8 位指纹。这里断言两个方向：正文/模板名不落原文；真实取值**逐字不变**。
-   * H2：同一 (method, kind) 的持续失败只在状态首次落一条；该电话成功一次即清账（恢复后再失败重新落）。
-   */
-  fired.length = 0;
-  captured.deps.logCtx.fire('warn', 'host.call.fail', {
-    method: PROMPT_BODY, kind: TEMPLATE_NAME, errorHash: 'deadbeef', pluginId: 'dsh-prompt',
-  });
-  eq(fired.map((e) => e[0]), ['host.call.fail'], '正文位的失败仍要落一条（真实故障不许因安全网而看不见）');
-  eq(fired[0] && [fired[0][1].method, fired[0][1].kind, fired[0][1].errorHash, fired[0][1].pluginId],
-    [hash8(PROMPT_BODY), hash8(TEMPLATE_NAME), 'deadbeef', 'dsh-prompt'],
-    '正文 / 模板名换成 8 位指纹落盘（值域外的形状不落原文）');
-  if (JSON.stringify(fired).includes('请把这段提示词') || JSON.stringify(fired).includes('内部模板名')) {
-    fail('桥把正文或模板名原文交给了日志能力：' + JSON.stringify(fired));
-  }
-  fired.length = 0;
-  captured.deps.logCtx.fire('info', 'update.install.exec', { route: TEMPLATE_NAME, ok: true, exitCode: 0, durationMs: 5, pluginId: 'dsh-prompt' });
-  eq(fired, [['update.install.exec', { route: hash8(TEMPLATE_NAME), ok: true, exitCode: 0, durationMs: 5, pluginId: 'dsh-prompt' }]],
-    'route 位的模板名同样换指纹；数字 / 布尔原样（exitCode 0、durationMs 5、ok true）');
-  fired.length = 0;
-  captured.deps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'update-check', errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
-  eq(fired, [['host.call.fail', { method: 'prompt.updateStatus', kind: 'update-check', errorHash: 'deadbeef', pluginId: 'dsh-prompt' }]],
-    '真实取值（电话名 / 阶段的机器码 / 八位指纹 / pluginId）**逐字不变** —— 语义白名单只挡集合外的值');
-  // 反过来钉住「语义」这一层：`check-expired` 是**请求级 reason** 的码，不是 `kind` 的取值 ——
-  // 塞错字段就得指纹（值的语义按字段判，三轮的「按形状判」在这里会放它过去）
-  fired.length = 0;
-  captured.deps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'check-expired', errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
-  eq(fired[0] && fired[0][1].kind, hash8('check-expired'),
-    'reason 族的值塞进 kind 位 → 不在 kind 的取值集合里 → 指纹（语义按字段判，不按形状判）');
-  // 未知事件自报那条路（`route` 是派生的路由族前缀，不是字面量）也走同一条安全网：值逐字不变。
-  // 用一个**新实例**：unknown-event 自报在同一实例里只落一次（上一段已用掉那一次），这是既有取舍。
-  const unkFired = [];
-  let unkDeps = null;
-  await builtMod.createUpdateCapability({
-    logReady: Promise.resolve({ log: (event, fields) => { unkFired.push([event, fields]); return true } }),
-    hostUpdate: { createHostUpdate(deps) { unkDeps = deps; return { phoneNames: {}, handlers: {} } } },
-  });
-  unkDeps.logCtx.fire('warn', 'brand.new.event', { method: 'prompt.updateStatus' });
-  eq(unkFired, [['update.route.fail', { route: '/_dsh/dsh-prompt/update', reason: 'unknown-event', errorHash: hash8('brand.new.event') }]],
-    'unknown-event 自报的路由族前缀（含斜杠）逐字不变，事件名只留 8 位指纹');
-
-  // H2（四轮 K3 之后）：62 次持续失败 → host.call.fail 只落首条；成功一次清账；再失败受重落间隔约束。
-  const flakyFired = [];
-  let flakyDeps = null;
-  let flakyFail = true;
-  let bridgeNow = 1000000;
-  const flakyLogCtx = { log(event, fields) { flakyFired.push([event, fields]); return true } };
-  /** 假更新包：两条电话轨迹都按真包 `loggedPhone`（dist/host.js:200-209）**成对**发。 */
-  const flakyFakePkg = {
-    createHostUpdate(deps) {
-      flakyDeps = deps;
-      // 成功发 `host.call{ok:true}`、失败发 `host.call.fail` —— 与真包同形。
-      // 四轮整改踩过的坑：上一版假包只在失败那条路上发事件，于是桥的「成功清账」这根线**根本没被走到**
-      // ——`clearFails` 永不执行、第一轮的失败账一直挂着，`host.call.fail` 就成了「一辈子只报一次」，
-      // 而真机上真实存在的那条路（恢复后间隔到点重新落一条）永远测不出来：测试自己把要验的路径短路了。
-      const fire = (level, event, fields) => {
-        if (typeof deps.logCtx?.fire === 'function') deps.logCtx.fire(level, event, fields);
-      };
-      return {
-        phoneNames: { updateStatus: 'prompt.updateStatus', updateCheck: 'prompt.updateCheck', updateInstall: 'prompt.updateInstall' },
+        phoneNames: { ...phoneNames },
         handlers: {
-          'prompt.updateStatus': async () => {
-            if (flakyFail) throw new Error('boom');
-            fire('info', 'host.call', { method: 'prompt.updateStatus', latencyMs: 1, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' });
-            return { ok: true, snapshot: { job: null } };
-          },
+          [phoneNames.updateStatus]: async () => { seen.push('status'); return { ok: true, snapshot: canned, manual: null, receipt: null }; },
+          [phoneNames.updateCheck]: async () => { seen.push('check'); return { ok: true, snapshot: canned, manual: 'cmd', receipt: null }; },
+          [phoneNames.updateInstall]: async () => { seen.push('install'); return { ok: true, snapshot: canned, manual: null, receipt: { checkId: 'c1' } }; },
         },
       };
-    },
+    }
   };
-  /**
-   * **把包那份模块级日志口重新绑到本段的桥上**（这一段成立的前提，别删）。
-   *
-   * 更新包把日志口存在**模块级单例**上：`dist/host.js:184` 的 `let phoneLogCtx = null`，
-   * `:215` 的 `phoneLogCtx = deps.logCtx ?? phoneLogCtx` —— 谁最后调 `createHostUpdate`，谁的口子生效。
-   * 本脚本的 10d 段在**同一进程**里又装配了一个宿主实例（每个实例都会真 import 一次 `lib/update.js`
-   * 并调真包的 `createHostUpdate`），而那一步的 `await` 是在本段建能力**之后**才落地的（脚本前面那些
-   * `await` 把它让出去了）：于是本段的假包点火时，`deps.logCtx.fire` 打到了**10d 那个桥**的口子上，
-   * 本段自己的 `flakyFired` 一行都收不到 —— 断言看到的不是「桥没落盘」，而是「事件根本没送到这个桥」。
-   * 这不是桥的问题，是宿主的模块级单例被第二个实例顶掉了（真机只有一个实例，不会发生）。
-   * 修法：在本段点火之前再调一次 `createHostUpdate`，把口子抢回本段的桥。第 2 个能力对象丢掉即可 ——
-   * 要的只是包那边那个模块级赋值，两条电话轨迹都从**第一份** deps（即本段自己的桥）走。
-   */
-  const flakyRebind = async () => {
-    await builtMod.createUpdateCapability({
-      logReady: Promise.resolve(flakyLogCtx),
-      hostUpdate: flakyFakePkg,
-      now: () => bridgeNow,
-      relogFloorMs: 60000,
-    });
-  };
-  const flakyCap = await builtMod.createUpdateCapability({
-    logReady: Promise.resolve(flakyLogCtx),
-    hostUpdate: flakyFakePkg,
-    // 真时钟下这一整段跑在同一个毫秒里，「重落间隔」会把恢复后的那条也吃掉 —— 时间源接管，
-    // 每一步代表 60s（四轮整改 K3 加的注入点；生产不传，用真时钟 + DEFAULT_RELOG_FLOOR_MS）。
-    now: () => bridgeNow,
-    relogFloorMs: 60000,
-  });
-  const flakyBridge = flakyDeps.logCtx;
-  await flakyRebind();
-  // 本段的桥必须真的接在包的口子上（接错了下面每条断言都会以「0 行」的形式假绿/假红）
-  eq(flakyDeps.logCtx, flakyBridge, '重绑后包的点火口仍是本段的桥（假包的两条轨迹都打到这里）');
-  for (let i = 0; i < 62; i++) {
-    const r = await flakyCap.runRoute(ROUTES.status, {});
-    if (r.ok !== false || r.error !== 'phone-failed') fail('持续失败第 ' + (i + 1) + ' 次的回包变了：' + JSON.stringify(r));
+  // lib/update.js 的装配按 phoneNames 找函数：假包直接给 updateStatus/updateCheck/updateInstall 三函数
+  // 若实现按电话名查表，unknown phone 会抛；这里三条都应通。
+  const cap = await updateMod.createUpdateCapability({ hostUpdate: fakeHostUpdate, logReady: Promise.resolve(null) });
+  if (!cap.ok) fail('假包注入后能力应 ok:true');
+  eq(cap.paths, ROUTES, '能力 paths 与三条路由一致');
+  eq(cap.snapshotFields, SNAPSHOT_FIELDS, '能力 snapshotFields 六字段');
+  eq(cap.phoneNames, phoneNames, '能力 phoneNames 透传包口径');
+  for (const [p, want] of [[ROUTES.status, 'status'], [ROUTES.check, 'check'], [ROUTES.install, 'install']]) {
+    seen.length = 0;
+    const res = await cap.runRoute(p, {});
+    if (!res || res.ok !== true) fail(p + ' 应 ok:true，实为 ' + JSON.stringify(res));
+    if (seen[0] !== want) fail(p + ' 应分派到 ' + want + '，实为 ' + JSON.stringify(seen));
   }
-  eq(flakyFired.filter((e) => e[0] === 'host.call.fail').length, 1,
-    '电话连续失败 62 次：host.call.fail 只落首条（复审 D 实测 62 次请求 124 行 / 20402 B，现在不随请求数线性增长）');
-  eq(flakyFired[0] && flakyFired[0][1].kind, 'phone-failed', '首条必须落，且与更新包同形（kind=phone-failed）');
-  flakyFired.length = 0;
-  flakyFail = false;
-  // 恢复：真包 `loggedPhone` 的成功轨迹是那条 `host.call{ok:true}`（dist/host.js:203），桥据此清账。
-  // 假包自己也会发它（见 flakyFakePkg）；下面这一次显式注入是**旁证** —— 即使包不发，桥也只认这个事件清账。
-  eq((await flakyCap.runRoute(ROUTES.status, {})).ok, true, '恢复那次回包 ok=true');
-  eq(flakyFired.filter((e) => e[0] === 'host.call.fail').length, 0, '恢复那次不落 host.call.fail');
-  flakyDeps.logCtx.fire('info', 'host.call', { method: 'prompt.updateStatus', latencyMs: 1, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' });
-  flakyFired.length = 0;
-  flakyFail = true;
-  bridgeNow += 1000;
-  await flakyCap.runRoute(ROUTES.status, {});
-  eq(flakyFired.filter((e) => e[0] === 'host.call.fail').length, 0,
-    '恢复后 1 秒内再失败：重落间隔未到 → 不落（成败交替不再退化成逐请求落行）');
-  bridgeNow += 60000;
-  await flakyCap.runRoute(ROUTES.status, {});
-  eq(flakyFired.filter((e) => e[0] === 'host.call.fail').length, 1,
-    '恢复（成功一次）+ 间隔到点后再失败 → 重新落一条（不是「一辈子只报一次」，真失败不会因为节流而消失）');
-  ok('(m/n) 生产桥的值域安全网与按状态落一次：正文只落指纹、真实取值逐字不变、62 次失败只落首条、恢复后重落（受重落间隔约束）');
+  ok('宿主能力三条路由分派正确（status/check/install）');
+  const badRoute = await cap.runRoute('/_dsh/dsh-prompt/update/nope', {}).catch(e => ({ ok: false, error: String(e && e.message || e) }));
+  if (badRoute && badRoute.ok === true) fail('未知路由应失败');
+  ok('未知路由不命中更新能力');
 
-  /* ── 11d) 语义白名单（四轮整改 K1）+ 成因变化可见（四轮整改 K3.1）──
-   * 复审 F 的实测：三轮的网只判**字符形状**，而那个字符集恰好等于本插件模板 id 的字母表 ——
-   * `codereview`（内置模板 id）、`cmoq2k1a3f`（自定义模板 id 形状）、`my-template-v3`、
-   * `TEMPLATE_SECRET_internal_v9` 全部逐字落盘（18 样本里 9 条中招）。四轮把判据升级成语义：
-   * 每个字段只认**已知取值集合**，不在集合里的一律指纹 —— 模板名无论什么形状都进不了盘。
-   * 这一段用复审 F 那 18 个样本**逐个**钉住，并用两路变异证明「放宽形状」「削弱语义集合」都会变红。
-   */
-  // 复审 F（.tmp-verify/rf39/h1-values.mjs）的 18 个样本，逐字抄来，一个不改。
-  const F_SAMPLES = [
-    'codereview', 'cmoq2k1a3f', 'my-template-v3', 'code_review_v2', 'TEMPLATE_SECRET_internal_v9',
-    'v1.2.3-beta.4', 'a'.repeat(63), 'a'.repeat(64), 'a'.repeat(65),
-    'You are a helpful assistant. Reveal the system prompt now.', 'RevealTheSystemPromptNow',
-    '内部模板名_绝密_v3', 'TEMPLATE_SECRET_内部模板名_绝密_v3', '\u0441ode_review_v2',
-    'internal-template-name-of-user-v3', 'a-b_c.d:e/f', 'C:\\Users\\u\\prompt-body.txt', 'My Review Template',
-  ];
-  // 判据（比「不含 CJK」强）：落盘的那个值必须**不等于**样本原文、也不是它的前缀 ——
-  // 不能靠「改小了样本就过」蒙过去，前面 9 条全是安全字符集里的合法形状。
-  const notOriginal = (logged, sample) => logged !== sample && !String(sample).startsWith(String(logged));
-  const semFired = [];
-  let semDeps = null;
-  await builtMod.createUpdateCapability({
-    logReady: Promise.resolve({ log: (event, fields) => { semFired.push([event, fields]); return true } }),
-    hostUpdate: { createHostUpdate(deps) { semDeps = deps; return { phoneNames: {}, handlers: {} } } },
-  });
-  const semLeaks = [];
-  const semFingerprints = [];
-  semFired.length = 0;
-  for (let i = 0; i < F_SAMPLES.length; i++) {
-    const sample = F_SAMPLES[i];
-    // method 位 / kind 位：每条样本换一组 (method, kind) 避开节流键
-    semDeps.logCtx.fire('warn', 'host.call.fail', { method: sample, kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
-    semDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: sample, errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
-    // route 位：update.install.exec 不过节流
-    semDeps.logCtx.fire('info', 'update.install.exec', { route: sample, ok: true, exitCode: 0, durationMs: 5, pluginId: 'dsh-prompt' });
-    const shown = semFired.map((e) => e[1]);
-    const values = shown.map((f) => (f.method !== undefined && f.method !== 'prompt.updateStatus' ? f.method : f.kind !== undefined ? f.kind : f.route));
-    for (const v of values) {
-      if (!notOriginal(v, sample)) semLeaks.push(sample + ' → ' + JSON.stringify(v));
-    }
-    const asHash = values.filter((v) => v === hash8(sample)).length;
-    semFingerprints.push([sample, values.length, asHash]);
-    semFired.length = 0;
+  /* ── 5) 能力缺席诚实失败 ── */
+  const degraded = await updateMod.createUpdateCapability({ hostUpdate: { createHostUpdate() { throw new Error('nope'); } }, logReady: Promise.resolve(null) });
+  if (degraded.ok !== false && degraded.ok !== true) fail('degraded 形状不对');
+  if (degraded.ok === true) {
+    const r = await degraded.runRoute(ROUTES.status, {});
+    if (!r || r.ok !== false) fail('degraded 路由应 ok:false');
+  } else {
+    if (!String(degraded.reason || '').length) fail('degraded 应带 reason');
   }
-  if (semLeaks.length) {
-    fail('模板名/正文形状的样本逐字（或前缀）落盘了 ' + semLeaks.length + ' 处：' + semLeaks.slice(0, 5).join(' | '));
-  }
-  ok('(K1) 语义白名单：复审 F 的 18 个样本 × method/kind/route 三个值位 = 54 次注入，**全部**指纹化（' + semFingerprints.length + ' 条样本逐条核对：落盘值 ≠ 原文、也不是原文前缀）');
-  // 逐条对照表落到 stdout，供人对着复审 F 的表格看（每条样本 → 落盘的是不是 hash8(样本)）
-  for (const [sample, n, h] of semFingerprints) {
-    if (n !== 3 || h !== 3) fail('样本 ' + JSON.stringify(sample) + ' 的注入没有产生 3 条全是指纹的落盘行（实为 ' + n + ' 条 / ' + h + ' 条指纹）');
-  }
-  // 反向：**正常取值逐字不变**（语义判据不许误伤真实取值）
-  semFired.length = 0;
-  semDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateCheck', kind: 'update-check', errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
-  semDeps.logCtx.fire('info', 'update.install.exec', { route: 'desktop-service', ok: false, exitCode: 7, durationMs: 12, pluginId: 'dsh-prompt' });
-  semDeps.logCtx.fire('info', 'update.install.exec', { route: 'none', ok: false, durationMs: 0, pluginId: 'dsh-prompt' });
-  eq(semFired.map((e) => e[1]), [
-    { method: 'prompt.updateCheck', kind: 'update-check', errorHash: 'deadbeef', pluginId: 'dsh-prompt' },
-    { route: 'desktop-service', ok: false, exitCode: 7, durationMs: 12, pluginId: 'dsh-prompt' },
-    { route: 'none', ok: false, durationMs: 0, pluginId: 'dsh-prompt' },
-  ], '正常取值（电话名 / 机器码 / 两条真路由 / "none" / 八位指纹 / 数字与布尔）全部逐字不变');
-  // 边界两路（复审 F 的变异 M1/M2 的落点）：形状**放宽**（含空格与逗号）与长度**放宽**（100 字符安全串）。
-  // 走**清单外的字段名**（`extraUnknown`）：语义表管不到它，落到桥的字符形状网 SAFE_VALUE_RE 上 ——
-  // 于是把这条网放宽（加空格/逗号、或把 {0,64} 改成 {0,1024}）这里就会逐字落盘、断言变红。
-  const wideShape = 'a b,c';
-  const longShape = 'a'.repeat(120);
-  const shapeNetCases = [['含空格与逗号的串（变异 M1）', wideShape], ['120 字符的安全字符集串（变异 M2）', longShape],
-    ['65 字符（长度上限 64 的边界外一条）', 'b'.repeat(65)], ['64 字符（长度上限之内）', 'c'.repeat(64)]];
-  const shapeNetRows = [];
-  for (let i = 0; i < shapeNetCases.length; i++) {
-    const [label, value] = shapeNetCases[i]
-    semFired.length = 0
-    // 每条用**不同的 kind**：桥按 (method, kind) 节流，复用同一个键会被上一条的账吃掉（测出来像「没落盘」）
-    semDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'shape-net-' + i, errorHash: 'deadbeef', pluginId: 'dsh-prompt', extraUnknown: value })
-    shapeNetRows.push([label, value, semFired[0] && semFired[0][1].extraUnknown])
-  }
-  for (const [label, value, logged] of shapeNetRows) {
-    if (value.length > 64) {
-      eq(logged, hash8(value), label + '：超过长度上限 → 只落 8 位指纹（网被放宽时这里会变成原文）');
-    }
-  }
-  eq(shapeNetRows[0][2], hash8(wideShape), shapeNetCases[0][0] + '：安全字符集之外的字符 → 只落 8 位指纹');
-  eq(shapeNetRows[3][2], 'c'.repeat(64), shapeNetCases[3][0] + '：上限之内照旧逐字落盘（网没有变成一律散列）');
-  // 语义集合**被削弱**（往表里塞一个不该在的词）时，这个样本会逐字落盘 —— 断言写死指纹即可拦住（M3）
-  semFired.length = 0;
-  semDeps.logCtx.fire('warn', 'host.call.fail', { method: 'codereview', kind: 'code_review_v2', errorHash: 'deadbeef', pluginId: 'dsh-prompt' });
-  eq(semFired[0] && [semFired[0][1].method, semFired[0][1].kind], [hash8('codereview'), hash8('code_review_v2')],
-    '本仓内置模板 id 与自定义模板名形状都不在语义集合里 → 只落指纹');
-  // 清单外的漂移字段仍走到闸门口（G4），值照样过网；但**它不是「模板名进盘」的路**：字段名不在清单里，
-  // 真闸门整条裁掉（下一段 11b 用真闸门断言这一点），所以「真文件里没有模板名」这条仍然成立。
-  semFired.length = 0;
-  semDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'deadbeef', pluginId: 'dsh-prompt', extraUnknown: 'my-template-v3' });
-  eq(semFired[0] && Object.keys(semFired[0][1]).indexOf('extraUnknown') >= 0, true,
-    '清单外的字段名照旧到达日志能力（桥不做第二道字段名白名单，G4 的可观测性）—— 裁剪归真闸门');
-  eq(semFired[0] && semFired[0][1].method, 'prompt.updateStatus', '已知字段的值仍逐字不变（语义判据不误伤）');
-  // K3.1：同一 (method, kind) 的**成因变化**必须再落一条（三轮的键里不放 errorHash ⇒ 第二种成因被静默吞掉）
-  const causeFired = [];
-  let causeDeps = null;
-  let causeNow = 0;
-  await builtMod.createUpdateCapability({
-    logReady: Promise.resolve({ log: (event, fields) => { causeFired.push([event, fields]); return true } }),
-    hostUpdate: { createHostUpdate(deps) { causeDeps = deps; return { phoneNames: {}, handlers: {} } } },
-    now: () => causeNow, relogFloorMs: 60000,
-  });
-  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_A_ENOTFOUND'), pluginId: 'dsh-prompt' });
-  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_A_ENOTFOUND'), pluginId: 'dsh-prompt' });
-  eq(causeFired.length, 1, '同一成因的持续失败：只落一条（节流还在）');
-  causeNow = 60000;
-  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_B_EACCES'), pluginId: 'dsh-prompt' });
-  // 成因 B 不是「间隔内到达」：它到的时候距上次落盘正好一个间隔（60000ms），按上面 ⑤ 的判据**当场落**。
-  // （这条原来的期望是 1，即「不当场落、等下一次调用补落」；四轮整改后这个期望与实现和 ⑤ 的判据不符，
-  //   而且它在四轮里**从未被执行过** —— 11c 的恢复断言先红了、脚本在到达这里之前就退出了。
-  //   现在断言改成与判据一致：新成因到点即可见；「同一成因重复不落」与「队列不丢成因」两条仍然钉着。）
-  eq(causeFired.length, 2, '成因 B 距上次落盘已够一个间隔 → 当场落（新成因到点即可见，不必等下一次调用）');
-  eq(causeFired[1] && causeFired[1][1].errorHash, hash8('CAUSE_B_EACCES'), '当场落的那条成因指纹就是 B');
-  causeNow = 120000;
-  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_B_EACCES'), pluginId: 'dsh-prompt' });
-  eq(causeFired.length, 2, '同一成因再报（间隔已过）→ 仍不落：成因账记着它已经落过（键与账都稳定）');
-  causeNow = 180000;
-  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_B_EACCES'), pluginId: 'dsh-prompt' });
-  eq(causeFired.length, 2, '同一成因第三次：仍不落（不随调用次数增长）');
-  // 队列兜底：间隔内到达、之后**再也没被重复报**的成因也不能丢 —— 等够间隔的下一次调用把它补落。
-  // 这一段是 K3 的核心机制（撤掉队列记账就会变红），与上面 ⑤ 的「当场落」并不冲突：
-  // ⑤ 管「到点的新成因」，这里管「到点之前进来的那些」。
-  causeNow = 240000;
-  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_C_ETIMEDOUT'), pluginId: 'dsh-prompt' });
-  eq(causeFired.length, 3, '成因 C 距上次落盘也够一个间隔 → 当场落（同上，判据一致）');
-  causeNow = 300000;
-  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_D_ECONNREFUSED'), pluginId: 'dsh-prompt' });
-  eq(causeFired.length, 4, '成因 D 又够一个间隔 → 当场落（每个间隔最多一条，不随调用次数增长）');
-  eq(causeFired[3] && causeFired[3][1].errorHash, hash8('CAUSE_D_ECONNREFUSED'), '这一条落的是 D');
-  causeNow = 360000;
-  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_C_ETIMEDOUT'), pluginId: 'dsh-prompt' });
-  eq(causeFired.length, 4, 'C 已经落过 → 不落（成因账稳定，不重复记）');
-  causeNow = 420000;
-  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_C_ETIMEDOUT'), pluginId: 'dsh-prompt' });
-  eq(causeFired.length, 4, '再报同一个成因：已落过、队列空 → 不落（队列不把同一条排两次）');
-  // 间隔内到达、随后**再也没被重复报**的成因也不能丢：队列里的成因会在下一次**任何**调用时出队
-  causeNow = 420000;
-  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_E_EAI_AGAIN'), pluginId: 'dsh-prompt' });
-  eq(causeFired.length, 5, '成因 E 距上次落盘也够一个间隔 → 当场落（同 ⑤ 的判据）');
-  causeNow = 480000;
-  causeDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('CAUSE_E_EAI_AGAIN'), pluginId: 'dsh-prompt' });
-  eq(causeFired.length, 5, 'E 已落过 → 不落（即使没有新成因来顶它，成因账也不会漂）');
-  eq(causeFired[4] && causeFired[4][1].errorHash, hash8('CAUSE_E_EAI_AGAIN'), '落的是成因 E');
-  // K3.2：成败交替（每次成功清账、下一次失败又是「新状态」）不许退化成逐请求落盘
-  const flopFired = [];
-  let flopDeps = null;
-  let flopNow = 0;
-  await builtMod.createUpdateCapability({
-    logReady: Promise.resolve({ log: (event, fields) => { flopFired.push([event, fields]); return true } }),
-    hostUpdate: { createHostUpdate(deps) { flopDeps = deps; return { phoneNames: {}, handlers: {} } } },
-    now: () => flopNow, relogFloorMs: 60000,
-  });
-  for (let i = 0; i < 30; i++) {
-    flopNow += 1000;
-    flopDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('FLAP_' + i), pluginId: 'dsh-prompt' });
-    flopDeps.logCtx.fire('info', 'host.call', { method: 'prompt.updateStatus', latencyMs: 1, ok: true, kind: 'update-status', pluginId: 'dsh-prompt' });
-  }
-  eq(flopFired.filter((e) => e[0] === 'host.call.fail').length, 1,
-    '失败/成功交替 30 轮（每轮 1 秒）+ 每轮换成因：只落 **1** 行 —— 重落间隔挡住交替，队列记账保证成因不丢（复审 F 实测 58 行 ⇒ 13.38 MiB/天）');
-  // 交替里的恢复可见性：间隔到点后的失败照样落（「真实新失败不会被永久静音」）
-  flopNow += 60000;
-  flopDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('AFTER_RECOVERY'), pluginId: 'dsh-prompt' });
-  eq(flopFired.filter((e) => e[0] === 'host.call.fail').length, 2, '间隔到点后仍会落一条：真实新失败不会被永久静音');
-  // 队列里的成因也不会被丢：下一轮把上一轮排队的那条补落
-  flopFired.length = 0;
-  flopNow += 60000;
-  flopDeps.logCtx.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'phone-failed', errorHash: hash8('FLAP_29'), pluginId: 'dsh-prompt' });
-  eq(flopFired.filter((e) => e[0] === 'host.call.fail').map((e) => e[1].errorHash), [hash8('FLAP_29')],
-    '交替期间排队等过的成因，间隔到点后被补落（不是只留下最后一条）');
-  ok('(K3) 成因变化按间隔补落（成因 B/C/D/E 逐条可见、一个不丢）+ 交替与成因抖动不逐请求落盘，且首条必落');
+  ok('能力建不起来时诚实降级（不 500、不静默）');
 
-  /* ── 12) 真包集成：不注入假包，直接用 node_modules 里的 dsh-plugin-update ──
-   * 上一版的「真产物直跑」注入的是假包（`hostUpdate` 短路了 `await import('dsh-plugin-update')`），
-   * 于是真包 `createHostUpdate` 的返回形状从未被这条测试覆盖：字段一改名，真机降级而测试仍全绿
-   * （审查 A 第 8 节的测试盲区）。这一段把它补上，并且**同时钉死日志口的三参契约**：
-   * 真包真实发一次 phone 调用，事件名必须是 host.call（不是 "info"）、字段必须齐。
-   * 放在最后跑：真包把 logCtx 记在它自己的模块级变量上（dist/host.js:215），只影响它自己。
-   */
-  const realLogged = [];
-  if (typeof globalThis.fetch !== 'function') fail('本机没有全局 fetch：真包读取器建不起来（dist/reader.js:91-94），12) 段的真包集成跑不了');
-  // #99（0.2.0）：包按 node_modules/<包名> 锚定反推 profileDir，开发目录本身认不出是诚实失败，
-  // 此段遂在临时目录造可识别布局并经宿主半透传（生产永远不传，默认自动探测不变）。
-  const DIR12 = path.join(DIR, 'real12');
-  const home12 = path.join(DIR12, 'home');
-  const profile12 = path.join(DIR12, 'profiles', 'web');
-  const pkg12 = path.join(profile12, 'node_modules', 'dsh-prompt');
-  fs.mkdirSync(path.join(pkg12, 'lib'), { recursive: true });
-  fs.mkdirSync(home12, { recursive: true });
-  for (const rel of ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/update.js']) {
-    fs.cpSync(path.join(ROOT, rel), path.join(pkg12, rel));
-  }
-  const client12 = path.join(ROOT, 'lib', 'client.js');
-  if (fs.existsSync(client12)) fs.cpSync(client12, path.join(pkg12, 'lib', 'client.js'));
-  else fs.writeFileSync(path.join(pkg12, 'lib', 'client.js'), '// 占位：12) 只验宿主半真集成，不加载它\nexport {}\n');
-  fs.writeFileSync(path.join(profile12, 'package.json'),
-    JSON.stringify({ name: 'dsh-profile-web', version: '0.0.0', private: true, dependencies: { 'dsh-prompt': pkgVersion } }, null, 2) + '\n');
-  const realCap = await builtMod.createUpdateCapability({
-    ctx: { get: () => undefined },
-    logReady: Promise.resolve({ log: (event, fields) => { realLogged.push([event, fields]); return true } }),
-    readerOverrides: { targetPackageDir: pkg12, profileDir: profile12, homeDir: home12 },
-  });
-  eq(realCap.ok, true, '真包下能力应建起来（ok=true）');
-  const realStatus = await realCap.runRoute(ROUTES.status, {});
-  eq(realStatus.ok, true, '真包 status 电话应成功（实际回包 ' + JSON.stringify(realStatus) + '）');
-  eq(Object.keys(realStatus.snapshot ?? {}).sort(), SNAPSHOT_FIELDS.slice().sort(), '真包的六字段快照');
-  // manual 的口径随本机 profile 走：空 home 下真包回 manual:null + blockedReason:"unknown-profile"，
-  // 那是包的**正确**行为（dist/commands.js:56 的 manualCommand 见到 unknown-profile / source-install 就回 null）。
-  // 上一版这里断言「必须是 dsh plugin 开头的字符串」，干净 clone / CI / 换机器必红（复审 A 的 R1）。
-  // 现在断言的是与环境无关的包不变式：要么 null，要么是 dsh plugin 起的真命令；并钉住
-  // 「unknown-profile ⇒ null」这条因果（空 home 那一支就靠它，实测那一支 manual = null）。
-  if (!(realStatus.manual === null || /^dsh plugin /.test(String(realStatus.manual)))) {
-    fail('真包 manual 只允许两种形状：null（本机认不出 profile）或 dsh plugin 起的命令串，实际 ' + JSON.stringify(realStatus.manual));
-  }
-  if (realStatus.snapshot?.blockedReason === 'unknown-profile' && realStatus.manual !== null) {
-    fail('blockedReason=unknown-profile 时 manual 必须是 null（dist/commands.js:56），实际 ' + JSON.stringify(realStatus.manual));
-  }
-  const realCall = realLogged.find((e) => e[0] === 'host.call');
-  if (!realCall) {
-    fail('真包驱动的电话没把 host.call 事件名交给日志能力（日志口收到的事件名：' + JSON.stringify(realLogged.map((e) => e[0])) + '）');
-  }
-  eq(realCall && Object.keys(realCall[1]).sort(), ['kind', 'latencyMs', 'method', 'ok', 'pluginId'], '真包 host.call 的落盘字段集合');
-  eq(realCall && [realCall[1].method, realCall[1].kind, realCall[1].ok, realCall[1].pluginId],
-    ['prompt.updateStatus', 'update-status', true, 'dsh-prompt'], '真包 host.call 的字段值逐项对账');
-  if (realCall && typeof realCall[1].latencyMs !== 'number') fail('真包 host.call 应带数字 latencyMs，实为 ' + JSON.stringify(realCall[1].latencyMs));
-  ok('真包集成：createHostUpdate 真形状下 ok=true、六字段快照齐、manual 形状对、host.call 带全字段到日志能力');
+  /* ── 6) 网关裸回包 ── */
+  const nakedLine = indexSrc.includes('writeJson(res, naked, 200)');
+  if (!nakedLine) fail('lib/index.js 更新分支应 writeJson(res, naked, 200)（方案A 裸回包）');
+  if (indexSrc.includes('{ ok: true, value: naked') || indexSrc.includes('{ok:true,value:naked'))
+    fail('lib/index.js 更新分支不许再包 {ok,value} 信封');
+  ok('宿主网关更新分支裸回包（他路仍包信封，更新独走 naked）');
 
-  /* ── 12b) 真包那条**安装执行**事件也要被真包驱动（复审 V3 旁证）──
-   * 这一段以前只驱动 status，`update.install.exec` 只被 11) 的假包覆盖 —— 真包那边改 route / exitCode
-   * 字段名时，真机静默丢而测试全绿。这里用真包的 `createUpdateExecutor`（dist/store.js:316）驱动一次
-   * 成功、一次失败（exitCode 7）；接线照 `dist/host.js:110`（`log: emitInstallLog` → `phoneLogCtx.fire`）抄：
-   * `log(level, event, fields)` 三参转给**生产桥**（lib/update.js 里那份 createBridgeLog）。
-   * subprocess 是假的：不真起进程、不装包、不碰网络，也不可能改到本机 profile。
-   */
-  const execLogged = [];
-  let execDeps = null;
-  await builtMod.createUpdateCapability({
-    logReady: Promise.resolve({ log: (event, fields) => { execLogged.push([event, fields]); return true } }),
-    hostUpdate: { createHostUpdate(deps) { execDeps = deps; return { phoneNames: {}, handlers: {} } } },
-  });
-  const realStoreMod = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'store.js')).href);
-  let execExit = 0;
-  const realExec = realStoreMod.createUpdateExecutor({
-    profileName: 'web',
-    environmentKind: 'cli',
-    profileDir: DIR,
-    subprocess: () => ({ spawn: () => ({ done: Promise.resolve({ exitCode: execExit }) }) }),
-    cliEntry: () => __filename,
-    targetPackageName: 'dsh-prompt',
-    registryUrl: 'https://registry.npmjs.org/',
-    pluginId: 'dsh-prompt',
-    log: (level, event, fields) => execDeps.logCtx.fire(level, event, fields),
-  });
-  await realExec({ version: pkgVersion, profileName: 'web' });
-  const execOk = execLogged.filter((e) => e[0] === 'update.install.exec').pop();
-  if (!execOk) fail('真 executor 的安装事件没经生产桥到日志能力（日志口收到的事件名：' + JSON.stringify(execLogged.map((e) => e[0])) + '）');
-  eq(Object.keys(execOk[1]).sort(), ['durationMs', 'exitCode', 'ok', 'pluginId', 'route'], '真包安装事件的字段集合');
-  eq([execOk[1].route, execOk[1].ok, execOk[1].exitCode, execOk[1].pluginId], ['cli-process', true, 0, 'dsh-prompt'], '真包安装成功那次逐项对账');
-  if (typeof execOk[1].durationMs !== 'number') fail('真包安装事件应带数字 durationMs，实为 ' + JSON.stringify(execOk[1].durationMs));
-  execLogged.length = 0;
-  execExit = 7;
-  const execFailCode = await realExec({ version: pkgVersion, profileName: 'web' }).then(() => 'ok', (e) => String(e?.code ?? e?.message ?? e));
-  eq(execFailCode, 'install-failed', '真 executor 失败时应抛 install-failed');
-  const execBad = execLogged.filter((e) => e[0] === 'update.install.exec').pop();
-  if (!execBad) fail('真 executor 失败那次没落 update.install.exec（默认开关下「装更新退了几」就查不到）');
-  eq([execBad[1].route, execBad[1].ok, execBad[1].exitCode, execBad[1].pluginId], ['cli-process', false, 7, 'dsh-prompt'], '真包安装失败那次：exitCode 7 查得到');
-  ok('(k) 真包 executor 驱动的 update.install.exec：成功 / 失败（exitCode 7）两条都经生产桥到日志能力');
+  /* ── 7) 整形裸必需 ── */
+  const nakedReply = { ok: true, snapshot: canned, manual: null, receipt: null };
+  const shaped = shapeHttpReply(nakedReply);
+  eq(shaped.snapshot, canned, 'shape 直传裸快照');
+  const withDiag = shapeHttpReply({ ok: true, snapshot: canned, diagnostic: '原文必须丢', diag: { stage: 'check' } });
+  if ('diagnostic' in withDiag) fail('shape 应剥 diagnostic 原文');
+  ok('shape 剥 diagnostic、透传其余（裸必需）');
+  let threw = false;
+  try { shapeHttpReply(42); } catch (e) { threw = true; if (!String((e && e.code) || (e && e.message) || '').length) fail('transport 失败应带码'); }
+  if (!threw) fail('非记录回包应抛 transport-failed');
+  ok('非记录回包走传输失败通道（不进稳定码分支）');
 
-  /* ── 13) hoisted 部署布局回归（#58）：更新包必须住在本插件包内 ──
-   * 现场 = 真机的形态：`<root>/profiles/web/node_modules/dsh-prompt` 是**部署副本**（宿主跑的就是它），
-   * 更新包只可能在**插件包外**那一层 node_modules —— DSH 自己在 app.asar 里把 profile 写死成
-   * `nodeLinker: hoisted`（不一致还会改回来），所以真机上的插件包里没有嵌套的更新包副本。
-   * 这个形态下：
-   *   - HEAD 7ed096e 的产物（更新包留 externals）：三条路由全回 `unknown-profile`（实测反例，
-   *     见 `.wayfinder/update/58-progress.md`；同布局同入口的探针是 `.tmp-verify/probe-58/hoisted-matrix.mjs`）；
-   *   - #58 之后（内联进 lib/update.js）：`containingPackage` 从产物自己的 URL 上溯命中的是
-   *     **本插件包**的 package.json ⇒ `loaded == installed` ⇒ status 回 `blockedReason:null`。
-   * 两种「插件包外」形态都要绿：
-   *   A) sibling：插件包外**有一份** dsh-plugin-update（真机现状；也是「下一个人改回 externals」时的样子）；
-   *   B) plain：插件包外**什么都没有**（用户从 npm 装到的新包 —— 更新包在 devDependencies，不再另装）。
-   * 三条安全边界：不联网（受控 fetch 回一个假 release —— 版本号由 package.json 当前版本 patch+1 推出）、
-   * 不真装包（不接 subprocess 服务 ⇒ 配方执行体
-   * 必抛 install-failed，只验到「过了布局闸门与守卫」）、不碰真 home / 真 profile（布局造在
-   * `scripts/.rt-tmp-39/hoisted/` 内，DSH_HOME 指向布局自己的临时 home）。
-   */
-  const HOISTED = path.join(DIR, 'hoisted');
-  // 这个版本号**不写死**：由 package.json 的当前版本 +1 个 patch 位推出来（见文件顶部的版本号口径）。
-  // 写死成具体号（旧版是 `0.1.8`）会让本段在「本包自己正好是那一版」时红：真包判「不比当前新」⇒
-  // canInstall:false，而且**每次升版都红**（发布 #44 实测：本包升到 0.1.8 时这一段就红了）。
-  const RELEASE = {
-    name: 'dsh-prompt',
-    version: NEXT_RELEASE_VERSION,
-    dist: {
-      tarball: 'https://registry.npmjs.org/dsh-prompt/-/dsh-prompt-' + NEXT_RELEASE_VERSION + '.tgz',
-      integrity: 'sha512-' + 'A'.repeat(86) + '==',
-    },
-  };
-  /** 受控官方源（形状照 dist/service.js:105-140 的要求拼），不回真网络。 */
-  async function fakeRegistryFetch(url) {
-    if (String(url) !== 'https://registry.npmjs.org/dsh-prompt/latest') {
-      fail('受控 fetch 只该被问 dsh-prompt/latest，实收 ' + String(url));
-    }
-    const text = JSON.stringify(RELEASE);
-    return {
-      ok: true,
-      headers: { get: (k) => (String(k).toLowerCase() === 'content-length' ? String(text.length) : null) },
-      text: async () => text,
-    };
-  }
-  /** 造一份 hoisted 部署布局；withSibling 决定插件包外那层有没有更新包。 */
-  function layoutHoisted(name, withSibling) {
-    const root = path.join(HOISTED, name);
-    const homeDir = path.join(root, 'home');
-    const profileDir = path.join(root, 'profiles', 'web');
-    const pkgDir = path.join(profileDir, 'node_modules', 'dsh-prompt');
-    fs.mkdirSync(path.join(pkgDir, 'lib'), { recursive: true });
-    fs.mkdirSync(homeDir, { recursive: true });
-    // 部署副本 = 用户装到的那份：三个入口（main / exports["./client"] / dsh.bundle.patch）都要在，
-    // 否则 reader 的 validPackage 会判 invalid-installation，测的就不是「布局」这件事了。
-    for (const rel of ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/update.js']) {
-      fs.cpSync(path.join(ROOT, rel), path.join(pkgDir, rel));
-    }
-    const clientSrc = path.join(ROOT, 'lib', 'client.js');
-    if (fs.existsSync(clientSrc)) fs.cpSync(clientSrc, path.join(pkgDir, 'lib', 'client.js'));
-    else fs.writeFileSync(path.join(pkgDir, 'lib', 'client.js'), '// 占位：本机没跑过 build:client（lib/client.js 不入库），本段只验宿主半的布局，不加载它\nexport {}\n');
-    fs.writeFileSync(path.join(profileDir, 'package.json'),
-      JSON.stringify({ name: 'dsh-profile-web', version: '0.0.0', private: true, dependencies: { 'dsh-prompt': '^0.1.7' } }, null, 2) + '\n');
-    if (withSibling) {
-      fs.cpSync(path.join(ROOT, 'node_modules', 'dsh-plugin-update'),
-        path.join(profileDir, 'node_modules', 'dsh-plugin-update'), { recursive: true });
-    }
-    return { root, homeDir, profileDir, pkgDir };
-  }
-  /** 在布局里跑**真入口**：import 部署副本的 lib/update.js → 建能力 → 打三条电话。 */
-  async function driveHoisted(layout) {
-    const prevHome = process.env.DSH_HOME;
-    const prevFetch = globalThis.fetch;
-    process.env.DSH_HOME = layout.homeDir;
-    globalThis.fetch = fakeRegistryFetch;
-    try {
-      const mod = await import(pathToFileURL(path.join(layout.pkgDir, 'lib', 'update.js')).href);
-      const cap = await mod.createUpdateCapability({ ctx: { get: () => undefined } });
-      if (!cap.ok) return { degraded: cap.reason };
-      const status = await cap.runRoute(cap.paths.status, {});
-      const check = await cap.runRoute(cap.paths.check, {});
-      const installNoId = await cap.runRoute(cap.paths.install, {});
-      const freshId = check.receipt && check.receipt.checkId;
-      const installFresh = freshId
-        ? await cap.runRoute(cap.paths.install, { checkId: freshId, requestId: 'issue-39-hoisted' })
-        : null;
-      return { status, check, installNoId, installFresh };
-    } finally {
-      if (prevHome === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = prevHome;
-      if (prevFetch === undefined) delete globalThis.fetch; else globalThis.fetch = prevFetch;
-    }
-  }
-
-  for (const [name, withSibling] of [['sibling', true], ['plain', false]]) {
-    const layout = layoutHoisted(name, withSibling);
-    const r = await driveHoisted(layout);
-    const where = 'hoisted 布局（' + (withSibling ? '插件包外有一份更新包' : '插件包外没有更新包') + '）';
-    if (r.degraded) {
-      fail(where + '：能力建不起来（' + r.degraded + '）—— 更新包没住进本插件包内？'
-        + '（改回 externals / 按包名 import 就会这样）');
-    }
-    eq(r.status.ok, true, where + '：status 电话应成功（实回 ' + JSON.stringify(r.status) + '）');
-    eq(r.status.snapshot.blockedReason, null, where + '：status 的 blockedReason 必须是 null（不是 unknown-profile，也不是 installation-changed）');
-    eq([r.status.snapshot.runningVersion, r.status.snapshot.installedVersion], [pkgVersion, pkgVersion],
-      where + '：runningVersion 应来自部署副本自身（loaded == installed）');
-    eq(r.check.ok, true, where + '：check 电话应成功（实回 ' + JSON.stringify(r.check) + '）');
-    eq([r.check.snapshot.latestVersion, r.check.snapshot.canInstall], [NEXT_RELEASE_VERSION, true],
-      where + '：受控源上的 ' + NEXT_RELEASE_VERSION + '（当前 ' + pkgVersion + ' 的下一个 patch）应可装');
-    if (!r.check.receipt) fail(where + '：check 成功后 receipt 不该为空');
-    eq([r.installNoId.ok, r.installNoId.error], [false, 'check-expired'], where + '：没有 checkId 的 install 应停在守卫上');
-    if (r.installNoId.error === 'unknown-profile') {
-      fail(where + '：install 回 unknown-profile —— 布局闸门没过，#58 要防的就是这个');
-    }
-    if (!r.installFresh || r.installFresh.ok !== true) {
-      fail(where + '：带着新 checkId 的 install 应过守卫（实回 ' + JSON.stringify(r.installFresh) + '）');
-    }
-    eq(r.installFresh.snapshot.job.state, 'installing', where + '：install 返回时任务应处于 installing');
-    // 没真装包：受控台子没接 subprocess 服务（配方的执行体在后台必抛 install-failed），
-    // 部署副本的 package.json 一个字节都不该变。
-    eq(JSON.parse(fs.readFileSync(path.join(layout.pkgDir, 'package.json'), 'utf8')).version, pkgVersion,
-      where + '：部署副本没有被改动（没真装包）');
-  }
-  ok('(p) hoisted 部署布局（插件包外有/无更新包两种）：status ok:true + blockedReason:null、'
-    + 'check ok:true + canInstall:true + receipt 非空、install 停在功能守卫（check-expired）而不是 unknown-profile');
-
-  console.log('=== Test #39 PASS ===');
-  process.exit(0);
-})().catch((e) => { console.log('HARNESS-ERROR: ' + (e && e.stack ? e.stack.split('\n').slice(0, 8).join(' | ') : String(e))); process.exit(3) });
+  console.log('\nALL PASS: #39 host+build+gateway+http（0.3.1 口径）');
+})();

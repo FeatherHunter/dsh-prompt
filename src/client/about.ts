@@ -171,12 +171,10 @@ function PluginRow(props: any): any {
 }
 
 /**
- * 顶部头行：左边插件标志与页面名，右边「更新入口（调用方给了就渲染）+ 两个图标按钮」。
+ * 顶部头行：左边插件标志与页面名，右边「入口位（调用方给了就渲染）+ 两个图标按钮」。
  *
- * #60 追加交付 A：更新入口不再是独立卡片，而是**这一行里的一枚按钮** —— 与 🌟 / 💬 同一个父节点
- * （`headBtnsStyle` 那个 span）、DOM 顺序排在这两个图标**之前**。`entry` 由 settings.ts 交进来
- * （它同时持有 about.ts 与 update.ts 的引用），本文件因此不 import update.ts，两边都不成环。
- * 不传 `entry` 时这一行与 #37 完全一致（本文件的回归脚本就是单独挂载它）。
+ * #127 自研更新入口已删：`entry` 仍由 settings.ts 交进来（#128 接新整组件时再定形态），
+ * 本文件不持有更新引用。`entry` 缺席时这一行与 #37 一致。
  */
 export function SettingsHeaderLinks(props: { lang: Lang; entry?: any }): any {
   const react = getReact()

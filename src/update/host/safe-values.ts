@@ -24,16 +24,16 @@
  * —— 形态与既有的 `unknown-event` 自报同一路：先有指纹可查，再把新取值补进表里。
  */
 
-import { UPDATE_CHECK_PATH, UPDATE_INSTALL_PATH, UPDATE_STATUS_PATH } from '../bridge.js'
+import { UPDATE_CHECK_PATH, UPDATE_INSTALL_PATH, UPDATE_STATUS_PATH } from './paths.js'
 import { hash8 } from './hash.js'
 
 /** 宿主半在日志能力面前的身份（与 `lib/index.js` 的 PLUGIN_ID、cordis.patch.yml 的 id 同值）。 */
 const PLUGIN_ID = 'dsh-prompt'
-/** 电话名前缀：与客户端半派生文件 `gen/updateClient.derived.js` 的 --prefix 必须同值。 */
+/** 电话名前缀（#127 派生文件已删，#128 起由 http helper 从 prefix 算出）。 */
 const PHONE_PREFIX = 'prompt'
 
 /**
- * 三条更新路由共同的路径前缀（`/_dsh/dsh-prompt/update`）。从 `../bridge.js` 的常量派生，
+ * 三条更新路由共同的路径前缀（`/_dsh/dsh-prompt/update`）。从 `./paths.js` 的常量派生，
  * 不写路径字面量 —— 宿主半的路径只有 bridge 一处来源（回归脚本会拦字面量）。
  * 用途仅一个：日志里标「这条失败属于更新路由这一族」（见 bridge-log.ts 的 default 分支与
  * index.ts 里那条 capability-degraded 自报）。

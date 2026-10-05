@@ -5,7 +5,7 @@
  * 的表，注册到哪里由调用方定。本插件不另开 RPC 通道、不迁 `ctx.remote`，就挂现有这条
  * `/_dsh/dsh-prompt/*` 桥（同源防护与既有端点同生共死，见 lib/index.js 的 isAllowed）。
  *
- * 三条路由的路径取 `../bridge.js`（客户端半的同一处定义），本文件不写字面量。
+ * 三条路由的路径取 `./paths.js`（#127 从已删 bridge.ts 搬家），本文件不写字面量。
  *
  * 本票只做接线与构建准备：不自动检查、不做面板（#40 / #41）。`createUpdateCapability()`
  * 建起来只注册处理器；状态快照要等客户端点「检查更新」（#40）才会被读。
@@ -37,13 +37,13 @@ import {
   UPDATE_CHECK_PATH,
   UPDATE_INSTALL_PATH,
   UPDATE_STATUS_PATH,
-} from '../bridge.js'
+} from './paths.js'
 import { createBridgeLog, type LogCapability } from './bridge-log.js'
 import { hash8 } from './hash.js'
 
 /** 宿主半在日志能力面前的身份（与 lib/index.js 的 PLUGIN_ID、cordis.patch.yml 的 id 同值）。 */
 export const PLUGIN_ID = 'dsh-prompt'
-/** 电话名前缀：与客户端半派生文件 `gen/updateClient.derived.js` 的 --prefix 必须同值。 */
+/** 电话名前缀（#127 派生文件已删，#128 起由 http helper 从 prefix 算出，不写字面量）。 */
 export const PHONE_PREFIX = 'prompt'
 /** 要检查更新的包是谁 —— 就是本插件自己。 */
 export const TARGET_PACKAGE_NAME = 'dsh-prompt'

@@ -10,7 +10,7 @@
  */
 import { getReact, TemplateBrowser } from './panel'
 import { SettingsHeaderLinks, AuthorPlugins } from './about'
-import { UpdateEntry } from './update'
+
 import { isSmartEnabled, setSmartEnabled } from './smartstore'
 import {
   getRemotePrefs, subscribeRemote, ensureRemoteLoaded,
@@ -643,10 +643,9 @@ export function SettingsPage(props: any): any {
   }
   // #37：旧的一行文字链接（⛭ GitHub 仓库 / ⚠ 反馈故障）已由顶部右上角两个图标按钮取代，不再保留第二处入口。
   return h('div', { style: settingsRootStyle }, [
-    // 标题栏置顶（身份行：提示词模板 + 检查更新 + 版本 + 🌟💬，内容与钩子原样只换位置）。
-    // #60 追加交付 A 的位置修正（第二次真机反馈）：更新入口**不再是独立的一块**，而是交给身份行，
-    // 与 🌟 / 💬 同一行、排在这两个图标之前 —— 用户原话「检查更新和版本号和 star 的按钮在一起」。
-    h(SettingsHeaderLinks, { key: 'links', lang, entry: h(UpdateEntry, { key: 'update' }) }),
+    // 标题栏置顶（身份行：提示词模板 + 版本 + 🌟💬）。
+    // #127 自研更新入口已删（连同 update.ts 一起），#128 用新整组件接回，落位另定。
+    h(SettingsHeaderLinks, { key: 'links', lang }),
     // 模板管理栏紧随标题栏（主体功能优先）：预制·自定义模板区为第 1 块，其余段顺序不变相对后移。
     // #77：模板区是一张**与下面几张卡同款的卡片**（此前它是一条裸行，没有壳）。折叠态只露出卡片头行，点开才是完整列表。
     // pad 取 4px 6px 8px：内嵌浏览器自带 8px 内边距，6 + 8 = 14px，与其它卡的内容左轨对齐。

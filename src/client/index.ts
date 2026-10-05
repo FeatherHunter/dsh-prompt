@@ -5,7 +5,6 @@
 import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler, armInputFocusTrack } from './panel'
 import { EntryButton } from './button'
 import { SettingsPage } from './settings'
-import { UpdateEntry } from './update'
 import { buildPromptSource } from './trigger'
 import { SmartCardHost } from './smart'
 import { setSmartInput } from './smartstore'
@@ -34,18 +33,6 @@ type ClientContext = {
 
 export const inject = ['slots', 'inputTriggers']
 
-/**
- * 更新自动检查宿主（#41 建、#89 改周期）：全局单点（shell.overlay）、启动即挂 —— 挂载后先延迟一把再查，
- * 之后按固定周期复查，有新版本才弹 #40 那只弹窗（`auto` 模式只出弹窗、不出设置页那一行）。
- *
- * 为什么放在 shell.overlay 而不是 conversation.input.overlay：会话说白了可以有多个，
- * 而「后台按周期查」这件事每台机器只该有一摊调度（电话与弹窗都不该按会话翻倍；见 updauto.ts 的模块级调度）。
- */
-function UpdateAutoHost(): any {
-  const react = getReact()
-  if (!react) return null
-  return react.createElement(UpdateEntry, { auto: true })
-}
 
 /** 面板浮层（conversation.input.overlay，session 作用域 → 有 useInput/inputActions） */
 function PanelHost(props: any): any {
@@ -116,9 +103,9 @@ export function apply(ctx: ClientContext): void {
   // 日志能力（#49）：先建日志器（本地开关秒显），再向宿主对账（以宿主为准），最后才写第一条事件。
   const log = startLog()
   log.reconcile().catch(() => undefined)
-  // entryCount = 下面 `ctx.effect` 无条件注册数（#41 5→6 后 smart/update-auto/字桥陆续加入未补数；
-  // #92 补齐为 8：store/remote/字桥/entry/panel/settings/smart/update-auto；/prompt 源按宿主能力条件注册，不计）
-  log.log('app.boot', { hasReact: !!getReact(), lang: getLang(), entryCount: 8 })
+  // entryCount = 下面 `ctx.effect` 无条件注册数（#127 删自研更新后 update-auto 退出，8→7；
+  // 现为：store/remote/字桥/entry/panel/settings/smart；/prompt 源按宿主能力条件注册，不计）
+  log.log('app.boot', { hasReact: !!getReact(), lang: getLang(), entryCount: 7 })
   // #20：client 启动即拉 host 快照（失败 warn + 内存默认，不阻塞装配）
   ctx.effect(() => { ensureLoaded().catch(() => undefined) }, 'dsh-prompt: store load')
   // #82：远程偏好同理（总闸默认关，host 不可达时当次默认、下次恢复默认并明示）
@@ -260,8 +247,4 @@ export function apply(ctx: ClientContext): void {
     ctx.slots.register({ name: 'shell.overlay', id: 'dsh-prompt-smart', order: 200, label: () => 'dsh-prompt smart' }, SmartCardHost),
   ), 'dsh-prompt: smart card')
 
-  // 更新自动检查（#41 建、#89 改周期）：同一个 shell.overlay 槽的第二个注册点，启动延迟首次＋固定周期（见 UpdateAutoHost）
-  ctx.effect(() => ctx.slots.inject('shell.overlay', () =>
-    ctx.slots.register({ name: 'shell.overlay', id: 'dsh-prompt-update-auto', order: 210, label: () => 'dsh-prompt update auto' }, UpdateAutoHost),
-  ), 'dsh-prompt: update auto')
 }

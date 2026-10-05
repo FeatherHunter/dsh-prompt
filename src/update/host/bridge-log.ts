@@ -38,7 +38,7 @@ export interface BridgeLogClock {
 /**
  * 失败落盘节流（#39 四轮整改 K3）：同一 `(method, kind)` 的持续失败不能每请求刷一行 ——
  * `warn` 绕过日志开关（`dsh-log` 的 `isEnabled` 对 warn 恒真），真机上「电话持续失败」（断网 /
- * `check-expired` / registry 抽风）配上面板 `UPD_POLL = 1000ms` 就是每秒 2 行恒写、用户关不掉
+ * `check-expired` / registry 抽风）配上旧面板轮询（#127 已删）就是每秒多行恒写、用户关不掉
  * （复审 D 实测 62 次请求 124 行 / 20402 B ⇒ 54.2 MiB/天）。
  *
  * 三轮的处置是「按状态落一次」，复审 F 又量出两个残余，四轮一并修：

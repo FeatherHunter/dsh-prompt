@@ -86,7 +86,7 @@ const subscribers = new Set<() => void>()
  * 落点取舍（#59 分诊口径 + #53 约束）：只住本文件内部，不新建 `src/client/storage.ts`
  * —— 本仓每个回归脚本都在 `scripts` 下的 `.rt-tmp` 系列目录里手写要转译的模块清单，往被普遍加载的
  * 路径上加一条 import 边会让既有脚本整批红（#53 实测 15 条里红 9 条）。`smartstore.ts` /
- * `updauto.ts` 的 4 处同类访问本来就在 `try` 里（降级值 `false` / `null` / `''` / `false`
+ * 的同类访问本来就在 `try` 里（#127 `updauto.ts` 已删；降级值 `false` / `null` / `''` / `false`
  * 保持不变），为避免两套写法漂移刻意不收拢到一处共享封装 —— 本函数只保这一处爆点。
  */
 function resolveDefaultStorage(): Storage | null {

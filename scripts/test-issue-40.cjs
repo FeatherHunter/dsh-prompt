@@ -48,8 +48,9 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
     ['updateInstall:', 'routes.updateInstall'],
     ['updateChangelog:', 'routes.updateChangelog'],
     ["variant: 'button'", 'entry variant button'],
-    ["theme: 'default'", 'theme default'],
+    ["theme: 'archive'", 'theme archive'],
     ["mode: 'dialog'", 'panel mode dialog'],
+    ['onCloseRequested', 'panel 关闭落地'],
     ["autoCheck: 'mount'", 'entry autoCheck mount'],
     ["openOn: 'has-update'", 'entry openOn has-update'],
     ['mountUpdateEntryHttp', 'entry 经 http 万能插头'],
@@ -159,5 +160,5 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
   globalThis.fetch = realFetch;
 
   if (failures) { console.log('\nFAIL: #40 ' + failures + ' 条未过'); process.exit(1); }
-  console.log('\nALL PASS: #40 settings 入口+弹窗面板（0.4.0 口径）');
+  console.log('\nALL PASS: #40 settings 入口+弹窗面板（0.5.0 口径）');
 })();

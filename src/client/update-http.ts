@@ -1,7 +1,8 @@
 /**
  * dsh-prompt — 更新整组件 HTTP 接线（#128）
  *
- * 0.4.0 万能插头：mountUpdateEntryHttp(button) + mountUpdatePanelHttp(dialog,默认主题，更新日志自动展示)。
+ * 0.5.0 万能插头：mountUpdateEntryHttp(button,archive) + mountUpdatePanelHttp(dialog,archive，更新日志自动展示)。
+ * 关闭落地 onCloseRequested 由调用方撤 DOM（entry 打开的 dialog 包已内置）。
  * 三要素与网关同值：pluginId dsh-prompt、prefix prompt、baseUrl /_dsh/dsh-prompt/update，
  * routes { updateStatus:status, updateCheck:check, updateInstall:install, updateChangelog:changelog }
  * 落到宿主四条路由（src/update/host/paths.ts；0.4.0 起加取日志电话）。宿主网关已改裸回包（方案A），
@@ -42,7 +43,7 @@ export function UpdateEntryButton(_props: any): any {
         baseUrl: UPDATE_BASE_URL,
         routes: { ...UPDATE_ROUTES },
         variant: 'button',
-        theme: 'default',
+        theme: 'archive',
         autoCheck: 'mount',
         openOn: 'has-update',
       })
@@ -62,7 +63,9 @@ export function UpdateEntryButton(_props: any): any {
   })
 }
 
-/** 设置页更新面板（dialog + 默认主题，挂载即查一次，安装走用户点击；更新日志有新版自动展示）。 */
+/** 设置页更新面板（dialog + archive 主题，挂载即查一次，安装走用户点击；更新日志有新版自动展示）。
+ * 关闭落地（0.5.0 onCloseRequested）：点「关闭」/按 Esc 时由调用方撤 DOM（包随后自停轮询）；
+ * 本次关闭后本容器留空，下次进设置页重挂。 */
 export function UpdatePanelEmbedded(_props: any): any {
   const react = getReact()
   if (!react) return null
@@ -79,7 +82,9 @@ export function UpdatePanelEmbedded(_props: any): any {
         baseUrl: UPDATE_BASE_URL,
         routes: { ...UPDATE_ROUTES },
         mode: 'dialog',
-        theme: 'default',
+        theme: 'archive',
+        // 关闭落地：撤掉弹窗 DOM（包随后自停轮询）；不抛，失败也不挡。
+        onCloseRequested: () => { try { el.innerHTML = '' } catch (e) { /* ignore */ } },
       })
     } catch (e) {
       return undefined

@@ -45,8 +45,9 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     ["autoCheck: 'mount'", 'entry autoCheck mount（挂载静默查一次，只读）'],
     ["openOn: 'has-update'", 'entry openOn has-update（有新版才开面板）'],
     ["variant: 'button'", 'entry variant button'],
-    ["mode: 'dialog'", 'panel mode embedded'],
-    ["theme: 'default'", 'theme default（不用 d5-paper）'],
+    ["mode: 'dialog'", 'panel mode dialog'],
+    ["theme: 'archive'", 'theme archive（新主题首选名）'],
+    ['onCloseRequested', 'panel 关闭落地（调用方撤 DOM）'],
     ['mountUpdateEntryHttp', 'entry 走 http 万能插头（内含源码级禁装 guard）'],
     ['mountUpdatePanelHttp', 'panel 走 http 万能插头'],
   ]) {
@@ -88,7 +89,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     entry = mountUpdateEntryHttp(entryBox, {
       pluginId: 'dsh-prompt', prefix: 'prompt', baseUrl: '/_dsh/dsh-prompt/update',
       routes: { updateStatus: 'status', updateCheck: 'check', updateInstall: 'install' },
-      variant: 'button', theme: 'default', autoCheck: 'mount', openOn: 'has-update', fetch: fakeFetch,
+      variant: 'button', theme: 'archive', autoCheck: 'mount', openOn: 'has-update', fetch: fakeFetch,
     });
   } catch (e) { bad('入口 mount 抛错：' + (e && e.message || e)); }
   await sleep(300);
@@ -119,7 +120,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     panel = mountUpdatePanelHttp(panelBox, {
       pluginId: 'dsh-prompt', prefix: 'prompt', baseUrl: '/_dsh/dsh-prompt/update',
       routes: { updateStatus: 'status', updateCheck: 'check', updateInstall: 'install' },
-      mode: 'dialog', theme: 'default', fetch: fakeFetch,
+      mode: 'dialog', theme: 'archive', fetch: fakeFetch,
     });
   } catch (e) { bad('面板 mount 抛错：' + (e && e.message || e)); }
   await sleep(400);
@@ -139,7 +140,33 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   if (clickInstalls < 1) bad('面板点击安装应发 install 电话（安装只走点击），实发 ' + JSON.stringify(hits));
   else ok('面板点击安装发 install（安装只走用户点击）');
   try { panel.unmount(); ok('面板 unmount 不抛（只停轮询）'); } catch (e) { bad('面板 unmount 抛错'); }
+  // 关闭落地（0.5.0）：dialog 下 act(close-view) 先调调用方落地再停轮询
+  {
+    const box = fakeContainer();
+    box.innerHTML = '<div>dialog 痕迹</div>';
+    let landed = 0;
+    let closed;
+    try {
+      closed = mountUpdatePanelHttp(box, {
+        pluginId: 'dsh-prompt', prefix: 'prompt', baseUrl: '/_dsh/dsh-prompt/update',
+        routes: { updateStatus: 'status', updateCheck: 'check', updateInstall: 'install', updateChangelog: 'changelog' },
+        mode: 'dialog', theme: 'archive', fetch: fakeFetch,
+        onCloseRequested: () => { landed++; try { box.innerHTML = ''; } catch (e) {} },
+      });
+    } catch (e) { bad('关闭落地挂载抛错：' + (e && e.message || e)); }
+    await sleep(300);
+    try { await closed.act('close-view'); } catch (e) { bad('act(close-view) 抛错：' + (e && e.message || e)); }
+    await sleep(100);
+    if (landed !== 1) bad('关闭落地应恰调一次，实调 ' + landed + ' 次');
+    else ok('dialog 关闭走调用方落地（恰一次）');
+    if (box.innerHTML !== '') bad('调用方撤 DOM 后容器应空，实为 ' + JSON.stringify(box.innerHTML.slice(0, 80)));
+    else ok('调用方撤掉弹窗 DOM（容器已空）');
+    const afterClose = hits.length;
+    await sleep(700);
+    if (hits.length !== afterClose) bad('关闭后轮询应停，还有新调用');
+    else ok('关闭后轮询已停（无新调用）');
+  }
 
   if (failures) { console.log('\nFAIL: #41 ' + failures + ' 条未过'); process.exit(1); }
-  console.log('\nALL PASS: #41 只查不自动装（0.4.0 口径）');
+  console.log('\nALL PASS: #41 只查不自动装（0.5.0 口径）');
 })();

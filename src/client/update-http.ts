@@ -45,7 +45,8 @@ export function UpdateEntryButton(_props: any): any {
         variant: 'button',
         theme: 'archive',
         autoCheck: 'mount',
-        openOn: 'has-update',
+        // 点开即弹窗、不预查（0.5.1 direct；面板挂载即自查，铁律不变：不自动装）。
+        openOn: 'direct',
       })
     } catch (e) {
       return undefined
@@ -63,50 +64,3 @@ export function UpdateEntryButton(_props: any): any {
   })
 }
 
-/** 更新档案入口（按需弹窗）：平时只是一枚按钮，点了才挂 dialog 面板。
- * 关闭落地（0.5.0 onCloseRequested）：撤掉弹窗 DOM + 关开关（包随后自停轮询）；
- * 下次点开重挂。挂载失败 fail-soft：按钮仍在，不挡其余卡。 */
-export function UpdateArchiveButton(_props: any): any {
-  const react = getReact()
-  if (!react) return null
-  const h = react.createElement
-  const [open, setOpen] = react.useState(false)
-  const ref = react.useRef(null as any)
-  react.useEffect(() => {
-    if (!open) return undefined
-    const el = ref.current
-    if (!el) return undefined
-    let ctrl: any = null
-    try {
-      ctrl = mountUpdatePanelHttp(el, {
-        pluginId: UPDATE_PLUGIN_ID,
-        prefix: UPDATE_PREFIX,
-        baseUrl: UPDATE_BASE_URL,
-        routes: { ...UPDATE_ROUTES },
-        mode: 'dialog',
-        theme: 'archive',
-        // 关闭落地：撤掉弹窗 DOM + 关开关（包随后自停轮询）；不抛，失败也不挡。
-        onCloseRequested: () => { try { el.innerHTML = '' } catch (e) { /* ignore */ } setOpen(false) },
-      })
-    } catch (e) {
-      setOpen(false)
-      return undefined
-    }
-    return () => {
-      try {
-        if (ctrl && typeof ctrl.unmount === 'function') ctrl.unmount()
-      } catch (e) { /* ignore */ }
-    }
-  }, [open])
-  return h('span', {
-    style: { display: 'inline-flex', alignItems: 'center' },
-    'data-dsh-prompt-update-archive': '',
-  }, [
-    h('button', {
-      key: 'open',
-      onClick: () => setOpen(true),
-      title: '打开更新档案（检查、日志、队列与手工命令）',
-    }, '更新档案'),
-    open ? h('div', { key: 'box', ref, 'data-dsh-prompt-update-panel': '' }) : null,
-  ])
-}

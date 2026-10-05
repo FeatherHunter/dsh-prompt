@@ -43,18 +43,14 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   /* ── 1) 源码口径 ── */
   for (const [needle, what] of [
     ["autoCheck: 'mount'", 'entry autoCheck mount（挂载静默查一次，只读）'],
-    ["openOn: 'has-update'", 'entry openOn has-update（有新版才开面板）'],
+    ["openOn: 'direct'", 'entry openOn direct（点开即弹窗，面板挂载自查）'],
     ["variant: 'button'", 'entry variant button'],
-    ["mode: 'dialog'", 'panel mode dialog'],
-    ["theme: 'archive'", 'theme archive（新主题首选名）'],
-    ['onCloseRequested', 'panel 关闭落地（调用方撤 DOM）'],
     ['mountUpdateEntryHttp', 'entry 走 http 万能插头（内含源码级禁装 guard）'],
-    ['mountUpdatePanelHttp', 'panel 走 http 万能插头'],
   ]) {
     if (!uh.includes(needle)) bad('update-http.ts 缺 ' + what);
   }
   if (failures) { console.log('FAIL: 接线口径不对'); process.exit(1); }
-  ok('entry autoCheck/openOn/variant + panel mode/theme 口径全对');
+  ok('entry autoCheck/openOn direct/variant/theme 口径全对（面板按需由入口开，不在 update-http 里挂）');
   // 入口 wrappers 不直调 install 电话（routes 表里的 install 是给面板用的，入口运行时走 guard）
   const entryFn = uh.slice(uh.indexOf('UpdateEntryButton'), uh.indexOf('UpdatePanelEmbedded'));
   if (/updateInstall/.test(entryFn) && !/routes/.test(entryFn)) bad('UpdateEntryButton 不应直写 updateInstall 电话名');
@@ -89,7 +85,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     entry = mountUpdateEntryHttp(entryBox, {
       pluginId: 'dsh-prompt', prefix: 'prompt', baseUrl: '/_dsh/dsh-prompt/update',
       routes: { updateStatus: 'status', updateCheck: 'check', updateInstall: 'install' },
-      variant: 'button', theme: 'archive', autoCheck: 'mount', openOn: 'has-update', fetch: fakeFetch,
+      variant: 'button', theme: 'archive', autoCheck: 'mount', openOn: 'direct', fetch: fakeFetch,
     });
   } catch (e) { bad('入口 mount 抛错：' + (e && e.message || e)); }
   await sleep(300);
@@ -110,6 +106,19 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   const entryHttpFn = httpSrc.slice(httpSrc.indexOf('function mountUpdateEntryHttp'), httpSrc.indexOf('function mountUpdateEntryHttp') + 1500);
   if (!entryHttpFn.includes('updateInstall') || !entryHttpFn.includes('throw')) bad('上游入口 guard 应在（mountUpdateEntryHttp 内对 updateInstall throw）');
   else ok('上游入口 guard 在（mountUpdateEntryHttp 对 updateInstall throw）');
+  // direct 按需弹窗：点开即有 dialog（面板挂载自查），关了回到按钮
+  try {
+    if (entry && typeof entry.open === 'function') await entry.open();
+  } catch (e) { bad('入口 open 抛错：' + (e && e.message || e)); }
+  await sleep(400);
+  if (!/dsh-upd/.test(entryBox.innerHTML)) bad('direct 点开后应有 dialog 痕迹，实际 ' + JSON.stringify(entryBox.innerHTML.slice(0, 120)));
+  else ok('direct 点开即弹窗（面板挂载自查）');
+  try {
+    if (entry && typeof entry.close === 'function') await entry.close();
+  } catch (e) { bad('入口 close 抛错：' + (e && e.message || e)); }
+  await sleep(200);
+  if (/dsh-upd-masthead/.test(entryBox.innerHTML)) bad('关了 dialog 应撤，实际 ' + JSON.stringify(entryBox.innerHTML.slice(0, 120)));
+  else ok('dialog 关了回到按钮（无残留）');
   try { if (entry && typeof entry.unmount === 'function') entry.unmount(); ok('入口 unmount 不抛'); } catch (e) { bad('入口 unmount 抛错'); }
 
   // 面板：挂载查一次，安装只走点击
@@ -168,5 +177,5 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   }
 
   if (failures) { console.log('\nFAIL: #41 ' + failures + ' 条未过'); process.exit(1); }
-  console.log('\nALL PASS: #41 只查不自动装（0.5.0 口径）');
+  console.log('\nALL PASS: #41 只查不自动装（0.5.1 口径）');
 })();

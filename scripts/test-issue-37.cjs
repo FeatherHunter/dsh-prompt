@@ -215,8 +215,8 @@ const kids = tree.children;
 // ⇒ 顶层又回到 6 块，入口不再是独立的一块。四条保证一条不减，只是入口换了住处。
 const hasCheckbox = (node) => !!(node && ((node.props && node.props.type === 'checkbox')
   || (Array.isArray(node.children) && node.children.some(hasCheckbox))));
-// 更新卡是独立第 3 块（模板卡后），顶层 5 → 6；面板按需弹窗（自动弹经评审已毙，挂载即无面板容器）。
-eq(kids.length, 6, '设置页顶层六块：身份行（含更新入口）/ 模板列表卡 / 更新卡 / 远程模式 / 诊断日志 / 引流区');
+// 更新卡已删（dialog 只由入口 direct 按需开）：顶层回到 5 块。
+eq(kids.length, 5, '设置页顶层五块：身份行（含更新入口）/ 模板列表卡 / 远程模式 / 诊断日志 / 引流区');
 eq(jsonAnchors(kids[0]).map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '第 0 块是右上角两个按钮（顺序：🌟 仓库、💬 ISSUE）');
 eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 0 块左边有插件名字');
 // #129（0.3.1 整组件，接替 #60-A）：入口是 http 挂载容器（data-dsh-prompt-update-entry，
@@ -227,12 +227,8 @@ eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 0 块左边�
   const entryNode = seq0.find((n) => n.props && n.props['data-dsh-prompt-update-entry'] !== undefined);
   ok(!!entryNode, '#129：更新入口容器在身份行内部（data-dsh-prompt-update-entry）');
   eq(jsonAnchors(kids[0]).length, 2, '头行仍有两个图标（入口+档案为可选外挂，不挤掉图标）');
-  const archiveBtns = domSeq(kids[0]).filter((n) => n.props && n.props['data-dsh-prompt-update-archive'] !== undefined);
-  eq(archiveBtns.length, 1, '更新档案按钮在身份行内（检查更新右边，按需开弹窗）');
-  const updateCards = kids.filter((k) => domSeq(k).some((n) => n.props && n.props['data-dsh-prompt-update-panel'] !== undefined));
-  eq(updateCards.length, 0, '挂载即无面板容器（自动弹已毙，点了才挂）');
-  const hintCards = kids.filter((k) => txt(k).indexOf('标题栏「更新档案」') >= 0);
-  eq(hintCards.length, 1, '更新卡留壳放提示行（恰一块）');
+  const stray = domSeq(page.toJSON()).filter((n) => n.props && (n.props['data-dsh-prompt-update-archive'] !== undefined || n.props['data-dsh-prompt-update-panel'] !== undefined));
+  eq(stray.length, 0, '无手写开关无常驻面板容器（dialog 只由入口开）');
   eq(STR.updateEntry, undefined, '#129：旧 STR.updateEntry 文案已删除（自研弹窗退役）');
 }
 // 实测版式（2026-09-30）：[0] 身份行 / [1] 模板列表 / [2] 远程模式 / [3] 诊断日志 / [4] 引流区。

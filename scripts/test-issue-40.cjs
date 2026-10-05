@@ -1,6 +1,6 @@
 // 回归 #40（#129 重写，0.3.1 整组件口径）：设置页更新入口 + 弹窗面板
 // 旧自研弹窗（update.ts/updauto.ts/upddialog.ts + ModalPortal 更新窗 + 跳过/自动装文案）已在 #127 删除，
-// 新形态是 update-http.ts 的 UpdateEntryButton（头行 🌟/💬 之前）+ UpdatePanelEmbedded（模板卡后更新卡，embedded 默认主题）。
+// 新形态是 update-http.ts 的 UpdateEntryButton（头行 🌟/💬 之前，0.5.1 direct：点开即弹窗，面板挂载自查；更新卡已删）。
 // 本票覆盖：
 //  0) 旧弹窗退役（settings 不再引旧三件套/bridge/派生；i18n 不再有旧弹窗专属键才算干净？——只断导入，不绑文案）
 //  1) 接线源码口径（pluginId/prefix/baseUrl/routes + variant/mode/theme + autoCheck/openOn 只查）
@@ -32,9 +32,11 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
   }
   if (!settingsSrc.includes("from './update-http'")) bad('settings.ts 必须引 ./update-http');
   else ok('settings 只引 update-http，不引旧三件套/bridge/派生');
-  if (!settingsSrc.includes('UpdateEntryButton') || !settingsSrc.includes('UpdateArchiveButton'))
-    bad('settings.ts 必须同时用 UpdateEntryButton + UpdateArchiveButton');
-  else ok('settings 同时挂入口按钮与档案按钮');
+  if (!settingsSrc.includes('UpdateEntryButton')) bad('settings.ts 必须用 UpdateEntryButton');
+  else ok('settings 挂入口按钮（dialog 由入口按需开）');
+  if (settingsSrc.includes('UpdateArchiveButton') || settingsSrc.includes('UpdatePanelEmbedded'))
+    bad('手写档案按钮/旧面板组件应已删除（包 direct 能力替代）');
+  else ok('无手写弹窗开关（包能力直达）');
   if (failures) { console.log('FAIL: 退役面未干净'); process.exit(1); }
 
   /* ── 1) 接线源码口径 ── */
@@ -48,36 +50,25 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
     ['updateInstall:', 'routes.updateInstall'],
     ['updateChangelog:', 'routes.updateChangelog'],
     ["variant: 'button'", 'entry variant button'],
+    ["openOn: 'direct'", 'entry direct（点开即弹窗）'],
     ["theme: 'archive'", 'theme archive'],
-    ["mode: 'dialog'", 'panel mode dialog'],
-    ['onCloseRequested', 'panel 关闭落地'],
     ["autoCheck: 'mount'", 'entry autoCheck mount'],
-    ["openOn: 'has-update'", 'entry openOn has-update'],
     ['mountUpdateEntryHttp', 'entry 经 http 万能插头'],
-    ['mountUpdatePanelHttp', 'panel 经 http 万能插头'],
-    ['UpdateArchiveButton', '按需档案按钮组件'],
-    ['更新档案', '档案按钮文案'],
-    ['data-dsh-prompt-update-archive', '档案按钮标记'],
     ["data-dsh-prompt-update-entry", '入口容器标记'],
-    ["data-dsh-prompt-update-panel", '面板容器标记'],
   ]) {
     if (!uh.includes(needle)) bad('update-http.ts 缺 ' + what + '（' + needle + '）');
   }
   if (failures) { console.log('FAIL: 接线口径不对'); process.exit(1); }
-  ok('update-http 三要素/routes/variant/mode/theme/autoCheck/openOn 全对');
+  ok('update-http 三要素/routes/variant/direct/theme/autoCheck 全对（面板由入口按需开）');
   // settings 落位：头行 entry 在 🌟/💬 之前（同一 SettingsHeaderLinks）、更新卡在模板卡之后
   const headerCall = settingsSrc.indexOf('h(SettingsHeaderLinks');
   const entryUse = settingsSrc.indexOf('h(UpdateEntryButton');
   if (headerCall < 0 || entryUse < 0 || !(entryUse > headerCall && settingsSrc.slice(headerCall, entryUse + 200).includes('entry:')))
     bad('头行入口应以 entry: 交给 SettingsHeaderLinks（与 🌟/💬 同排，见 #60 落位）');
   else ok('头行入口经 entry: 交给 SettingsHeaderLinks（与🌟💬同排）');
-  const listCard = settingsSrc.indexOf("h(SettingGroup, { key: 'list'");
-  const updateUse = settingsSrc.indexOf('updateGroup,');
-  const archiveUse = settingsSrc.indexOf('h(UpdateArchiveButton');
-  const updateDef = settingsSrc.indexOf("const updateGroup = h(SettingGroup");
-  if (listCard < 0 || updateUse < 0 || archiveUse < 0 || !(updateUse > listCard && updateDef >= 0))
-    bad('更新卡应落在模板卡（list）之后并用 UpdateArchiveButton（按需，头行另有一枚）');
-  else ok('更新卡在模板卡后（留壳提示，面板按需挂）');
+  if (settingsSrc.includes('updateGroup') || settingsSrc.includes('UpdateArchiveButton') || settingsSrc.includes('UpdatePanelEmbedded'))
+    bad('更新卡/手写开关应已删除（dialog 只由入口 direct 按需开）');
+  else ok('无更新卡无手写开关（入口 direct 是唯一弹窗源）');
   // about 头行接受 entry（可选，不传仍只有两图标——#37 兼容）
   const aboutSrc = readSrc('src/client/about.ts');
   if (!aboutSrc.includes('entry?') && !aboutSrc.includes('entry:')) bad('about.ts SettingsHeaderLinks 应接受可选 entry');
@@ -133,21 +124,13 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
   const entries = findAll(page.root, x => x.props && x.props['data-dsh-prompt-update-entry'] === '');
   if (entries.length < 1) bad('设置页应有更新入口容器（data-dsh-prompt-update-entry）');
   else ok('设置页有更新入口容器 ×' + entries.length);
-  const archives = findAll(page.root, x => x.props && x.props['data-dsh-prompt-update-archive'] === '');
-  if (archives.length !== 1) bad('设置页头行应恰有一枚更新档案按钮（实际 ' + archives.length + '）');
-  else ok('头行更新档案按钮 ×1（检查更新右边）');
-  let panels = findAll(page.root, x => x.props && x.props['data-dsh-prompt-update-panel'] === '');
-  if (panels.length !== 0) bad('挂载后不应有面板容器（自动弹已毙，实际 ' + panels.length + '）');
-  else ok('挂载即无面板容器（不自动弹）');
-  // 点更新档案 → 按需挂出 dialog 面板容器并查一次
-  try {
-    const btn = archives[0].findAll(x => x.type === 'button')[0];
-    await TR.act(async () => { btn.props.onClick(); });
-    await flush();
-  } catch (e) { bad('点更新档案抛错：' + (e && e.message || e)); }
-  panels = findAll(page.root, x => x.props && x.props['data-dsh-prompt-update-panel'] === '');
-  if (panels.length !== 1) bad('点了更新档案应恰有一面板容器（实际 ' + panels.length + '）');
-  else ok('点击后按需挂出面板容器 ×1');
+  // 点检查更新（direct）→ 即开 dialog（面板挂载自查），挂载前无 dialog 痕迹
+  // dialog 标记用面板 masthead（入口自带 dsh-upd-entry 类，不能拿 dsh-upd 前缀判）
+  const hasDialog = () => { try { return page.root.findAll(x => x.props && typeof x.props.className === 'string' && x.props.className.includes('dsh-upd-masthead')).length > 0; } catch { return false; } };
+  if (hasDialog()) bad('挂载后不应有 dialog 痕迹（direct 点了才开）');
+  else ok('挂载即无 dialog（不自动弹）');
+  // 点开路径走 41（controller open/close 直测）：40 只钉挂载不开
+  ok('点开 dialog 由入口 direct 承接（见 41 controller 用例）');
   // 模板浏览器仍在（更新卡是新增，不是替换）
   const hasBrowser = (() => { try { return findAll(page.root, x => x.props && x.props['data-dsh-prompt-more'] === '').length >= 0; } catch { return true; } })();
   ok('设置页其余卡未被更新卡挤掉（挂载未抛，见上）');
@@ -175,5 +158,5 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
   globalThis.fetch = realFetch;
 
   if (failures) { console.log('\nFAIL: #40 ' + failures + ' 条未过'); process.exit(1); }
-  console.log('\nALL PASS: #40 settings 入口+弹窗面板（0.5.0 口径）');
+  console.log('\nALL PASS: #40 settings 入口+弹窗面板（0.5.1 口径）');
 })();

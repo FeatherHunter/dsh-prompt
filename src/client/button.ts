@@ -15,6 +15,8 @@ import {
 } from './workspace'
 import { WorkspacePicker } from './picker'
 import { getSmartInput } from './smartstore'
+import { canShowRemoteModel } from './remoteInput'
+import { RemoteInputSheet } from './remoteInputSheet'
 
 /**
  * #66 窄屏优化：对话框底部输入区变窄时，按钮收起文字、只剩图标。
@@ -68,10 +70,10 @@ function ensureNarrowStyle(): void {
  */
 const REMOTE_FB_STYLE_ID = 'dsh-prompt-remote-feedback'
 const REMOTE_FB_CSS = [
-  '[data-dsh-prompt-dock] button:hover, [data-dsh-prompt-dock-pill]:hover, [data-dsh-prompt-remote-panel] button:hover, [data-dsh-prompt-settings-modal] button:hover, [data-dsh-prompt-picker-sheet] button:hover { filter: brightness(1.1); }',
-  '[data-dsh-prompt-dock] button:active, [data-dsh-prompt-dock-pill]:active, [data-dsh-prompt-remote-panel] button:active, [data-dsh-prompt-settings-modal] button:active, [data-dsh-prompt-picker-sheet] button:active { filter: brightness(.9); transform: scale(.97); }',
-  '[data-dsh-prompt-remote-panel] button:disabled:hover, [data-dsh-prompt-remote-panel] button:disabled:active, [data-dsh-prompt-picker-sheet] button:disabled:hover, [data-dsh-prompt-picker-sheet] button:disabled:active { filter: none; transform: none; }',
-  '[data-dsh-prompt-remote-panel] button, [data-dsh-prompt-settings-modal] button, [data-dsh-prompt-dock] button, [data-dsh-prompt-picker-sheet] button { transition: filter .08s ease, transform .08s ease; }',
+  '[data-dsh-prompt-dock] button:hover, [data-dsh-prompt-dock-pill]:hover, [data-dsh-prompt-remote-panel] button:hover, [data-dsh-prompt-settings-modal] button:hover, [data-dsh-prompt-picker-sheet] button:hover, [data-dsh-prompt-remote-input-sheet] button:hover { filter: brightness(1.1); }',
+  '[data-dsh-prompt-dock] button:active, [data-dsh-prompt-dock-pill]:active, [data-dsh-prompt-remote-panel] button:active, [data-dsh-prompt-settings-modal] button:active, [data-dsh-prompt-picker-sheet] button:active, [data-dsh-prompt-remote-input-sheet] button:active { filter: brightness(.9); transform: scale(.97); }',
+  '[data-dsh-prompt-remote-panel] button:disabled:hover, [data-dsh-prompt-remote-panel] button:disabled:active, [data-dsh-prompt-picker-sheet] button:disabled:hover, [data-dsh-prompt-picker-sheet] button:disabled:active, [data-dsh-prompt-remote-input-sheet] button:disabled:hover, [data-dsh-prompt-remote-input-sheet] button:disabled:active { filter: none; transform: none; }',
+  '[data-dsh-prompt-remote-panel] button, [data-dsh-prompt-settings-modal] button, [data-dsh-prompt-dock] button, [data-dsh-prompt-picker-sheet] button, [data-dsh-prompt-remote-input-sheet] button { transition: filter .08s ease, transform .08s ease; }',
 ].join('\n')
 let remoteFbReady = false
 function ensureRemoteFeedbackStyle(): void {
@@ -215,8 +217,14 @@ export function EntryButton(props: any): any {
   const pickerOpenState = react.useState(false)
   const pickerOpen = pickerOpenState[0]
   const pickerOpenerRef: any = react.useRef ? react.useRef(null) : { current: null }
+  // #123 遥控输入镜（单模态一员）：内存态，默认关；开关不动 dockState；关后焦点回 opener
+  const inputOpenState = react.useState(false)
+  const inputOpen = inputOpenState[0]
+  const inputOpenerRef: any = react.useRef ? react.useRef(null) : { current: null }
+  const inputSessionState = react.useState(undefined as string | undefined)
   const openPicker = (): void => {
     try { gearModalState[1](false) } catch (e) { /* ignore */ }
+    try { inputOpenState[1](false) } catch (e) { /* ignore */ }
     try { pickerOpenState[1](true) } catch (err) { /* ignore */ }
   }
   const closePicker = (): void => {
@@ -228,15 +236,43 @@ export function EntryButton(props: any): any {
   }
   const openGearModal = (): void => {
     try { pickerOpenState[1](false) } catch (e) { /* ignore */ }
+    try { inputOpenState[1](false) } catch (e) { /* ignore */ }
     try { gearModalState[1](true) } catch (err) { /* ignore */ }
   }
-  // #104 Esc 只关顶层：挑选器开着关挑选器，否则关齿轮；焦点回 opener；与收展正交（不动 dockState）
+  const openRemoteInput = (): void => {
+    try { gearModalState[1](false) } catch (e) { /* ignore */ }
+    try { pickerOpenState[1](false) } catch (e) { /* ignore */ }
+    try {
+      let sid: string | undefined = undefined
+      try {
+        const a = (props as any).sessionId
+        if (typeof a === 'string' && a !== '') sid = a
+        else {
+          const b = getSmartInput().sessionId
+          if (typeof b === 'string' && b !== '') sid = b
+        }
+      } catch (e) { sid = undefined }
+      try { inputSessionState[1](sid) } catch (e) { /* ignore */ }
+    } catch (e) { /* ignore */ }
+    try { inputOpenState[1](true) } catch (err) { /* ignore */ }
+  }
+  const closeRemoteInput = (): void => {
+    try { inputOpenState[1](false) } catch (e) { /* ignore */ }
+    try {
+      const el = inputOpenerRef && inputOpenerRef.current
+      if (el && typeof el.focus === 'function') el.focus()
+    } catch (err) { /* ignore */ }
+  }
+  // #104 Esc 只关顶层 + #123 输入镜同栈：输入开着先关输入，否则按挑选器→齿轮序；焦点回 opener；与收展正交（不动 dockState）
   react.useEffect(() => {
-    if (!pickerOpen && !gearModalOpen) return undefined
+    if (!pickerOpen && !gearModalOpen && !inputOpen) return undefined
     const onKey = (e: any): void => {
       try {
         if (!e || e.key !== 'Escape') return
-        if (pickerOpenState[0] === true || pickerOpen) {
+        if (inputOpenState[0] === true || inputOpen) {
+          e.stopPropagation()
+          closeRemoteInput()
+        } else if (pickerOpenState[0] === true || pickerOpen) {
           e.stopPropagation()
           closePicker()
         } else {
@@ -252,7 +288,7 @@ export function EntryButton(props: any): any {
       }
     } catch (err) { /* ignore */ }
     return undefined
-  }, [pickerOpen, gearModalOpen])
+  }, [pickerOpen, gearModalOpen, inputOpen])
   // #104 挑选器双门控探测（hooks 铁律：一切 useEffect 必须在早退分支之前调用；
   // 晚到面在下一次重渲染时自然接上，抄 #94 sidebarCtl 模式）。
   const wsFaces = {
@@ -536,8 +572,49 @@ export function EntryButton(props: any): any {
       onClose: () => { closePicker() },
     }),
   )
-  // #95 远程 Dock：顺序冻结入口→齿轮→左→右→挑选器→收起（收起永末，续加只插收起前）；
-  // 左缺席不占位；挑选器 pending/缺席不渲染；Dock 容器低于挑选器（被盖住是对的）。
+  // #123 遥控输入键（注册式续加，插挑选器后、收起前）＋模型键休眠（120 ABSENT：零占位不渲染）
+  // 输入键仅远程 Dock 内出现（Dock 本身仅远程渲染）；模型键今日恒隐藏，有面后自动插输入框后、收起前。
+  const showModel = canShowRemoteModel(wsFaces)
+  const inputTitle = tr(lang, STR.remoteInputKey)
+  const inputKey = h('button', {
+    key: 'remote-input',
+    type: 'button',
+    ref: (el: any) => { try { if (inputOpenerRef) inputOpenerRef.current = el } catch (e) { /* ignore */ } },
+    style: {
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: gearBox, height: gearBox, borderRadius: 8, marginLeft: 6,
+      background: 'var(--dsw-alias-bg-layer-3)',
+      border: '1px solid ' + (inputOpen ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-border-l1)'),
+      color: 'var(--dsw-alias-label-primary)',
+      cursor: 'pointer', fontSize: 14 * entryFontScale, flex: 'none',
+    },
+    title: inputTitle,
+    'aria-label': inputTitle,
+    'aria-expanded': inputOpen ? 'true' : 'false',
+    'aria-haspopup': 'dialog',
+    'data-dsh-prompt-remote-input': '1',
+    onMouseDown: keepComposerFocus,
+    onClick: () => {
+      if (inputOpen) closeRemoteInput()
+      else openRemoteInput()
+    },
+  }, [
+    h('span', { style: { fontSize: '1.2em', lineHeight: 1, flex: 'none' } }, '✎'),
+  ])
+  // 模型键今日休眠：showModel 为 false 即 null（零占位，不渲染不断言占位；有面后另起键插此处）。
+  const modelKey = null
+  void showModel
+  void modelKey
+  const inputModalNode = !inputOpen ? null : h(ModalPortal, { key: 'dsh-prompt-remote-input' },
+    h(RemoteInputSheet, {
+      capturedSessionId: inputSessionState[0],
+      remoteSize: remote.size,
+      onClose: () => { closeRemoteInput() },
+    }),
+  )
+  // #95 远程 Dock + #123 续加：顺序冻结入口→齿轮→左→右→挑选器→输入框→收起（收起永末，续加只插收起前）；
+  // 左缺席不占位；挑选器 pending/缺席不渲染；输入框恒渲染（远程镜，无宿主门控）；
+  // 模型键今日休眠零占位（有面后插输入框后、收起前）；Dock 容器低于输入/挑选器（被盖住是对的）。
   // 高随档（容器不定高+em 内边距）；窄屏内行横滚、键体不压缩。
   const dockActions: any[] = []
   dockActions.push(entryBtn)
@@ -545,6 +622,7 @@ export function EntryButton(props: any): any {
   if (leftKey) dockActions.push(leftKey)
   if (sidebarKey) dockActions.push(sidebarKey)
   if (pickerKey) dockActions.push(pickerKey)
+  dockActions.push(inputKey)
   const dockCollapseTitle = tr(lang, STR.dockCollapse)
   dockActions.push(h('button', {
     key: 'dock-collapse',
@@ -602,12 +680,12 @@ export function EntryButton(props: any): any {
         }, '▴'),
       ]),
     )
-    return h('span', { style: { display: 'inline-flex', alignItems: 'center' } }, [pillNode, gearModalNode, pickerModalNode])
+    return h('span', { style: { display: 'inline-flex', alignItems: 'center' } }, [pillNode, gearModalNode, pickerModalNode, inputModalNode])
   }
   const dockNode = h(PanelPortal, { key: 'dsh-prompt-dock' },
     h('div', { style: dockBarStyle, 'data-dsh-prompt-dock': '1' }, [
       h('div', { style: dockPillStyle }, dockActions),
     ]),
   )
-  return h('span', { style: { display: 'inline-flex', alignItems: 'center' } }, [dockNode, gearModalNode, pickerModalNode])
+  return h('span', { style: { display: 'inline-flex', alignItems: 'center' } }, [dockNode, gearModalNode, pickerModalNode, inputModalNode])
 }

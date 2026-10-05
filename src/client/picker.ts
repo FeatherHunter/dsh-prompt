@@ -227,19 +227,23 @@ export function WorkspacePicker(props: PickerProps): any {
   } catch (e) { wideAuto = false }
   const wide = typeof props.wide === 'boolean' ? props.wide : wideAuto
   // 会话卡片网格列数（用户 2026-10-03 拍板：竖屏 2 列、横屏 3 列；#124 横竖同一套，仅列数不同）
+  // 2026-10-06 横滑化：会话区左右滑动、两行横滑（gridAutoFlow column），gridCols 保留供 data-grid 断言。
   const gridCols = wide ? 3 : 2
   const gridStyle: any = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(' + gridCols + ', minmax(0, 1fr))',
+    gridTemplateRows: 'repeat(2, minmax(0, auto))',
+    gridAutoFlow: 'column',
+    gridAutoColumns: 'minmax(14em, 18em)',
     gap: '0.4em', alignItems: 'stretch',
   }
   // #115 tab 条（architect 版 Q3b）：tab 定宽是均匀页的前提（与 pager 联动）；后人改回内容宽须重做页边界。
   const TAB_W = '9em'
   // 翻页键体：2.5em 正方形，主次小于 × 3em；常量 token 化（勿散写魔法数）。
   const PAGER_BOX = '2.5em'
-  // tab 行：横向 flex，横滑；横竖同一套（#124 rail 退役）。
+  // tab 行：两行横滑（2026-10-06 用户拍板：工作区列表两行、左右滑动；定宽 TAB_W 保留供均匀页模型）。
   const tabRowStyle: any = {
-    display: 'flex', flexDirection: 'row', gap: '0.4em', alignItems: 'stretch',
+    display: 'grid', gridTemplateRows: 'repeat(2, auto)', gridAutoFlow: 'column', gridAutoColumns: TAB_W,
+    gap: '0.4em', alignItems: 'stretch',
   }
 
   ensurePickerAnimStyle()
@@ -318,11 +322,24 @@ export function WorkspacePicker(props: PickerProps): any {
         setSessions(snap.sessions)
         setNames(snap.names)
         try {
-          // 默认展开组内最新的那一组（“最近的在手边”即分组排序规则本身；
-          // 原型默认首组是演示数据巧合，此处故意不抄，见审查 #21）。
+          // 默认展开：当前会话所在工作区优先（2026-10-06 用户拍板：打开即见当前会话）；
+          // 缺席/找不到回退组内最新（分组排序首组；原型默认首组是演示巧合，不抄，见审查 #21）。
           const gs = groupWorkspaceSessions(snap.sessions, snap.names, ungroupedName)
           if (!alive) return
-          if (gs.length > 0) setOpenGroup(gs[0].key)
+          if (gs.length > 0) {
+            let key = gs[0].key
+            try {
+              const cid = typeof currentId === 'string' ? currentId : ''
+              if (cid !== '') {
+                const hit = (snap.sessions || []).find((s: any) => s && s.id === cid) || null
+                const wsId = hit ? (hit as any).workspaceId : null
+                const gk = wsId ? wsId : (hit && !(hit as any).workspaceId ? '__ungrouped' : '')
+                const found = gk !== '' ? gs.find((g) => g.key === gk || g.workspaceId === wsId) : null
+                if (found) key = found.key
+              }
+            } catch (e) { /* fallback gs[0] */ }
+            setOpenGroup(key)
+          }
         } catch (e) { /* ignore */ }
         // 150ms 防闪：先给 loading，可取消；到点仍在等才转就绪
         setPhase('loading')
@@ -383,18 +400,19 @@ export function WorkspacePicker(props: PickerProps): any {
           try { setTabPage((p: number) => clampPage(p, groups.length, per)) } catch (e) { /* ignore */ }
         }
         const ss = R.ss
-        if (ss && typeof ss.clientHeight === 'number' && ss.clientHeight > 0) {
-          let cardH = NaN
+        if (ss && typeof ss.clientWidth === 'number' && ss.clientWidth > 0) {
+          let cardW = NaN
           try {
             const first = ss.querySelector ? ss.querySelector('[data-dsh-prompt-picker-card]') : null
-            if (first && typeof first.offsetHeight === 'number' && first.offsetHeight > 0) cardH = first.offsetHeight
+            if (first && typeof first.offsetWidth === 'number' && first.offsetWidth > 0) cardW = first.offsetWidth
           } catch (e) { /* ignore */ }
           const fp = fontPxOf(ss)
           const gap = isFinite(fp) ? fp * 0.5 : 8
-          const rows = isFinite(cardH) && (cardH as number) > 0
-            ? Math.max(1, Math.floor((ss.clientHeight + gap) / ((cardH as number) + gap)))
-            : 2
-          const per = Math.max(1, gridCols * rows)
+          const cols = isFinite(cardW) && (cardW as number) > 0
+            ? Math.max(1, Math.floor((ss.clientWidth + gap) / ((cardW as number) + gap)))
+            : gridCols
+          const rows = 2
+          const per = Math.max(1, cols * rows)
           try { setSsPerPage(per) } catch (e) { /* ignore */ }
           const key = openGroup || (groups.length > 0 ? groups[0].key : '__none')
           const og = groups.find((g) => g.key === key) || null
@@ -473,7 +491,20 @@ export function WorkspacePicker(props: PickerProps): any {
           }
           try {
             const gs = groupWorkspaceSessions(snap.sessions, snap.names, ungroupedName)
-            if (gs.length > 0) setOpenGroup(gs[0].key)
+            if (gs.length > 0) {
+              let key = gs[0].key
+              try {
+                const cid = typeof currentId === 'string' ? currentId : ''
+                if (cid !== '') {
+                  const hit = (snap.sessions || []).find((s: any) => s && s.id === cid) || null
+                  const wsId = hit ? (hit as any).workspaceId : null
+                  const gk = wsId ? wsId : (hit && !(hit as any).workspaceId ? '__ungrouped' : '')
+                  const found = gk !== '' ? gs.find((g) => g.key === gk || g.workspaceId === wsId) : null
+                  if (found) key = found.key
+                }
+              } catch (e) { /* fallback gs[0] */ }
+              setOpenGroup(key)
+            }
           } catch (e) { /* ignore */ }
           setPhase('ready')
         } catch (e) {
@@ -503,14 +534,14 @@ export function WorkspacePicker(props: PickerProps): any {
   const rootStyle: any = { position: 'fixed', inset: 0, zIndex: MODAL_Z, fontSize: 'calc(1em * ' + uiScale + ')' }
   const maskStyle: any = {
     position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '0.5em', boxSizing: 'border-box',
+    display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    padding: '0 0.5em 5em', boxSizing: 'border-box',
   }
   const sheetStyle: any = {
-    // #115 近全屏内缩面板（用户 2026-10-05 拍板）：内容定高、天花板为遮罩内容区 100%
-    // （≈ 视口 − 1em）；小内容矮板、大内容顶满后内栏滚动，v7「禁大片空白」保留。
+    // #115 近全屏内缩面板（用户 2026-10-05 拍板）＋2026-10-06 遥控栏顶部向上展开：
+    // 底贴遥控栏顶部（遮罩底垫 5em Dock 位）、顶达屏幕顶部（高 calc(100dvh-5.5em)），会话最全。
     // dockReservePx 已退役：近全屏后面板恒盖住触控栏，让位无意义（且旧值收起 Dock 不收缩）。
-    position: 'relative', width: '100%', height: 'auto', maxHeight: '100%',
+    position: 'relative', width: '100%', height: 'calc(100dvh - 5.5em)', maxHeight: 'calc(100dvh - 5.5em)',
     margin: 0,
     background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
     backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
@@ -545,8 +576,8 @@ export function WorkspacePicker(props: PickerProps): any {
     flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column',
     overflow: 'hidden', position: 'relative',
   }
-  const ssScrollStyle: any = { flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '0.1em 0.1em 0.4em' }
-  // 底部 tab 条：定高行，不伸缩；标题已删（条自明，省一行高）。
+  const ssScrollStyle: any = { flex: '1 1 auto', minHeight: 0, overflowX: 'auto', overflowY: 'hidden', padding: '0.1em 0.1em 0.4em' }
+  // 底部 tab 条：两行高，不伸缩；标题已删（条自明，省一行高）。
   const wsPaneStyle: any = {
     flex: 'none', display: 'flex', flexDirection: 'row', alignItems: 'center',
     gap: '0.4em', marginTop: '0.35em', minHeight: 0,
@@ -641,7 +672,7 @@ export function WorkspacePicker(props: PickerProps): any {
         key: 'nm',
         style: {
           flex: '1 1 auto', minWidth: 0, fontWeight: 700, lineHeight: 1.4,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', wordBreak: 'break-word',
         },
       }, g.name),
       h('span', {
@@ -675,10 +706,10 @@ export function WorkspacePicker(props: PickerProps): any {
     try {
       const el = (pagerRefs.current || {}).ss
       if (!el || typeof el.scrollTo !== 'function') return
-      const h = typeof el.clientHeight === 'number' && el.clientHeight > 0 ? el.clientHeight : 0
-      const y = n * h
-      try { el.scrollTo({ top: y, behavior: 'smooth' }) }
-      catch (e2) { try { el.scrollTo(0, y) } catch (e3) { try { el.scrollTop = y } catch (e4) { /* ignore */ } } }
+      const w = typeof el.clientWidth === 'number' && el.clientWidth > 0 ? el.clientWidth : 0
+      const x = n * w
+      try { el.scrollTo({ left: x, behavior: 'smooth' }) }
+      catch (e2) { try { el.scrollTo(x, 0) } catch (e3) { try { el.scrollLeft = x } catch (e4) { /* ignore */ } } }
     } catch (e) { /* ignore */ }
   }
   const ssTotalOf = (): number => {
@@ -723,9 +754,9 @@ export function WorkspacePicker(props: PickerProps): any {
   const onSsScroll = (e: any): void => {
     try {
       const el = (e && e.target) || null
-      if (!el || typeof el.scrollTop !== 'number') return
-      const h = typeof el.clientHeight === 'number' && el.clientHeight > 0 ? el.clientHeight : 1
-      setSsPage(clampPage(Math.round(el.scrollTop / h), ssTotalOf(), ssPerPage))
+      if (!el || typeof el.scrollLeft !== 'number') return
+      const w = typeof el.clientWidth === 'number' && el.clientWidth > 0 ? el.clientWidth : 1
+      setSsPage(clampPage(Math.round(el.scrollLeft / w), ssTotalOf(), ssPerPage))
     } catch (e) { /* ignore */ }
   }
   // 操作栏翻页键：kind 即内外层身份（ws 外层 / ss 内层），层形状＋层色边框＋脉冲字形三暗示。

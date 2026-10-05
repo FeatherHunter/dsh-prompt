@@ -177,4 +177,18 @@ export const STR = {
   logReasonTimeout: { zh: '宿主超时未应答', en: 'host timed out' },
   logReasonStale: { zh: '已有更新的开关操作，本次作废', en: 'a newer switch action superseded this one' },
   logReasonOther: { zh: '未知原因', en: 'unknown reason' },
+  // #123 遥控输入镜 + 模型休眠（承 121/122 定稿；双层文案 b主+a次，恒disabled）
+  remoteInputKey: { zh: '遥控输入（实时镜子）', en: 'Remote input (live mirror)' },
+  remoteInputTitle: { zh: '✎ 遥控输入', en: '✎ Remote input' },
+  remoteInputSub: { zh: '实时镜子 · 自动同步当前会话草稿', en: 'Live mirror · auto-syncs current draft' },
+  remoteInputPh: { zh: '在此输入…自动同步到当前会话输入框（去抖串行 setDraft）', en: 'Type here… auto-syncs to current input (debounced serial setDraft)' },
+  remoteInputSend: { zh: '➤ 发送（禁用）', en: '➤ Send (disabled)' },
+  remoteInputSendTitle: { zh: '宿主未给提交面', en: 'No host submit surface' },
+  remoteInputExplicitMain: { zh: '草稿已同步，去大屏那头发起发送', en: 'Draft synced — send from the big screen' },
+  remoteInputExplicitSub: { zh: '宿主未提供提交面，此键恒禁用、绝不伪造回车。', en: 'No host submit surface; this key stays disabled, never fakes Enter.' },
+  remoteInputStale: { zh: '会话已切换，本框已停写（防串写），请重开。', en: 'Session switched; writes paused to avoid cross-talk. Reopen.' },
+  remoteInputMeta: { zh: '实时镜子 · 去抖300ms串行 · session校验 · 组词中延迟', en: 'Live mirror · 300ms debounced serial · session check · IME deferred' },
+  remoteModelKey: { zh: '模型切换（休眠中）', en: 'Model switch (dormant)' },
+  remoteModelTitle: { zh: '▤ 模型切换', en: '▤ Model switch' },
+  remoteModelEmpty: { zh: '宿主暂无模型面（首次出现会提示一次）', en: 'No host model surface yet (first appearance shows once)' },
 }

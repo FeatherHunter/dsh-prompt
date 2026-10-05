@@ -32,9 +32,9 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
   }
   if (!settingsSrc.includes("from './update-http'")) bad('settings.ts 必须引 ./update-http');
   else ok('settings 只引 update-http，不引旧三件套/bridge/派生');
-  if (!settingsSrc.includes('UpdateEntryButton') || !settingsSrc.includes('UpdatePanelEmbedded'))
-    bad('settings.ts 必须同时用 UpdateEntryButton + UpdatePanelEmbedded');
-  else ok('settings 同时挂入口按钮与弹窗面板');
+  if (!settingsSrc.includes('UpdateEntryButton') || !settingsSrc.includes('UpdateArchiveButton'))
+    bad('settings.ts 必须同时用 UpdateEntryButton + UpdateArchiveButton');
+  else ok('settings 同时挂入口按钮与档案按钮');
   if (failures) { console.log('FAIL: 退役面未干净'); process.exit(1); }
 
   /* ── 1) 接线源码口径 ── */
@@ -55,6 +55,9 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
     ["openOn: 'has-update'", 'entry openOn has-update'],
     ['mountUpdateEntryHttp', 'entry 经 http 万能插头'],
     ['mountUpdatePanelHttp', 'panel 经 http 万能插头'],
+    ['UpdateArchiveButton', '按需档案按钮组件'],
+    ['更新档案', '档案按钮文案'],
+    ['data-dsh-prompt-update-archive', '档案按钮标记'],
     ["data-dsh-prompt-update-entry", '入口容器标记'],
     ["data-dsh-prompt-update-panel", '面板容器标记'],
   ]) {
@@ -70,11 +73,11 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
   else ok('头行入口经 entry: 交给 SettingsHeaderLinks（与🌟💬同排）');
   const listCard = settingsSrc.indexOf("h(SettingGroup, { key: 'list'");
   const updateUse = settingsSrc.indexOf('updateGroup,');
-  const panelUse = settingsSrc.indexOf('h(UpdatePanelEmbedded');
+  const archiveUse = settingsSrc.indexOf('h(UpdateArchiveButton');
   const updateDef = settingsSrc.indexOf("const updateGroup = h(SettingGroup");
-  if (listCard < 0 || updateUse < 0 || panelUse < 0 || !(updateUse > listCard && panelUse >= 0 && updateDef >= 0 && settingsSrc.slice(updateDef, updateDef + 300).includes('UpdatePanelEmbedded')))
-    bad('更新卡应落在模板卡（list）之后并挂 UpdatePanelEmbedded');
-  else ok('更新卡在模板卡后并挂 dialog 面板');
+  if (listCard < 0 || updateUse < 0 || archiveUse < 0 || !(updateUse > listCard && updateDef >= 0))
+    bad('更新卡应落在模板卡（list）之后并用 UpdateArchiveButton（按需，头行另有一枚）');
+  else ok('更新卡在模板卡后（留壳提示，面板按需挂）');
   // about 头行接受 entry（可选，不传仍只有两图标——#37 兼容）
   const aboutSrc = readSrc('src/client/about.ts');
   if (!aboutSrc.includes('entry?') && !aboutSrc.includes('entry:')) bad('about.ts SettingsHeaderLinks 应接受可选 entry');
@@ -128,11 +131,23 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
     process.exit(1);
   }
   const entries = findAll(page.root, x => x.props && x.props['data-dsh-prompt-update-entry'] === '');
-  const panels = findAll(page.root, x => x.props && x.props['data-dsh-prompt-update-panel'] === '');
   if (entries.length < 1) bad('设置页应有更新入口容器（data-dsh-prompt-update-entry）');
   else ok('设置页有更新入口容器 ×' + entries.length);
-  if (panels.length < 1) bad('设置页应有更新面板容器（data-dsh-prompt-update-panel，模板卡后）');
-  else ok('设置页有更新面板容器 ×' + panels.length);
+  const archives = findAll(page.root, x => x.props && x.props['data-dsh-prompt-update-archive'] === '');
+  if (archives.length !== 1) bad('设置页头行应恰有一枚更新档案按钮（实际 ' + archives.length + '）');
+  else ok('头行更新档案按钮 ×1（检查更新右边）');
+  let panels = findAll(page.root, x => x.props && x.props['data-dsh-prompt-update-panel'] === '');
+  if (panels.length !== 0) bad('挂载后不应有面板容器（自动弹已毙，实际 ' + panels.length + '）');
+  else ok('挂载即无面板容器（不自动弹）');
+  // 点更新档案 → 按需挂出 dialog 面板容器并查一次
+  try {
+    const btn = archives[0].findAll(x => x.type === 'button')[0];
+    await TR.act(async () => { btn.props.onClick(); });
+    await flush();
+  } catch (e) { bad('点更新档案抛错：' + (e && e.message || e)); }
+  panels = findAll(page.root, x => x.props && x.props['data-dsh-prompt-update-panel'] === '');
+  if (panels.length !== 1) bad('点了更新档案应恰有一面板容器（实际 ' + panels.length + '）');
+  else ok('点击后按需挂出面板容器 ×1');
   // 模板浏览器仍在（更新卡是新增，不是替换）
   const hasBrowser = (() => { try { return findAll(page.root, x => x.props && x.props['data-dsh-prompt-more'] === '').length >= 0; } catch { return true; } })();
   ok('设置页其余卡未被更新卡挤掉（挂载未抛，见上）');

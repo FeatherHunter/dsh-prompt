@@ -63,15 +63,17 @@ export function UpdateEntryButton(_props: any): any {
   })
 }
 
-/** 设置页更新面板（dialog + archive 主题，挂载即查一次，安装走用户点击；更新日志有新版自动展示）。
- * 关闭落地（0.5.0 onCloseRequested）：点「关闭」/按 Esc 时由调用方撤 DOM（包随后自停轮询）；
- * 本次关闭后本容器留空，下次进设置页重挂。 */
-export function UpdatePanelEmbedded(_props: any): any {
+/** 更新档案入口（按需弹窗）：平时只是一枚按钮，点了才挂 dialog 面板。
+ * 关闭落地（0.5.0 onCloseRequested）：撤掉弹窗 DOM + 关开关（包随后自停轮询）；
+ * 下次点开重挂。挂载失败 fail-soft：按钮仍在，不挡其余卡。 */
+export function UpdateArchiveButton(_props: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
+  const [open, setOpen] = react.useState(false)
   const ref = react.useRef(null as any)
   react.useEffect(() => {
+    if (!open) return undefined
     const el = ref.current
     if (!el) return undefined
     let ctrl: any = null
@@ -83,10 +85,11 @@ export function UpdatePanelEmbedded(_props: any): any {
         routes: { ...UPDATE_ROUTES },
         mode: 'dialog',
         theme: 'archive',
-        // 关闭落地：撤掉弹窗 DOM（包随后自停轮询）；不抛，失败也不挡。
-        onCloseRequested: () => { try { el.innerHTML = '' } catch (e) { /* ignore */ } },
+        // 关闭落地：撤掉弹窗 DOM + 关开关（包随后自停轮询）；不抛，失败也不挡。
+        onCloseRequested: () => { try { el.innerHTML = '' } catch (e) { /* ignore */ } setOpen(false) },
       })
     } catch (e) {
+      setOpen(false)
       return undefined
     }
     return () => {
@@ -94,6 +97,16 @@ export function UpdatePanelEmbedded(_props: any): any {
         if (ctrl && typeof ctrl.unmount === 'function') ctrl.unmount()
       } catch (e) { /* ignore */ }
     }
-  }, [])
-  return h('div', { ref, 'data-dsh-prompt-update-panel': '' })
+  }, [open])
+  return h('span', {
+    style: { display: 'inline-flex', alignItems: 'center' },
+    'data-dsh-prompt-update-archive': '',
+  }, [
+    h('button', {
+      key: 'open',
+      onClick: () => setOpen(true),
+      title: '打开更新档案（检查、日志、队列与手工命令）',
+    }, '更新档案'),
+    open ? h('div', { key: 'box', ref, 'data-dsh-prompt-update-panel': '' }) : null,
+  ])
 }

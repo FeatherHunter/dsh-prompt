@@ -10,7 +10,7 @@
  */
 import { getReact, TemplateBrowser } from './panel'
 import { SettingsHeaderLinks, AuthorPlugins } from './about'
-import { UpdateEntryButton, UpdatePanelEmbedded } from './update-http'
+import { UpdateArchiveButton, UpdateEntryButton } from './update-http'
 
 import { isSmartEnabled, setSmartEnabled } from './smartstore'
 import {
@@ -638,9 +638,10 @@ export function SettingsPage(props: any): any {
   // 单滑块跟随（用户拍板，封顶时代“设置页自身不跟”已废）：开吃全额，与 compact 小列表
   // uiFontScale 同构；子项全 em 化，故根在关时也锚到宿主基准 var（=14px，em 按 px/14 换算后与旧 px 视觉一致）。
   // #116：缩放根走收敛点（开吃全额、关回基准；与折叠小列表根同构，防漂移）。子项全 em 化，关时锚到宿主基准 var。
-  // #128 新整组件面板：0.5.0 起 dialog + archive 主题（Esc 可关，关闭落地撤 DOM），落设置页模板卡之后（只查，安装走用户点击；更新日志自动展示）。
+  // 更新卡（按需弹窗）：平时只是一行提示，不自动挂面板（自动弹经评审已毙）；
+  // 完整档案走标题栏「更新档案」按钮按需打开，入口按钮逻辑不动。
   const updateGroup = h(SettingGroup, { key: 'update', title: '更新' }, [
-    h(UpdatePanelEmbedded, { key: 'panel' }),
+    h('div', { key: 'hint', style: { fontSize: '0.85em', opacity: 0.75 } }, '完整更新档案请点标题栏「更新档案」；有新版时「检查更新」会提示。'),
   ])
   const settingsRootStyle: any = {
     padding: 4, display: 'flex', flexDirection: 'column',
@@ -650,7 +651,10 @@ export function SettingsPage(props: any): any {
   return h('div', { style: settingsRootStyle }, [
     // 标题栏置顶（身份行：提示词模板 + 更新入口 + 版本 + 🌟💬）。
     // #128 新整组件接回：入口按钮落位与 #60 旧位一致（🌟/💬 之前）。
-    h(SettingsHeaderLinks, { key: 'links', lang, entry: h(UpdateEntryButton, { key: 'update' }) }),
+    h(SettingsHeaderLinks, { key: 'links', lang, entry: h('span', { key: 'update', style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, [
+      h(UpdateEntryButton, { key: 'entry' }),
+      h(UpdateArchiveButton, { key: 'archive' }),
+    ]) }),
     // 模板管理栏紧随标题栏（主体功能优先）：预制·自定义模板区为第 1 块，其余段顺序不变相对后移。
     // #77：模板区是一张**与下面几张卡同款的卡片**（此前它是一条裸行，没有壳）。折叠态只露出卡片头行，点开才是完整列表。
     // pad 取 4px 6px 8px：内嵌浏览器自带 8px 内边距，6 + 8 = 14px，与其它卡的内容左轨对齐。

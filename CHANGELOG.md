@@ -2,6 +2,11 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
+## [0.4.5] - 2026-10-06
+
+### Changed
+- 跟进 `dsh-plugin-update` 0.5.5 → 0.5.6：传输抛错锁存非瞬态化（安装抛错码 install-failed 不再冒充查失败，脱敏原文进复制摘要），弹窗分栏滚动与更新日志折叠动效；单插件 http 接线不变，回归口径同步 0.5.6。
+
 ## [0.4.4] - 2026-10-06
 
 ### Fixed

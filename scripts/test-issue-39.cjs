@@ -197,5 +197,5 @@ const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 
   if (!threw) fail('非记录回包应抛 transport-failed');
   ok('非记录回包走传输失败通道（不进稳定码分支）');
 
-  console.log('\nALL PASS: #39 host+build+gateway+http（0.5.5 口径）');
+  console.log('\nALL PASS: #39 host+build+gateway+http（0.5.6 口径）');
 })();

@@ -2,6 +2,11 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
+## [0.4.2] - 2026-10-06
+
+### Changed
+- 跟进 `dsh-plugin-update` 0.5.1 → 0.5.4：面板首绘自动查一次固化、关闭按钮独立 footer、更新日志记住语义澄清；单插件 http 接线不变，批量入口件仍不用。
+
 ## [0.4.1] - 2026-10-06
 
 ### Changed

@@ -158,5 +158,5 @@ function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
   globalThis.fetch = realFetch;
 
   if (failures) { console.log('\nFAIL: #40 ' + failures + ' 条未过'); process.exit(1); }
-  console.log('\nALL PASS: #40 settings 入口+弹窗面板（0.5.6 口径）');
+  console.log('\nALL PASS: #40 settings 入口+弹窗面板（0.5.7 口径）');
 })();

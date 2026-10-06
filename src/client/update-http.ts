@@ -1,7 +1,7 @@
 /**
  * dsh-prompt — 更新整组件 HTTP 接线（#128）
  *
- * 0.5.6 万能插头：mountUpdateEntryHttp(button,archive) + mountUpdatePanelHttp(dialog,archive，更新日志自动展示)。
+ * 0.5.7 万能插头：mountUpdateEntryHttp(button,archive) + mountUpdatePanelHttp(dialog,archive，更新日志自动展示)。
  * 关闭落地 onCloseRequested 由调用方撤 DOM（entry 打开的 dialog 包已内置）。
  * 三要素与网关同值：pluginId dsh-prompt、prefix prompt、baseUrl /_dsh/dsh-prompt/update，
  * routes { updateStatus:status, updateCheck:check, updateInstall:install, updateChangelog:changelog }
@@ -9,7 +9,7 @@
  * http helper 取回即整形透传。更新日志 autoChangelog 默认自动：有新版调一次取该版 tarball 全文。
  *
  * 只查不开自动装：入口 autoCheck mount（只读查一次）+ openOn direct（点开即弹窗，面板挂载自查），
- * 入口源码级禁 install（包内 guarded，调即抛）；面板挂载即 refresh 查一次，安装只走用户点击。
+ * 入口无安装代码路径（0.5.7 起源码级禁令已拆，门禁在宿主侧）；面板挂载即 refresh 查一次，安装只走用户点击。
  * 失败 fail-soft：挂载抛错（无 fetch / 网关不可达）时留空容器，不挡设置页其余卡。
  */
 import { getReact } from './panel'

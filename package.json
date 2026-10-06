@@ -1,6 +1,6 @@
 {
   "name": "dsh-prompt",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "DSH prompt 工具箱：预制 + 自定义 prompt 模板，点击即插入当前对话输入框（v1 常规模式 + v1.1 智能模式悬浮卡） | Prompt toolbox for DeepSeek Harness: preset + custom prompt templates, one-click insert into the conversation.",
   "keywords": [
     "dsh",
@@ -99,7 +99,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.5.0",
-    "dsh-plugin-update": "0.5.6",
+    "dsh-plugin-update": "0.5.7",
     "esbuild": "^0.28.2",
     "marked": "^18.0.9",
     "react": "^18.3.1",

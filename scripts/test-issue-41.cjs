@@ -1,11 +1,11 @@
 // 回归 #41（#129 重写，0.3.1 整组件口径）：只查不自动装 + 无旧自动轮询/跳过
 // 旧形态（updauto.ts：启动延迟自动查 + 同窗重弹 + 跳过此版本 localStorage + 弹窗打开才轮询）已在 #127 删除。
-// 新语义（#128）：入口 mountUpdateEntryHttp(button, autoCheck mount/openOn has-update，源码级禁装）+
+// 新语义（#128；0.5.7 起入口无安装代码路径，源码级禁令已拆，门禁在宿主侧）：入口 mountUpdateEntryHttp(button, autoCheck mount/openOn direct）+
 // 面板 mountUpdatePanelHttp(dialog 默认主题，挂载查一次，安装只走用户点击）；后台无自家 interval/localStorage。
 // 本票覆盖：
 //  0) 旧自动退役（updauto/upddialog/update 缺席；src 无 AUTO_CHECK_DELAY/UPD_POLL/subscribeAutoTick；update-http 无 timers/LS）
-//  1) 源码口径（entry autoCheck mount + openOn has-update + variant button；panel dialog；入口禁装走上游 guard）
-//  2) 真挂：入口 mount+refresh 只打 status/check、不打 install（有新版也不自动装）；guarded install 调即抛
+//  1) 源码口径（entry autoCheck mount + openOn direct + variant button；panel dialog；入口无安装代码路径）
+//  2) 真挂：入口 mount+refresh+open 只打 status/check、不打 install（有新版也不自动装，入口打开的面板亦然）
 //  3) 真挂：面板 mount 查一次、安装只走 act('install')（点击前无 install，点击后有）
 //  4) 卸载干净（entry/panel unmount 不抛；面板只停轮询——二次 refresh 仍可查，安装不受影响的反向由上游保证，这里只到不抛）
 //
@@ -45,16 +45,16 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     ["autoCheck: 'mount'", 'entry autoCheck mount（挂载静默查一次，只读）'],
     ["openOn: 'direct'", 'entry openOn direct（点开即弹窗，面板挂载自查）'],
     ["variant: 'button'", 'entry variant button'],
-    ['mountUpdateEntryHttp', 'entry 走 http 万能插头（内含源码级禁装 guard）'],
+    ['mountUpdateEntryHttp', 'entry 走 http 万能插头（无安装代码路径）'],
   ]) {
     if (!uh.includes(needle)) bad('update-http.ts 缺 ' + what);
   }
   if (failures) { console.log('FAIL: 接线口径不对'); process.exit(1); }
   ok('entry autoCheck/openOn direct/variant/theme 口径全对（面板按需由入口开，不在 update-http 里挂）');
-  // 入口 wrappers 不直调 install 电话（routes 表里的 install 是给面板用的，入口运行时走 guard）
+  // 入口 wrappers 不直调 install 电话（routes 表里的 install 是给面板用的，入口无安装代码路径）
   const entryFn = uh.slice(uh.indexOf('UpdateEntryButton'), uh.indexOf('UpdatePanelEmbedded'));
   if (/updateInstall/.test(entryFn) && !/routes/.test(entryFn)) bad('UpdateEntryButton 不应直写 updateInstall 电话名');
-  else ok('UpdateEntryButton 不直调安装电话（安装只走面板点击，上游 guard 兜底）');
+  else ok('UpdateEntryButton 不直调安装电话（安装只走面板点击，门禁在宿主侧）');
 
   /* ── 2/3) 真挂：上游 http 入口+面板 ── */
   const httpMod = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'http.js')).href);
@@ -97,15 +97,10 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   else ok('入口挂载查一次（只读 ' + entryReads.length + ' 次）');
   if (entryInstalls.length > 0) bad('入口有新版也不许自动装，实发 install ×' + entryInstalls.length);
   else ok('入口有新版也不自动装（0 install）');
-  // guard：入口的 call 对 install 应抛（源码级）。这里经 controller 触不到内部 call，
-  // 改为直验上游 guard：再挂一个入口并对其内部做一次 install 电话——最直接的是调 http guard 本体。
-  // mountUpdateEntryHttp 的 guard 不在外部暴露，故此处验“controller 无安装入口” + 上游源码含禁装行。
+  // 0.5.7 起上游已拆源码级禁令：入口件核心没有安装代码路径（旧禁令曾连坐入口打开的面板），真正门禁在宿主侧。
+  // 此处只验“controller 无安装入口”；入口打开的面板亦不自动装见 open 段断言。
   if (entry && typeof entry.act === 'function') bad('入口 controller 不应有 act/install 入口（只 refresh/open/close/label/unmount）');
   else ok('入口 controller 无安装入口（refresh/open/close/label/unmount only）');
-  const httpSrc = fs.readFileSync(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'http.js'), 'utf8');
-  const entryHttpFn = httpSrc.slice(httpSrc.indexOf('function mountUpdateEntryHttp'), httpSrc.indexOf('function mountUpdateEntryHttp') + 1500);
-  if (!entryHttpFn.includes('updateInstall') || !entryHttpFn.includes('throw')) bad('上游入口 guard 应在（mountUpdateEntryHttp 内对 updateInstall throw）');
-  else ok('上游入口 guard 在（mountUpdateEntryHttp 对 updateInstall throw）');
   // direct 按需弹窗：点开即有 dialog（面板挂载自查），关了回到按钮
   try {
     if (entry && typeof entry.open === 'function') await entry.open();
@@ -113,6 +108,9 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   await sleep(400);
   if (!/dsh-upd/.test(entryBox.innerHTML)) bad('direct 点开后应有 dialog 痕迹，实际 ' + JSON.stringify(entryBox.innerHTML.slice(0, 120)));
   else ok('direct 点开即弹窗（面板挂载自查）');
+  const openInstalls = hits.filter(h => h.which === 'install').length;
+  if (openInstalls > 0) bad('入口打开的面板自查也不许自动装，实发 install ×' + openInstalls);
+  else ok('入口打开的面板自查不自动装（0 install，安装只走点击）');
   try {
     if (entry && typeof entry.close === 'function') await entry.close();
   } catch (e) { bad('入口 close 抛错：' + (e && e.message || e)); }
@@ -177,5 +175,5 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   }
 
   if (failures) { console.log('\nFAIL: #41 ' + failures + ' 条未过'); process.exit(1); }
-  console.log('\nALL PASS: #41 只查不自动装（0.5.6 口径）');
+  console.log('\nALL PASS: #41 只查不自动装（0.5.7 口径）');
 })();

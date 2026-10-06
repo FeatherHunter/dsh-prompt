@@ -1,7 +1,7 @@
 /**
  * dsh-prompt — 更新整组件 HTTP 接线（#128）
  *
- * 0.5.7 万能插头：mountUpdateEntryHttp(button,archive) + mountUpdatePanelHttp(dialog,archive，更新日志自动展示)。
+ * 0.5.8 万能插头：mountUpdateEntryHttp(button,archive) + mountUpdatePanelHttp(dialog,archive，更新日志自动展示)。
  * 关闭落地 onCloseRequested 由调用方撤 DOM（entry 打开的 dialog 包已内置）。
  * 三要素与网关同值：pluginId dsh-prompt、prefix prompt、baseUrl /_dsh/dsh-prompt/update，
  * routes { updateStatus:status, updateCheck:check, updateInstall:install, updateChangelog:changelog }

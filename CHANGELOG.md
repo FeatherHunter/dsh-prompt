@@ -2,6 +2,11 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
+## [0.4.9] - 2026-10-06
+
+### Changed
+- 跟进 `dsh-plugin-update` 0.5.7 → 0.5.8：语言底座 v2（入口新增 `locale` 选项，本仓暂不传走默认宿主语言）；单插件 http 接线不变，回归口径同步 0.5.8。
+
 ## [0.4.8] - 2026-10-06
 
 ### Fixed

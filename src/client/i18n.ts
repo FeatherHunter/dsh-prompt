@@ -39,6 +39,7 @@ export const STR = {
   presetCount: { zh: '预制', en: 'Preset' },
   // #141：范围钮「预制」—— 不复用 presetCount（那是条数摘要；同字不同位，钩子要能分开定位），
   // 也不复用 store.LABEL_FALLBACK（那是写进用户数据的身份值，不是显示串）。术语统一：铬一律「预制」。
+  // 改 en 文案时与 presetCount 同步改；门禁 P1_KEYS 卡住单键缺失但卡不住语义分叉。
   scopePreset: { zh: '预制', en: 'Preset' },
   customCount: { zh: '自定义', en: 'Custom' },
   goSettings: { zh: '设置 → 模板管理', en: 'Settings → Templates' },

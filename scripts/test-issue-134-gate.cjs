@@ -1,6 +1,7 @@
 // 永久门禁 #138（父图 #134）：字典完备 + 英文铬无 CJK + 溢出预算 + --snap 对点底稿
 // 跑法：node scripts/test-issue-134-gate.cjs（门禁三组 A/B/C，exit 0 = 全绿）
 //       node scripts/test-issue-134-gate.cjs --snap <outdir>（先跑门禁，绿了才落 4 份 en 静态 HTML，给 #139 真机验收做对点底稿）
+//       snap 仅 4 面底稿（panel/settings/picker/remote；smart/sheet 以门禁 B 组为准，不落静态）
 // 口径（seam 级，不断实现细节）：
 //  A) 字典完备：STR 逐键 zh/en 非空；en 零 CJK（零例外）；zh 须含 CJK（例外仅品牌词 panelTitle/entryBtn）；
 //     另同步调 node research/i18n-audit/scan.mjs --check（exit 0 = 每条 CJK 字面量都有归类，源码级完备）。
@@ -18,6 +19,7 @@
 //    现状 rowExpandHint=39，余量 6。
 //  RATIO_MAX = 5.0：P1 任一条展开后 en/zh 字符数比 ≤5，防英文写成句子。现状最大 4.33（rowExpandHint）。
 //  WHITELIST：当前无例外；将来某条真超预算时在此登记 {cap, reason}（登记即按登记值判，判空分支是活代码）。
+//  空即无例外，判空分支为未来登记留的活代码。
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');

@@ -24,6 +24,7 @@ export type LocaleOverride = string | LocaleService | null | undefined
 /**
  * 归一语言标签：zh* → zh；形如 BCP47 的已知非中文标签 → en（与 dsh-plugin-update 同构）；
  * 空/垃圾/非字符串 → def。大小写不敏感，下划线视作横线。
+ * 非 BCP47 垃圾（如 '123'）→def（旧 getLang 会落 en，此处有意收敛到 zh，与 update 包同构）。
  */
 export function normalizeLangTag(tag: unknown, def: Lang = 'zh'): Lang {
   if (typeof tag !== 'string') return def

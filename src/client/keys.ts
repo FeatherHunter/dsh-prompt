@@ -7,10 +7,12 @@
  * 三件事，各只留一份实现：
  *   1) 具名 CanonicalKey：范围身份 'all' | 'preset' | 'custom'（ScopeKey）+ 用户词身份
  *      （WordKey = 用户词的原文，folksonomy 永不翻译）；
- *   2) normalizeKey：吸收别名（All/all/全部、旧拼写「预置」与铬用词「预制」、Preset、
+ *   2) normalizeKey：吸收别名（All/ALL/全部、旧拼写「预置」与铬用词「预制」、Preset（大小写不限）、
  *      自定义/Custom）与空白
  *      （前后空白、全角空格 U+3000）→ 规范身份；空/垃圾 → null；
- *      非别名的词 trim + 大小写归一后**原样保留**（#134 结论：不拒绝建词）；
+ *      非别名的用户词 trim 后原文原样保留（保大小写，#134 结论：不拒绝建词）；
+ *      用户词身份=trim 后原文（保大小写）；大小写不敏感仅用于范围别名查表；
+ *      P1 身份直存必须用本函数，禁止另起小写归一；
  *   3) LegacyChineseStorageAdapter：读侧把存量中文值（'自定义' → 'custom' 等）映射到规范身份；
  *      **写侧原样返回** —— adapter 只读不迁，用户数据与存储值一律不改写。
  *
@@ -43,7 +45,7 @@ export const SCOPE_KEYS: readonly ScopeKey[] = [SCOPE_ALL, SCOPE_PRESET, SCOPE_C
  */
 export type Selection = { kind: 'scope'; key: ScopeKey } | { kind: 'word'; word: WordKey }
 
-/** 别名表：键 = 归一后的读入形（全角空格压半角 + trim + 小写），值 = 规范身份。 */
+/** 别名表：键 = 全小写的读入形（查表时对 readForm 结果再 .toLowerCase()）；值 = 规范身份。 */
 export const SCOPE_ALIASES: Readonly<Record<string, ScopeKey>> = {
   all: SCOPE_ALL,
   '全部': SCOPE_ALL,
@@ -54,10 +56,10 @@ export const SCOPE_ALIASES: Readonly<Record<string, ScopeKey>> = {
   '自定义': SCOPE_CUSTOM,
 }
 
-/** 读入形：非串 → ''；全角空格/不换行空格压半角 → trim → 小写（#134：trim + 大小写 + 别名）。 */
+/** 读入形：非串 → ''；全角空格/不换行空格压半角 → trim（保大小写；大小写不敏感仅用于别名查表时的二次小写）。 */
 function readForm(raw: unknown): string {
   if (typeof raw !== 'string') return ''
-  return raw.replace(/[\u3000\u00A0]/g, ' ').trim().toLowerCase()
+  return raw.replace(/[\u3000\u00A0]/g, ' ').trim()
 }
 
 /** 是否范围身份（具名三态之一）。 */
@@ -65,22 +67,24 @@ export function isScopeKey(v: unknown): v is ScopeKey {
   return v === SCOPE_ALL || v === SCOPE_PRESET || v === SCOPE_CUSTOM
 }
 
-/** 键读入（范围）：别名（含存量中文）→ 范围身份；其余（含用户词、空、垃圾）→ null。 */
+/** 键读入（范围）：别名（含存量中文，查表大小写不敏感）→ 范围身份；其余（含用户词、空、垃圾）→ null。 */
 export function normalizeScopeKey(raw: unknown): ScopeKey | null {
   const s = readForm(raw)
   if (!s) return null
-  const hit = SCOPE_ALIASES[s]
+  const hit = SCOPE_ALIASES[s.toLowerCase()]
   return hit === undefined ? null : hit
 }
 
 /**
- * 键读入（通用）：别名 → 范围身份；其余非空串 → 用户词身份（trim + 大小写归一的原文）；
+ * 键读入（通用）：别名（查表大小写不敏感）→ 范围身份；其余非空串 → 用户词身份（trim 后原文，保大小写）；
  * 空/垃圾 → null。**不拒绝建词**：任何非空词都合法。
+ * 用户词身份=trim 后原文（保大小写）；大小写不敏感仅用于范围别名查表；
+ * P1 身份直存必须用本函数，禁止另起小写归一。
  */
 export function normalizeKey(raw: unknown): CanonicalKey | null {
   const s = readForm(raw)
   if (!s) return null
-  const hit = SCOPE_ALIASES[s]
+  const hit = SCOPE_ALIASES[s.toLowerCase()]
   return hit === undefined ? s : hit
 }
 
@@ -133,8 +137,9 @@ export interface KeyAdapter {
 
 /**
  * 存量中文值的读侧适配器（#134 v3：具名 CanonicalKey，不用无名映射）。
- * 只做 trim + 大小写 + 「预置/预制」别名（外加 '自定义'→'custom' 这类范围身份）；
+ * 只做 trim + 别名查表（大小写不敏感）+ 「预置/预制」别名（外加 '自定义'→'custom' 这类范围身份）；
  * 不做迁移写 —— 存储里的 '自定义' 读成身份 'custom'，写回去仍是 '自定义'（写侧根本拿不到旧拼写）。
+ * P0 生产未接线（故意）：scope 不持久化、标签不归一；P1 身份直存时由存储层调用 toCanonical/toStorage，本票仅钉住契约。
  */
 export const LegacyChineseStorageAdapter: KeyAdapter = {
   toCanonical: normalizeKey,

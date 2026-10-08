@@ -105,6 +105,7 @@ const TR = require('react-test-renderer');
   eq(locale.normalizeLangTag(123), 'zh', '数字→默认 zh');
   eq(locale.normalizeLangTag({}), 'zh', '对象→默认 zh');
   eq(locale.normalizeLangTag('not a lang!'), 'zh', '垃圾串→默认 zh');
+  eq(locale.normalizeLangTag('123'), 'zh', "非 BCP47 垃圾 '123'→zh（有意收敛，不落 en）");
   eq(locale.normalizeLangTag('', 'en'), 'en', '显式默认 en 可覆盖');
   eq(locale.normalizeLangTag('!!!', 'en'), 'en', '垃圾串回落显式默认');
   if (failures === 0) ok('A) normalizeLangTag：zh*/en*/BCP47/空垃圾/显式默认');

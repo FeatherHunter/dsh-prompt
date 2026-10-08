@@ -391,7 +391,8 @@ for (const w of ['思考框架', '学习', '工程', '执行', '执行前', '执
 const keyView = keysMod.EXCLUDED_LABEL_KEYS.join('/');
 if (keyView !== 'all/思考框架/学习/工程/执行/执行前/执行中/执行后/custom') fail('去留表身份视图不对：' + keyView);
 // 真身份：范围那一项是 ScopeKey 'all'；去留判定按**存量拼写**（数据词不归一）
-if (!keysMod.isExcludedLabel('自定义') || !keysMod.isExcludedLabel('all') || !keysMod.isExcludedLabel('复盘'.length ? '思考框架' : '')) fail('isExcludedLabel 应命中存量拼写');
+if (!keysMod.isExcludedLabel('自定义') || !keysMod.isExcludedLabel('all') || !keysMod.isExcludedLabel('思考框架')) fail('isExcludedLabel 应命中存量拼写');
+if (keysMod.isExcludedLabel('复盘')) fail('复盘是行动留词，不在去留表');
 if (keysMod.isExcludedLabel('拆解') || keysMod.isExcludedLabel('我的词') || keysMod.isExcludedLabel('全部')) fail('行动词/自定义新词/合法用户词不得被去留');
 if (keysMod.normalizeScopeKey('全部') !== 'all' || keysMod.normalizeKey('自定义') !== 'custom') fail('范围身份归一（adapter 读侧）');
 ok('标签域收敛（去留表单点于 keys.ts + 身份视图 + 存量拼写比对）');

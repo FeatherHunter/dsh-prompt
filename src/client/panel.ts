@@ -715,7 +715,7 @@ function ConfirmDelete(props: any): any {
   return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
     h('div', { style: cardStyleScaled }, [
       h('h3', { style: { fontSize: '1.08em', margin: 0 } }, props.t('delTitle')),
-      h('div', { style: { fontSize: '0.96em', color: 'var(--dsw-alias-label-tertiary)' }, 'data-dsh-prompt-chrome': 'nameQuote' }, props.t('delMsg') + props.t('nameQuote').replace('{name}', props.tpl.name) + props.t('delUnrecover')),
+      h('div', { style: { fontSize: '0.96em', color: 'var(--dsw-alias-label-tertiary)' } }, [props.t('delMsg'), h('span', { 'data-dsh-prompt-chrome': 'nameQuote' }, props.t('nameQuote').replace('{name}', props.tpl.name)), props.t('delUnrecover')]),
       h('div', { style: modalBtnsStyle }, [
         h('button', { style: modalBtn(), onClick: props.onCancel }, props.t('cancel')),
         h('button', { style: modalBtn(false, true), onClick: props.onOk }, props.t('delOk')),
@@ -1533,6 +1533,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   // #141：范围三钮走词表（tabAll/scopePreset/tabCustom）+ 铬钩子，另带 data-dsh-prompt-scope 报出口径身份；
   // 行动词为**用户词原文**（沿用 #70 维度纯净约定）——它不经过任何别名归一，'全部'/'预制' 这类词
   // 点了就是 matchLabel('全部')，不会变成「不过滤/仅内置」（#141 硬约束：过滤语义逐字不动）。
+// 选中态存原文、比对区分大小写；normalizeKey 仅用于范围/去留/存量键。
   const cloudNodes = h('div', { style: cloudRowStyle }, [
     h('button', {
       key: 'scope-all', style: cloudBtn(isNoFilter(selected)),

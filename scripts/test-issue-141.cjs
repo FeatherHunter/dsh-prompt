@@ -2,7 +2,7 @@
 // 规格：#134 地图 v3 定稿（含第二轮对抗结论）+ #141 票面 + research/i18n-audit/classification.md §3-§6。
 // 口径（seam 级，不断实现细节）：
 //  A) normalizeKey：范围别名（All/all/全部/预置/预制/Preset/自定义/Custom）+ 前后空白 + 全角空格 → 规范身份；
-//     空/垃圾 → null；用户词 trim+大小写归一后原样保留（不拒绝建词）
+//     空/垃圾 → null；用户词 trim 后原文保大小写原样保留（不拒绝建词；大小写不敏感仅用于别名查表）
 //  B) LegacyChineseStorageAdapter：读侧存量中文值 → 规范身份；写侧原样（adapter 只读不迁，用户数据永不改写）
 //  C) 砍保留词拒绝：LABEL_RESERVED / STR.labelReserved 已删，'任意' 是普通用户词
 //  D) 过滤语义逐字不动：zh 下范围（全部/预制/自定义）与标签云过滤与改前等价（固定夹具）；
@@ -95,7 +95,9 @@ const TR = require('react-test-renderer');
   eq(keys.normalizeKey('Custom'), 'custom', 'Custom→custom');
   eq(keys.normalizeKey('复盘'), '复盘', '用户词原样保留（身份即原文）');
   eq(keys.normalizeKey(' \u3000观星 '), '观星', '用户词：trim + 全角空格吸收');
-  eq(keys.normalizeKey('MyWord'), 'myword', '用户词：大小写归一');
+  eq(keys.normalizeKey('MyWord'), 'MyWord', '用户词：保大小写（原文即身份）');
+  eq(keys.normalizeKey('ALL'), 'all', 'ALL→all（别名大小写不敏感）');
+  eq(keys.normalizeKey('Preset'), 'preset', 'Preset→preset（别名大小写不敏感）');
   eq(keys.normalizeKey(''), null, '空串→null');
   eq(keys.normalizeKey('   '), null, '空白串→null');
   eq(keys.normalizeKey('\u3000'), null, '全角空格串→null');

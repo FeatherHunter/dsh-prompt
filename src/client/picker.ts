@@ -13,7 +13,8 @@
 import { getReact, keepComposerFocus, MODAL_Z } from './panel'
 import { remoteSizeScale } from './remoteView'
 import { pageCount, clampPage, pageOf, perPageFromMeasure, PAGER_DEFAULT_PER_PAGE } from './pager'
-import { getLang, tr, STR } from './i18n'
+import { tr, STR } from './i18n'
+import { resolveLocale, subscribeLocale } from './locale'
 import {
   enumerateWorkspaceSessions,
   filterWorkspaceSessions,
@@ -212,7 +213,10 @@ export function WorkspacePicker(props: PickerProps): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
-  const lang = getLang()
+  const langState = react.useState(resolveLocale())
+  const lang = langState[0]
+  // 语言跟随：共享单例订阅器（#137；观察者与去重都在 locale.ts 一处）
+  react.useEffect(() => subscribeLocale((l) => { langState[1](l) }), [])
   // 未归属展示名走双语表（审查 #10：搜“未归属/Ungrouped”可达、tooltip 不悬空）。
   const ungroupedName = tr(lang, STR.pickerUngrouped)
   const fallbackShort = tr(lang, STR.pickerUnassignedShort)

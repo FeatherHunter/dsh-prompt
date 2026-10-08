@@ -1,13 +1,17 @@
 /**
- * dsh-prompt — 双语（中文为主，html[lang] 跟随）
+ * dsh-prompt — 双语词表与兼容入口（中文为主，html[lang] 跟随）
+ *
+ * #137 起语言解析与订阅收口在 ./locale（normalizeLangTag / resolveLocale / subscribeLocale）；
+ * 本模块只留词表面（STR / tr）与 getLang 兼容薄壳 —— 新代码请直接用 ./locale，
+ * 不要经这个历史入口（它保留只是为了不动既有调用点的表面签名）。
  */
-export type Lang = 'zh' | 'en'
+import { resolveLocale, type Lang } from './locale'
 
+export type { Lang } from './locale'
+
+/** @deprecated #137：兼容薄壳，内部走 resolveLocale（签名与默认值 zh 不变）。新代码用 ./locale 的 resolveLocale。 */
 export function getLang(): Lang {
-  try {
-    const l = (document.documentElement && document.documentElement.lang) || (navigator.language || 'en')
-    return /^zh/i.test(l) ? 'zh' : 'en'
-  } catch (e) { return 'zh' }
+  return resolveLocale()
 }
 
 export interface I18NMap { zh: string; en: string }

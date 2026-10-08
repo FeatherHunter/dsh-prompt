@@ -369,11 +369,12 @@ const MODULES = [
   ['templates.ts', path.join(ROOT, 'src', 'client', 'templates.ts'), []],
   ['store.ts', path.join(ROOT, 'src', 'client', 'store.ts'), ['./templates']],
   ['state.ts', path.join(ROOT, 'src', 'client', 'state.ts'), []],
-  ['i18n.ts', path.join(ROOT, 'src', 'client', 'i18n.ts'), []],
+  ['i18n.ts', path.join(ROOT, 'src', 'client', 'i18n.ts'), ['./locale']],
+  ['locale.ts', path.join(ROOT, 'src', 'client', 'locale.ts'), []],
   ['smartstore.ts', path.join(ROOT, 'src', 'client', 'smartstore.ts'), []],
   ['remote2.cjs', path.join(ROOT, 'src', 'client', 'remote.ts'), []],
   ['remoteView.cjs', VIEW_TS, []],
-  ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView']],
+  ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView', './locale']],
 ];
 for (const [outName, srcPath, deps] of MODULES) {
   let src = fs.readFileSync(srcPath, 'utf8');

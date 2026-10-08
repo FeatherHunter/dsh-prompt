@@ -13,6 +13,7 @@ import { ensureRemoteLoaded, subscribeRemote, getRemotePrefs, warmEnvOrientation
 import { getSystemOrientation } from './systemOrientation'
 import { syncHostFont, syncRemoteRows, syncAssistantZoom } from './hostfont'
 import { getLang, tr, STR } from './i18n'
+import { installLocaleService } from './locale'
 import { isPanelOpen, onPanelOpen } from './state'
 import { startLog, getLog } from './log'
 
@@ -106,6 +107,27 @@ export function apply(ctx: ClientContext): void {
   // entryCount = 下面 `ctx.effect` 无条件注册数（#127 删自研更新后 update-auto 退出，8→7；
   // 现为：store/remote/字桥/entry/panel/settings/smart；/prompt 源按宿主能力条件注册，不计）
   log.log('app.boot', { hasReact: !!getReact(), lang: getLang(), entryCount: 7 })
+  // #137：语言面装配 —— 宿主语言中枢（ctx.locale）经 ctx.get 免声明读取（**不加 inject**），
+  // 包成 { getActive, subscribe } 适配器装进 locale.ts 的共享单例订阅器；html[lang] 兜底观察者
+  // 由订阅器自己挂。插件侧只读 + 订阅，**绝不写回** html[lang]（宿主 syncDocumentLanguage 是它
+  // 唯一主人，见 docs/adr/0006）。宿主面缺席（旧宿主/无 DOM）也不影响：回落 html[lang] → navigator。
+  ctx.effect(() => {
+    let localeSvc: any = undefined
+    try { localeSvc = (ctx as any).get ? (ctx as any).get('locale') : undefined } catch (e) { localeSvc = undefined }
+    let adapter: any = undefined
+    if (localeSvc && typeof localeSvc.getSnapshot === 'function') {
+      adapter = {
+        getActive: (): string => {
+          try { return (localeSvc.getSnapshot() || {}).active || '' } catch (e) { return '' }
+        },
+        subscribe: (fn: () => void): any => {
+          try { return typeof localeSvc.subscribe === 'function' ? localeSvc.subscribe(fn) : undefined } catch (e) { return undefined }
+        },
+      }
+    }
+    const uninstall = installLocaleService(adapter)
+    return () => { uninstall() }
+  }, 'dsh-prompt: locale')
   // #20：client 启动即拉 host 快照（失败 warn + 内存默认，不阻塞装配）
   ctx.effect(() => { ensureLoaded().catch(() => undefined) }, 'dsh-prompt: store load')
   // #82：远程偏好同理（总闸默认关，host 不可达时当次默认、下次恢复默认并明示）

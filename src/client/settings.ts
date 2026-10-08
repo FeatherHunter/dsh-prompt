@@ -22,7 +22,8 @@ import {
 } from './remote'
 import { remoteSizeScale, resolveEffectiveOrientation, deriveRemoteOrientation, scaledBaseFontSize } from './remoteView'
 import { setSystemOrientation, getSystemOrientation, isSystemOrientation } from './systemOrientation'
-import { getLang, tr, STR } from './i18n'
+import { tr, STR } from './i18n'
+import { resolveLocale, subscribeLocale } from './locale'
 
 /** 取日志能力（装在槽里的那个实例）；能力缺席时返回 null，界面据此走「不可用」分支，不静默。 */
 function logCap(): any {
@@ -202,7 +203,8 @@ export function SettingsPage(props: any): any {
   const note = noteState[0]
   const confirmState = react.useState(false)
   const confirming = confirmState[0]
-  const lang = getLang()
+  const langState = react.useState(resolveLocale())
+  const lang = langState[0]
   const t = (k: keyof typeof STR) => tr(lang, STR[k])
 
   const reasonText = (code?: string): string => {
@@ -214,6 +216,8 @@ export function SettingsPage(props: any): any {
     return t(key as keyof typeof STR)
   }
 
+  // 语言跟随：共享单例订阅器（#137；观察者与去重都在 locale.ts 一处，本面只重渲染）
+  react.useEffect(() => subscribeLocale((l) => { langState[1](l) }), [])
   // 开关状态变化（启动对账、写入成功、跨标签页广播）时刷新界面。
   react.useEffect(() => {
     const cap = logCap()

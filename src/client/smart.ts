@@ -13,7 +13,8 @@ import {
   onSmartEnabled, loadSmartPos, saveSmartPos, suppressCard, isSuppressed, clearSuppression,
   type SmartPos,
 } from './smartstore'
-import { getLang, tr, STR } from './i18n'
+import { tr, STR } from './i18n'
+import { resolveLocale, subscribeLocale } from './locale'
 import { getRemotePrefs, subscribeRemote } from './remote'
 import { remoteChromeScale } from './remoteView'
 const DOT_SIZE = 12 // 还原原设计：12px 次级色低调圆点（原型 GlobalDot 样式）
@@ -228,8 +229,11 @@ export function SmartCardHost(props: any): any {
   // 用户改动草稿 → 解除「插入后抑制」「Esc 收起」「手动展开」（回到自动出卡行为）
   react.useEffect(() => { clearSuppression(draft); if (dismissed) setDismissed(false); if (manualOpen) setManualOpen(false) }, [draft])
 
-  const lang = getLang()
+  const langState = react.useState(resolveLocale())
+  const lang = langState[0]
   const t = (k: keyof typeof STR) => tr(lang, STR[k])
+  // 语言跟随：共享单例订阅器（#137；观察者与去重都在 locale.ts 一处）
+  react.useEffect(() => subscribeLocale((l) => { langState[1](l) }), [])
 
   const suppressed = isSuppressed(draft)
   const candidates: ScoredTemplate[] = !enabled || suppressed ? [] : smartCandidates(draft)

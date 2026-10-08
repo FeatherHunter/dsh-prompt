@@ -9,7 +9,8 @@
  */
 import { getReact, keepComposerFocus, MODAL_Z } from './panel';
 import { remoteSizeScale } from './remoteView';
-import { getLang, tr, STR } from './i18n';
+import { tr, STR } from './i18n';
+import { resolveLocale, subscribeLocale } from './locale';
 import { getSmartInput, onSmartInput } from './smartstore';
 import {
   MIRROR_DEBOUNCE_MS,
@@ -31,7 +32,10 @@ export function RemoteInputSheet(props: RemoteInputSheetProps): any {
   const react = getReact();
   if (!react) return null;
   const h = react.createElement;
-  const lang = getLang();
+  const langState = react.useState(resolveLocale());
+  const lang = langState[0];
+  // 语言跟随：共享单例订阅器（#137；观察者与去重都在 locale.ts 一处）
+  react.useEffect(() => subscribeLocale((l) => { langState[1](l) }), []);
   const uiScale = remoteSizeScale((props as any).remoteSize);
 
   // 根＋遮罩：与 picker.ts 同式，仅三参数不同（对齐底贴/上限62dvh/宽min三段）。

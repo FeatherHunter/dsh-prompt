@@ -79,7 +79,8 @@
     "test:issue-116": "node scripts/test-issue-116.cjs",
     "test:marketplace": "node scripts/check-marketplace-readme.mjs",
     "test": "npm run test:lib-sync && npm run test:modal && npm run test:issue-14",
-    "test:issue-123": "node scripts/test-issue-123.cjs"
+    "test:issue-123": "node scripts/test-issue-123.cjs",
+    "test:issue-137": "node scripts/test-issue-137.cjs"
   },
   "dsh": {
     "bundle": {

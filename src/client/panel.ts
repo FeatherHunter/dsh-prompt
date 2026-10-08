@@ -29,7 +29,8 @@ import {
   normalizeRemoteDensity, scaledBaseFontSize,
   type RemoteOrientation,
 } from './remoteView'
-import { getLang, tr, STR, type Lang } from './i18n'
+import { tr, STR, type Lang } from './i18n'
+import { resolveLocale, subscribeLocale } from './locale'
 import { setSmartInput } from './smartstore'
 export function getReact(): any {
   if (typeof require === 'function') { try { return require('react') } catch (e) { /* ignore */ } }
@@ -782,7 +783,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   const h = react.createElement
   const { compact, inputActions, useInput } = props
 
-  const langState = react.useState(getLang())
+  const langState = react.useState(resolveLocale())
   const lang = langState[0]
   const tickState = react.useState(0)
   const setTick = tickState[1]
@@ -914,14 +915,9 @@ export function TemplateBrowser(props: BrowserProps): any {
     return () => { disposed = true; clearPending(); if (typeof window !== 'undefined') window.removeEventListener('resize', onResize) }
   }, [])
 
-  // 语言跟随 html[lang]
-  react.useEffect(() => {
-    if (typeof document === 'undefined') return
-    const onLang = () => { langState[1](getLang()) }
-    const obs = new MutationObserver(onLang)
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
-    return () => { obs.disconnect() }
-  }, [])
+  // 语言跟随：共享单例订阅器（html[lang] 兜底 + 宿主 locale 服务快照），
+  // 不再各面自挂 MutationObserver（#137；观察者与去重都在 locale.ts 一处）
+  react.useEffect(() => subscribeLocale((l) => { langState[1](l) }), [])
 
   // #14 回归：紧凑浮层弹窗打开期间抑制 hover 自动关窗（含入口按钮的 schedulePanelClose）
   // - 本地根节点 hover 同步抑制（防御式） + 全局 gate（覆盖入口按钮）

@@ -8,7 +8,8 @@ import { isPanelOpen, setPanelOpen, cancelPanelClose, schedulePanelClose, noteHo
 import {
   getRemotePrefs, subscribeRemote, ensureRemoteLoaded,
 } from './remote'
-import { getLang, tr, STR } from './i18n'
+import { tr, STR } from './i18n'
+import { resolveLocale, subscribeLocale } from './locale'
 import {
   canShowWorkspaceLeft, canShowWorkspacePicker, probeWorkspaceGates,
   readWorkspaceLeftExpanded, toggleWorkspaceLeft,
@@ -182,11 +183,14 @@ export function EntryButton(props: any): any {
   if (!react) return null
   const h = react.createElement
   const open = props.open ?? false
-  const lang = getLang()
+  const langState = react.useState(resolveLocale())
+  const lang = langState[0]
   const label = tr(lang, STR.entryBtn)
   // #82 远程总闸：订阅偏好，仅远程下在 Prompt 右侧出现配置键（栏头不设大/小切换）。
   const remoteState = react.useState(getRemotePrefs())
   const remote = remoteState[0]
+  // 语言跟随：共享单例订阅器（#137；观察者与去重都在 locale.ts 一处）
+  react.useEffect(() => subscribeLocale((l) => { langState[1](l) }), [])
   react.useEffect(() => {
     try { ensureRemoteLoaded().catch(() => undefined) } catch (e) { /* ignore */ }
     return subscribeRemote(() => {

@@ -29,7 +29,7 @@ export const LABEL_MAX_LEN = 10
 /** 输入分隔符：逗号（中英）/顿号/空白 */
 export const LABEL_SEP = /[,，、\s]+/
 // #141（地图 #134 第二轮对抗结论）：旧的「幽灵值」LABEL_RESERVED='任意' 拒绝分支已砍 ——
-// '任意' 从此是普通用户词（不拒绝建词）；原 const 与 LABEL_RESERVED/labelReserved 错误码一并删除。
+// #141：'任意' 从此是普通用户词（不拒绝建词）；原 const 与 LABEL_RESERVED/labelReserved 错误码一并删除。
 /** 回落词：空标签回落（#19 R2 D4；不是归属维度，见自定义页签语义）。
  *  #141 身份：它在读写两侧都是**存量中文拼写**，读侧归一到范围身份 'custom'
  *  （见 keys.ts 的 LegacyChineseStorageAdapter）—— 但它本身是数据值，显示与落盘都不翻译、不改写。 */

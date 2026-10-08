@@ -324,7 +324,14 @@ function ser(n) {
     if (!(k === 'title' || k === 'placeholder' || k === 'alt' || k === 'lang' || k === 'role' || k === 'aria-label' || k.indexOf('aria-') === 0 || k.indexOf('data-') === 0)) continue;
     a += ' ' + k + '="' + esc(v) + '"';
   }
-  if (p.style && typeof p.style === 'object') a += ' style="' + esc(css(p.style)) + '"';
+  if (p.style && typeof p.style === 'object') {
+    // 快照只为肉眼对点：组件自带的 position:fixed / visibility:hidden 是挂载态样式，
+    // 原样拷进静态 HTML 会整面不可见，这里归一掉（门禁断言跑在渲染树上，不受影响）。
+    const st = { ...p.style };
+    if (st.visibility === 'hidden') st.visibility = 'visible';
+    if (st.position === 'fixed') st.position = 'static';
+    a += ' style="' + esc(css(st)) + '"';
+  }
   return '<' + n.type + a + '>' + ser(n.children) + '</' + n.type + '>';
 }
 async function snap(outdir) {

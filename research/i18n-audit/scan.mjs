@@ -219,6 +219,20 @@ for (const row of rows) {
   if (!r) unclassified.push(row)
 }
 
+// --check：只判「每条检出都有归类」，不写 CSV —— 供 ticket 138 门禁与 CI 复跑，
+// 免得每次跑扫描都把快照 CSV 的行号刷成当前树（工作树恒脏）。
+if (process.argv.includes('--check')) {
+  const counts = {}
+  for (const r of rows) { const k = r.cls || 'UNCLASSIFIED'; counts[k] = (counts[k] || 0) + 1 }
+  console.log('detected ' + rows.length + ' CJK literals; by class: ' + Object.keys(counts).sort().map(k => k + '=' + counts[k]).join(' '))
+  if (unclassified.length) {
+    for (const r of unclassified) console.error('  UNCLASSIFIED ' + r.file + ':' + r.line + ':' + r.col + '  ' + JSON.stringify(r.text))
+    process.exit(1)
+  }
+  console.log('check OK: 全部检出条目均有归类（未写 CSV）')
+  process.exit(0)
+}
+
 if (process.argv.includes('--dump')) {
   for (const r of rows) console.log([r.file, r.line + ':' + r.col, r.container, JSON.stringify(r.text)].join('\t'))
   console.error('TOTAL ' + rows.length)
@@ -230,7 +244,9 @@ const lines = [HEAD.join(',')]
 for (const r of rows) {
   lines.push([r.file, r.line, r.col, r.text, r.cls, r.action, r.consumer, r.container].map(csvCell).join(','))
 }
-writeFileSync(OUT, '\uFEFF' + lines.join('\r\n') + '\r\n', 'utf8')
+// 行尾必须 LF：本仓 .gitattributes 钉了 `* text=auto eol=lf`，写 CRLF 会让复跑后的 CSV 在 git 里恒显脏
+// （工作副本 CRLF / 索引 LF），于是「复跑不改工作树」这条可复现性就没了。BOM 保留（Excel 友好）。
+writeFileSync(OUT, '\uFEFF' + lines.join('\n') + '\n', 'utf8')
 
 const byClass = {}
 for (const r of rows) byClass[r.cls] = (byClass[r.cls] || 0) + 1

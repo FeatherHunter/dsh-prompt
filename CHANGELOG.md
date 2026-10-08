@@ -2,6 +2,11 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
+## [0.4.10-beta.0] - 2026-10-08
+
+### Added
+- 双语完整度 P0（验收用 beta）：English 下 UI 铬全英文（范围钮 All/Preset/Custom、翻页、用量、档位、智能卡后缀等）；身份-显示分离（CanonicalKey + 存量中文只读适配，用户数据不动）；永久门禁（字典完备 + 英文铬无 CJK + 溢出预算）。预置正文与用户词永不翻译。
+
 ## [0.4.9] - 2026-10-06
 
 ### Changed

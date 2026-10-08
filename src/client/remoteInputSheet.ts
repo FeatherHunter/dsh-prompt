@@ -217,8 +217,9 @@ export function RemoteInputSheet(props: RemoteInputSheetProps): any {
             } catch (err) { /* ignore */ }
           },
         }),
-        h('div', { style: metaStyle },
-          (stale ? tr(lang, STR.remoteInputStale) + ' · ' : '') + tr(lang, STR.remoteInputMeta) + ' · ' + String((local || '').length) + '字'),
+        // #141：整块 meta 都是铬（无数据词）；字数走词表（en: 'N chars'），钩子打在文本位上
+        h('div', { style: metaStyle, 'data-dsh-prompt-chrome': 'remoteInputChars' },
+          (stale ? tr(lang, STR.remoteInputStale) + ' · ' : '') + tr(lang, STR.remoteInputMeta) + ' · ' + tr(lang, STR.remoteInputChars).replace('{n}', String((local || '').length))),
       ]),
     ]),
   );

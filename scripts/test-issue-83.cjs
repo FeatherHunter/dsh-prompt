@@ -306,17 +306,6 @@ if (v3.bottomBar.hasPrev !== true || v3.bottomBar.hasNext !== false) fail('末�
 if (v1.bottomBar.pageText !== '1/3') fail('页码文本错误 ' + v1.bottomBar.pageText);
 ok('底栏翻页使能与页码（两步可达输入）');
 
-// 标签域：只留全部加在用动态词（去留与悬浮云同值，不另起维度）
-const excl = view.remoteTagExcludeList();
-for (const w of ['思考框架', '学习', '工程', '执行', '执行前', '执行中', '执行后', '自定义', 'all']) {
-  if (!excl.includes(w)) fail('去留表缺 ' + w);
-}
-const opts = view.remoteTagOptions(['拆解', '思考框架', '执行前', '复盘', '自定义', '我的词']);
-if (opts[0] !== '全部') fail('首项应为全部');
-if (opts.includes('思考框架') || opts.includes('执行前') || opts.includes('自定义')) fail('领域/阶段/回落词不应进远程标签域');
-if (!opts.includes('拆解') || !opts.includes('复盘') || !opts.includes('我的词')) fail('行动词与自定义新词应保留（平权）: ' + JSON.stringify(opts));
-ok('标签域收敛（全部+在用动态词单选，自定义平权）');
-
 // 源码级：纯模型不做排序与匹配（复用边界），无长度常量与减行逻辑
 const viewSrc = fs.readFileSync(VIEW_TS, 'utf8');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').split(/\r?\n/).map((l) => l.replace(/\/\/.*$/, '')).join('\n');
@@ -374,7 +363,8 @@ const MODULES = [
   ['smartstore.ts', path.join(ROOT, 'src', 'client', 'smartstore.ts'), []],
   ['remote2.cjs', path.join(ROOT, 'src', 'client', 'remote.ts'), []],
   ['remoteView.cjs', VIEW_TS, []],
-  ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView', './locale']],
+  ['keys.cjs', path.join(ROOT, 'src', 'client', 'keys.ts'), []],
+  ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView', './locale', './keys']],
 ];
 for (const [outName, srcPath, deps] of MODULES) {
   let src = fs.readFileSync(srcPath, 'utf8');
@@ -389,6 +379,23 @@ const React = require('react');
 const TR = require('react-test-renderer');
 const panelMod = require(path.join(DIR, 'panel.cjs'));
 const remote2 = require(path.join(DIR, 'remote2.cjs'));
+const keysMod = require(path.join(DIR, 'keys.cjs'));
+
+// 标签域：去留表（#141 起单点在 keys.ts；remoteView 里那份重复表与返回显示串的 remoteTagOptions
+// 都是 #132 之后的死码，已删）。悬停云与远程标签域同一份，不另起维度。
+const excl = keysMod.EXCLUDED_LABEL_WORDS;
+for (const w of ['思考框架', '学习', '工程', '执行', '执行前', '执行中', '执行后', '自定义', 'all']) {
+  if (!excl.includes(w)) fail('去留表缺 ' + w);
+}
+// 身份视图：'自定义'→'custom'、'all'→'all'（范围身份），其余数据词身份即原文
+const keyView = keysMod.EXCLUDED_LABEL_KEYS.join('/');
+if (keyView !== 'all/思考框架/学习/工程/执行/执行前/执行中/执行后/custom') fail('去留表身份视图不对：' + keyView);
+// 真身份：范围那一项是 ScopeKey 'all'；去留判定按**存量拼写**（数据词不归一）
+if (!keysMod.isExcludedLabel('自定义') || !keysMod.isExcludedLabel('all') || !keysMod.isExcludedLabel('复盘'.length ? '思考框架' : '')) fail('isExcludedLabel 应命中存量拼写');
+if (keysMod.isExcludedLabel('拆解') || keysMod.isExcludedLabel('我的词') || keysMod.isExcludedLabel('全部')) fail('行动词/自定义新词/合法用户词不得被去留');
+if (keysMod.normalizeScopeKey('全部') !== 'all' || keysMod.normalizeKey('自定义') !== 'custom') fail('范围身份归一（adapter 读侧）');
+ok('标签域收敛（去留表单点于 keys.ts + 身份视图 + 存量拼写比对）');
+
 
 // 关=小列表：远程面板不应出现（老用法零打扰）
 remote2.__resetRemoteForTests();

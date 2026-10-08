@@ -72,7 +72,7 @@ export function insideCodeBlock(draft: string): boolean {
  *  #22 决议：候选集不变（评分链、阈值、top-2 + 最近使用均不动），仅显示顺序改为统一 bottom-up——
  *  评分升序（最相关在底部）→ 用量升序 → 同键置顶更贴底 → 预制原始顺序/自定义创建时间；
  *  最近使用槽（score=0）不做特例，自然落到最顶部（Q4=A）。
- *  #32：自定义经自选标签进入评分（scoreCustomLabels），与预置同池竞争 top-2；
+ *  #32：自定义经自选标签进入评分（scoreCustomLabels），与预制同池竞争 top-2；
  *  空/回落/单字标签 0 分，仅 lastUsed 槽可见。
  */
 export function smartCandidates(draft: string): ScoredTemplate[] {

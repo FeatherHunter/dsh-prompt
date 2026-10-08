@@ -37,6 +37,9 @@ export const STR = {
   tabCustom: { zh: '自定义', en: 'Custom' },
   domainAll: { zh: '全领域', en: 'All domains' },
   presetCount: { zh: '预制', en: 'Preset' },
+  // #141：范围钮「预制」—— 不复用 presetCount（那是条数摘要；同字不同位，钩子要能分开定位），
+  // 也不复用 store.LABEL_FALLBACK（那是写进用户数据的身份值，不是显示串）。术语统一：铬一律「预制」。
+  scopePreset: { zh: '预制', en: 'Preset' },
   customCount: { zh: '自定义', en: 'Custom' },
   goSettings: { zh: '设置 → 模板管理', en: 'Settings → Templates' },
   edit: { zh: '编辑', en: 'Edit' },
@@ -51,7 +54,6 @@ export const STR = {
   labelsHint: { zh: '最多 3 个，每条 1–10 字；可从已有词里选，也可新造', en: 'At most 3 labels, 1–10 chars each; pick existing or invent new' },
   labelsTooMany: { zh: '最多 3 个标签', en: 'At most 3 labels' },
   labelTooLong: { zh: '每条标签 1–10 字', en: 'Each label 1–10 chars' },
-  labelReserved: { zh: '“任意”不能作为标签', en: '"任意" is reserved and cannot be a label' },
   removeLabel: { zh: '移除标签', en: 'Remove label' },
   labelPicker: { zh: '标签选择', en: 'Pick tags' },
   labelDone: { zh: '完成', en: 'Done' },
@@ -63,11 +65,19 @@ export const STR = {
   bodyTooLong: { zh: '正文超过 10000 字上限', en: 'Body exceeds 10000 chars' },
   delTitle: { zh: '删除确认', en: 'Confirm delete' },
   delMsg: { zh: '确定删除自定义模板', en: 'Delete custom template' },
+  // #141 P2：模板名的括法（zh 全角引号 / en 弯引号）——{name} 是数据词，只有标点是铬
+  nameQuote: { zh: '「{name}」', en: '“{name}”' },
   delUnrecover: { zh: '此操作不可撤销。', en: 'This cannot be undone.' },
   delOk: { zh: '删除', en: 'Delete' },
   pinFull: { zh: '置顶已达上限（5 个）', en: 'Pin limit reached (5)' },
   insertHint: { zh: '点击即插入', en: 'Click to insert' },
+  // #141：行内用量徽标的 title「已使用 N 次」（zh {n} 在中间，en 在尾部；调用方 .replace('{n}', …)）
+  usageTitle: { zh: '已使用 {n} 次', en: 'Used {n} times' },
+  // #141：设置页行折叠提示（title 里数据词之后那半截；' · ' 分隔符留在调用方）
+  rowExpandHint: { zh: '点击展开/收起简介', en: 'Click to expand or collapse the summary' },
   close: { zh: '关闭', en: 'Close' },
+  // #141 P2：全角加号（'＋ 新增' 与裸 '＋'）—— 纯符号，en 下落半角 '+'
+  plusGlyph: { zh: '＋', en: '+' },
   smartToggle: { zh: '智能模式悬浮卡（输入匹配时推荐模板；默认关）', en: 'Smart card (recommends templates while typing; off by default)' },
   smartToggleHint: { zh: '默认关；打开后仅在输入匹配时出卡', en: 'Off by default; when on, the card appears on match' },
   smartDot: { zh: '智能模式 · 拖动调整位置；输入匹配时出卡', en: 'Smart mode · drag to move; card appears on match' },
@@ -77,6 +87,9 @@ export const STR = {
   smartDismiss: { zh: '收起（继续输入可再次出现）', en: 'Dismiss (reappears as you type)' },
   smartRecent: { zh: '最近使用', en: 'Recently used' },
   smartCommon: { zh: '常用模板', en: 'Common templates' },
+  // #141：智能卡行内后缀（'·常用' 是 0 分兜底行，'·分N' 是评分行）——与上面 smartCommon（命中列文案）语义不同
+  smartCommonSuffix: { zh: '·常用', en: '·Common' },
+  smartScoreSuffix: { zh: '·分{n}', en: '·Score {n}' },
   gitHubRepo: { zh: 'GitHub 仓库', en: 'GitHub repo' },
   feedback: { zh: '反馈故障', en: 'Report issue' },
   // #37：设置页右上角两个图标按钮的悬停气泡 + 底部「作者其他插件」引流区（数字均为实测：25 / 38 / 24 / 9）
@@ -102,6 +115,8 @@ export const STR = {
   remoteSize: { zh: '大小', en: 'Size' },
   remoteSizeMin: { zh: '1档', en: '1' },
   remoteSizeMax: { zh: '10档', en: '10' },
+  // #141：滑块值 pill「N档·P%」（与 remoteSizeMin/Max 同口径：en 不带「档」）
+  remoteSizeValue: { zh: '{n}档·{p}%', en: '{n} · {p}%' },
   remotePersistFail: { zh: '持久化失败：本次选择当次有效，下次恢复默认并请重试。', en: 'Persist failed: this choice works for now, defaults return next time — please retry.' },
   remoteOrientation: { zh: '方向偏好', en: 'Orientation' },
   remoteOrientationHint: { zh: '自动跟整机方向，无桥时跟视口；锁定先切整机方向，失败只锁自家布局。', en: 'Auto follows the system display, falling back to viewport without a bridge; a lock tries the system display first, falling back to our own layout.' },
@@ -175,6 +190,8 @@ export const STR = {
   logDropped: { zh: '日志管道已丢弃条数：', en: 'Entries dropped by the log pipeline: ' },
   logUnavailable: { zh: '日志能力当前不可用（宿主未接通）。', en: 'Logging is currently unavailable (host not reachable).' },
   logBytes: { zh: '字节', en: 'bytes' },
+  // #141 P2：导出回执里字节数的括法（zh 全角括号 / en 半角括号）
+  bytesParen: { zh: '（{v}）', en: '({v})' },
   logFiles: { zh: '个文件', en: 'file(s)' },
   logReasonHost: { zh: '宿主不可达', en: 'host unreachable' },
   logReasonRejected: { zh: '宿主拒绝写入', en: 'host rejected the write' },
@@ -192,6 +209,7 @@ export const STR = {
   remoteInputExplicitSub: { zh: '宿主未提供提交面，此键恒禁用、绝不伪造回车。', en: 'No host submit surface; this key stays disabled, never fakes Enter.' },
   remoteInputStale: { zh: '会话已切换，本框已停写（防串写），请重开。', en: 'Session switched; writes paused to avoid cross-talk. Reopen.' },
   remoteInputMeta: { zh: '实时镜子 · 去抖300ms串行 · session校验 · 组词中延迟', en: 'Live mirror · 300ms debounced serial · session check · IME deferred' },
+  remoteInputChars: { zh: '{n}字', en: '{n} chars' },
   remoteModelKey: { zh: '模型切换（休眠中）', en: 'Model switch (dormant)' },
   remoteModelTitle: { zh: '▤ 模型切换', en: '▤ Model switch' },
   remoteModelEmpty: { zh: '宿主暂无模型面（首次出现会提示一次）', en: 'No host model surface yet (first appearance shows once)' },

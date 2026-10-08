@@ -56,6 +56,8 @@ const rowStrings = (row) => {
 };
 const textOf = (n) => (Array.isArray(n.children) ? n.children.filter((c) => typeof c === 'string').join('') : '');
 const byButton = (tree, s) => tree.root.findAll((n) => n.type === 'button' && textOf(n) === s);
+// #141：范围钮按 data-dsh-prompt-scope 钩子取（文案走词表，术语「预制」）
+const scopeBtn = (tree, s) => tree.root.findAll((n) => n.type === 'button' && n.props && n.props['data-dsh-prompt-scope'] === s)[0];
 const directKids = (row) =>
   (row.children || []).filter((c) => c && typeof c !== 'string' && c.type);
 const findBadgeKid = (row) => {
@@ -177,7 +179,7 @@ async function main() {
   console.log('=== Test #74 F: 顶部云区一行不碰 ===');
   let full2;
   TR.act(() => { full2 = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
-  assert(!!byButton(full2, '预置')[0] && !!byButton(full2, '自定义')[0], '范围钮预置/自定义存在');
+  assert(!!scopeBtn(full2, 'preset') && !!scopeBtn(full2, 'custom'), '范围钮预制/自定义存在（scope 钩子）');
   assert(!!byButton(full2, '启动')[0], '行动词云「启动」存在');
   const wantStart = store.allTemplates().filter((t) => store.matchLabel(t, '启动')).map((t) => t.id).sort();
   TR.act(() => { byButton(full2, '启动')[0].props.onClick(); });

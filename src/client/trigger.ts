@@ -27,7 +27,7 @@ export interface PromptTriggerSource {
 /**
  * /prompt 过滤：先剥离源名前缀（`/prompt` 本身 → 全量列出；`/prompt <词>` 与
  * `/prompt<词>`（无空格，宿主 slash 会话遇到空白即结束、带空格的 query 到不了这里）
- * → 按词过滤），剩余词匹配同一标签（含预置派生与自定义自选）或全文检索（haystack 兼容旧找法）。
+ * → 按词过滤），剩余词匹配同一标签（含预制派生与自定义自选）或全文检索（haystack 兼容旧找法）。
  */
 export function filterPromptTemplates(query: string): PromptTemplate[] {
   let q = (query || '').trim()

@@ -369,13 +369,18 @@ export function SmartCardHost(props: any): any {
   const rowNodes = rows.map((c, i) => {
     const common = c.score === 0
     // #23：展示行换为完整标签串；评分后缀（·分N/·常用）保留，评分链不动
-    const tagText = labelString(c.tpl) + ' ' + (common ? '·常用' : '·分' + c.score)
+    // #141：后缀是铬，走词表；单独成节点 —— 铬钩子节点里只有铬，数据词（标签串）留在外层
+    const suffixKey = common ? 'smartCommonSuffix' : 'smartScoreSuffix'
+    const suffixText = common ? t('smartCommonSuffix') : t('smartScoreSuffix').replace('{n}', String(c.score))
     const hits = common ? t('smartCommon') : (c.strongHits.join(' / ') + (c.weakHits.length ? ' · ' + c.weakHits.join(' / ') : ''))
     // #22（Q7=A）：序号按排名而非位置——1=最相关，出现在最底部
     return h('div', { key: c.tpl.id, style: rowStyle, onClick: () => doPick(c), title: t('smartFill') }, [
       h('span', { style: rowNum }, String(rows.length - i)),
       h('span', { style: rowName }, c.tpl.name),
-      h('span', { style: rowTag }, tagText),
+      h('span', { style: rowTag }, [
+        labelString(c.tpl), ' ',
+        h('span', { key: 'suffix', 'data-dsh-prompt-chrome': suffixKey }, suffixText),
+      ]),
       h('span', { style: rowHint }, hits),
       h('button', { style: fillBtn, title: t('smartFill'), onClick: (e: any) => { e.stopPropagation(); doPick(c) } }, t('smartFill')),
     ])

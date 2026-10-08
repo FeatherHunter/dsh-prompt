@@ -30,7 +30,8 @@ const MODULES = [
   ['match.ts', ['./templates', './store', './words']],
   ['remote.ts', []],
   ['remoteView.ts', []],
-  ['panel.ts', ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView', './locale']],
+  ['keys.ts', []],
+  ['panel.ts', ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView', './locale', './keys']],
   ['smart.ts', ['./templates', './store', './words', './match', './panel', './smartstore', './remote', './remoteView', './i18n', './locale']],
 ];
 for (const [f, deps] of MODULES) {

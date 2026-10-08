@@ -80,7 +80,8 @@
     "test:marketplace": "node scripts/check-marketplace-readme.mjs",
     "test": "npm run test:lib-sync && npm run test:modal && npm run test:issue-14",
     "test:issue-123": "node scripts/test-issue-123.cjs",
-    "test:issue-137": "node scripts/test-issue-137.cjs"
+    "test:issue-137": "node scripts/test-issue-137.cjs",
+    "test:issue-141": "node scripts/test-issue-141.cjs"
   },
   "dsh": {
     "bundle": {

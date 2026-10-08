@@ -20,7 +20,7 @@ const MAX_BODY = 10000
 
 /* ── 统一标签约束（#23：#19 R2 上限与校验；#19 R3 单选筛选） ── */
 
-/** 自定义最多标签数（与预置 3 对等） */
+/** 自定义最多标签数（与预制 3 对等） */
 export const MAX_LABELS = 3
 /** 每条标签字数下限 */
 export const LABEL_MIN_LEN = 1
@@ -28,9 +28,11 @@ export const LABEL_MIN_LEN = 1
 export const LABEL_MAX_LEN = 10
 /** 输入分隔符：逗号（中英）/顿号/空白 */
 export const LABEL_SEP = /[,，、\s]+/
-/** 幽灵值：永不进入标签（#19 R2；#31 做类型层清洗，本票只拦录入） */
-export const LABEL_RESERVED = '任意'
-/** 回落词：空标签回落（#19 R2 D4；不是归属维度，见自定义页签语义） */
+// #141（地图 #134 第二轮对抗结论）：旧的「幽灵值」LABEL_RESERVED='任意' 拒绝分支已砍 ——
+// '任意' 从此是普通用户词（不拒绝建词）；原 const 与 LABEL_RESERVED/labelReserved 错误码一并删除。
+/** 回落词：空标签回落（#19 R2 D4；不是归属维度，见自定义页签语义）。
+ *  #141 身份：它在读写两侧都是**存量中文拼写**，读侧归一到范围身份 'custom'
+ *  （见 keys.ts 的 LegacyChineseStorageAdapter）—— 但它本身是数据值，显示与落盘都不翻译、不改写。 */
 export const LABEL_FALLBACK = '自定义'
 
 /**
@@ -224,8 +226,8 @@ function labelLen(s: string): number {
 }
 
 /**
- * 模板标签：预置 = labels（回填值，恒 3 个）；自定义 = 自选 labels。
- * 读时兼容旧形状：labels 缺失/为空 → 预置按领域+阶段+动作机械派生（#19 R2 D3 公式），
+ * 模板标签：预制 = labels（回填值，恒 3 个）；自定义 = 自选 labels。
+ * 读时兼容旧形状：labels 缺失/为空 → 预制按领域+阶段+动作机械派生（#19 R2 D3 公式），
  * 自定义取旧单 tag 为首元、空则回落「自定义」（#19 R2 D4；旧占位三件套直接丢弃）。
  */
 export function templateLabels(t: PromptTemplate): string[] {
@@ -251,7 +253,7 @@ export function matchLabel(t: PromptTemplate, label: string): boolean {
   return templateLabels(t).indexOf(label) >= 0
 }
 
-/** 已有词（自定义标签输入的选取来源：预置 23 词 + 在用自定义词，去重保序） */
+/** 已有词（自定义标签输入的选取来源：预制 23 词 + 在用自定义词，去重保序） */
 export function allKnownLabels(): string[] {
   const seen = new Set<string>()
   const out: string[] = []
@@ -277,18 +279,16 @@ export function normalizeLabels(input: string | string[] | undefined): string[] 
 
 export type LabelsCheck =
   | { ok: true; labels: string[] }
-  | { ok: false; error: 'labelReserved' | 'labelTooLong' | 'labelsTooMany' }
+  | { ok: false; error: 'labelTooLong' | 'labelsTooMany' }
 
 /**
  * 校验（保存时阻断并行内提示，不静默截断）：
- * 空输入 → 回落 ['自定义']（#19 R2 D4）；'任意' → 阻断；超长 → 阻断；超数 → 阻断。
+ * 空输入 → 回落 ['自定义']（#19 R2 D4）；超长 → 阻断；超数 → 阻断。
+ * #141 起不再有保留词：任何 1–10 字的词都能建（'任意' 从此是普通用户词，地图 #134 第二轮对抗结论已采纳）。
  */
 export function validateLabels(input: string | string[] | undefined): LabelsCheck {
   const cleaned = normalizeLabels(input)
   if (cleaned.length === 0) return { ok: true, labels: [LABEL_FALLBACK] }
-  for (const w of cleaned) {
-    if (w === LABEL_RESERVED) return { ok: false, error: 'labelReserved' }
-  }
   for (const w of cleaned) {
     const n = labelLen(w)
     if (n < LABEL_MIN_LEN || n > LABEL_MAX_LEN) return { ok: false, error: 'labelTooLong' }
@@ -427,7 +427,9 @@ export function removeCustom(id: string): boolean {
   return true
 }
 
-/** 复制预制为自定义（#23：标签照搬预置派生串，最多 3 个天然合规） */
+/** 复制预制为自定义（#23：标签照搬预制派生串，最多 3 个天然合规）。
+ *  #141 裁决：'（副本）' 拼进 name **落进用户数据**，一律不动 —— 它既不是铬、也不是身份键，
+ *  是用户数据的一部分；要本地化只能「新建那一刻按当前语言取一次」，已存数据永不改写。 */
 export function copyPresetToCustom(id: string): CustomTemplate | null {
   const src = getPresetById(id)
   if (!src) return null

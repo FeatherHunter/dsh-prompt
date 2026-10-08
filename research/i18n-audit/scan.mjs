@@ -134,8 +134,9 @@ function scan() {
 // 字段：file 精确匹配；path 为 container 子串；text 为字面量精确匹配；三者都可省略（省略=通配）。
 // 顺序敏感：先命中者胜。改动 src 后若出现未命中行，脚本会 exit 1 逼你补规则。
 const RULES = [
-  // —— i18n.ts：字典本身（唯一 seam），zh 值即 C1 目的地；en 值含 CJK 的逐条列出 ——
-  { file: 'src/client/i18n.ts', text: '"任意" is reserved and cannot be a label', cls: 'C1', action: '改写en(去CJK)', consumer: '134/141' },
+  // —— i18n.ts：字典本身（唯一 seam），zh 值即 C1 目的地；en 值必须零 CJK ——
+  // #141 收口：铬字面量已全数迁入本字典（panel/settings/smart/remoteInputSheet 的散落串清零），
+  // 字典里那条唯一含 CJK 的 en 值（labelReserved）已随「砍保留词拒绝」删除。
   { file: 'src/client/i18n.ts', pathEnd: '.zh', cls: 'C1', action: '已在STR', consumer: '-' },
 
   // —— 内容资产（本图 Out of scope） ——
@@ -143,17 +144,15 @@ const RULES = [
   { file: 'src/client/words.ts', cls: 'C3', action: '不动(内容资产)', consumer: '-' },
 
   // —— 身份 / 存储值（C2：身份与显示分离，用户数据永不改写） ——
-  { file: 'src/client/panel.ts', path: 'CLOUD_EXCLUDE', cls: 'C2', action: '不动(身份值)', consumer: '-' },
-  { file: 'src/client/remoteView.ts', path: 'REMOTE_TAG_EXCLUDE_LIST', cls: 'C2', action: '不动(身份值)', consumer: '-' },
-  { file: 'src/client/store.ts', path: 'LABEL_RESERVED', cls: 'C2', action: '不动(身份值)', consumer: '-' },
+  // #141 收口：去留表与范围别名单点移到 keys.ts（panel 的 CLOUD_EXCLUDE、remoteView 的重复表与
+  // 返回显示串的 remoteTagOptions 死码已删）；store 的 LABEL_RESERVED 拒绝分支已砍。
+  { file: 'src/client/keys.ts', path: 'SCOPE_ALIASES', cls: 'C2', action: '不动(身份别名)', consumer: '-' },
+  { file: 'src/client/keys.ts', path: 'EXCLUDED_LABEL_WORDS', cls: 'C2', action: '不动(存量拼写/身份值)', consumer: '-' },
   { file: 'src/client/store.ts', path: 'LABEL_FALLBACK', cls: 'C2', action: '不动(身份值)', consumer: '-' },
   { file: 'src/client/store.ts', text: '（副本）', cls: 'C2', action: '不动(写入用户数据)', consumer: '141' },
-  { file: 'src/client/remoteView.ts', text: '全部', cls: 'C2', action: '不动(身份哨兵)', consumer: '141' },
 
-  // —— 铬（C1）：必须随 UI 语言切换，全部交 ticket 141 ——
-  { file: 'src/client/panel.ts', path: 'SCOPE_PRESET_LABEL', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
-  { file: 'src/client/panel.ts', path: 'SCOPE_CUSTOM_LABEL', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
-  { file: 'src/client/panel.ts', path: 'ALL_LABEL', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
+  // —— 铬（C1）：必须随 UI 语言切换 —— #141 已把下列面板侧字面量全数迁进 i18n.ts，
+  //    规则留作「同字面量若再出现，仍按铬对待」的哨兵（不是放行条）。
   { file: 'src/client/panel.ts', text: '上一页', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
   { file: 'src/client/panel.ts', text: '下一页', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
   { file: 'src/client/panel.ts', text: '已使用 ', cls: 'C1', action: '迁STR(P1)', consumer: '141' },

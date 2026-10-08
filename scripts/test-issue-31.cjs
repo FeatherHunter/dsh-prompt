@@ -1,7 +1,7 @@
 // 回归测试 #31: 阶段“任意”彻底移除清洗
 // 验收映射（#31 正文 + Agent Brief）：
 //  A) 类型层写不出：Stage 联合与 StageEnum 均无“任意”（tsc 覆盖）
-//  B) 全仓 grep“任意”仅剩注释/文档 + #23 有意三处（LABEL_RESERVED/i18n/test），无逻辑引用
+//  B) 全仓 grep“任意”仅剩注释/文档（#141 起保留词拒绝已砍：LABEL_RESERVED/labelReserved 不复存在），无逻辑引用
 //  C) 手改 stage 任意 PUT → 400（现有非法路径）；新形状与合法旧形状仍 200
 //  D) 页签无“任意”项（复核）；npm test 全过 + build + typecheck
 const fs = require('node:fs');
@@ -25,8 +25,8 @@ function ok(msg) { console.log(' ok: ' + msg) }
   const enumLine = hostSrc.split('\n').find((l) => l.includes('const StageEnum'));
   if (!enumLine || (enumLine.includes('任意') && !enumLine.includes('#31'))) fail('StageEnum 仍含逻辑“任意”');
   ok('StageEnum 无“任意”取值');
-  // 全仓 grep：允许集 = 注释/文档 + #23 有意三处
-  const allow = [/LABEL_RESERVED/, /labelReserved/, /#31/, /幽灵/, /test-issue-23/, /回落/, /阻断/, /research\//];
+  // 全仓 grep：允许集 = 注释/文档 + #31/#141 的裁决说明（#141 砍了保留词拒绝，不再有 LABEL_RESERVED/labelReserved）
+  const allow = [/#31/, /#141/, /幽灵/, /test-issue-23/, /回落/, /阻断/, /research\//];
   const scanFiles = [];
   const walk = (d) => {
     for (const e of fs.readdirSync(d, { withFileTypes: true })) {

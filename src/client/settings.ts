@@ -303,7 +303,7 @@ export function SettingsPage(props: any): any {
     const where = res.path || res.dir || ''
     noteState[1](
       (saved ? t('logExportSaved') : t('logExportDownloadBlocked')) +
-        ' ' + name + '（' + (res.bytes ?? text.length) + ' ' + t('logBytes') + '）' + (where ? ' · ' + where : ''),
+        ' ' + name + t('bytesParen').replace('{v}', (res.bytes ?? text.length) + ' ' + t('logBytes')) + (where ? ' · ' + where : ''),
     )
   }
 
@@ -551,7 +551,9 @@ export function SettingsPage(props: any): any {
             fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', flex: 'none',
           },
           'data-dsh-prompt-size-value': '1',
-        }, remote.size + '档·' + Math.round(remoteSizeScale(remote.size) * 100) + '%'),
+          // #141：铬钩子（文本位）——「N档·P%」随 UI 语言切（en 不带「档」）
+          'data-dsh-prompt-chrome': 'remoteSizeValue',
+        }, t('remoteSizeValue').replace('{n}', String(remote.size)).replace('{p}', String(Math.round(remoteSizeScale(remote.size) * 100)))),
       ]),
       h('div', { key: 'slider-row', style: { display: 'flex', alignItems: 'center', gap: 8 } }, [
         h('span', { key: 'min', style: { fontFamily: TOK.font, fontSize: '0.82em', color: TOK.labelTertiary, flex: 'none' } }, t('remoteSizeMin')),

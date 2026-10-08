@@ -10,8 +10,8 @@
  * #68 终式（2026-09-15）：悬浮列表改为置顶簇聚底（分区主键→分区内用量升序→同用量 pin 序→末键）；
  * 设置页与 /prompt 忽略置顶、只留用量降序（置顶仅悬浮列表生效）。
  * #23 统一标签：筛选语义统一为标签包含（matchLabel），行内展示完整标签串（labelString）。
- * #70 P6a（2026-09-15）：云整行单选互斥——[全部][预置][自定义]+行动词同行单选，所有 pill 同时只能选中一个；
- * 全部/无选择=不过滤；预置=仅内置（t.builtin）；自定义=仅自建（!t.builtin）；行动词=matchLabel 单选包含（跨内置自建）；
+ * #70 P6a（2026-09-15）：云整行单选互斥——[全部][预制][自定义]+行动词同行单选，所有 pill 同时只能选中一个；
+ * 全部/无选择=不过滤；预制=仅内置（t.builtin）；自定义=仅自建（!t.builtin）；行动词=matchLabel 单选包含（跨内置自建）；
  * 点已选项回无选择（toggle）。P5a 双维 AND 已推翻（负责人 redirect2）。
  */
 import type { PromptTemplate } from './templates'
@@ -30,6 +30,11 @@ import {
   type RemoteOrientation,
 } from './remoteView'
 import { tr, STR, type Lang } from './i18n'
+// #141 身份-显示分离（承 #137 ADR-0006 §1）：范围身份/用户词身份/存量读侧适配都在 keys.ts 一处。
+import {
+  SCOPE_ALL, SCOPE_PRESET, SCOPE_CUSTOM, isExcludedLabel,
+  scopeSelection, selectionActive, toggleScope, toggleWord, wordActive, isNoFilter, type Selection,
+} from './keys'
 import { resolveLocale, subscribeLocale } from './locale'
 import { setSmartInput } from './smartstore'
 export function getReact(): any {
@@ -62,28 +67,29 @@ export function PromptMark(props: { size?: number }): any {
 }
 
 // #70 P6a（2026-09-15）：云整行单选互斥（推翻 P5a 双维 AND；STAGE_TABS/tabs/tabNodes/tabState/CUSTOM_TAG/scope/cloud 双态全清，无死代码）。
-// 顶部唯一行：[全部][预置][自定义]+行动词云，所有 pill 同属一个选中态，互斥单选（不存在自定义和其他 label 同时选中）。
-// 选中态 selected: string|null（null=全部/无选择=不过滤，归一到 null，不保留 'all' 显式值——见 TemplateBrowser 内注释）。
+// #141（地图 #134 + ADR-0006 §1）：范围钮是**铬**，必须可翻 —— #70 那句「Literal 中文不走 i18n（禁区）」
+// 由本票推翻：范围钮文案走词表（tabAll / scopePreset / tabCustom），选中态走具名 CanonicalKey
+// （keys.ts 的 Selection）；被排除在翻译之外的只有**用户词**与预制正文。
+// 顶部唯一行：[全部][预制][自定义]+行动词云，所有 pill 同属一个选中态，互斥单选（不存在自定义和其他 label 同时选中）。
+// 选中态 Selection|null（null=无选择=不过滤，'all' 归一为 null 不保留显式值——见 TemplateBrowser 内注释）；
+// 行动词是**用户词身份**（原文即身份，永不翻译）——两条轴带 kind 区分，别名归一不会误伤用户词。
 // 词源方案 A（调查报告 §5 步骤 1）：
-// allKnownLabels()（预置 23 词 + 在用自定义词，去重保序）去掉非行动词，剩下即云。
-// 去留表（以预置 23 词为基准，去 7 留 16；自定义在用词全部“留”，追加排在预置行动词之后）：
+// allKnownLabels()（预制 23 词 + 在用自定义词，去重保序）去掉非行动词，剩下即云。
+// 去留表（以预制 23 词为基准，去 7 留 16；自定义在用词全部“留”，追加排在预制行动词之后）：
 //   去（7）：思考框架/学习/工程/执行（4 领域）+ 执行前/执行中/执行后（3 阶段）；
 //            另去哨兵 '自定义'（空标签回落词；旧自定义页签 id 已删，语义由范围钮继承）与 'all'（非标签）；
-//   留（16，按预置首次出现序）：拆解/检验/归因/决策/理解/路线/概念/考验/审查/测试/重构/解读/启动/固化/记录/复盘；
+//   留（16，按预制首次出现序）：拆解/检验/归因/决策/理解/路线/概念/考验/审查/测试/重构/解读/启动/固化/记录/复盘；
 //   自定义新词：只要不在“去”集合即留（allKnownLabels 已含在用自定义词，开箱即用；
 //            若自定义词恰与领域/阶段同名则仍被去——此时该词走搜索可达，云不收录，维度纯净优先）。
-// 排序：预置行动词固定首现序（不随用量抖动）+ 自定义词追加；换行 flexWrap（见 cloudRowStyle）。
-const CLOUD_EXCLUDE = ['all', '思考框架', '学习', '工程', '执行', '执行前', '执行中', '执行后', '自定义']
+// 排序：预制行动词固定首现序（不随用量抖动）+ 自定义词追加；换行 flexWrap（见 cloudRowStyle）。
+// 去留表本体收敛到 keys.ts（EXCLUDED_LABEL_WORDS + 身份视图 EXCLUDED_LABEL_KEYS），与远程标签域同一份，
+// 不再两处各抄一遍；比对用**存量拼写**——'全部'/'预制' 是合法用户词，归一即连坐出局（#141：过滤语义逐字不动）。
 function actionCloudLabels(): string[] {
-  return allKnownLabels().filter((l) => CLOUD_EXCLUDE.indexOf(l) < 0)
+  return allKnownLabels().filter((l) => !isExcludedLabel(l))
 }
-// #70 P6a 选中态取值：null=全部/无选择（不过滤）/ 'preset'=仅内置 / 'custom'=仅自建 / 行动词=matchLabel 单选包含（跨内置自建）。
-// 按 builtin 布尔过滤（不是标签），继承旧 tab=自定义短路语义（旧：tab===CUSTOM_TAG → !x.builtin）。
-const SCOPE_PRESET = 'preset'
-const SCOPE_CUSTOM = 'custom'
-const SCOPE_PRESET_LABEL = '预置'
-const SCOPE_CUSTOM_LABEL = '自定义'
-const ALL_LABEL = '全部'
+// #70 P6a 选中态：null=无选择（不过滤）/ scope 'preset'=仅内置 / scope 'custom'=仅自建 /
+// 用户词=matchLabel 单选包含（跨内置自建）。按 builtin 布尔过滤（不是标签），继承旧 tab=自定义短路语义
+// （旧：tab===CUSTOM_TAG → !x.builtin）；三态身份（SCOPE_ALL/PRESET/CUSTOM）具名于 keys.ts。
 
 export interface BrowserProps {
   compact: boolean
@@ -92,7 +98,7 @@ export interface BrowserProps {
   /**
    * #77：可折叠（只对 `compact: false` 生效，且必须显式传 true）。
    * 收起态只渲染头行 —— chips 过滤行 / 搜索框 / 模板行**整个不渲染**，设置页高度不再被
-   * 24 条预置 + 自定义行撑开；点头行展开。不传 = 今天的行为一字不动（既有挂载点与回归脚本都是这样）。
+   * 24 条预制 + 自定义行撑开；点头行展开。不传 = 今天的行为一字不动（既有挂载点与回归脚本都是这样）。
    */
   collapsible?: boolean
 }
@@ -709,7 +715,7 @@ function ConfirmDelete(props: any): any {
   return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
     h('div', { style: cardStyleScaled }, [
       h('h3', { style: { fontSize: '1.08em', margin: 0 } }, props.t('delTitle')),
-      h('div', { style: { fontSize: '0.96em', color: 'var(--dsw-alias-label-tertiary)' } }, props.t('delMsg') + '「' + props.tpl.name + '」' + props.t('delUnrecover')),
+      h('div', { style: { fontSize: '0.96em', color: 'var(--dsw-alias-label-tertiary)' }, 'data-dsh-prompt-chrome': 'nameQuote' }, props.t('delMsg') + props.t('nameQuote').replace('{name}', props.tpl.name) + props.t('delUnrecover')),
       h('div', { style: modalBtnsStyle }, [
         h('button', { style: modalBtn(), onClick: props.onCancel }, props.t('cancel')),
         h('button', { style: modalBtn(false, true), onClick: props.onOk }, props.t('delOk')),
@@ -788,9 +794,10 @@ export function TemplateBrowser(props: BrowserProps): any {
   const tickState = react.useState(0)
   const setTick = tickState[1]
   // #70 P6a：云整行单选互斥（悬浮 compact 与设置页共用同一顶部，见 cloudNodes）。
-  // 单一选中态 selected: string|null——null=全部/无选择=不过滤（'全部'归一到 null，不保留显式值）；
-  // 'preset'=仅内置 / 'custom'=仅自建 / 行动词=matchLabel 单选包含；点已选项回 null（toggle），天然互斥。
-  const selectedState = react.useState(null as string | null)
+  // #141：单一选中态 Selection|null——null=无选择=不过滤（'全部' 归一到 null，不保留显式值）；
+  // scope 'preset'=仅内置 / scope 'custom'=仅自建 / word=用户词原文，matchLabel 单选包含；
+  // 点已选项回 null（toggle），天然互斥。带 kind 的取值让「范围身份」与「用户词身份」结构性不可混。
+  const selectedState = react.useState(null as Selection | null)
   const selected = selectedState[0]
   const qState = react.useState('')
   const q = qState[0]
@@ -977,17 +984,18 @@ export function TemplateBrowser(props: BrowserProps): any {
   }, [compact])
 
   // 列表组装（#23 + #70 P6a）：整行单选互斥，无短路，无双维 AND；
-  // null=全部/无选择=不过滤；预置/自定义按 builtin 布尔（继承旧 tab=自定义语义：旧短路 if (tab===CUSTOM_TAG) return !x.builtin）；
+  // null=无选择=不过滤；预制/自定义按 builtin 布尔（继承旧 tab=自定义语义：旧短路 if (tab===CUSTOM_TAG) return !x.builtin）；
   // 行动词按统一标签包含（matchLabel 单选，跨内置自建）；旧阶段页签（执行前/中/后）无等价 UI，走搜索可达。
+  // #141：分支按 Selection 的 kind 收敛 —— 用户词走原文比对，绝不经过别名归一（见 selected 分支与云行注释）。
   // 搜索框保留全文检索（haystack）兼容。排序（#68）：悬浮置顶簇聚底，设置页忽略置顶只留用量降序。
   const customs = allTemplates().filter((x) => !x.builtin)
   const list = allTemplates().filter((x) => {
-    // #70 P6a 单选互斥：selected 唯一分支；
+    // #70 P6a 单选互斥：selected 唯一分支（#141 起按身份 kind 分支）；
     // 云只是面板本地 useState 过滤，/prompt（trigger.ts）与智能卡（smart.ts）走 store 独立检索，不受影响，无需同步。
-    if (selected === null) return true
-    if (selected === SCOPE_PRESET) return x.builtin
-    if (selected === SCOPE_CUSTOM) return !x.builtin
-    return matchLabel(x, selected)
+    if (isNoFilter(selected)) return true
+    const sel = selected as Selection
+    if (sel.kind === 'word') return matchLabel(x, sel.word)
+    return sel.key === SCOPE_PRESET ? x.builtin : !x.builtin
   })
   const ql = q.trim().toLowerCase()
   // 搜索与 /prompt 触发源共用检索底座（名称/正文/领域/阶段/动作/标签）
@@ -998,7 +1006,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   const sorted = compact ? sortedTemplatesBottomUp(filtered) : sortedTemplates(filtered)
 
   // #83 远程大列表数据（纯视图模型输入输出；排序与匹配复用既有收敛点，不另起第二套）。
-  // 标签域收敛为全部加在用动态词单选（预置与自定义平权，走 matchLabel 单选包含）。
+  // 标签域收敛为全部加在用动态词单选（预制与自定义平权，走 matchLabel 单选包含）。
   const remotePrefs = getRemotePrefs()
   const isRemoteBig = compact && !!remotePrefs.enabled
   // #132 标签区移除：远程不再按标签收敛，全量直通搜索（搜标签词仍经 haystack 可达）
@@ -1131,7 +1139,7 @@ export function TemplateBrowser(props: BrowserProps): any {
     // 创建反馈：自动置顶（容量允许）→ 切选中态为「自定义」（单选互斥下天然清行动，无需双维分清；
     // 旧 tab=自定义短路天然可见，新单选表达切到自定义即保可见）→ 高亮新项 → 滚入视野
     const r = togglePin(c.id)
-    selectedState[1](SCOPE_CUSTOM)
+    selectedState[1](scopeSelection(SCOPE_CUSTOM))
     highlightState[1](c.id)
     refresh()
     setTimeout(() => {
@@ -1233,7 +1241,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       // 自上而下=标题 → 简介（独享剩余、底边硬裁），页脚悬浮不占行。
       display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: '0.25rem',
       padding: '0.5rem', borderRadius: '0.75em',
-      // 预置 / 自建只看边框颜色（远程用户拍板）：自建=accent 边，预置=默认细边；
+      // 预制 / 自建只看边框颜色（远程用户拍板）：自建=accent 边，预制=默认细边；
       // 置顶=accent 粗边（覆盖），按压/悬停复用 #88 行语义。
       border: pinned
         ? '0.14em solid var(--dsw-specific-accent,#f0a45c)'
@@ -1261,14 +1269,14 @@ export function TemplateBrowser(props: BrowserProps): any {
       whiteSpace: 'normal', overflow: 'hidden', overflowWrap: 'break-word',
       flex: '1 1 auto', minHeight: 0, lineHeight: 1.4,
     }
-    // 种类徽标已删（远程用户拍板：预置/自建改看卡片边框颜色，页脚只剩红色用量数字+复制/编辑键）。
-    // 用量只剩红色数字（远程用户拍板）；置顶加 ★（边框粗细已让给预置/自建+置顶，此 ★ 为置顶唯一文字信号）。
+    // 种类徽标已删（远程用户拍板：预制/自建改看卡片边框颜色，页脚只剩红色用量数字+复制/编辑键）。
+    // 用量只剩红色数字（远程用户拍板）；置顶加 ★（边框粗细已让给预制/自建+置顶，此 ★ 为置顶唯一文字信号）。
     const remoteCardUse = (pinnedCard: boolean): any => ({
       fontSize: '0.8em', color: 'var(--dsw-specific-danger,#e06c75)', flex: 'none',
       fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontWeight: 700,
     })
     // 苹果式三段（标题独占一行，简介独享剩余，页脚沉底）：
-    // 徽标已删（预置/自建改看边框颜色），标题再也不跟任何人抢宽。
+    // 徽标已删（预制/自建改看边框颜色），标题再也不跟任何人抢宽。
     // meta 必须 flex:1 撑满卡高（卡高由网格定死）：简介 flex:1+minHeight:0 在内收缩、
     // 超长由底边硬裁；页脚 flex:none 永远有位。之前 meta 是 flex:none（内容多高撑多高），
     // 简介根本不收缩、卡 overflow:hidden 从底边裁，页脚排最后被第一个裁掉——复制键+红数字消失。
@@ -1287,7 +1295,7 @@ export function TemplateBrowser(props: BrowserProps): any {
     }
     // 卡片动作键（2026-09-29 用户拍板：图标换成文字键——“编辑/复制”明示比✎好认；
     // 细边框胶囊 + 次级灰字，不抢戏；字形跟字号档，空白用 rem 固定不跟比放大）。
-    // 自建=编辑进编辑页，预置只读故=复制为自建；点动作只办事不插入（handleEdit/handleCopy 内已 stopPropagation）。
+    // 自建=编辑进编辑页，预制只读故=复制为自建；点动作只办事不插入（handleEdit/handleCopy 内已 stopPropagation）。
     const remoteCardAct: any = {
       flex: 'none', alignSelf: 'center', padding: '0.15rem 0.5rem',
       minHeight: '1.6rem',
@@ -1448,11 +1456,13 @@ export function TemplateBrowser(props: BrowserProps): any {
           h('button', {
             key: 'remote-add', style: remoteAddStyle,
             'data-dsh-prompt-remote-add': '1',
+            // #141：文本位铬（＋ 走词表；en 下是半角 '+'）；title/aria 是 add（已本地化）
+            'data-dsh-prompt-chrome': 'plusGlyph',
             title: t('add'),
             'aria-label': t('add'),
             onMouseDown: keepComposerFocus,
             onClick: () => { modalState[1]({ kind: 'add' }) },
-          }, '＋ ' + t('addShort')),
+          }, t('plusGlyph') + ' ' + t('addShort')),
           h('button', {
             key: 'remote-search', style: remoteBtnStyle(true),
             'data-dsh-prompt-remote-search': '1',
@@ -1474,8 +1484,11 @@ export function TemplateBrowser(props: BrowserProps): any {
             key: 'remote-prev', style: remoteBtnStyle(remoteView.bottomBar.hasPrev),
             disabled: !remoteView.bottomBar.hasPrev,
             'data-dsh-prompt-remote-prev': '1',
-            title: '上一页',
-            'aria-label': '上一页',
+            // #141：铬钩子（键名与值先定死，138 门禁扫这一面）；翻页文案与全屏挑选器同键 pickerPrev
+            'data-dsh-prompt-chrome': 'pickerPrev',
+            'data-dsh-prompt-chrome-kind': 'title aria-label',
+            title: t('pickerPrev'),
+            'aria-label': t('pickerPrev'),
             onMouseDown: keepComposerFocus,
             onClick: () => { if (remoteView.bottomBar.hasPrev) { remotePageState[1](remoteView.page - 1); refresh() } },
           }, h('svg', {
@@ -1488,8 +1501,10 @@ export function TemplateBrowser(props: BrowserProps): any {
             key: 'remote-next', style: remoteBtnStyle(remoteView.bottomBar.hasNext),
             disabled: !remoteView.bottomBar.hasNext,
             'data-dsh-prompt-remote-next': '1',
-            title: '下一页',
-            'aria-label': '下一页',
+            'data-dsh-prompt-chrome': 'pickerNext',
+            'data-dsh-prompt-chrome-kind': 'title aria-label',
+            title: t('pickerNext'),
+            'aria-label': t('pickerNext'),
             onMouseDown: keepComposerFocus,
             onClick: () => { if (remoteView.bottomBar.hasNext) { remotePageState[1](remoteView.page + 1); refresh() } },
           }, h('svg', {
@@ -1513,15 +1528,29 @@ export function TemplateBrowser(props: BrowserProps): any {
   // REMOTE-BIG-LIST-END
 
   // ── 组装 ──
-  // #70 P6a 整行单选互斥（悬浮/设置共用同一顶部）：[全部][预置][自定义]+行动词同行，所有 pill 同属 selected 单选互斥；
+  // #70 P6a 整行单选互斥（悬浮/设置共用同一顶部）：[全部][预制][自定义]+行动词同行，所有 pill 同属 selected 单选互斥；
   // 点已选项回 null（toggle）；点他项直接切换（天然清他维，不存在叠加）。
-  // 范围钮为Literal中文（全部/预置/自定义），不走 i18n（禁区）；行动词为数据词原文（沿用 #70 维度纯净约定）。
+  // #141：范围三钮走词表（tabAll/scopePreset/tabCustom）+ 铬钩子，另带 data-dsh-prompt-scope 报出口径身份；
+  // 行动词为**用户词原文**（沿用 #70 维度纯净约定）——它不经过任何别名归一，'全部'/'预制' 这类词
+  // 点了就是 matchLabel('全部')，不会变成「不过滤/仅内置」（#141 硬约束：过滤语义逐字不动）。
   const cloudNodes = h('div', { style: cloudRowStyle }, [
-    h('button', { key: 'scope-all', style: cloudBtn(selected === null), onClick: () => { selectedState[1](null); refresh() } }, ALL_LABEL),
-    h('button', { key: 'scope-preset', style: cloudBtn(selected === SCOPE_PRESET), onClick: () => { selectedState[1](selected === SCOPE_PRESET ? null : SCOPE_PRESET); refresh() } }, SCOPE_PRESET_LABEL),
-    h('button', { key: 'scope-custom', style: cloudBtn(selected === SCOPE_CUSTOM), onClick: () => { selectedState[1](selected === SCOPE_CUSTOM ? null : SCOPE_CUSTOM); refresh() } }, SCOPE_CUSTOM_LABEL),
+    h('button', {
+      key: 'scope-all', style: cloudBtn(isNoFilter(selected)),
+      'data-dsh-prompt-scope': SCOPE_ALL, 'data-dsh-prompt-chrome': 'tabAll',
+      onClick: () => { selectedState[1](toggleScope(selected, SCOPE_ALL)); refresh() },
+    }, t('tabAll')),
+    h('button', {
+      key: 'scope-preset', style: cloudBtn(selectionActive(selected, SCOPE_PRESET)),
+      'data-dsh-prompt-scope': SCOPE_PRESET, 'data-dsh-prompt-chrome': 'scopePreset',
+      onClick: () => { selectedState[1](toggleScope(selected, SCOPE_PRESET)); refresh() },
+    }, t('scopePreset')),
+    h('button', {
+      key: 'scope-custom', style: cloudBtn(selectionActive(selected, SCOPE_CUSTOM)),
+      'data-dsh-prompt-scope': SCOPE_CUSTOM, 'data-dsh-prompt-chrome': 'tabCustom',
+      onClick: () => { selectedState[1](toggleScope(selected, SCOPE_CUSTOM)); refresh() },
+    }, t('tabCustom')),
     ...actionCloudLabels().map((c) =>
-      h('button', { key: c, style: cloudBtn(selected === c), onClick: () => { selectedState[1](selected === c ? null : c); refresh() } }, c),
+      h('button', { key: c, style: cloudBtn(wordActive(selected, c)), onClick: () => { selectedState[1](toggleWord(selected, c)); refresh() } }, c),
     ),
   ])
   const rows = sorted.map((x) => {
@@ -1544,7 +1573,8 @@ export function TemplateBrowser(props: BrowserProps): any {
     const intro = (x.body || '').split('\n')[0].trim()
     // #71 行内用量徽标：读 store 现有缓存（排序语义不动，只读展示）
     const usageN = (loadUsage()[x.id] || 0)
-    const usageTitle = '已使用 ' + usageN + ' 次'
+    // #141：用量 title 走词表（{n} 占位；与 remoteEffectiveNow 同法）
+    const usageTitle = t('usageTitle').replace('{n}', String(usageN))
     const usageStyle: any = { flex: 'none', fontSize: '0.75em', color: 'var(--dsw-alias-label-tertiary)', minWidth: '4ch', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap' }
     // 紧凑（⚡Prompt 浮层）：单行 —— 图钉 + 标题 + 简介 + 操作横排，不再占两行
     if (compact) {
@@ -1563,7 +1593,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         onFocus: () => hoverState[1](x.id),
         onBlur: () => hoverState[1](null),
       }
-      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, outline: itemOutline, minWidth: 0 }, 'data-dsh-prompt-id': x.id, ...rowInteract, onClick: () => handlePick(x), title: labelString(x) + ' · ' + t('insertHint') }, [
+      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, outline: itemOutline, minWidth: 0 }, 'data-dsh-prompt-id': x.id, 'data-dsh-prompt-chrome': 'insertHint', 'data-dsh-prompt-chrome-kind': 'title', ...rowInteract, onClick: () => handlePick(x), title: labelString(x) + ' · ' + t('insertHint') }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
           h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : 'none', stroke: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : dim, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, [
             h('path', { d: 'M12 17v5' }),
@@ -1578,14 +1608,15 @@ export function TemplateBrowser(props: BrowserProps): any {
         ]),
         h('span', { style: actStyle }, acts),
         // #71 用量徽标：行最右（操作按钮之后、最末尾），样式不变
-        h('span', { style: usageStyle, title: usageTitle }, String(usageN)),
+        h('span', { style: usageStyle, 'data-dsh-prompt-chrome': 'usageTitle', 'data-dsh-prompt-chrome-kind': 'title', title: usageTitle }, String(usageN)),
       ])
     }
     // 设置页（纯管理面，#61）：行点击不做任何插入动作 —— #74 折叠除外：
     // 点击行只切换同一行简介显隐，不涨用量、不触发插入、不关窗；
     // 管理仍只走行内图钉/编辑/删除/复制按钮（其 onClick 已 stopPropagation，故不触发折叠）。
     // #74 行默认折叠：简介节点不渲染，单行只显示图钉 + 用量徽标 + 名称 + 标签 + 操作。
-    return h('div', { key: x.id, style: { ...itemStyle, cursor: 'pointer', background: itemBg }, 'data-dsh-prompt-id': x.id, title: labelString(x) + ' · 点击展开/收起简介', 'aria-expanded': expanded.has(x.id) ? 'true' : 'false', onClick: () => toggleExpanded(x.id) }, [
+    // #141：折叠提示走词表；' · ' 分隔符留在调用方（数据词在前、铬在后，title 是二者拼接的属性位）
+    return h('div', { key: x.id, style: { ...itemStyle, cursor: 'pointer', background: itemBg }, 'data-dsh-prompt-id': x.id, 'data-dsh-prompt-chrome': 'rowExpandHint', 'data-dsh-prompt-chrome-kind': 'title', title: labelString(x) + ' · ' + t('rowExpandHint'), 'aria-expanded': expanded.has(x.id) ? 'true' : 'false', onClick: () => toggleExpanded(x.id) }, [
       h('div', { style: { flex: 'none', paddingTop: 2 } }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
           // 图钉（置顶语义）：置顶=橙色实心，未置顶=描边
@@ -1605,7 +1636,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       ]),
       h('div', { style: { flex: 'none', display: 'flex', alignItems: 'center', gap: 4, paddingTop: 2 } }, [acts]),
       // #71 用量徽标（设置页）：行最右（操作按钮之后、最末尾）；paddingTop 与图钉一致，与标题首行对齐，样式不变
-      h('span', { style: { ...usageStyle, paddingTop: 2 }, title: usageTitle }, String(usageN)),
+      h('span', { style: { ...usageStyle, paddingTop: 2 }, 'data-dsh-prompt-chrome': 'usageTitle', 'data-dsh-prompt-chrome-kind': 'title', title: usageTitle }, String(usageN)),
     ])
   })
   const listNode = rows.length > 0
@@ -1627,7 +1658,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       h('div', { style: { flex: 1 } }),
       h('button', { style: footLink, onClick: () => { setPanelOpen(false); emitGoSettings() } }, t('goSettings')),
       h('div', { style: headBtns }, [
-        h('button', { style: addBtn, title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, '＋'),
+        h('button', { style: addBtn, 'data-dsh-prompt-chrome': 'plusGlyph', title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, t('plusGlyph')),
         h('button', { style: closeBtn, title: t('close'), onClick: () => setPanelOpen(false) }, '×'),
       ]),
     ]) : h('div', {
@@ -1661,13 +1692,15 @@ export function TemplateBrowser(props: BrowserProps): any {
       h('button', {
         // #116跟进：背景跟着字走——padding/圆角全 em 化（1x 下与旧 12px/7px 视觉一致：0.93em≈12px、0.54em≈7px，均按按钮自身 0.92em 锚算）。
         // 高档挤压防换行：nowrap 锁单行（'＋ 新增'中间空格可断行是祸根）＋flex:none 不参与头行收缩（内容多宽就多宽，绝不被压窄）。
-        style: { ...addBtn, width: 'auto', padding: '0 0.93em', borderRadius: '0.54em', fontSize: '0.92em', whiteSpace: 'nowrap', flex: 'none' }, title: t('add'),
+        style: { ...addBtn, width: 'auto', padding: '0 0.93em', borderRadius: '0.54em', fontSize: '0.92em', whiteSpace: 'nowrap', flex: 'none' },
+        // #141：文本位铬（＋ 走词表）；title 是 add（已本地化）
+        'data-dsh-prompt-chrome': 'plusGlyph', title: t('add'),
         // 收起态也留着「新增」：点它只开新增弹窗，**不**顺手把列表展开（stopPropagation）。
         onClick: (e: any) => {
           if (e && typeof e.stopPropagation === 'function') e.stopPropagation()
           modalState[1]({ kind: 'add' })
         },
-      }, '＋ ' + t('addShort')),
+      }, t('plusGlyph') + ' ' + t('addShort')),
       // 展开箭头放在**整行最右**（卡片级 disclosure 的常规位置）：它不再夹在摘要与按钮之间，
       // 而是与右上角那枚 ✕ / 图标同一列逻辑 —— 一眼看出「这张卡可以展开」。
       collapsible

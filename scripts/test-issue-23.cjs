@@ -1,6 +1,6 @@
 // 回归测试 #23: 统一 label 落地（schema + 编辑 UI + 筛选联动）
 // 验收映射（issue #23 正文 + Agent Brief）：
-//  A) 预置 24 条 labels == 领域+阶段+动作机械派生（#19 R2 附录逐条锁定），词表 23，无「任意」
+//  A) 预制 24 条 labels == 领域+阶段+动作机械派生（#19 R2 附录逐条锁定），词表 23，无「任意」
 //  B) 同一标签三处同集合：设置页领域行/页签 == matchLabel 集 == /prompt 集；行内全标签串
 //  C) 动作词/阶段词跨入口可找（用户故事 5/6）；搜索旧找法不断；排序维持 #22 现状
 //  D) 自定义：最多 3、可选可造、去空去重、超长超数/「任意」阻断+行内提示、全空回落「自定义」
@@ -62,6 +62,8 @@ const rowTexts = (tree) => {
 const textOf = (n) => (Array.isArray(n.children) ? n.children.filter((c) => typeof c === 'string').join('') : '');
 const byText = (tree, s) => tree.root.findAll((n) => n.children && textOf(n) === s);
 const byButton = (tree, s) => tree.root.findAll((n) => n.type === 'button' && textOf(n) === s);
+// #141：范围三钮按 data-dsh-prompt-scope 钩子取（文案已走词表，不再按中文字面找；术语统一为「预制」）
+const scopeBtn = (tree, s) => tree.root.findAll((n) => n.type === 'button' && n.props && n.props['data-dsh-prompt-scope'] === s)[0];
 
 async function main() {
   console.log('=== Test #23 A: 预置回填 ==');
@@ -96,10 +98,10 @@ async function main() {
   assert(byButton(full2, '执行中').length === 0 && byButton(full2, '执行后').length === 0, '首行已删：无阶段页签钮');
   const wantBefore = ids(store.allTemplates().filter((t) => store.matchLabel(t, '执行前')));
   assert(wantBefore.length > 0, '旧「执行前」集计算保留（实得 ' + wantBefore.length + ' 条，不走 UI）');
-  TR.act(() => { byButton(full2, '预置')[0].props.onClick(); });
+  TR.act(() => { scopeBtn(full2, 'preset').props.onClick(); });
   TR.act(() => {});
   const wantPreset = ids(store.allTemplates().filter((t) => t.builtin));
-  assert(JSON.stringify(rowIds(full2).sort()) === JSON.stringify(wantPreset), '范围「预置」== 仅内置集（' + wantPreset.length + ' 条）');
+  assert(JSON.stringify(rowIds(full2).sort()) === JSON.stringify(wantPreset), '范围「预制」== 仅内置集（' + wantPreset.length + ' 条）');
   // /prompt：D7 语义 = 标签包含 OR 全文兼容（超集）：含全部标签命中，且与旧 haystack 行为一致
   const promptHits = trigger.filterPromptTemplates('prompt 执行');
   const hayOnly = store.allTemplates().filter((t) => store.templateHaystack(t).indexOf('执行') >= 0);
@@ -135,8 +137,8 @@ async function main() {
   assert(ids(trigger.filterPromptTemplates('prompt 第一性原理')).includes('fp'), '旧找法：搜名称仍有效');
   let full3;
   TR.act(() => { full3 = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
-  // #70 P5a 置换：旧 tab=自定义短路由新范围表达（范围「自定义」按 builtin，继承旧语义）；按钮文本仍为「自定义」，集计算不变
-  TR.act(() => { byButton(full3, '自定义')[0].props.onClick(); });
+  // #70 P5a 置换：旧 tab=自定义短路由新范围表达（范围「自定义」按 builtin，继承旧语义）；按 scope 钩子取钮，集计算不变
+  TR.act(() => { scopeBtn(full3, 'custom').props.onClick(); });
   TR.act(() => {});
   assert(rowIds(full3).length === 0 && rowIds(full3).every((id) => !store.getTemplate(id).builtin), '范围「自定义」按 builtin（空库 0 条）');
 
@@ -149,11 +151,17 @@ async function main() {
   assert(JSON.stringify(cloudBtns) === JSON.stringify(cloudWant), '云 16 行动词齐且序固定（实得 ' + cloudBtns.join('/') + '）');
   assert(byButton(cloudTree, '思考框架').length === 0 && byButton(cloudTree, '学习').length === 0 && byButton(cloudTree, '工程').length === 0 && byButton(cloudTree, '执行').length === 0, '领域词不进云');
   assert(byButton(cloudTree, '全领域').length === 0, '旧领域行“全领域”按钮已移除');
-  // #70 P6a：整行单选互斥——[全部][预置][自定义]+行动词同行；云行开头为全部+预置+自定义，后接行动词云
-  assert(!!byButton(cloudTree, '全部')[0], 'P6a 全部钮存在');
-  assert(!!byButton(cloudTree, '预置')[0] && !!byButton(cloudTree, '自定义')[0], '范围钮预置/自定义存在');
-  const scopeCloudOrder = cloudTree.root.findAll((n) => n.type === 'button').map(textOf).filter((s) => ['全部', '预置', '自定义'].concat(cloudWant).indexOf(s) >= 0);
-  assert(scopeCloudOrder[0] === '全部' && scopeCloudOrder[1] === '预置' && scopeCloudOrder[2] === '自定义', '云行开头为全部+预置+自定义（实得 ' + scopeCloudOrder.slice(0, 4).join('/') + '）');
+  // #70 P6a：整行单选互斥——[全部][预制][自定义]+行动词同行；云行开头为全部+预制+自定义，后接行动词云
+  // #141：三钮按 scope 钩子取（文案走词表），行动词是数据词原文
+  assert(!!scopeBtn(cloudTree, 'all'), 'P6a 全部钮存在（scope 钩子）');
+  assert(!!scopeBtn(cloudTree, 'preset') && !!scopeBtn(cloudTree, 'custom'), '范围钮预制/自定义存在（scope 钩子）');
+  const scopeCloudOrder = cloudTree.root.findAll((n) => n.type === 'button')
+    .map((n) => {
+      const scope = n.props && n.props['data-dsh-prompt-scope'];
+      return scope ? '@' + scope : textOf(n);
+    })
+    .filter((s) => (s.charAt(0) === '@' ? ['@all', '@preset', '@custom'].indexOf(s) >= 0 : cloudWant.indexOf(s) >= 0));
+  assert(scopeCloudOrder[0] === '@all' && scopeCloudOrder[1] === '@preset' && scopeCloudOrder[2] === '@custom', '云行开头为全部+预制+自定义（实得 ' + scopeCloudOrder.slice(0, 4).join('/') + '）');
   assert(JSON.stringify(scopeCloudOrder.slice(3)) === JSON.stringify(cloudWant), '范围钮后接行动词云序不变');
   // 点云任一标签 == matchLabel 集（照抄 B 段三行式；设置页）
   const wantStart = ids(store.allTemplates().filter((t) => store.matchLabel(t, '启动')));
@@ -206,13 +214,13 @@ async function main() {
   TR.act(() => {});
   assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(wantStartAll), '云「启动」单维 == matchLabel 集（含自定义）');
   // 互斥：选行动后选范围清空行动 → 点「自定义」后 == 自定义集（2 条），非 AND 交集（1 条）
-  TR.act(() => { byButton(cloudMix, '自定义')[0].props.onClick(); });
+  TR.act(() => { scopeBtn(cloudMix, 'custom').props.onClick(); });
   TR.act(() => {});
   assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(wantCustomAll), '互斥：选行动后选范围清空行动 == 自定义集（2 条）');
   // 互斥：选范围后选行动清空范围 → 先点「预置」== 仅内置，再点「启动」== 行动集（含交集）
-  TR.act(() => { byButton(cloudMix, '预置')[0].props.onClick(); });
+  TR.act(() => { scopeBtn(cloudMix, 'preset').props.onClick(); });
   TR.act(() => {});
-  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(ids(store.allTemplates().filter((t) => t.builtin))), '范围「预置」单维 == 仅内置');
+  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(ids(store.allTemplates().filter((t) => t.builtin))), '范围「预制」单维 == 仅内置');
   TR.act(() => { byButton(cloudMix, '启动')[0].props.onClick(); });
   TR.act(() => {});
   assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(wantStartAll), '互斥：选范围后选行动清空范围 == 行动集（含交集）');
@@ -221,10 +229,10 @@ async function main() {
   TR.act(() => {});
   assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(ids(store.allTemplates())), '行动 toggle：再点回无选择，回到全部（' + store.allTemplates().length + ' 条）');
   // 全部不过滤：点范围预置后再点「全部」→ 回到全部
-  TR.act(() => { byButton(cloudMix, '预置')[0].props.onClick(); });
+  TR.act(() => { scopeBtn(cloudMix, 'preset').props.onClick(); });
   TR.act(() => {});
-  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(ids(store.allTemplates().filter((t) => t.builtin))), '范围「预置」单维 == 仅内置（复核）');
-  TR.act(() => { byButton(cloudMix, '全部')[0].props.onClick(); });
+  assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(ids(store.allTemplates().filter((t) => t.builtin))), '范围「预制」单维 == 仅内置（复核）');
+  TR.act(() => { scopeBtn(cloudMix, 'all').props.onClick(); });
   TR.act(() => {});
   assert(JSON.stringify(rowIds(cloudMix).sort()) === JSON.stringify(ids(store.allTemplates())), '全部不过滤：点「全部」回到全部（' + store.allTemplates().length + ' 条）');
   try { cloudMix.unmount(); } catch (e) {}
@@ -243,8 +251,10 @@ async function main() {
   assert(!r.ok && r.error === 'labelTooLong', '超长阻断（11 字）');
   r = store.validateLabels(['0123456789']);
   assert(r.ok, '10 字通过');
+  // #141（地图 #134 第二轮对抗结论）：保留词拒绝已砍 —— '任意' 是普通用户词，不拒绝建词
   r = store.validateLabels(['任意']);
-  assert(!r.ok && r.error === 'labelReserved', '幽灵「任意」阻断');
+  assert(r.ok && JSON.stringify(r.labels) === JSON.stringify(['任意']), '「任意」是普通用户词（不拒绝建词）');
+  assert(!('labelReserved' in STR) && !('LABEL_RESERVED' in store), 'labelReserved/LABEL_RESERVED 已删');
   r = store.validateLabels([]);
   assert(r.ok && JSON.stringify(r.labels) === JSON.stringify(['自定义']), '全空回落「自定义」');
   r = store.validateLabels('复盘，执行后');
@@ -302,8 +312,10 @@ async function main() {
   const smartSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'client', 'smart.ts'), 'utf8');
   assert(/labelString\(c\.tpl\)/.test(smartSrc), '智能卡行用 labelString');
   assert(/scoreDraft|SMART_THRESHOLD/.test(smartSrc) || /smartCandidates/.test(smartSrc), '评分链引用保留');
-  const tagLine = smartSrc.split('\n').find((l) => l.includes('tagText'));
-  assert(/·常用/.test(tagLine) && /·分/.test(tagLine), '评分后缀保留');
+  // #141：评分后缀（·常用/·分N）走词表；后缀单独成节点（钩子节点里只有铬，不含标签串）
+  assert(/smartCommonSuffix/.test(smartSrc) && /smartScoreSuffix/.test(smartSrc), '评分后缀经 STR 键取（smartCommonSuffix/smartScoreSuffix）');
+  assert(/\['data-dsh-prompt-chrome'\]?:\s*suffixKey|data-dsh-prompt-chrome': suffixKey/.test(smartSrc) || /suffixKey/.test(smartSrc), '后缀节点带铬钩子');
+  assert(/labelString\(c\.tpl\)/.test(smartSrc), '标签串仍是数据词原文');
 
   console.log('=== Test #23 H: 排序维持 #22 现状 ===');  store.bumpUsage('fp'); store.bumpUsage('fp'); store.bumpUsage('fp');
   store.bumpUsage('deep');

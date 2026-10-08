@@ -300,41 +300,10 @@ export function computeRemoteView(input: RemoteViewInput): RemoteView {
 }
 
 /**
- * 远程标签域（收敛，不另起第二套筛选）：
- * - 只留 [全部] + 在用动态词单选；预置 / 自定义二分在远程合并（调用方用 matchLabel 单选包含，跨内置自建）。
- * - 在用动态词 = 调用方传入的 allKnownLabels() 经与悬浮云同一套去留过滤；自定义新词天然在内（平权）。
- * - 本函数只做去留与排序（预置行动词首现序 + 自定义追加由调用方保序传入），不做匹配。
- */
-const REMOTE_TAG_EXCLUDE_LIST = [
-  'all',
-  '思考框架',
-  '学习',
-  '工程',
-  '执行',
-  '执行前',
-  '执行中',
-  '执行后',
-  '自定义',
-]
-
-/** 仅供测试：读出去留表（与悬浮云同值，远程不另起维度） */
-export function remoteTagExcludeList(): string[] {
-  return [...REMOTE_TAG_EXCLUDE_LIST]
-}
-
-/** 远程标签选项：[全部] + 过滤后的在用动态词（保序） */
-export function remoteTagOptions(allLabels: string[]): string[] {
-  const seen = new Set<string>()
-  const out: string[] = []
-  const push = (l: string): void => {
-    if (!l || seen.has(l)) return
-    seen.add(l)
-    out.push(l)
-  }
-  for (const l of Array.isArray(allLabels) ? allLabels : []) {
-    if (typeof l !== 'string' || !l) continue
-    if (REMOTE_TAG_EXCLUDE_LIST.indexOf(l) >= 0) continue
-    push(l)
-  }
-  return ['全部', ...out]
-}
+ * 【#141 裁决｜远程标签域死码已清】#132 移除远程标签区之后，本模块这两样东西生产不可达：
+ *   · REMOTE_TAG_EXCLUDE_LIST（去留表）：与悬浮云的去留表逐字重复，现已单点收敛到 keys.ts
+ *     的 EXCLUDED_LABEL_WORDS（+ 身份视图 EXCLUDED_LABEL_KEYS）；
+ *   · remoteTagOptions()：返回 ['全部', ...] 的**显示串**数组 —— 纯模型里硬编码中文铬，
+ *     与「身份-显示分离」正面冲突（选中的身份本就是 ScopeKey 'all'，显示由词表按语言解析）。
+ * 全仓唯一消费者是 scripts/test-issue-83.cjs，本票连它一起改按 keys.ts 断言。
+ * 远程标签域若将来复活，去留与身份从 keys.ts 取，不要再抄一份表。 */

@@ -175,5 +175,5 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   }
 
   if (failures) { console.log('\nFAIL: #41 ' + failures + ' 条未过'); process.exit(1); }
-  console.log('\nALL PASS: #41 只查不自动装（0.5.8 口径）');
+  console.log('\nALL PASS: #41 只查不自动装（0.10.0 口径）');
 })();

@@ -2,6 +2,11 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
+## [0.4.10] - 2026-10-09
+
+### Changed
+- 跟进 `dsh-plugin-update` 0.9.0 → 0.10.0：待重启诚实化基线（字典收敛“请重启DSH”）+ 续跑按钮后果悬停 + 弹窗高度让渡契约 + stalled 只认盘上会话；单插件 http 接线不变（button + embedded 默认主题，batch 不用），回归口径同步 0.10.0。
+
 ## [0.4.9] - 2026-10-06
 
 ### Changed

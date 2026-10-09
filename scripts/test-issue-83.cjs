@@ -363,7 +363,7 @@ const MODULES = [
   ['smartstore.ts', path.join(ROOT, 'src', 'client', 'smartstore.ts'), []],
   ['remote2.cjs', path.join(ROOT, 'src', 'client', 'remote.ts'), []],
   ['remoteView.cjs', VIEW_TS, []],
-  ['keys.cjs', path.join(ROOT, 'src', 'client', 'keys.ts'), []],
+  ['keys.cjs', path.join(ROOT, 'src', 'client', 'keys.ts'), ['./store', './i18n']], // #142 起 keys 引 ./store(展示映射)+./i18n(词表)，手抄表跟上
   ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView', './locale', './keys']],
 ];
 for (const [outName, srcPath, deps] of MODULES) {

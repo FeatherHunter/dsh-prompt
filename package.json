@@ -82,7 +82,8 @@
     "test:issue-123": "node scripts/test-issue-123.cjs",
     "test:issue-137": "node scripts/test-issue-137.cjs",
     "test:issue-141": "node scripts/test-issue-141.cjs",
-    "test:issue-134-gate": "node scripts/test-issue-134-gate.cjs"
+    "test:issue-134-gate": "node scripts/test-issue-134-gate.cjs",
+    "test:issue-142": "node scripts/test-issue-142.cjs"
   },
   "dsh": {
     "bundle": {

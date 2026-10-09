@@ -310,12 +310,12 @@ async function main() {
   assert(cands.every((s, i, a) => i === 0 || a[i - 1].score <= s.score), '展示 bottom-up（分数升序）');
   assert(cands.filter((s) => s.score > 0).every((s) => s.score >= 2), '阈值 2 保持（0 分仅 lastUsed 槽）');
   const smartSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'client', 'smart.ts'), 'utf8');
-  assert(/labelString\(c\.tpl\)/.test(smartSrc), '智能卡行用 labelString');
+  assert(/displayLabelString\(c\.tpl, lang\)/.test(smartSrc), '智能卡行标签段走显示映射（#142 回落跟语言）');
   assert(/scoreDraft|SMART_THRESHOLD/.test(smartSrc) || /smartCandidates/.test(smartSrc), '评分链引用保留');
   // #141：评分后缀（·常用/·分N）走词表；后缀单独成节点（钩子节点里只有铬，不含标签串）
   assert(/smartCommonSuffix/.test(smartSrc) && /smartScoreSuffix/.test(smartSrc), '评分后缀经 STR 键取（smartCommonSuffix/smartScoreSuffix）');
   assert(/\['data-dsh-prompt-chrome'\]?:\s*suffixKey|data-dsh-prompt-chrome': suffixKey/.test(smartSrc) || /suffixKey/.test(smartSrc), '后缀节点带铬钩子');
-  assert(/labelString\(c\.tpl\)/.test(smartSrc), '标签串仍是数据词原文');
+  assert(/templateLabels\(c\.tpl\)/.test(smartSrc) || /displayLabelString\(c\.tpl, lang\)/.test(smartSrc), '标签段显示映射、其余段原文（#142：全等回落才换，大小写不动）');
 
   console.log('=== Test #23 H: 排序维持 #22 现状 ===');  store.bumpUsage('fp'); store.bumpUsage('fp'); store.bumpUsage('fp');
   store.bumpUsage('deep');

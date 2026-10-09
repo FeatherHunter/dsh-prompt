@@ -42,6 +42,13 @@ export const STR = {
   // 改 en 文案时与 presetCount 同步改；门禁 P1_KEYS 卡住单键缺失但卡不住语义分叉。
   scopePreset: { zh: '预制', en: 'Preset' },
   customCount: { zh: '自定义', en: 'Custom' },
+  // #142：空标签回落词显示映射 —— en 与 tabCustom/customCount 同字（Custom）但**不同键、不复用**
+  // （那两个是范围钮/条数摘要的铬，钩子要能分开定位；见 #141 presetCount/scopePreset 先例）。
+  // store.LABEL_FALLBACK 是写进用户数据的身份值（永不翻译），这里只是它在各展示位的显示串。
+  labelFallback: { zh: '自定义', en: 'Custom' },
+  // #142 边缘裁决 a：复制预置拼进 name 落盘（用户数据一部分，已存永不改写）。无 parse 回代码
+  // （grep 仅 store.ts 创建行），故新建那一刻按当前语言取一次后缀；en 含前导空格（name + suffix 自然拼出 'name (copy)'）。
+  copySuffix: { zh: '（副本）', en: ' (copy)' },
   goSettings: { zh: '设置 → 模板管理', en: 'Settings → Templates' },
   edit: { zh: '编辑', en: 'Edit' },
   del: { zh: '删除', en: 'Delete' },

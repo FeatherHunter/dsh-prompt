@@ -429,11 +429,15 @@ export function removeCustom(id: string): boolean {
 
 /** 复制预制为自定义（#23：标签照搬预制派生串，最多 3 个天然合规）。
  *  #141 裁决：'（副本）' 拼进 name **落进用户数据**，一律不动 —— 它既不是铬、也不是身份键，
- *  是用户数据的一部分；要本地化只能「新建那一刻按当前语言取一次」，已存数据永不改写。 */
-export function copyPresetToCustom(id: string): CustomTemplate | null {
+ *  是用户数据的一部分；要本地化只能「新建那一刻按当前语言取一次」，已存数据永不改写。
+ *  #142 边缘裁决 a：grep 确认无把后缀 parse 回的代码（仅本行拼进去），故加可选 suffix 参数 ——
+ *  调用方（panel handleCopy）传 tr(lang, STR.copySuffix)，缺省仍是 '（副本）'（既有调用与回归不动）；
+ *  已存 name 永不改写（切语言不回写）。store 不 import i18n/locale，后缀由调用方按订阅 lang 取。 */
+export function copyPresetToCustom(id: string, suffix?: string): CustomTemplate | null {
   const src = getPresetById(id)
   if (!src) return null
-  return addCustom(src.name + '（副本）', templateLabels(src), src.body)
+  const tail = typeof suffix === 'string' ? suffix : '（副本）'
+  return addCustom(src.name + tail, templateLabels(src), src.body)
 }
 
 export { MAX_BODY }

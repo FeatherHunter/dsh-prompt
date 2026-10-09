@@ -17,8 +17,8 @@
 import type { PromptTemplate } from './templates'
 import { PRESET_TEMPLATES, getPresetById } from './templates'
 import {
-  allTemplates, sortedTemplates, sortedTemplatesBottomUp, templateLabels, labelString, matchLabel,
-  allKnownLabels, normalizeLabels, validateLabels, isPinned, togglePin, canPinMore,
+  allTemplates, sortedTemplates, sortedTemplatesBottomUp, templateLabels, matchLabel,
+  allKnownLabels, normalizeLabels, validateLabels, isPinned, togglePin, canPinMore, LABEL_FALLBACK,
   addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, loadUsage, templateHaystack, MAX_BODY,
   ensureLoaded, subscribeStore,
 } from './store'
@@ -34,6 +34,7 @@ import { tr, STR, type Lang } from './i18n'
 import {
   SCOPE_ALL, SCOPE_PRESET, SCOPE_CUSTOM, isExcludedLabel,
   scopeSelection, selectionActive, toggleScope, toggleWord, wordActive, isNoFilter, type Selection,
+  displayLabelString,
 } from './keys'
 import { resolveLocale, subscribeLocale } from './locale'
 import { setSmartInput } from './smartstore'
@@ -1134,7 +1135,8 @@ export function TemplateBrowser(props: BrowserProps): any {
 
   const handleCopy = (e: any, id: string) => {
     e.stopPropagation()
-    const c = copyPresetToCustom(id)
+    // #142 边缘裁决 a：新建那一刻按当前订阅 lang 取一次后缀（已存 name 永不改写）
+    const c = copyPresetToCustom(id, tr(lang, STR.copySuffix))
     if (!c) return
     // 创建反馈：自动置顶（容量允许）→ 切选中态为「自定义」（单选互斥下天然清行动，无需双维分清；
     // 旧 tab=自定义短路天然可见，新单选表达切到自定义即保可见）→ 高亮新项 → 滚入视野
@@ -1387,7 +1389,8 @@ export function TemplateBrowser(props: BrowserProps): any {
         key: tpl.id, style: remoteCardStyle(custom, pinned, cardHover, cardPressed),
         role: 'button', tabIndex: 0,
         'data-dsh-prompt-remote-card': '1', 'data-dsh-prompt-id': tpl.id,
-        title: labelString(tpl),
+        // #142：title 里 labelString 段走显示映射（拼接结构不动；逻辑位不用）
+        title: displayLabelString(tpl, lang),
         onClick: () => { pressedState[1](null); handlePick(tpl) },
         onKeyDown: (e: any) => {
           try {
@@ -1594,7 +1597,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         onFocus: () => hoverState[1](x.id),
         onBlur: () => hoverState[1](null),
       }
-      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, outline: itemOutline, minWidth: 0 }, 'data-dsh-prompt-id': x.id, 'data-dsh-prompt-chrome': 'insertHint', 'data-dsh-prompt-chrome-kind': 'title', ...rowInteract, onClick: () => handlePick(x), title: labelString(x) + ' · ' + t('insertHint') }, [
+      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, outline: itemOutline, minWidth: 0 }, 'data-dsh-prompt-id': x.id, 'data-dsh-prompt-chrome': 'insertHint', 'data-dsh-prompt-chrome-kind': 'title', ...rowInteract, onClick: () => handlePick(x), title: displayLabelString(x, lang) + ' · ' + t('insertHint') }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
           h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : 'none', stroke: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : dim, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, [
             h('path', { d: 'M12 17v5' }),
@@ -1604,7 +1607,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         // #71 用量徽标：行最右（操作按钮之后、最末尾），样式不变
         h('span', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' } }, [
           h('span', { style: { flex: 'none', fontSize: '0.95em', color: base, fontWeight: 600, whiteSpace: 'nowrap' } }, x.name),
-          h('span', { style: { flex: '0 1 auto', minWidth: 0, fontSize: '0.8em', color: muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, labelString(x)),
+          h('span', { style: { flex: '0 1 auto', minWidth: 0, fontSize: '0.8em', color: muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }, ...(templateLabels(x).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, displayLabelString(x, lang)),
           h('span', { style: { flex: '1 1 auto', minWidth: 0, fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, intro),
         ]),
         h('span', { style: actStyle }, acts),
@@ -1617,7 +1620,7 @@ export function TemplateBrowser(props: BrowserProps): any {
     // 管理仍只走行内图钉/编辑/删除/复制按钮（其 onClick 已 stopPropagation，故不触发折叠）。
     // #74 行默认折叠：简介节点不渲染，单行只显示图钉 + 用量徽标 + 名称 + 标签 + 操作。
     // #141：折叠提示走词表；' · ' 分隔符留在调用方（数据词在前、铬在后，title 是二者拼接的属性位）
-    return h('div', { key: x.id, style: { ...itemStyle, cursor: 'pointer', background: itemBg }, 'data-dsh-prompt-id': x.id, 'data-dsh-prompt-chrome': 'rowExpandHint', 'data-dsh-prompt-chrome-kind': 'title', title: labelString(x) + ' · ' + t('rowExpandHint'), 'aria-expanded': expanded.has(x.id) ? 'true' : 'false', onClick: () => toggleExpanded(x.id) }, [
+    return h('div', { key: x.id, style: { ...itemStyle, cursor: 'pointer', background: itemBg }, 'data-dsh-prompt-id': x.id, 'data-dsh-prompt-chrome': 'rowExpandHint', 'data-dsh-prompt-chrome-kind': 'title', title: displayLabelString(x, lang) + ' · ' + t('rowExpandHint'), 'aria-expanded': expanded.has(x.id) ? 'true' : 'false', onClick: () => toggleExpanded(x.id) }, [
       h('div', { style: { flex: 'none', paddingTop: 2 } }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
           // 图钉（置顶语义）：置顶=橙色实心，未置顶=描边
@@ -1631,7 +1634,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } }, [
           h('span', { style: { flex: 'none', fontSize: '0.75em', color: dim, width: '1.2em', textAlign: 'center', lineHeight: 1 }, 'aria-hidden': 'true' }, expanded.has(x.id) ? '▾' : '▸'),
           h('span', { style: nmStyle }, x.name),
-          h('span', { style: tagStyle }, labelString(x)),
+          h('span', { style: tagStyle, ...(templateLabels(x).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, displayLabelString(x, lang)),
         ]),
         expanded.has(x.id) ? h('span', { style: subStyle }, (x.body || '').slice(0, 44) + '…') : null,
       ]),

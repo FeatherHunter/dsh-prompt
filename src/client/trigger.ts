@@ -9,9 +9,11 @@
  */
 import type { PromptTemplate } from './templates'
 import {
-  allTemplates, sortedTemplates, templateHaystack, labelString, matchLabel, getTemplate, bumpUsage,
+  allTemplates, sortedTemplates, templateHaystack, matchLabel, getTemplate, bumpUsage,
   ensureLoaded,
 } from './store'
+import { displayLabelString } from './keys'
+import { resolveLocale } from './locale'
 
 const SOURCE_NAME = 'prompt'
 const MAX_ITEMS = 30
@@ -49,9 +51,11 @@ export function buildPromptSource(): PromptTriggerSource {
     order: 5, // '/' 分组内排在 command(0)、skill(2) 之后
     candidates: async (_projection, req) => {
       try { await ensureLoaded() } catch (e) { /* host 不可用时用内存默认 */ }
+      // #142：描述行标签段走显示映射（逻辑过滤仍走 matchLabel 原值）；trigger 无 React 订阅面，
+      // 按次 resolveLocale() 取 live 语言（candidates 每 query 调一次，切语言下次即翻；不新增裸 getLang）。
       return filterPromptTemplates(req.query).slice(0, MAX_ITEMS).map((t) => ({
         name: t.name,
-        description: labelString(t) + ' — ' + (t.body || '').replace(/\s+/g, ' ').slice(0, 42),
+        description: displayLabelString(t, resolveLocale()) + ' — ' + (t.body || '').replace(/\s+/g, ' ').slice(0, 42),
         templateId: t.id,
       }))
     },

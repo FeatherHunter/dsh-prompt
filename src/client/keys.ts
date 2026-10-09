@@ -24,6 +24,10 @@
  * EXCLUDED_LABEL_WORDS 的注释（#141 硬约束：zh 下过滤结果逐字不动）。
  */
 
+import { LABEL_FALLBACK, templateLabels } from './store'
+import { tr, STR, type Lang } from './i18n'
+import type { PromptTemplate } from './templates'
+
 /** 范围身份：顶部唯一那排 [全部][预制][自定义] 的三态（#70 P6a 单选互斥）。 */
 export type ScopeKey = 'all' | 'preset' | 'custom'
 /** 用户词身份：用户词的**原文**即身份（不翻译、不大小写改写）。 */
@@ -162,4 +166,22 @@ export const EXCLUDED_LABEL_KEYS: readonly CanonicalKey[] = EXCLUDED_LABEL_WORDS
 /** 云/远程标签域去留判定：数据词**原文**命中存量拼写表即出局（不归一，语义逐字不动）。 */
 export function isExcludedLabel(word: string): boolean {
   return EXCLUDED_LABEL_WORDS.indexOf(word) >= 0
+}
+
+/**
+ * #142 回落词显示映射（只读展示位专用，逻辑位一律不用）。
+ * templateLabels(t) 里**全等** LABEL_FALLBACK（'自定义'，===，大小写敏感）的段换成 tr(lang, STR.labelFallback)，
+ * 其余段原文原样（大小写不动，遵 #134 code-review 结论：用户词保大小写）。
+ * 存储与全部比较（matchLabel/isExcludedLabel/过滤/评分/落盘）继续用原值，本函数永不回写。
+ * 循环依赖检查（2026-10-09）：store.ts 仅 import ./templates，i18n.ts 仅 import ./locale，
+ * 均不 import keys —— keys → store/templates + keys → i18n/locale 单向，无环（tsc + 转译测试双重验证）。
+ * 混合串（如 ['拆解','自定义'] → en '拆解/Custom'）的数据段由 #138 门禁既有 dataWords 剔除口径覆盖，调用方不用拆节点。
+ */
+export function displayLabels(t: PromptTemplate, lang: Lang): string[] {
+  return templateLabels(t).map((seg) => seg === LABEL_FALLBACK ? tr(lang, STR.labelFallback) : seg)
+}
+
+/** 标签串显示形（展示共用；分隔符 '/'，与 store.labelString 同口径，仅回落段跟语言）。 */
+export function displayLabelString(t: PromptTemplate, lang: Lang, sep = '/'): string {
+  return displayLabels(t, lang).join(sep)
 }

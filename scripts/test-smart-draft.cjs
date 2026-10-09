@@ -30,9 +30,9 @@ const MODULES = [
   ['match.ts', ['./templates', './store', './words']],
   ['remote.ts', []],
   ['remoteView.ts', []],
-  ['keys.ts', []],
+  ['keys.ts', ['./store', './i18n']], // #142 起 keys 引 ./store(展示映射)+./i18n(词表)，手抄表跟上
   ['panel.ts', ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView', './locale', './keys']],
-  ['smart.ts', ['./templates', './store', './words', './match', './panel', './smartstore', './remote', './remoteView', './i18n', './locale']],
+  ['smart.ts', ['./templates', './store', './words', './match', './panel', './smartstore', './remote', './remoteView', './i18n', './locale', './keys']], // #142 起 smart 引 ./keys(回落显示映射)
 ];
 for (const [f, deps] of MODULES) {
   let js = ts.transpileModule(fs.readFileSync(SRC(f), 'utf8'), {

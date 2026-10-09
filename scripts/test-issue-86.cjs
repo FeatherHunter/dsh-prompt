@@ -97,7 +97,7 @@ const MODULES = [
   ['systemOrientation.cjs', SYS_TS, []],
   ['workspace.cjs', path.join(ROOT, 'src', 'client', 'workspace.ts'), []],
   ['picker.cjs', path.join(ROOT, 'src', 'client', 'picker.ts'), ['./panel', './remoteView', './i18n', './workspace', './locale']],
-  ['keys.cjs', path.join(ROOT, 'src', 'client', 'keys.ts'), []],
+  ['keys.cjs', path.join(ROOT, 'src', 'client', 'keys.ts'), ['./store', './i18n']], // #142 起 keys 引 ./store(展示映射)+./i18n(词表)，手抄表跟上
   ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView', './locale', './keys']],
   ['settings.cjs', path.join(ROOT, 'src', 'client', 'settings.ts'), ['./panel', './about', './update', './smartstore', './remote', './remoteView', './systemOrientation', './i18n', './locale']],
   ['button.cjs', path.join(ROOT, 'src', 'client', 'button.ts'), ['./panel', './state', './settings', './remote', './remoteView', './i18n', './workspace', './picker', './smartstore', './locale']],

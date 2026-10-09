@@ -7,7 +7,8 @@
  */
 import { getReact } from './panel'
 import { smartCandidates, firstFieldCaret, type ScoredTemplate } from './match'
-import { allTemplates, bumpUsage, loadUsage, tieBreakOrder, labelString } from './store'
+import { allTemplates, bumpUsage, loadUsage, tieBreakOrder, templateLabels, LABEL_FALLBACK } from './store'
+import { displayLabelString } from './keys'
 import {
   getSmartInput, onSmartInput, isSmartEnabled, setSmartEnabled,
   onSmartEnabled, loadSmartPos, saveSmartPos, suppressCard, isSuppressed, clearSuppression,
@@ -377,8 +378,9 @@ export function SmartCardHost(props: any): any {
     return h('div', { key: c.tpl.id, style: rowStyle, onClick: () => doPick(c), title: t('smartFill') }, [
       h('span', { style: rowNum }, String(rows.length - i)),
       h('span', { style: rowName }, c.tpl.name),
-      h('span', { style: rowTag }, [
-        labelString(c.tpl), ' ',
+      // #142：标签段走显示映射（后缀已翻不动；混合串数据段由门禁 dataWords 剔除覆盖，不拆节点）
+      h('span', { style: rowTag, ...(templateLabels(c.tpl).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, [
+        displayLabelString(c.tpl, lang), ' ',
         h('span', { key: 'suffix', 'data-dsh-prompt-chrome': suffixKey }, suffixText),
       ]),
       h('span', { style: rowHint }, hits),
@@ -387,6 +389,8 @@ export function SmartCardHost(props: any): any {
   })
   // 临时诊断行（仅手动点开时显示）：排查"输入不自动出卡"——它把三件事一次摊开：
   // 读到的草稿与来源（dom/bridge/none）、客户端已加载的自定义模板条数、本次评分候选数。
+  // #142 边缘裁决 b：确系渲染（manualOpen 时卡内 div，用户可见），但为手动点开排查用的临时诊断、
+  // 无 chrome 钩子（门禁不扫）、scan 归 C4（诊断），永不翻译，保持原样不动；删了即删用户可见排查功能（不许）。
   const diagInfo = manualOpen ? currentDraftInfo() : null
   const diagSrcLabel = diagInfo ? (diagInfo.source === 'dom' ? '输入框DOM' : diagInfo.source === 'bridge' ? '输入桥' : '读不到') : ''
   const customCount = allTemplates().filter((x) => !x.builtin).length

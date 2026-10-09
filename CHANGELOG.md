@@ -2,6 +2,11 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
+## [0.4.10-beta.1] - 2026-10-09
+
+### Added
+- 回落词显示跟随 UI 语言：空标签 chip 在 English 下显示 Custom，中文下仍是自定义；存储落盘与过滤比较继续用中文原值。复制预置后缀新建时按当前语言取一次（(copy) / （副本）），已存数据不动。
+
 ## [0.4.10-beta.0] - 2026-10-08
 
 ### Added

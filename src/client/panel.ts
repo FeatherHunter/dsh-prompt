@@ -1114,7 +1114,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   const ROW_HOVER_BG = 'var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-layer-2, rgba(255,255,255,.06)))'
   const ROW_PRESSED_BG = 'var(--dsw-alias-interactive-bg-active, var(--dsw-alias-bg-layer-3))'
   const pinStyle = (on: boolean): any => ({ flex: 'none', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 0, background: 'transparent', borderRadius: 6 })
-  const nmStyle: any = { flex: 'none', minWidth: 0, fontSize: '0.98em', color: base, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+  const nmStyle: any = { flex: '0 1 auto', minWidth: 0, fontSize: '0.98em', color: base, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
   const subStyle: any = { display: 'block', fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
   // 勋章式标签：填充底色 + 精致胶囊
   const tagStyle: any = { flex: 'none', fontSize: '0.7em', fontWeight: 500, color: muted, background: 'var(--dsw-alias-bg-layer-3)', border: '1px solid var(--dsw-alias-border-l2)', padding: '0 7px', borderRadius: 999, lineHeight: '15px', letterSpacing: '0.02em', whiteSpace: 'nowrap' }
@@ -1630,8 +1630,8 @@ export function TemplateBrowser(props: BrowserProps): any {
           ]),
         ]),
       ]),
-      h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } }, [
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } }, [
+      h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden' } }, [
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' } }, [
           h('span', { style: { flex: 'none', fontSize: '0.75em', color: dim, width: '1.2em', textAlign: 'center', lineHeight: 1 }, 'aria-hidden': 'true' }, expanded.has(x.id) ? '▾' : '▸'),
           h('span', { style: nmStyle }, x.name),
           h('span', { style: tagStyle, ...(templateLabels(x).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, displayLabelString(x, lang)),

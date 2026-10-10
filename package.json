@@ -1,6 +1,6 @@
 {
   "name": "dsh-prompt",
-  "version": "0.4.10-beta.1",
+  "version": "0.4.11",
   "description": "DSH prompt 工具箱：预制 + 自定义 prompt 模板，点击即插入当前对话输入框（v1 常规模式 + v1.1 智能模式悬浮卡） | Prompt toolbox for DeepSeek Harness: preset + custom prompt templates, one-click insert into the conversation.",
   "keywords": [
     "dsh",
@@ -77,6 +77,7 @@
     "test:issue-110": "node scripts/test-issue-110.cjs",
     "test:issue-112": "node scripts/test-issue-112.cjs",
     "test:issue-116": "node scripts/test-issue-116.cjs",
+    "test:issue-144": "node scripts/test-issue-144.cjs",
     "test:marketplace": "node scripts/check-marketplace-readme.mjs",
     "test": "npm run test:lib-sync && npm run test:modal && npm run test:issue-14",
     "test:issue-123": "node scripts/test-issue-123.cjs",
@@ -103,7 +104,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.5.0",
-    "dsh-plugin-update": "0.9.0",
+    "dsh-plugin-update": "0.10.0",
     "esbuild": "^0.28.2",
     "marked": "^18.0.9",
     "react": "^18.3.1",

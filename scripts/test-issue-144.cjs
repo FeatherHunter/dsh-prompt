@@ -7,45 +7,26 @@
 //  C) 中英文按钮宽度：en Edit/Delete 比 zh 更宽（助因 R2 文档化，不断布局 px）
 const fs = require('node:fs');
 const path = require('node:path');
-let ts;
-try { ts = require('typescript') } catch (e) { ts = require('D:/0Tools/DSHDesktop/DSH Desktop/resources/app/node_modules/typescript') }
+// 整合（2026-10-10）：手抄模块表改为共享件 buildFlat —— 依赖闭包由源码 import 边推导。
+// 起因：双语 P0 合并后 i18n.ts 新增 ./locale、panel.ts 新增 ./keys，手抄表没跟上，
+// 本套件当场崩在 MODULE_NOT_FOUND；闭包推导从构造上消灭这类“表没跟上”的崩溃。
+const { buildFlat } = require('./lib/transpile-client.cjs');
 const DIR = path.join(__dirname, '.rt-tmp-144');
-fs.mkdirSync(DIR, { recursive: true });
 const ROOT = path.join(__dirname, '..');
+const SRC = (n) => path.join(ROOT, 'src', 'client', n);
 
 let failures = 0;
 function fail(msg) { failures++; console.log('FAIL: ' + msg); }
 function ok(msg) { console.log(' ok: ' + msg); }
 
-const MODULES = [
-  ['templates.ts', path.join(ROOT, 'src', 'client', 'templates.ts'), []],
-  ['store.ts', path.join(ROOT, 'src', 'client', 'store.ts'), ['./templates']],
-  ['state.ts', path.join(ROOT, 'src', 'client', 'state.ts'), []],
-  ['i18n.ts', path.join(ROOT, 'src', 'client', 'i18n.ts'), []],
-  ['smartstore.ts', path.join(ROOT, 'src', 'client', 'smartstore.ts'), []],
-  ['remote2.cjs', path.join(ROOT, 'src', 'client', 'remote.ts'), []],
-  ['remoteView.cjs', path.join(ROOT, 'src', 'client', 'remoteView.ts'), []],
-  ['systemOrientation.cjs', path.join(ROOT, 'src', 'client', 'systemOrientation.ts'), []],
-  ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView']],
-  ['settings.cjs', path.join(ROOT, 'src', 'client', 'settings.ts'), ['./panel', './about', './update', './update-http', './smartstore', './remote', './remoteView', './systemOrientation', './i18n']],
-];
-fs.writeFileSync(path.join(DIR, 'about.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;');
-fs.writeFileSync(path.join(DIR, 'update.cjs'), 'module.exports.UpdateEntry=()=>null;');
-fs.writeFileSync(path.join(DIR, 'update-http.cjs'), 'module.exports.UpdateEntryButton=()=>null;module.exports.UpdatePanelEmbedded=()=>null;');
-for (const [outName, srcPath, deps] of MODULES) {
-  const src = fs.readFileSync(srcPath, 'utf8');
-  let js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true } }).outputText;
-  for (const d of deps) js = js.split('require("' + d + '")').join('require("' + d + '.cjs")');
-  js = js.split('require("./remote.cjs")').join('require("./remote2.cjs")');
-  const outFile = outName.endsWith('.cjs') ? outName : outName.replace(/\.ts$/, '.cjs');
-  fs.writeFileSync(path.join(DIR, outFile), js);
-}
+// 只需 panel（TemplateBrowser）；i18n/locale/keys/store/templates/remote* 等由闭包自动带入。
+buildFlat(DIR, [SRC('panel.ts')]);
 const React = require('react');
 const TR = require('react-test-renderer');
-const req = (n) => require(path.join(DIR, n));
-const store = req('store.cjs');
-const panelMod = req('panel.cjs');
-const i18nMod = req('i18n.cjs');
+const req = (n) => require(path.join(DIR, n + '.cjs'));
+const store = req('store');
+const panelMod = req('panel');
+const i18nMod = req('i18n');
 
 // 准备一条超长名（40 CJK，复现截图首行量级）
 try {

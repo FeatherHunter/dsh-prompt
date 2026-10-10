@@ -1,214 +1,220 @@
 ﻿file,line,col,text,class,action,consumer_ticket,container
-src/client/i18n.ts,22,30,点击展开/收起模板列表,C1,已在STR,-,export const STR :: STR.templatesToggleHint.zh
-src/client/i18n.ts,24,22,提示词模板,C1,已在STR,-,export const STR :: STR.sectionName.zh
-src/client/i18n.ts,26,14,新增自定义模板,C1,已在STR,-,export const STR :: STR.add.zh
-src/client/i18n.ts,27,19,新增,C1,已在STR,-,export const STR :: STR.addShort.zh
-src/client/i18n.ts,28,19,搜索模板…,C1,已在STR,-,export const STR :: STR.searchPh.zh
-src/client/i18n.ts,29,17,全部,C1,已在STR,-,export const STR :: STR.tabAll.zh
-src/client/i18n.ts,30,20,执行前,C1,已在STR,-,export const STR :: STR.tabBefore.zh
-src/client/i18n.ts,31,20,执行中,C1,已在STR,-,export const STR :: STR.tabDuring.zh
-src/client/i18n.ts,32,19,执行后,C1,已在STR,-,export const STR :: STR.tabAfter.zh
-src/client/i18n.ts,33,20,自定义,C1,已在STR,-,export const STR :: STR.tabCustom.zh
-src/client/i18n.ts,34,20,全领域,C1,已在STR,-,export const STR :: STR.domainAll.zh
-src/client/i18n.ts,35,22,预制,C1,已在STR,-,export const STR :: STR.presetCount.zh
-src/client/i18n.ts,36,22,自定义,C1,已在STR,-,export const STR :: STR.customCount.zh
-src/client/i18n.ts,37,21,设置 → 模板管理,C1,已在STR,-,export const STR :: STR.goSettings.zh
-src/client/i18n.ts,38,15,编辑,C1,已在STR,-,export const STR :: STR.edit.zh
-src/client/i18n.ts,39,14,删除,C1,已在STR,-,export const STR :: STR.del.zh
-src/client/i18n.ts,40,15,复制,C1,已在STR,-,export const STR :: STR.copy.zh
-src/client/i18n.ts,41,14,置顶/取消置顶,C1,已在STR,-,export const STR :: STR.pin.zh
-src/client/i18n.ts,42,18,无匹配模板,C1,已在STR,-,export const STR :: STR.noMatch.zh
-src/client/i18n.ts,43,19,新增自定义模板,C1,已在STR,-,export const STR :: STR.addTitle.zh
-src/client/i18n.ts,44,20,编辑自定义模板,C1,已在STR,-,export const STR :: STR.editTitle.zh
-src/client/i18n.ts,45,17,模板名称,C1,已在STR,-,export const STR :: STR.namePh.zh
-src/client/i18n.ts,46,19,添加标签（逗号/空格/顿号分隔，回车确认）,C1,已在STR,-,export const STR :: STR.labelsPh.zh
-src/client/i18n.ts,47,21,最多 3 个，每条 1–10 字；可从已有词里选，也可新造,C1,已在STR,-,export const STR :: STR.labelsHint.zh
-src/client/i18n.ts,48,24,最多 3 个标签,C1,已在STR,-,export const STR :: STR.labelsTooMany.zh
-src/client/i18n.ts,49,23,每条标签 1–10 字,C1,已在STR,-,export const STR :: STR.labelTooLong.zh
-src/client/i18n.ts,50,24,“任意”不能作为标签,C1,已在STR,-,export const STR :: STR.labelReserved.zh
-src/client/i18n.ts,50,42,"""任意"" is reserved and cannot be a label",C1,改写en(去CJK),134/141,export const STR :: STR.labelReserved.en
-src/client/i18n.ts,51,22,移除标签,C1,已在STR,-,export const STR :: STR.removeLabel.zh
-src/client/i18n.ts,52,22,标签选择,C1,已在STR,-,export const STR :: STR.labelPicker.zh
-src/client/i18n.ts,53,20,完成,C1,已在STR,-,export const STR :: STR.labelDone.zh
-src/client/i18n.ts,54,17,Prompt 正文（≤10000 字）,C1,已在STR,-,export const STR :: STR.bodyPh.zh
-src/client/i18n.ts,55,17,取消,C1,已在STR,-,export const STR :: STR.cancel.zh
-src/client/i18n.ts,56,15,保存,C1,已在STR,-,export const STR :: STR.save.zh
-src/client/i18n.ts,57,16,添加,C1,已在STR,-,export const STR :: STR.addOk.zh
-src/client/i18n.ts,58,23,名称必填,C1,已在STR,-,export const STR :: STR.nameRequired.zh
-src/client/i18n.ts,59,22,正文超过 10000 字上限,C1,已在STR,-,export const STR :: STR.bodyTooLong.zh
-src/client/i18n.ts,60,19,删除确认,C1,已在STR,-,export const STR :: STR.delTitle.zh
-src/client/i18n.ts,61,17,确定删除自定义模板,C1,已在STR,-,export const STR :: STR.delMsg.zh
-src/client/i18n.ts,62,23,此操作不可撤销。,C1,已在STR,-,export const STR :: STR.delUnrecover.zh
-src/client/i18n.ts,63,16,删除,C1,已在STR,-,export const STR :: STR.delOk.zh
-src/client/i18n.ts,64,18,置顶已达上限（5 个）,C1,已在STR,-,export const STR :: STR.pinFull.zh
-src/client/i18n.ts,65,21,点击即插入,C1,已在STR,-,export const STR :: STR.insertHint.zh
-src/client/i18n.ts,66,16,关闭,C1,已在STR,-,export const STR :: STR.close.zh
-src/client/i18n.ts,67,22,智能模式悬浮卡（输入匹配时推荐模板；默认关）,C1,已在STR,-,export const STR :: STR.smartToggle.zh
-src/client/i18n.ts,68,26,默认关；打开后仅在输入匹配时出卡,C1,已在STR,-,export const STR :: STR.smartToggleHint.zh
-src/client/i18n.ts,69,19,智能模式 · 拖动调整位置；输入匹配时出卡,C1,已在STR,-,export const STR :: STR.smartDot.zh
-src/client/i18n.ts,70,21,智能推荐,C1,已在STR,-,export const STR :: STR.smartTitle.zh
-src/client/i18n.ts,71,20,点击即填入,C1,已在STR,-,export const STR :: STR.smartHint.zh
-src/client/i18n.ts,72,20,点击填入,C1,已在STR,-,export const STR :: STR.smartFill.zh
-src/client/i18n.ts,73,23,收起（继续输入可再次出现）,C1,已在STR,-,export const STR :: STR.smartDismiss.zh
-src/client/i18n.ts,74,22,最近使用,C1,已在STR,-,export const STR :: STR.smartRecent.zh
-src/client/i18n.ts,75,22,常用模板,C1,已在STR,-,export const STR :: STR.smartCommon.zh
-src/client/i18n.ts,76,21,GitHub 仓库,C1,已在STR,-,export const STR :: STR.gitHubRepo.zh
-src/client/i18n.ts,77,19,反馈故障,C1,已在STR,-,export const STR :: STR.feedback.zh
-src/client/i18n.ts,79,18,你的 ⭐是我夜空中最亮的星。,C1,已在STR,-,export const STR :: STR.starTip.zh
-src/client/i18n.ts,80,22,提交反馈、建议和意见🌹,C1,已在STR,-,export const STR :: STR.feedbackTip.zh
-src/client/i18n.ts,81,20,作者其他插件,C1,已在STR,-,export const STR :: STR.moreTitle.zh
-src/client/i18n.ts,82,23,装好就有 25 个工程技能在右侧直接用,C1,已在STR,-,export const STR :: STR.moreDescDeck.zh
-src/client/i18n.ts,83,26,38 款长时间编程护眼配色，一键换上,C1,已在STR,-,export const STR :: STR.moreDescPalette.zh
-src/client/i18n.ts,84,25,本面板自己：24 条常用提示模板随手点，不用来回复制粘贴,C1,已在STR,-,export const STR :: STR.moreDescPrompt.zh
-src/client/i18n.ts,85,28,聊天机器人的伴侣插件：扫码或填凭据就把飞书、微信等 9 路聊天接进来,C1,已在STR,-,export const STR :: STR.moreDescCompanion.zh
-src/client/i18n.ts,89,20,调试日志,C1,已在STR,-,export const STR :: STR.logToggle.zh
-src/client/i18n.ts,90,24,关闭只停信息与调试两级，错误与告警始终记录。,C1,已在STR,-,export const STR :: STR.logToggleHint.zh
-src/client/i18n.ts,91,19,诊断日志,C1,已在STR,-,export const STR :: STR.logGroup.zh
-src/client/i18n.ts,92,19,落点：~/.dsh/logs/dsh-prompt/,C1,已在STR,-,export const STR :: STR.logWhere.zh
-src/client/i18n.ts,93,21,智能推荐,C1,已在STR,-,export const STR :: STR.smartGroup.zh
-src/client/i18n.ts,96,22,远程模式-配合网易UU远程等手机App,C1,已在STR,-,export const STR :: STR.remoteGroup.zh
-src/client/i18n.ts,97,23,远程模式-配合网易UU远程等手机App,C1,已在STR,-,export const STR :: STR.remoteToggle.zh
-src/client/i18n.ts,98,21,大小,C1,已在STR,-,export const STR :: STR.remoteSize.zh
-src/client/i18n.ts,99,24,1档,C1,已在STR,-,export const STR :: STR.remoteSizeMin.zh
-src/client/i18n.ts,100,24,10档,C1,已在STR,-,export const STR :: STR.remoteSizeMax.zh
-src/client/i18n.ts,101,28,持久化失败：本次选择当次有效，下次恢复默认并请重试。,C1,已在STR,-,export const STR :: STR.remotePersistFail.zh
-src/client/i18n.ts,102,28,方向偏好,C1,已在STR,-,export const STR :: STR.remoteOrientation.zh
-src/client/i18n.ts,103,32,自动跟整机方向，无桥时跟视口；锁定先切整机方向，失败只锁自家布局。,C1,已在STR,-,export const STR :: STR.remoteOrientationHint.zh
-src/client/i18n.ts,104,32,自动,C1,已在STR,-,export const STR :: STR.remoteOrientationAuto.zh
-src/client/i18n.ts,105,37,横屏,C1,已在STR,-,export const STR :: STR.remoteOrientationLandscape.zh
-src/client/i18n.ts,106,36,竖屏,C1,已在STR,-,export const STR :: STR.remoteOrientationPortrait.zh
-src/client/i18n.ts,107,32,正在切换整机方向…,C1,已在STR,-,export const STR :: STR.remoteOrientationBusy.zh
-src/client/i18n.ts,108,34,整机未改变，已锁定自家布局（原因：{code}）。,C1,已在STR,-,export const STR :: STR.remoteOrientationOsFail.zh
-src/client/i18n.ts,109,23,需先开启远程模式,C1,已在STR,-,export const STR :: STR.remoteNeedOn.zh
-src/client/i18n.ts,110,29,当前：{orient}（{source}）,C1,已在STR,-,export const STR :: STR.remoteEffectiveNow.zh
-src/client/i18n.ts,111,29,整机,C1,已在STR,-,export const STR :: STR.remoteSourceSystem.zh
-src/client/i18n.ts,112,31,视口,C1,已在STR,-,export const STR :: STR.remoteSourceViewport.zh
-src/client/i18n.ts,113,34,锁定为{orient},C1,已在STR,-,export const STR :: STR.remoteLockedOrientation.zh
-src/client/i18n.ts,114,24,宫格密度,C1,已在STR,-,export const STR :: STR.remoteDensity.zh
-src/client/i18n.ts,115,25,12宫格,C1,已在STR,-,export const STR :: STR.remoteDensityA.zh
-src/client/i18n.ts,116,25,8宫格,C1,已在STR,-,export const STR :: STR.remoteDensityB.zh
-src/client/i18n.ts,117,28,整机待宿主,C1,已在STR,-,export const STR :: STR.remoteHostPending.zh
-src/client/i18n.ts,118,34,整机跟手转（需宿主 H1）,C1,已在STR,-,export const STR :: STR.remoteSystemOrientation.zh
-src/client/i18n.ts,119,38,宿主支持时一键切外部系统横竖屏；缺席只灰这一行，总闸照常可用。,C1,已在STR,-,export const STR :: STR.remoteSystemOrientationHint.zh
-src/client/i18n.ts,120,27,整机字号跟随（需宿主 H2）,C1,已在STR,-,export const STR :: STR.remoteSystemFont.zh
-src/client/i18n.ts,121,31,宿主支持时整机字号一起走；缺席先放大自家面并明示。,C1,已在STR,-,export const STR :: STR.remoteSystemFontHint.zh
-src/client/i18n.ts,122,26,远程设置,C1,已在STR,-,export const STR :: STR.remoteConfigKey.zh
-src/client/i18n.ts,123,38,打开设置页远程段,C1,已在STR,-,export const STR :: STR.remoteConfigKeyFallbackHint.zh
-src/client/i18n.ts,125,24,展开右侧边栏,C1,已在STR,-,export const STR :: STR.sidebarExpand.zh
-src/client/i18n.ts,126,26,折叠右侧边栏,C1,已在STR,-,export const STR :: STR.sidebarCollapse.zh
-src/client/i18n.ts,128,23,收起工具条,C1,已在STR,-,export const STR :: STR.dockCollapse.zh
-src/client/i18n.ts,129,21,展开工具条,C1,已在STR,-,export const STR :: STR.dockExpand.zh
-src/client/i18n.ts,131,30,展开左侧工作区,C1,已在STR,-,export const STR :: STR.workspaceLeftExpand.zh
-src/client/i18n.ts,132,32,折叠左侧工作区,C1,已在STR,-,export const STR :: STR.workspaceLeftCollapse.zh
-src/client/i18n.ts,133,26,选择会话,C1,已在STR,-,export const STR :: STR.workspacePicker.zh
-src/client/i18n.ts,134,23,搜索：标题 + 工作区名…,C1,已在STR,-,export const STR :: STR.pickerSearch.zh
-src/client/i18n.ts,135,24,加载中…,C1,已在STR,-,export const STR :: STR.pickerLoading.zh
-src/client/i18n.ts,136,23,取消等待,C1,已在STR,-,export const STR :: STR.pickerCancel.zh
-src/client/i18n.ts,137,22,整面重试,C1,已在STR,-,export const STR :: STR.pickerRetry.zh
-src/client/i18n.ts,138,22,真无会话：当前没有任何可用会话,C1,已在STR,-,export const STR :: STR.pickerEmpty.zh
-src/client/i18n.ts,139,28,搜无结果：换个关键词（不回退全量）,C1,已在STR,-,export const STR :: STR.pickerEmptySearch.zh
-src/client/i18n.ts,140,26,探测缺席：宿主机会面不可用，原地重试,C1,已在STR,-,export const STR :: STR.pickerProbeFail.zh
-src/client/i18n.ts,141,27,切换失败：留屏，可原地重试,C1,已在STR,-,export const STR :: STR.pickerSwitchFail.zh
-src/client/i18n.ts,142,32,切换失败,C1,已在STR,-,export const STR :: STR.pickerSwitchFailBadge.zh
-src/client/i18n.ts,143,26,正在切换,C1,已在STR,-,export const STR :: STR.pickerSwitching.zh
-src/client/i18n.ts,144,24,当前,C1,已在STR,-,export const STR :: STR.pickerCurrent.zh
-src/client/i18n.ts,145,22,空白,C1,已在STR,-,export const STR :: STR.pickerBlank.zh
-src/client/i18n.ts,146,25,（空白会话）,C1,已在STR,-,export const STR :: STR.pickerUntitled.zh
-src/client/i18n.ts,147,26,未归属,C1,已在STR,-,export const STR :: STR.pickerUngrouped.zh
-src/client/i18n.ts,148,32,散,C1,已在STR,-,export const STR :: STR.pickerUnassignedShort.zh
-src/client/i18n.ts,149,27,工作区,C1,已在STR,-,export const STR :: STR.pickerWorkspaces.zh
-src/client/i18n.ts,150,25,会话,C1,已在STR,-,export const STR :: STR.pickerSessions.zh
-src/client/i18n.ts,151,21,上一页,C1,已在STR,-,export const STR :: STR.pickerPrev.zh
-src/client/i18n.ts,152,21,下一页,C1,已在STR,-,export const STR :: STR.pickerNext.zh
-src/client/i18n.ts,153,22,翻页与关闭,C1,已在STR,-,export const STR :: STR.pickerOpBar.zh
-src/client/i18n.ts,154,20,导出日志,C1,已在STR,-,export const STR :: STR.logExport.zh
-src/client/i18n.ts,155,22,复制路径,C1,已在STR,-,export const STR :: STR.logCopyPath.zh
-src/client/i18n.ts,156,19,清空日志,C1,已在STR,-,export const STR :: STR.logClear.zh
-src/client/i18n.ts,157,26,确认清空,C1,已在STR,-,export const STR :: STR.logClearConfirm.zh
-src/client/i18n.ts,158,22,再点一次「确认清空」会删掉全部日志文件（正在排查的证据也会一起删掉）。,C1,已在STR,-,export const STR :: STR.logClearAsk.zh
-src/client/i18n.ts,159,22,日志已开启（信息与调试也会记录）。,C1,已在STR,-,export const STR :: STR.logSwitchOn.zh
-src/client/i18n.ts,160,23,日志已关闭：错误与告警仍会记录。,C1,已在STR,-,export const STR :: STR.logSwitchOff.zh
-src/client/i18n.ts,161,24,开关未保存，仍按原值：,C1,已在STR,-,export const STR :: STR.logSwitchFail.zh
-src/client/i18n.ts,162,25,已导出到下载目录：,C1,已在STR,-,export const STR :: STR.logExportSaved.zh
-src/client/i18n.ts,163,35,浏览器拦下了下载，请改用「复制正文」：,C1,已在STR,-,export const STR :: STR.logExportDownloadBlocked.zh
-src/client/i18n.ts,164,25,当天还没有日志文件（开关关闭时只有错误与告警会落盘）。,C1,已在STR,-,export const STR :: STR.logExportEmpty.zh
-src/client/i18n.ts,165,24,导出失败：,C1,已在STR,-,export const STR :: STR.logExportFail.zh
-src/client/i18n.ts,166,24,已复制日志文件路径：,C1,已在STR,-,export const STR :: STR.logPathCopied.zh
-src/client/i18n.ts,167,22,拿不到日志路径，请改用「导出日志」。,C1,已在STR,-,export const STR :: STR.logPathFail.zh
-src/client/i18n.ts,168,21,已删除日志文件,C1,已在STR,-,export const STR :: STR.logClearOk.zh
-src/client/i18n.ts,169,23,清空失败，请稍后再试。,C1,已在STR,-,export const STR :: STR.logClearFail.zh
-src/client/i18n.ts,170,21,处理中…,C1,已在STR,-,export const STR :: STR.logWorking.zh
-src/client/i18n.ts,171,21,日志管道已丢弃条数：,C1,已在STR,-,export const STR :: STR.logDropped.zh
-src/client/i18n.ts,172,25,日志能力当前不可用（宿主未接通）。,C1,已在STR,-,export const STR :: STR.logUnavailable.zh
-src/client/i18n.ts,173,19,字节,C1,已在STR,-,export const STR :: STR.logBytes.zh
-src/client/i18n.ts,174,19,个文件,C1,已在STR,-,export const STR :: STR.logFiles.zh
-src/client/i18n.ts,175,24,宿主不可达,C1,已在STR,-,export const STR :: STR.logReasonHost.zh
-src/client/i18n.ts,176,28,宿主拒绝写入,C1,已在STR,-,export const STR :: STR.logReasonRejected.zh
-src/client/i18n.ts,177,27,宿主超时未应答,C1,已在STR,-,export const STR :: STR.logReasonTimeout.zh
-src/client/i18n.ts,178,25,已有更新的开关操作，本次作废,C1,已在STR,-,export const STR :: STR.logReasonStale.zh
-src/client/i18n.ts,179,25,未知原因,C1,已在STR,-,export const STR :: STR.logReasonOther.zh
-src/client/i18n.ts,181,25,遥控输入（实时镜子）,C1,已在STR,-,export const STR :: STR.remoteInputKey.zh
-src/client/i18n.ts,182,27,✎ 遥控输入,C1,已在STR,-,export const STR :: STR.remoteInputTitle.zh
-src/client/i18n.ts,183,25,实时镜子 · 自动同步当前会话草稿,C1,已在STR,-,export const STR :: STR.remoteInputSub.zh
-src/client/i18n.ts,184,24,在此输入…自动同步到当前会话输入框（去抖串行 setDraft）,C1,已在STR,-,export const STR :: STR.remoteInputPh.zh
-src/client/i18n.ts,185,26,➤ 发送（禁用）,C1,已在STR,-,export const STR :: STR.remoteInputSend.zh
-src/client/i18n.ts,186,31,宿主未给提交面,C1,已在STR,-,export const STR :: STR.remoteInputSendTitle.zh
-src/client/i18n.ts,187,34,草稿已同步，去大屏那头发起发送,C1,已在STR,-,export const STR :: STR.remoteInputExplicitMain.zh
-src/client/i18n.ts,188,33,宿主未提供提交面，此键恒禁用、绝不伪造回车。,C1,已在STR,-,export const STR :: STR.remoteInputExplicitSub.zh
-src/client/i18n.ts,189,27,会话已切换，本框已停写（防串写），请重开。,C1,已在STR,-,export const STR :: STR.remoteInputStale.zh
-src/client/i18n.ts,190,26,实时镜子 · 去抖300ms串行 · session校验 · 组词中延迟,C1,已在STR,-,export const STR :: STR.remoteInputMeta.zh
-src/client/i18n.ts,191,25,模型切换（休眠中）,C1,已在STR,-,export const STR :: STR.remoteModelKey.zh
-src/client/i18n.ts,192,27,▤ 模型切换,C1,已在STR,-,export const STR :: STR.remoteModelTitle.zh
-src/client/i18n.ts,193,27,宿主暂无模型面（首次出现会提示一次）,C1,已在STR,-,export const STR :: STR.remoteModelEmpty.zh
+src/client/i18n.ts,26,30,点击展开/收起模板列表,C1,已在STR,-,export const STR :: STR.templatesToggleHint.zh
+src/client/i18n.ts,28,22,提示词模板,C1,已在STR,-,export const STR :: STR.sectionName.zh
+src/client/i18n.ts,30,14,新增自定义模板,C1,已在STR,-,export const STR :: STR.add.zh
+src/client/i18n.ts,31,19,新增,C1,已在STR,-,export const STR :: STR.addShort.zh
+src/client/i18n.ts,32,19,搜索模板…,C1,已在STR,-,export const STR :: STR.searchPh.zh
+src/client/i18n.ts,33,17,全部,C1,已在STR,-,export const STR :: STR.tabAll.zh
+src/client/i18n.ts,34,20,执行前,C1,已在STR,-,export const STR :: STR.tabBefore.zh
+src/client/i18n.ts,35,20,执行中,C1,已在STR,-,export const STR :: STR.tabDuring.zh
+src/client/i18n.ts,36,19,执行后,C1,已在STR,-,export const STR :: STR.tabAfter.zh
+src/client/i18n.ts,37,20,自定义,C1,已在STR,-,export const STR :: STR.tabCustom.zh
+src/client/i18n.ts,38,20,全领域,C1,已在STR,-,export const STR :: STR.domainAll.zh
+src/client/i18n.ts,39,22,预制,C1,已在STR,-,export const STR :: STR.presetCount.zh
+src/client/i18n.ts,43,22,预制,C1,已在STR,-,export const STR :: STR.scopePreset.zh
+src/client/i18n.ts,44,22,自定义,C1,已在STR,-,export const STR :: STR.customCount.zh
+src/client/i18n.ts,48,24,自定义,C1,已在STR,-,export const STR :: STR.labelFallback.zh
+src/client/i18n.ts,51,21,（副本）,C1,已在STR,-,export const STR :: STR.copySuffix.zh
+src/client/i18n.ts,52,21,设置 → 模板管理,C1,已在STR,-,export const STR :: STR.goSettings.zh
+src/client/i18n.ts,53,15,编辑,C1,已在STR,-,export const STR :: STR.edit.zh
+src/client/i18n.ts,54,14,删除,C1,已在STR,-,export const STR :: STR.del.zh
+src/client/i18n.ts,55,15,复制,C1,已在STR,-,export const STR :: STR.copy.zh
+src/client/i18n.ts,56,14,置顶/取消置顶,C1,已在STR,-,export const STR :: STR.pin.zh
+src/client/i18n.ts,57,18,无匹配模板,C1,已在STR,-,export const STR :: STR.noMatch.zh
+src/client/i18n.ts,58,19,新增自定义模板,C1,已在STR,-,export const STR :: STR.addTitle.zh
+src/client/i18n.ts,59,20,编辑自定义模板,C1,已在STR,-,export const STR :: STR.editTitle.zh
+src/client/i18n.ts,60,17,模板名称,C1,已在STR,-,export const STR :: STR.namePh.zh
+src/client/i18n.ts,61,19,添加标签（逗号/空格/顿号分隔，回车确认）,C1,已在STR,-,export const STR :: STR.labelsPh.zh
+src/client/i18n.ts,62,21,最多 3 个，每条 1–10 字；可从已有词里选，也可新造,C1,已在STR,-,export const STR :: STR.labelsHint.zh
+src/client/i18n.ts,63,24,最多 3 个标签,C1,已在STR,-,export const STR :: STR.labelsTooMany.zh
+src/client/i18n.ts,64,23,每条标签 1–10 字,C1,已在STR,-,export const STR :: STR.labelTooLong.zh
+src/client/i18n.ts,65,22,移除标签,C1,已在STR,-,export const STR :: STR.removeLabel.zh
+src/client/i18n.ts,66,22,标签选择,C1,已在STR,-,export const STR :: STR.labelPicker.zh
+src/client/i18n.ts,67,20,完成,C1,已在STR,-,export const STR :: STR.labelDone.zh
+src/client/i18n.ts,68,17,Prompt 正文（≤10000 字）,C1,已在STR,-,export const STR :: STR.bodyPh.zh
+src/client/i18n.ts,69,17,取消,C1,已在STR,-,export const STR :: STR.cancel.zh
+src/client/i18n.ts,70,15,保存,C1,已在STR,-,export const STR :: STR.save.zh
+src/client/i18n.ts,71,16,添加,C1,已在STR,-,export const STR :: STR.addOk.zh
+src/client/i18n.ts,72,23,名称必填,C1,已在STR,-,export const STR :: STR.nameRequired.zh
+src/client/i18n.ts,73,22,正文超过 10000 字上限,C1,已在STR,-,export const STR :: STR.bodyTooLong.zh
+src/client/i18n.ts,74,19,删除确认,C1,已在STR,-,export const STR :: STR.delTitle.zh
+src/client/i18n.ts,75,17,确定删除自定义模板,C1,已在STR,-,export const STR :: STR.delMsg.zh
+src/client/i18n.ts,77,20,「{name}」,C1,已在STR,-,export const STR :: STR.nameQuote.zh
+src/client/i18n.ts,78,23,此操作不可撤销。,C1,已在STR,-,export const STR :: STR.delUnrecover.zh
+src/client/i18n.ts,79,16,删除,C1,已在STR,-,export const STR :: STR.delOk.zh
+src/client/i18n.ts,80,18,置顶已达上限（5 个）,C1,已在STR,-,export const STR :: STR.pinFull.zh
+src/client/i18n.ts,81,21,点击即插入,C1,已在STR,-,export const STR :: STR.insertHint.zh
+src/client/i18n.ts,83,21,已使用 {n} 次,C1,已在STR,-,export const STR :: STR.usageTitle.zh
+src/client/i18n.ts,85,24,点击展开/收起简介,C1,已在STR,-,export const STR :: STR.rowExpandHint.zh
+src/client/i18n.ts,86,16,关闭,C1,已在STR,-,export const STR :: STR.close.zh
+src/client/i18n.ts,88,20,＋,C1,已在STR,-,export const STR :: STR.plusGlyph.zh
+src/client/i18n.ts,89,22,智能模式悬浮卡（输入匹配时推荐模板；默认关）,C1,已在STR,-,export const STR :: STR.smartToggle.zh
+src/client/i18n.ts,90,26,默认关；打开后仅在输入匹配时出卡,C1,已在STR,-,export const STR :: STR.smartToggleHint.zh
+src/client/i18n.ts,91,19,智能模式 · 拖动调整位置；输入匹配时出卡,C1,已在STR,-,export const STR :: STR.smartDot.zh
+src/client/i18n.ts,92,21,智能推荐,C1,已在STR,-,export const STR :: STR.smartTitle.zh
+src/client/i18n.ts,93,20,点击即填入,C1,已在STR,-,export const STR :: STR.smartHint.zh
+src/client/i18n.ts,94,20,点击填入,C1,已在STR,-,export const STR :: STR.smartFill.zh
+src/client/i18n.ts,95,23,收起（继续输入可再次出现）,C1,已在STR,-,export const STR :: STR.smartDismiss.zh
+src/client/i18n.ts,96,22,最近使用,C1,已在STR,-,export const STR :: STR.smartRecent.zh
+src/client/i18n.ts,97,22,常用模板,C1,已在STR,-,export const STR :: STR.smartCommon.zh
+src/client/i18n.ts,99,28,·常用,C1,已在STR,-,export const STR :: STR.smartCommonSuffix.zh
+src/client/i18n.ts,100,27,·分{n},C1,已在STR,-,export const STR :: STR.smartScoreSuffix.zh
+src/client/i18n.ts,101,21,GitHub 仓库,C1,已在STR,-,export const STR :: STR.gitHubRepo.zh
+src/client/i18n.ts,102,19,反馈故障,C1,已在STR,-,export const STR :: STR.feedback.zh
+src/client/i18n.ts,104,18,你的 ⭐是我夜空中最亮的星。,C1,已在STR,-,export const STR :: STR.starTip.zh
+src/client/i18n.ts,105,22,提交反馈、建议和意见🌹,C1,已在STR,-,export const STR :: STR.feedbackTip.zh
+src/client/i18n.ts,106,20,作者其他插件,C1,已在STR,-,export const STR :: STR.moreTitle.zh
+src/client/i18n.ts,107,23,装好就有 25 个工程技能在右侧直接用,C1,已在STR,-,export const STR :: STR.moreDescDeck.zh
+src/client/i18n.ts,108,26,38 款长时间编程护眼配色，一键换上,C1,已在STR,-,export const STR :: STR.moreDescPalette.zh
+src/client/i18n.ts,109,25,本面板自己：24 条常用提示模板随手点，不用来回复制粘贴,C1,已在STR,-,export const STR :: STR.moreDescPrompt.zh
+src/client/i18n.ts,110,28,聊天机器人的伴侣插件：扫码或填凭据就把飞书、微信等 9 路聊天接进来,C1,已在STR,-,export const STR :: STR.moreDescCompanion.zh
+src/client/i18n.ts,114,20,调试日志,C1,已在STR,-,export const STR :: STR.logToggle.zh
+src/client/i18n.ts,115,24,关闭只停信息与调试两级，错误与告警始终记录。,C1,已在STR,-,export const STR :: STR.logToggleHint.zh
+src/client/i18n.ts,116,19,诊断日志,C1,已在STR,-,export const STR :: STR.logGroup.zh
+src/client/i18n.ts,117,19,落点：~/.dsh/logs/dsh-prompt/,C1,已在STR,-,export const STR :: STR.logWhere.zh
+src/client/i18n.ts,118,21,智能推荐,C1,已在STR,-,export const STR :: STR.smartGroup.zh
+src/client/i18n.ts,121,22,远程模式-配合网易UU远程等手机App,C1,已在STR,-,export const STR :: STR.remoteGroup.zh
+src/client/i18n.ts,122,23,远程模式-配合网易UU远程等手机App,C1,已在STR,-,export const STR :: STR.remoteToggle.zh
+src/client/i18n.ts,123,21,大小,C1,已在STR,-,export const STR :: STR.remoteSize.zh
+src/client/i18n.ts,124,24,1档,C1,已在STR,-,export const STR :: STR.remoteSizeMin.zh
+src/client/i18n.ts,125,24,10档,C1,已在STR,-,export const STR :: STR.remoteSizeMax.zh
+src/client/i18n.ts,127,26,{n}档·{p}%,C1,已在STR,-,export const STR :: STR.remoteSizeValue.zh
+src/client/i18n.ts,128,28,持久化失败：本次选择当次有效，下次恢复默认并请重试。,C1,已在STR,-,export const STR :: STR.remotePersistFail.zh
+src/client/i18n.ts,129,28,方向偏好,C1,已在STR,-,export const STR :: STR.remoteOrientation.zh
+src/client/i18n.ts,130,32,自动跟整机方向，无桥时跟视口；锁定先切整机方向，失败只锁自家布局。,C1,已在STR,-,export const STR :: STR.remoteOrientationHint.zh
+src/client/i18n.ts,131,32,自动,C1,已在STR,-,export const STR :: STR.remoteOrientationAuto.zh
+src/client/i18n.ts,132,37,横屏,C1,已在STR,-,export const STR :: STR.remoteOrientationLandscape.zh
+src/client/i18n.ts,133,36,竖屏,C1,已在STR,-,export const STR :: STR.remoteOrientationPortrait.zh
+src/client/i18n.ts,134,32,正在切换整机方向…,C1,已在STR,-,export const STR :: STR.remoteOrientationBusy.zh
+src/client/i18n.ts,135,34,整机未改变，已锁定自家布局（原因：{code}）。,C1,已在STR,-,export const STR :: STR.remoteOrientationOsFail.zh
+src/client/i18n.ts,136,23,需先开启远程模式,C1,已在STR,-,export const STR :: STR.remoteNeedOn.zh
+src/client/i18n.ts,137,29,当前：{orient}（{source}）,C1,已在STR,-,export const STR :: STR.remoteEffectiveNow.zh
+src/client/i18n.ts,138,29,整机,C1,已在STR,-,export const STR :: STR.remoteSourceSystem.zh
+src/client/i18n.ts,139,31,视口,C1,已在STR,-,export const STR :: STR.remoteSourceViewport.zh
+src/client/i18n.ts,140,34,锁定为{orient},C1,已在STR,-,export const STR :: STR.remoteLockedOrientation.zh
+src/client/i18n.ts,141,24,宫格密度,C1,已在STR,-,export const STR :: STR.remoteDensity.zh
+src/client/i18n.ts,142,25,12宫格,C1,已在STR,-,export const STR :: STR.remoteDensityA.zh
+src/client/i18n.ts,143,25,8宫格,C1,已在STR,-,export const STR :: STR.remoteDensityB.zh
+src/client/i18n.ts,144,28,整机待宿主,C1,已在STR,-,export const STR :: STR.remoteHostPending.zh
+src/client/i18n.ts,145,34,整机跟手转（需宿主 H1）,C1,已在STR,-,export const STR :: STR.remoteSystemOrientation.zh
+src/client/i18n.ts,146,38,宿主支持时一键切外部系统横竖屏；缺席只灰这一行，总闸照常可用。,C1,已在STR,-,export const STR :: STR.remoteSystemOrientationHint.zh
+src/client/i18n.ts,147,27,整机字号跟随（需宿主 H2）,C1,已在STR,-,export const STR :: STR.remoteSystemFont.zh
+src/client/i18n.ts,148,31,宿主支持时整机字号一起走；缺席先放大自家面并明示。,C1,已在STR,-,export const STR :: STR.remoteSystemFontHint.zh
+src/client/i18n.ts,149,26,远程设置,C1,已在STR,-,export const STR :: STR.remoteConfigKey.zh
+src/client/i18n.ts,150,38,打开设置页远程段,C1,已在STR,-,export const STR :: STR.remoteConfigKeyFallbackHint.zh
+src/client/i18n.ts,152,24,展开右侧边栏,C1,已在STR,-,export const STR :: STR.sidebarExpand.zh
+src/client/i18n.ts,153,26,折叠右侧边栏,C1,已在STR,-,export const STR :: STR.sidebarCollapse.zh
+src/client/i18n.ts,155,23,收起工具条,C1,已在STR,-,export const STR :: STR.dockCollapse.zh
+src/client/i18n.ts,156,21,展开工具条,C1,已在STR,-,export const STR :: STR.dockExpand.zh
+src/client/i18n.ts,158,30,展开左侧工作区,C1,已在STR,-,export const STR :: STR.workspaceLeftExpand.zh
+src/client/i18n.ts,159,32,折叠左侧工作区,C1,已在STR,-,export const STR :: STR.workspaceLeftCollapse.zh
+src/client/i18n.ts,160,26,选择会话,C1,已在STR,-,export const STR :: STR.workspacePicker.zh
+src/client/i18n.ts,161,23,搜索：标题 + 工作区名…,C1,已在STR,-,export const STR :: STR.pickerSearch.zh
+src/client/i18n.ts,162,24,加载中…,C1,已在STR,-,export const STR :: STR.pickerLoading.zh
+src/client/i18n.ts,163,23,取消等待,C1,已在STR,-,export const STR :: STR.pickerCancel.zh
+src/client/i18n.ts,164,22,整面重试,C1,已在STR,-,export const STR :: STR.pickerRetry.zh
+src/client/i18n.ts,165,22,真无会话：当前没有任何可用会话,C1,已在STR,-,export const STR :: STR.pickerEmpty.zh
+src/client/i18n.ts,166,28,搜无结果：换个关键词（不回退全量）,C1,已在STR,-,export const STR :: STR.pickerEmptySearch.zh
+src/client/i18n.ts,167,26,探测缺席：宿主机会面不可用，原地重试,C1,已在STR,-,export const STR :: STR.pickerProbeFail.zh
+src/client/i18n.ts,168,27,切换失败：留屏，可原地重试,C1,已在STR,-,export const STR :: STR.pickerSwitchFail.zh
+src/client/i18n.ts,169,32,切换失败,C1,已在STR,-,export const STR :: STR.pickerSwitchFailBadge.zh
+src/client/i18n.ts,170,26,正在切换,C1,已在STR,-,export const STR :: STR.pickerSwitching.zh
+src/client/i18n.ts,171,24,当前,C1,已在STR,-,export const STR :: STR.pickerCurrent.zh
+src/client/i18n.ts,172,22,空白,C1,已在STR,-,export const STR :: STR.pickerBlank.zh
+src/client/i18n.ts,173,25,（空白会话）,C1,已在STR,-,export const STR :: STR.pickerUntitled.zh
+src/client/i18n.ts,174,26,未归属,C1,已在STR,-,export const STR :: STR.pickerUngrouped.zh
+src/client/i18n.ts,175,32,散,C1,已在STR,-,export const STR :: STR.pickerUnassignedShort.zh
+src/client/i18n.ts,176,27,工作区,C1,已在STR,-,export const STR :: STR.pickerWorkspaces.zh
+src/client/i18n.ts,177,25,会话,C1,已在STR,-,export const STR :: STR.pickerSessions.zh
+src/client/i18n.ts,178,21,上一页,C1,已在STR,-,export const STR :: STR.pickerPrev.zh
+src/client/i18n.ts,179,21,下一页,C1,已在STR,-,export const STR :: STR.pickerNext.zh
+src/client/i18n.ts,180,22,翻页与关闭,C1,已在STR,-,export const STR :: STR.pickerOpBar.zh
+src/client/i18n.ts,181,20,导出日志,C1,已在STR,-,export const STR :: STR.logExport.zh
+src/client/i18n.ts,182,22,复制路径,C1,已在STR,-,export const STR :: STR.logCopyPath.zh
+src/client/i18n.ts,183,19,清空日志,C1,已在STR,-,export const STR :: STR.logClear.zh
+src/client/i18n.ts,184,26,确认清空,C1,已在STR,-,export const STR :: STR.logClearConfirm.zh
+src/client/i18n.ts,185,22,再点一次「确认清空」会删掉全部日志文件（正在排查的证据也会一起删掉）。,C1,已在STR,-,export const STR :: STR.logClearAsk.zh
+src/client/i18n.ts,186,22,日志已开启（信息与调试也会记录）。,C1,已在STR,-,export const STR :: STR.logSwitchOn.zh
+src/client/i18n.ts,187,23,日志已关闭：错误与告警仍会记录。,C1,已在STR,-,export const STR :: STR.logSwitchOff.zh
+src/client/i18n.ts,188,24,开关未保存，仍按原值：,C1,已在STR,-,export const STR :: STR.logSwitchFail.zh
+src/client/i18n.ts,189,25,已导出到下载目录：,C1,已在STR,-,export const STR :: STR.logExportSaved.zh
+src/client/i18n.ts,190,35,浏览器拦下了下载，请改用「复制正文」：,C1,已在STR,-,export const STR :: STR.logExportDownloadBlocked.zh
+src/client/i18n.ts,191,25,当天还没有日志文件（开关关闭时只有错误与告警会落盘）。,C1,已在STR,-,export const STR :: STR.logExportEmpty.zh
+src/client/i18n.ts,192,24,导出失败：,C1,已在STR,-,export const STR :: STR.logExportFail.zh
+src/client/i18n.ts,193,24,已复制日志文件路径：,C1,已在STR,-,export const STR :: STR.logPathCopied.zh
+src/client/i18n.ts,194,22,拿不到日志路径，请改用「导出日志」。,C1,已在STR,-,export const STR :: STR.logPathFail.zh
+src/client/i18n.ts,195,21,已删除日志文件,C1,已在STR,-,export const STR :: STR.logClearOk.zh
+src/client/i18n.ts,196,23,清空失败，请稍后再试。,C1,已在STR,-,export const STR :: STR.logClearFail.zh
+src/client/i18n.ts,197,21,处理中…,C1,已在STR,-,export const STR :: STR.logWorking.zh
+src/client/i18n.ts,198,21,日志管道已丢弃条数：,C1,已在STR,-,export const STR :: STR.logDropped.zh
+src/client/i18n.ts,199,25,日志能力当前不可用（宿主未接通）。,C1,已在STR,-,export const STR :: STR.logUnavailable.zh
+src/client/i18n.ts,200,19,字节,C1,已在STR,-,export const STR :: STR.logBytes.zh
+src/client/i18n.ts,202,21,（{v}）,C1,已在STR,-,export const STR :: STR.bytesParen.zh
+src/client/i18n.ts,203,19,个文件,C1,已在STR,-,export const STR :: STR.logFiles.zh
+src/client/i18n.ts,204,24,宿主不可达,C1,已在STR,-,export const STR :: STR.logReasonHost.zh
+src/client/i18n.ts,205,28,宿主拒绝写入,C1,已在STR,-,export const STR :: STR.logReasonRejected.zh
+src/client/i18n.ts,206,27,宿主超时未应答,C1,已在STR,-,export const STR :: STR.logReasonTimeout.zh
+src/client/i18n.ts,207,25,已有更新的开关操作，本次作废,C1,已在STR,-,export const STR :: STR.logReasonStale.zh
+src/client/i18n.ts,208,25,未知原因,C1,已在STR,-,export const STR :: STR.logReasonOther.zh
+src/client/i18n.ts,210,25,遥控输入（实时镜子）,C1,已在STR,-,export const STR :: STR.remoteInputKey.zh
+src/client/i18n.ts,211,27,✎ 遥控输入,C1,已在STR,-,export const STR :: STR.remoteInputTitle.zh
+src/client/i18n.ts,212,25,实时镜子 · 自动同步当前会话草稿,C1,已在STR,-,export const STR :: STR.remoteInputSub.zh
+src/client/i18n.ts,213,24,在此输入…自动同步到当前会话输入框（去抖串行 setDraft）,C1,已在STR,-,export const STR :: STR.remoteInputPh.zh
+src/client/i18n.ts,214,26,➤ 发送（禁用）,C1,已在STR,-,export const STR :: STR.remoteInputSend.zh
+src/client/i18n.ts,215,31,宿主未给提交面,C1,已在STR,-,export const STR :: STR.remoteInputSendTitle.zh
+src/client/i18n.ts,216,34,草稿已同步，去大屏那头发起发送,C1,已在STR,-,export const STR :: STR.remoteInputExplicitMain.zh
+src/client/i18n.ts,217,33,宿主未提供提交面，此键恒禁用、绝不伪造回车。,C1,已在STR,-,export const STR :: STR.remoteInputExplicitSub.zh
+src/client/i18n.ts,218,27,会话已切换，本框已停写（防串写），请重开。,C1,已在STR,-,export const STR :: STR.remoteInputStale.zh
+src/client/i18n.ts,219,26,实时镜子 · 去抖300ms串行 · session校验 · 组词中延迟,C1,已在STR,-,export const STR :: STR.remoteInputMeta.zh
+src/client/i18n.ts,220,27,{n}字,C1,已在STR,-,export const STR :: STR.remoteInputChars.zh
+src/client/i18n.ts,221,25,模型切换（休眠中）,C1,已在STR,-,export const STR :: STR.remoteModelKey.zh
+src/client/i18n.ts,222,27,▤ 模型切换,C1,已在STR,-,export const STR :: STR.remoteModelTitle.zh
+src/client/i18n.ts,223,27,宿主暂无模型面（首次出现会提示一次）,C1,已在STR,-,export const STR :: STR.remoteModelEmpty.zh
+src/client/keys.ts,55,3,全部,C2,不动(身份别名),-,export const SCOPE_ALIASES :: SCOPE_ALIASES.全部
+src/client/keys.ts,57,3,预置,C2,不动(身份别名),-,export const SCOPE_ALIASES :: SCOPE_ALIASES.预置
+src/client/keys.ts,58,3,预制,C2,不动(身份别名),-,export const SCOPE_ALIASES :: SCOPE_ALIASES.预制
+src/client/keys.ts,60,3,自定义,C2,不动(身份别名),-,export const SCOPE_ALIASES :: SCOPE_ALIASES.自定义
+src/client/keys.ts,158,64,思考框架,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[1]
+src/client/keys.ts,158,72,学习,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[2]
+src/client/keys.ts,158,78,工程,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[3]
+src/client/keys.ts,158,84,执行,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[4]
+src/client/keys.ts,158,90,执行前,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[5]
+src/client/keys.ts,158,97,执行中,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[6]
+src/client/keys.ts,158,104,执行后,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[7]
+src/client/keys.ts,158,111,自定义,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[8]
+src/client/keys.ts,182,3,思考框架,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.思考框架
+src/client/keys.ts,182,23,学习,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.学习
+src/client/keys.ts,182,41,工程,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.工程
+src/client/keys.ts,182,62,执行,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.执行
+src/client/keys.ts,184,3,执行前,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.执行前
+src/client/keys.ts,184,20,执行中,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.执行中
+src/client/keys.ts,184,37,执行后,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.执行后
+src/client/keys.ts,186,3,拆解,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.拆解
+src/client/keys.ts,186,22,检验,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.检验
+src/client/keys.ts,186,38,归因,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.归因
+src/client/keys.ts,186,59,决策,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.决策
+src/client/keys.ts,186,75,理解,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.理解
+src/client/keys.ts,187,3,路线,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.路线
+src/client/keys.ts,187,20,概念,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.概念
+src/client/keys.ts,187,38,考验,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.考验
+src/client/keys.ts,187,52,审查,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.审查
+src/client/keys.ts,187,68,测试,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.测试
+src/client/keys.ts,188,3,重构,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.重构
+src/client/keys.ts,188,21,解读,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.解读
+src/client/keys.ts,188,38,启动,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.启动
+src/client/keys.ts,188,55,固化,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.固化
+src/client/keys.ts,188,71,记录,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.记录
+src/client/keys.ts,188,84,复盘,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.复盘
 src/client/match.ts,112,26,：,C4,不动(内部匹配字符),-,export function firstFieldCaret :: firstFieldCaret
-src/client/panel.ts,75,31,思考框架,C2,不动(身份值),-,CLOUD_EXCLUDE[1]
-src/client/panel.ts,75,39,学习,C2,不动(身份值),-,CLOUD_EXCLUDE[2]
-src/client/panel.ts,75,45,工程,C2,不动(身份值),-,CLOUD_EXCLUDE[3]
-src/client/panel.ts,75,51,执行,C2,不动(身份值),-,CLOUD_EXCLUDE[4]
-src/client/panel.ts,75,57,执行前,C2,不动(身份值),-,CLOUD_EXCLUDE[5]
-src/client/panel.ts,75,64,执行中,C2,不动(身份值),-,CLOUD_EXCLUDE[6]
-src/client/panel.ts,75,71,执行后,C2,不动(身份值),-,CLOUD_EXCLUDE[7]
-src/client/panel.ts,75,78,自定义,C2,不动(身份值),-,CLOUD_EXCLUDE[8]
-src/client/panel.ts,83,28,预置,C1,迁STR(P1),141,SCOPE_PRESET_LABEL
-src/client/panel.ts,84,28,自定义,C1,迁STR(P1),141,SCOPE_CUSTOM_LABEL
-src/client/panel.ts,85,19,全部,C1,迁STR(P1),141,ALL_LABEL
-src/client/panel.ts,711,113,「,C1,迁STR(P2标点),141,ConfirmDelete
-src/client/panel.ts,711,136,」,C1,迁STR(P2标点),141,ConfirmDelete
-src/client/panel.ts,1459,14,＋ ,C1,迁STR(P2符号),141,export function TemplateBrowser :: TemplateBrowser
-src/client/panel.ts,1481,20,上一页,C1,迁STR(P1),141,export function TemplateBrowser :: title :: TemplateBrowser
-src/client/panel.ts,1482,27,上一页,C1,迁STR(P1),141,export function TemplateBrowser :: aria-label :: TemplateBrowser
-src/client/panel.ts,1495,20,下一页,C1,迁STR(P1),141,export function TemplateBrowser :: title :: TemplateBrowser
-src/client/panel.ts,1496,27,下一页,C1,迁STR(P1),141,export function TemplateBrowser :: aria-label :: TemplateBrowser
-src/client/panel.ts,1551,24,已使用 ,C1,迁STR(P1),141,export function TemplateBrowser :: <anon>()
-src/client/panel.ts,1551,42, 次,C1,迁STR(P1),141,export function TemplateBrowser :: <anon>()
-src/client/panel.ts,1592,150, · 点击展开/收起简介,C1,迁STR(P1),141,export function TemplateBrowser :: <anon>()
-src/client/panel.ts,1634,104,＋,C1,迁STR(P2符号),141,export function TemplateBrowser :: TemplateBrowser
-src/client/panel.ts,1674,10,＋ ,C1,迁STR(P2符号),141,export function TemplateBrowser :: TemplateBrowser
-src/client/remoteInputSheet.ts,217,138,字,C1,迁STR(P2),141,export function RemoteInputSheet :: RemoteInputSheet
-src/client/remoteView.ts,310,3,思考框架,C2,不动(身份值),-,REMOTE_TAG_EXCLUDE_LIST[1]
-src/client/remoteView.ts,311,3,学习,C2,不动(身份值),-,REMOTE_TAG_EXCLUDE_LIST[2]
-src/client/remoteView.ts,312,3,工程,C2,不动(身份值),-,REMOTE_TAG_EXCLUDE_LIST[3]
-src/client/remoteView.ts,313,3,执行,C2,不动(身份值),-,REMOTE_TAG_EXCLUDE_LIST[4]
-src/client/remoteView.ts,314,3,执行前,C2,不动(身份值),-,REMOTE_TAG_EXCLUDE_LIST[5]
-src/client/remoteView.ts,315,3,执行中,C2,不动(身份值),-,REMOTE_TAG_EXCLUDE_LIST[6]
-src/client/remoteView.ts,316,3,执行后,C2,不动(身份值),-,REMOTE_TAG_EXCLUDE_LIST[7]
-src/client/remoteView.ts,317,3,自定义,C2,不动(身份值),-,REMOTE_TAG_EXCLUDE_LIST[8]
-src/client/remoteView.ts,339,11,全部,C2,不动(身份哨兵),141,export function remoteTagOptions :: [0] :: remoteTagOptions
-src/client/settings.ts,302,22,（,C1,迁STR(P2标点),141,export function SettingsPage :: onExport()
-src/client/settings.ts,302,79,）,C1,迁STR(P2标点),141,export function SettingsPage :: onExport()
-src/client/settings.ts,550,26,档·,C1,迁STR(P1),141,export function SettingsPage :: SettingsPage
-src/client/smart.ts,368,58,·常用,C1,迁STR(P1),141,export function SmartCardHost :: <anon>()
-src/client/smart.ts,368,66,·分,C1,迁STR(P1),141,export function SmartCardHost :: <anon>()
-src/client/smart.ts,382,64,输入框DOM,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/smart.ts,382,106,输入桥,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/smart.ts,382,114,读不到,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/smart.ts,386,9,诊断(临时) 草稿=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/smart.ts,386,69, 来源=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/smart.ts,386,93, 自定义=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/smart.ts,386,117,条 候选=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/store.ts,32,31,任意,C2,不动(身份值),-,export const LABEL_RESERVED :: LABEL_RESERVED
-src/client/store.ts,34,31,自定义,C2,不动(身份值),-,export const LABEL_FALLBACK :: LABEL_FALLBACK
-src/client/store.ts,434,31,（副本）,C2,不动(写入用户数据),141,export function copyPresetToCustom :: copyPresetToCustom
+src/client/smart.ts,395,64,输入框DOM,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart.ts,395,106,输入桥,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart.ts,395,114,读不到,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart.ts,399,9,诊断(临时) 草稿=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart.ts,399,69, 来源=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart.ts,399,93, 自定义=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart.ts,399,117,条 候选=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/store.ts,36,31,自定义,C2,不动(身份值),-,export const LABEL_FALLBACK :: LABEL_FALLBACK
+src/client/store.ts,439,54,（副本）,C2,不动(写入用户数据),141,export function copyPresetToCustom :: copyPresetToCustom
 src/client/templates.ts,9,22,思考框架,C3,不动(内容资产),-,-
 src/client/templates.ts,9,31,学习,C3,不动(内容资产),-,-
 src/client/templates.ts,9,38,工程,C3,不动(内容资产),-,-

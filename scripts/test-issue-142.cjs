@@ -2,7 +2,8 @@
 // 规格：ticket 142 + 地图 134 Out of scope（用户词/预置正文永不翻译）+ research/small-list-pills/findings.md。
 // 口径（seam 级，不断实现细节）：
 //  A) STR.labelFallback { zh:'自定义', en:'Custom' }（en 与 tabCustom 同字不同键，钩子分开定位；141 presetCount/scopePreset 先例）
-//  B) keys.displayLabelString(t, lang)：templateLabels 里全等 LABEL_FALLBACK 的段换成 tr(lang, STR.labelFallback)，其余段原文（大小写不动）
+//  B) keys.displayLabelString(t, lang)：templateLabels 里全等 LABEL_FALLBACK 的段换成 tr(lang, STR.labelFallback)；
+//     #145 起**预制词段也跟语言**（拆解→Decompose），**用户词段仍原文**（大小写不动）——本套件按新契约断言。
 //  C) 只读展示位切换（逻辑位不动）：panel compact 行标签串 / 设置页 tagStyle 胶囊 / title 三处 / smart tagText 标签段 / trigger /prompt 描述
 //  D) 回落 chip 钩子 data-dsh-prompt-chrome="labelFallback"（打在 chip/span 上；混合串数据段由门禁 dataWords 剔除覆盖，不拆节点）
 //  E) 取值/逻辑位不动：matchLabel / isExcludedLabel / validateLabels / templateLabels 本体 / 评分排序过滤 / 落盘 / 选择器可选词 / 云行动词
@@ -100,16 +101,16 @@ installFetch(remoteMod);
   if (typeof keys.displayLabelString === 'function') {
     eq(keys.displayLabelString(emptyT, 'zh'), '自定义', 'zh 回落显示=自定义');
     eq(keys.displayLabelString(emptyT, 'en'), 'Custom', 'en 回落显示=Custom');
-    // 其余段原文、大小写不动
+    // 其余段：预制词跟语言（#145），用户词原文（大小写不动）
     const mixed = { id: 'y', name: '混', body: 'b', builtin: false, labels: ['拆解', '自定义', 'MyWord'], createdAt: 1 };
-    eq(keys.displayLabelString(mixed, 'en'), '拆解/Custom/MyWord', 'en 混合串只换回落段、其余原文保大小写');
+    eq(keys.displayLabelString(mixed, 'en'), 'Decompose/Custom/MyWord', 'en 混合串：回落段与预制词跟语言、用户词保大小写原文');
     eq(keys.displayLabelString(mixed, 'zh'), '拆解/自定义/MyWord', 'zh 混合串原文');
-    eq(keys.displayLabelString(mixed, 'en', '|'), '拆解|Custom|MyWord', 'sep 参数透传');
+    eq(keys.displayLabelString(mixed, 'en', '|'), 'Decompose|Custom|MyWord', 'sep 参数透传');
     // 用户自造大小写词不动
     const cw = { id: 'z', name: 'c', body: 'b', builtin: false, labels: ['custom'], createdAt: 1 };
     eq(keys.displayLabelString(cw, 'en'), 'custom', '小写 custom 不是全等回落、不映射（保大小写）');
     if (typeof keys.displayLabels === 'function') {
-      eq(JSON.stringify(keys.displayLabels(mixed, 'en')), '["拆解","Custom","MyWord"]', 'displayLabels 数组形态一致');
+      eq(JSON.stringify(keys.displayLabels(mixed, 'en')), '["Decompose","Custom","MyWord"]', 'displayLabels 数组形态一致（预制词跟语言、用户词原文）');
     }
   } else {
     fail('displayLabelString 缺失，跳过映射断言');
@@ -244,7 +245,7 @@ function findFallbackHooks(inst) {
     eq(JSON.stringify(v.labels), '["自定义"]', 'validateLabels 空回落仍是自定义');
     // 混合模板的存储比较：原值逐字
     eq(store.matchLabel(store.getTemplate(cMixed.id), '拆解'), true, '混合模板 match 原值');
-    eq(keys.displayLabelString(store.getTemplate(cMixed.id), 'en'), '拆解/Custom', '混合显示 en=拆解/Custom（edge 注明）');
+    eq(keys.displayLabelString(store.getTemplate(cMixed.id), 'en'), 'Decompose/Custom', '混合显示 en=Decompose/Custom（#145 起预制词也跟语言）');
   }
 
   // ═══ F) copySuffix：新建那一刻按当前语言取一次，已存永不改写 ═══

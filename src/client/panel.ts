@@ -34,7 +34,7 @@ import { tr, STR, type Lang } from './i18n'
 import {
   SCOPE_ALL, SCOPE_PRESET, SCOPE_CUSTOM, isExcludedLabel,
   scopeSelection, selectionActive, toggleScope, toggleWord, wordActive, isNoFilter, type Selection,
-  displayLabelString,
+  displayLabelString, displayWord,
 } from './keys'
 import { resolveLocale, subscribeLocale } from './locale'
 import { setSmartInput } from './smartstore'
@@ -570,6 +570,9 @@ function TemplateModal(props: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
+  // #145：弹窗里的标签候选与标签选择格要按 UI 语言出显示形（预制词英译、用户词原样、写入身份仍是原文）。
+  // 按次 resolveLocale() 取 live 语言（与 trigger.ts 同口径：语言切换由调用方重渲染带入，本组件不另挂订阅）。
+  const lang = resolveLocale()
   // 新增弹窗跟大小（仅远程开时；父级重渲染即刷新，无需订阅）。
   const uiScale = remoteSizeScale(getRemotePrefs().enabled ? getRemotePrefs().size : 1)
   const cardStyleScaled: any = { ...modalCardStyle, fontSize: 'calc(1em * ' + uiScale + ')' }
@@ -641,7 +644,7 @@ function TemplateModal(props: any): any {
         onKeyDown: (e: any) => { if (e.key === 'Enter') { e.preventDefault(); commitInput() } },
         list: labelGridOn ? undefined : 'dsh-prompt-labels',
       }),
-      labelGridOn ? null : h('datalist', { id: 'dsh-prompt-labels' }, known.map((w: string) => h('option', { key: w, value: w }))),
+      labelGridOn ? null : h('datalist', { id: 'dsh-prompt-labels' }, known.map((w: string) => h('option', { key: w, value: w, label: displayWord(w, lang) }))),
       // 悬浮式标签网格触发键：常态只占一行，点后浮出 overlay 网格多选（×/点外/完成关闭）。
       labelGridOn ? h('button', {
         key: 'label-picker', type: 'button',
@@ -687,9 +690,10 @@ function TemplateModal(props: any): any {
               const on = labels.indexOf(w) >= 0
               return h('button', {
                 key: w, type: 'button', style: labelCellStyle(on),
-                'data-dsh-prompt-label-cell': '1', 'aria-pressed': on ? 'true' : 'false', title: w,
+                // #145：格子显示预制词英译（用户词原样），点选写入的身份仍是原文 w —— 显示位与身份位分离。
+                'data-dsh-prompt-label-cell': '1', 'aria-pressed': on ? 'true' : 'false', title: displayWord(w, lang),
                 onClick: () => toggleGridLabel(w),
-              }, w)
+              }, displayWord(w, lang))
             })),
           ]),
         ]),
@@ -1554,7 +1558,9 @@ export function TemplateBrowser(props: BrowserProps): any {
       onClick: () => { selectedState[1](toggleScope(selected, SCOPE_CUSTOM)); refresh() },
     }, t('tabCustom')),
     ...actionCloudLabels().map((c) =>
-      h('button', { key: c, style: cloudBtn(wordActive(selected, c)), onClick: () => { selectedState[1](toggleWord(selected, c)); refresh() } }, c),
+      // #145：云行动词显示预制词英译（en 下 Decompose/Verify/…），**身份仍是原文 c** —— 点选即 matchLabel(c)，
+      // 过滤语义与 zh 逐字不动；用户词不在词表内，原样显示。
+      h('button', { key: c, style: cloudBtn(wordActive(selected, c)), onClick: () => { selectedState[1](toggleWord(selected, c)); refresh() } }, displayWord(c, lang)),
     ),
   ])
   const rows = sorted.map((x) => {

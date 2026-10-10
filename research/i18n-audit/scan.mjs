@@ -142,6 +142,9 @@ const RULES = [
   // —— 内容资产（本图 Out of scope） ——
   { file: 'src/client/templates.ts', cls: 'C3', action: '不动(内容资产)', consumer: '-' },
   { file: 'src/client/words.ts', cls: 'C3', action: '不动(内容资产)', consumer: '-' },
+  // #145：预制词英译表的**键**就是预制标签词（内容资产原文；身份与过滤继续用中文原文，只有显示位走英译）。
+  // 归类按内容资产记，动作注明"显示映射"——免得后人以为这些词也被搬进了铬字典。
+  { file: 'src/client/keys.ts', path: 'PRESET_WORD_EN', cls: 'C3', action: '显示映射(en 词表)', consumer: '145' },
 
   // —— 身份 / 存储值（C2：身份与显示分离，用户数据永不改写） ——
   // #141 收口：去留表与范围别名单点移到 keys.ts（panel 的 CLOUD_EXCLUDE、remoteView 的重复表与

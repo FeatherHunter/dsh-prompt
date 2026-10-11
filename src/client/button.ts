@@ -15,6 +15,7 @@ import {
   readWorkspaceLeftExpanded, toggleWorkspaceLeft,
 } from './workspace'
 import { WorkspacePicker } from './picker'
+import { ensureOwnedStyleTag, markOwnedStyleTag, selectorForMarker } from './styleOwnership'
 import { getSmartInput } from './smartstore'
 import { canShowRemoteModel } from './remoteInput'
 import { RemoteInputSheet } from './remoteInputSheet'
@@ -45,16 +46,46 @@ let narrowStyleReady = false
 
 /** 注入窄屏样式（幂等；任何失败都不影响按钮本身可用） */
 function ensureNarrowStyle(): void {
-  if (narrowStyleReady) return
   try {
     const doc: any = (globalThis as any).document
     if (!doc || !doc.head || typeof doc.createElement !== 'function') return
-    const sel = 'style[data-dsh-prompt-style="' + NARROW_STYLE_ID + '"]'
-    if (typeof doc.querySelector === 'function' && doc.querySelector(sel)) {
-      narrowStyleReady = true
-      return
+    const sel = selectorForMarker(NARROW_STYLE_ID)
+    const lookup = (): any => {
+      try {
+        return typeof doc.querySelector === 'function' ? doc.querySelector(sel) : null
+      } catch (e) {
+        return null
+      }
+    }
+    if (narrowStyleReady) {
+      // 闩命中边（#146 补丁 1c）：先校验 DOM 归属，外部删除后可恢复。
+      let cur: any = null
+      try {
+        cur = lookup()
+      } catch (e) {
+        return
+      }
+      if (cur) {
+        ensureOwnedStyleTag(cur)
+        return
+      }
+      narrowStyleReady = false
+    } else {
+      // 收养边（#146 补丁 1a）：命中无主旧 tag 先补归属再 return。
+      let existing: any = null
+      try {
+        existing = lookup()
+      } catch (e) {
+        existing = null
+      }
+      if (existing) {
+        ensureOwnedStyleTag(existing)
+        narrowStyleReady = true
+        return
+      }
     }
     const tag = doc.createElement('style')
+    markOwnedStyleTag(tag)
     tag.setAttribute('data-dsh-prompt-style', NARROW_STYLE_ID)
     tag.textContent = NARROW_CSS
     doc.head.appendChild(tag)
@@ -78,16 +109,46 @@ const REMOTE_FB_CSS = [
 ].join('\n')
 let remoteFbReady = false
 function ensureRemoteFeedbackStyle(): void {
-  if (remoteFbReady) return
   try {
     const doc: any = (globalThis as any).document
     if (!doc || !doc.head || typeof doc.createElement !== 'function') return
-    const sel = 'style[data-dsh-prompt-style="' + REMOTE_FB_STYLE_ID + '"]'
-    if (typeof doc.querySelector === 'function' && doc.querySelector(sel)) {
-      remoteFbReady = true
-      return
+    const sel = selectorForMarker(REMOTE_FB_STYLE_ID)
+    const lookup = (): any => {
+      try {
+        return typeof doc.querySelector === 'function' ? doc.querySelector(sel) : null
+      } catch (e) {
+        return null
+      }
+    }
+    if (remoteFbReady) {
+      // 闩命中边（#146 补丁 1c）：先校验 DOM 归属，外部删除后可恢复。
+      let cur: any = null
+      try {
+        cur = lookup()
+      } catch (e) {
+        return
+      }
+      if (cur) {
+        ensureOwnedStyleTag(cur)
+        return
+      }
+      remoteFbReady = false
+    } else {
+      // 收养边（#146 补丁 1a）：命中无主旧 tag 先补归属再 return。
+      let existing: any = null
+      try {
+        existing = lookup()
+      } catch (e) {
+        existing = null
+      }
+      if (existing) {
+        ensureOwnedStyleTag(existing)
+        remoteFbReady = true
+        return
+      }
     }
     const tag = doc.createElement('style')
+    markOwnedStyleTag(tag)
     tag.setAttribute('data-dsh-prompt-style', REMOTE_FB_STYLE_ID)
     tag.textContent = REMOTE_FB_CSS
     doc.head.appendChild(tag)
@@ -98,6 +159,11 @@ function ensureRemoteFeedbackStyle(): void {
 /** 仅供测试：重置注入缓存 */
 export function __resetNarrowStyle(): void {
   narrowStyleReady = false
+}
+
+/** 仅供测试：重置反馈样式缓存（#146 闩校验用；与 __resetNarrowStyle 同体例） */
+export function __resetRemoteFeedbackStyle(): void {
+  remoteFbReady = false
 }
 
 /**

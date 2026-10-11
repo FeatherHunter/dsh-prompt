@@ -34,6 +34,15 @@ try {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true },
   }).outputText;
   hostJs = hostJs.split('require("./remoteView")').join('require("./.rt-103-remoteView.cjs")');
+  // #146：hostfont 新增 ./styleOwnership 边，手抄 harness 同步补齐（只补解析，不断言行为）。
+  try {
+    const ownerSrc103 = fs.readFileSync(path.join(ROOT, 'src', 'client', 'styleOwnership.ts'), 'utf8');
+    const ownerJs103 = ts.transpileModule(ownerSrc103, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true },
+    }).outputText;
+    fs.writeFileSync(path.join(DIR, '.rt-103-styleOwnership.cjs'), ownerJs103);
+  } catch (e) { fail('styleOwnership 转译失败：' + ((e && e.message) || e)); }
+  hostJs = hostJs.split('require("./styleOwnership")').join('require("./.rt-103-styleOwnership.cjs")');
   fs.writeFileSync(path.join(DIR, '.rt-103-hostfont.cjs'), hostJs);
 } catch (e) { fail('hostfont 转译失败：' + ((e && e.message) || e)); }
 if (failures) process.exit(1);
@@ -161,6 +170,7 @@ try {
 // 清理转译残留
 try { fs.unlinkSync(path.join(DIR, '.rt-103-remoteView.cjs')); } catch (e) { /* ignore */ }
 try { fs.unlinkSync(path.join(DIR, '.rt-103-hostfont.cjs')); } catch (e) { /* ignore */ }
+try { fs.unlinkSync(path.join(DIR, '.rt-103-styleOwnership.cjs')); } catch (e) { /* ignore */ }
 try { fs.unlinkSync(path.join(DIR, '.rt-103-remote.cjs')); } catch (e) { /* ignore */ }
 
 if (failures) { console.error('FAILURES:', failures); process.exit(1); }

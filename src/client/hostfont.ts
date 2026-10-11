@@ -10,6 +10,7 @@
  * - 全程守卫 + try/catch fail-soft，不抛（单测无 DOM 时静默 no-op）。
  */
 import { hostContentFontPx, remoteSizeScale } from './remoteView'
+import { ensureOwnedStyleTag, markOwnedStyleTag, selectorForMarker } from './styleOwnership'
 
 const HOST_CONTENT_FONT_VAR = '--dsh-content-font-size'
 
@@ -97,7 +98,7 @@ export function syncRemoteRows(enabled: unknown, size: unknown): void {
     const g = globalThis as any
     const doc = g && g.document
     if (!doc || typeof doc.createElement !== 'function' || !doc.head) return
-    const sel = 'style[data-dsh-prompt-style="' + ROWS_STYLE_ID + '"]'
+    const sel = selectorForMarker(ROWS_STYLE_ID)
     const find = (): any => {
       try {
         return typeof doc.querySelector === 'function' ? doc.querySelector(sel) : null
@@ -131,6 +132,8 @@ export function syncRemoteRows(enabled: unknown, size: unknown): void {
     try {
       const prev = find()
       if (prev) {
+        // 更新边（#146 补丁 1b）：改 css 的同时补归属，无主旧 tag 就地转正。
+        ensureOwnedStyleTag(prev)
         try {
           prev.textContent = css
         } catch (e) { /* ignore */ }
@@ -140,6 +143,7 @@ export function syncRemoteRows(enabled: unknown, size: unknown): void {
     try {
       const tag = doc.createElement('style')
       if (!tag || typeof tag.setAttribute !== 'function') return
+      markOwnedStyleTag(tag)
       tag.setAttribute('data-dsh-prompt-style', ROWS_STYLE_ID)
       try {
         tag.textContent = css
@@ -165,7 +169,7 @@ export function syncAssistantZoom(enabled: unknown, size: unknown): void {
     const g = globalThis as any
     const doc = g && g.document
     if (!doc || typeof doc.createElement !== 'function' || !doc.head) return
-    const sel = 'style[data-dsh-prompt-style="' + ASSISTANT_STYLE_ID + '"]'
+    const sel = selectorForMarker(ASSISTANT_STYLE_ID)
     const find = (): any => {
       try {
         return typeof doc.querySelector === 'function' ? doc.querySelector(sel) : null
@@ -199,6 +203,8 @@ export function syncAssistantZoom(enabled: unknown, size: unknown): void {
     try {
       const prev = find()
       if (prev) {
+        // 更新边（#146 补丁 1b）：改 css 的同时补归属，无主旧 tag 就地转正。
+        ensureOwnedStyleTag(prev)
         try {
           prev.textContent = css
         } catch (e) { /* ignore */ }
@@ -208,6 +214,7 @@ export function syncAssistantZoom(enabled: unknown, size: unknown): void {
     try {
       const tag = doc.createElement('style')
       if (!tag || typeof tag.setAttribute !== 'function') return
+      markOwnedStyleTag(tag)
       tag.setAttribute('data-dsh-prompt-style', ASSISTANT_STYLE_ID)
       try {
         tag.textContent = css

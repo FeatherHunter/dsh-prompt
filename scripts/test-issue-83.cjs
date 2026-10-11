@@ -140,6 +140,15 @@ ok('宿主内容字纯函数（1档14/10档77/非法14）');
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true },
   }).outputText;
   hostJs = hostJs.split('require("./remoteView")').join('require("./remoteView.cjs")');
+  // #146：hostfont 新增 ./styleOwnership 边（单常量归属），手抄转译 harness 需同步补齐（行为不断言，只补模块解析）。
+  try {
+    const ownerSrc83 = fs.readFileSync(path.join(ROOT, 'src', 'client', 'styleOwnership.ts'), 'utf8');
+    const ownerJs83 = ts.transpileModule(ownerSrc83, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true },
+    }).outputText;
+    fs.writeFileSync(path.join(DIR, 'styleOwnership.cjs'), ownerJs83);
+  } catch (e) { fail('styleOwnership 转译失败：' + ((e && e.message) || e)); }
+  hostJs = hostJs.split('require("./styleOwnership")').join('require("./styleOwnership.cjs")');
   fs.writeFileSync(path.join(DIR, 'hostfont.cjs'), hostJs);
   const hostfont = require(path.join(DIR, 'hostfont.cjs'));
   if (typeof hostfont.syncHostFont !== 'function') fail('hostfont.ts 缺 syncHostFont（#92）');

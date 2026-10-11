@@ -13,6 +13,7 @@
 import { getReact, keepComposerFocus, MODAL_Z } from './panel'
 import { remoteSizeScale } from './remoteView'
 import { pageCount, clampPage, pageOf, perPageFromMeasure, PAGER_DEFAULT_PER_PAGE } from './pager'
+import { ensureOwnedStyleTag, markOwnedStyleTag, selectorForMarker } from './styleOwnership'
 import { tr, STR } from './i18n'
 import { resolveLocale, subscribeLocale } from './locale'
 import {
@@ -40,21 +41,56 @@ const PICKER_ANIM_CSS = [
 ].join('\n')
 let pickerAnimReady = false
 function ensurePickerAnimStyle(): void {
-  if (pickerAnimReady) return
   try {
     const doc: any = (globalThis as any).document
     if (!doc || !doc.head || typeof doc.createElement !== 'function') return
-    const sel = 'style[data-dsh-prompt-style="' + PICKER_ANIM_STYLE_ID + '"]'
-    if (typeof doc.querySelector === 'function' && doc.querySelector(sel)) {
-      pickerAnimReady = true
-      return
+    const sel = selectorForMarker(PICKER_ANIM_STYLE_ID)
+    const lookup = (): any => {
+      try {
+        return typeof doc.querySelector === 'function' ? doc.querySelector(sel) : null
+      } catch (e) {
+        return null
+      }
+    }
+    if (pickerAnimReady) {
+      // 闩命中边（#146 补丁 1c）：先校验 DOM 归属，外部删除后可恢复；查不到则落到重建。
+      let cur: any = null
+      try {
+        cur = lookup()
+      } catch (e) {
+        return
+      }
+      if (cur) {
+        ensureOwnedStyleTag(cur)
+        return
+      }
+      pickerAnimReady = false
+    } else {
+      // 收养边（#146 补丁 1a）：命中无主旧 tag 先补归属再 return。
+      let existing: any = null
+      try {
+        existing = lookup()
+      } catch (e) {
+        existing = null
+      }
+      if (existing) {
+        ensureOwnedStyleTag(existing)
+        pickerAnimReady = true
+        return
+      }
     }
     const tag = doc.createElement('style')
+    markOwnedStyleTag(tag)
     tag.setAttribute('data-dsh-prompt-style', PICKER_ANIM_STYLE_ID)
     tag.textContent = PICKER_ANIM_CSS
     doc.head.appendChild(tag)
     pickerAnimReady = true
   } catch (e) { /* ignore */ }
+}
+
+/** 仅供测试：重置动画样式缓存（#146 闩校验用；与 button.ts 同体例） */
+export function __resetPickerAnimStyle(): void {
+  pickerAnimReady = false
 }
 
 export interface PickerProps {

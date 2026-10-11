@@ -2,6 +2,11 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
+## [0.4.13] - 2026-10-11
+
+### Changed
+- 跟进 `dsh-plugin-update` 0.10.0 → 0.12.0（构建期自动跟最新 #98：`ensure:update-pkg` 装 latest 后重建 `lib/update.js`，banner `INLINED_UPDATE_PKG_VERSION` 0.12.0；`lib/client.js` 同步重建；单插件 http 接线不变）：上游 0.11.0 通道错码独立化（`channel-mismatch` 阻塞码与中英双语文案、手工命令无安全可选项回空、预发布已装版不再误报 `unknown-profile`、档案卷横幅小印章行内化）＋ 上游 0.12.0 中文分类与档案卷日志原型 UI（版本 mono 粗体加日期灰小字、分类头改条目前缀、横幅副行出框、宿主样式隔离、按钮照原型收紧、有文零解析改走“读不出来”）；回归口径同步 0.12.0。
+
 ## [0.4.12] - 2026-10-10
 
 ### Added

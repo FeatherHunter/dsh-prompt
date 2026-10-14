@@ -1116,13 +1116,16 @@ export function TemplateBrowser(props: BrowserProps): any {
     color: on ? base : muted, cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em',
   })
   const searchStyle: any = { margin: '5px 8px 4px', padding: '5px 9px', borderRadius: 8, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: base, fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none' }
+  // #150 紧凑浮层：搜索框与动作同处一行 —— 它吃掉全部弹性宽度（唯一输入口，宽度优先级最高），外边距交给行容器。
+  // 实测（比例尺 1.743）：固定内容仅约 183px/544px，搜索框能拿到 ~361px；空间再紧也只压搜索框，不换行。
+  const searchStyleCompact: any = { ...searchStyle, margin: 0, flex: '1 1 auto', minWidth: 0 }
   // #149 紧凑浮层列表区：内容自适应 —— 不写死高度（旧的固定 360 只装得下约 10 行，就是需求里那个「上限」）。
   // 条目多：面板向上长，长到面板 maxHeight 上限后由这里内滚；条目少：面板缩矮，最常用的照样贴着底栏。
-  // 下限 5 行：兑现「鼠标移出即关」语义（一行高的浮层一碰就关）。行高≈图钉 20px@14px 基座 = 1.43em，
-  // +30px 是 5 行各自的上下内边距（itemStyle 的 padding 本就是 px，em 覆盖不到）。
-  const COMPACT_LIST_MIN_H = 'calc(7.15em + 30px)'
+  // #150：按用户口径去掉「下限 5 行」—— 高度**完全**由内容决定（1 条就 1 行高、空态就一行提示），
+  // 只剩两条约束：面板 maxHeight（上限）＋ 这里 overflow:auto（超出内滚）。minHeight:0 明写，
+  // 是给 flex 收缩留活口（滚动容器的自动最小尺寸本就是 0，写明免得日后被当成"漏了下限"补回来）。
   const listStyle: any = compact
-    ? { flex: '0 1 auto', minHeight: COMPACT_LIST_MIN_H, overflow: 'auto', padding: '2px 2px 4px', display: 'flex', flexDirection: 'column' }
+    ? { flex: '0 1 auto', minHeight: 0, overflow: 'auto', padding: '2px 2px 4px', display: 'flex', flexDirection: 'column' }
     : { padding: '2px 2px 8px' } // 设置页：自然高度，由宿主设置面板整页滚动
   const itemStyle: any = { display: 'flex', gap: 6, borderRadius: 8, cursor: 'pointer', alignItems: compact ? 'center' : 'flex-start', padding: compact ? '3px 6px' : '4px 2px', transition: 'background-color .12s ease' }
   // #88 行强调 token（沿用仓内既有语义，不新造色）：hover=交互 hover，pressed=交互 active 回退层 3（比 hover 深一档）。
@@ -1661,11 +1664,12 @@ export function TemplateBrowser(props: BrowserProps): any {
     ])
   })
   const listNode = rows.length > 0
-    ? h('div', { ref: compact ? listRef : null, style: listStyle }, rows)
-    // #149：紧凑浮层空态同守 5 行下限（面板不该因为「无匹配」缩成一条）；设置页维持原高度，一字不动。
+    ? h('div', { ref: compact ? listRef : null, 'data-dsh-prompt-list': compact ? '1' : undefined, style: listStyle }, rows)
+    // #150：紧凑浮层空态 = 一行提示的自然高度（#149 的 5 行下限已按用户口径删除）；设置页维持原高度，一字不动。
     : h('div', {
+      'data-dsh-prompt-list': compact ? '1' : undefined,
       style: {
-        ...(compact ? { minHeight: COMPACT_LIST_MIN_H } : { height: 360 }),
+        ...(compact ? {} : { height: 360 }),
         display: 'flex', alignItems: 'center', justifyContent: 'center', color: dim, fontSize: '0.92em', padding: '2px 2px 8px',
       },
     }, t('noMatch'))
@@ -1675,7 +1679,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   // #149 搜索框（两面共用同一节点）：紧凑浮层下沉到底栏 ② 位（tab 行之下、动作行之上），设置页仍在头行之下。
   // #34 IME 语义一字不动：聚焦/组词期抑制 hover 关窗（含取消已挂起的 150ms 计时，见 setHoverCloseSuppressed）。
   const searchNode = showList ? h('input', {
-    style: searchStyle, placeholder: t('searchPh'), value: q, onChange: (e: any) => qState[1](e.target.value),
+    style: compact ? searchStyleCompact : searchStyle, placeholder: t('searchPh'), value: q, onChange: (e: any) => qState[1](e.target.value),
     onFocus: () => { focusState[1](true); if (compact) setHoverCloseSuppressed(true) },
     onBlur: () => { focusState[1](false); if (compact && !composing && !modal) setHoverCloseSuppressed(false) },
     onCompositionStart: () => { compState[1](true); if (compact) setHoverCloseSuppressed(true) },
@@ -1686,27 +1690,35 @@ export function TemplateBrowser(props: BrowserProps): any {
     },
   }) : null
 
-  // #149 紧凑浮层底栏：① tab 行（cloudNodes 原样下沉）② 搜索 ③ 动作行 ——
-  // 左＝条数摘要 + ＋新增（开新增弹窗），右＝设置入口 + ×（关闭）。
-  // flex:none 垫底：面板高度怎么变，这三行都钉在底部不动，这就是「高度随便变、这些栏都不抖」的全部实现。
+  // #150 紧凑浮层底栏：① tab 行（cloudNodes 原样下沉）② **合并行** ——
+  // 左起：搜索框（弹性，唯一输入口）→ 当前视图条数 → ＋新增（开新增弹窗）→ 设置入口 → ×（关闭）。
+  // 合并的依据：行宽 544 里固定内容只有约 183px（搜索框能拿到 ~361px），本来就不需要两行；
+  // 同时删掉两处冗余 ——「预制 n · 自定义 m」与正上方 tab 标签重复（改为当前视图条数，完整分解放 title/aria），
+  // 「设置 →」只是导航前缀（全称进 title/aria，显示用短形）。flex:none 垫底：面板高度怎么变都不抖。
+  const countsText = t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount
   const barNode = h('div', {
     key: 'dsh-prompt-bar', 'data-dsh-prompt-bar': '1',
     style: { flex: 'none', display: 'flex', flexDirection: 'column', borderTop: line },
   }, [
     cloudNodes,
-    searchNode,
-    h('div', { key: 'bar-actions', style: { display: 'flex', alignItems: 'center', gap: 6, padding: '2px 8px 4px', flexWrap: 'nowrap' } }, [
-      h('span', { key: 'counts', style: { fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', flex: 'none' } },
-        t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
+    h('div', { key: 'bar-row', 'data-dsh-prompt-row': '1', style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px 4px', flexWrap: 'nowrap' } }, [
+      searchNode,
+      h('span', {
+        key: 'counts', 'data-dsh-prompt-counts': '1', title: countsText, 'aria-label': countsText,
+        style: { fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', flex: 'none' },
+      }, String(rows.length)),
       h('button', {
         key: 'add', 'data-dsh-prompt-chrome': 'plusGlyph', title: t('add'),
         // #116 跟进同款：padding/圆角 em 化 + nowrap 锁单行 + flex:none 不被压窄（与设置页折叠卡那枚同形）。
         style: { ...addBtn, width: 'auto', padding: '0 0.93em', borderRadius: '0.54em', fontSize: '0.92em', whiteSpace: 'nowrap', flex: 'none' },
         onClick: () => modalState[1]({ kind: 'add' }),
       }, t('plusGlyph') + ' ' + t('addShort')),
-      h('div', { key: 'spacer', style: { flex: 1, minWidth: 0 } }),
       h('button', {
-        key: 'go-settings', style: { ...footLink, whiteSpace: 'nowrap', textAlign: 'right' }, 'data-dsh-prompt-chrome': 'goSettings',
+        key: 'go-settings',
+        style: { ...footLink, whiteSpace: 'nowrap', textAlign: 'right', flex: 'none' }, 'data-dsh-prompt-chrome': 'goSettings',
+        // #150：显示用短形（模板管理），全称留在 title/aria —— 「设置 →」是导航前缀，不承载语义。
+        title: goHint ? t('goSettingsFail') : t('goSettings'),
+        'aria-label': goHint ? t('goSettingsFail') : t('goSettings'),
         // #149 B：宿主设置弹窗只能靠 DOM 兜底打开（异步），失败必须可见 ——
         // 跳成功才收面板；跳不动就在原位换成提示（4 秒后复原），不再"先关面板、然后什么都没发生"。
         onClick: () => {
@@ -1716,7 +1728,7 @@ export function TemplateBrowser(props: BrowserProps): any {
             try { setTimeout(() => goHintState[1](false), 4000) } catch (e) { /* ignore */ }
           })
         },
-      }, goHint ? t('goSettingsFail') : t('goSettings')),
+      }, goHint ? t('goSettingsFail') : t('goSettingsShort')),
       h('button', { key: 'close', style: { ...closeBtn, flex: 'none' }, title: t('close'), onClick: () => setPanelOpen(false) }, '×'),
     ]),
   ])

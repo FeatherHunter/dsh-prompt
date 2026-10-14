@@ -2,6 +2,19 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
+## [0.4.15] - 2026-10-14
+
+### Changed
+- 悬浮小列表底栏由三行并成两行（#150）：tab 行之下只剩**一行合并动作行** —— 搜索框（唯一输入口，吃弹性宽度「搜索 → 条数 → ＋新增 → 设置入口 → ×」）、条数改为**当前视图条数**（完整「预制 n · 自定义 m」退到 title / aria-label，不再与正上方 tab 标签重复）、「设置 → 模板管理」显示短形**模板管理**（全称留在 title / aria-label）。行宽 544px 里固定内容只有约 183px，本来就不需要两行；合并后搜索框仍有约 361px。
+- 列表高度**完全由内容决定**（#150）：删掉 0.4.14 引入的 5 行下限，1 条就 1 行高、10 条就 10 行高，不再强制占据固定高度；面板仍只封上限 `maxHeight = calc(100vh - 底边锚点 - 8px)`，溢出内滚，底栏 `flex: none` 贴底、高度怎么变都不抖。
+
+### Fixed
+- 修 `goSettings` 兜底扫描的自点自递归（#150 发现，自 0.4.14 引入设置入口起存在）：宿主触发器找不到时最后的 `querySelectorAll('button')` 兜底会把**本插件自己的设置入口**当成候选（它的 title / aria 就是含「设置 / Settings」的全称），点它又回到 `goSettings`，同步递归到栈溢出；现先按 `data-dsh-prompt-chrome` / `[data-dsh-prompt-bar]` 排除本插件铬再挑候选。
+- `test:issue-149` 断言随 #150 加严：合并行 5 项从左到右的顺序与 `nowrap`、搜索框弹性 / 可收缩 / 无外边距、条数为当前视图行数、列表无固定上下限、设置入口短形与全称分工（`goSettingsShort` 双语且必须比全称短）。
+
+### Added
+- i18n 词条 `goSettingsShort`（zh 模板管理 / en Templates）：底栏合并行显示用短形，全称仍走 `goSettings`。
+
 ## [0.4.14] - 2026-10-14
 
 ### Added

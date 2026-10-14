@@ -232,8 +232,16 @@ export function apply(ctx: ClientContext): void {
     try {
       if (typeof document === 'undefined') { finish(false); return }
       const label = tr(getLang(), STR.sectionName)
+      // #150：候选先排除本插件自己的铬。面板里那枚设置入口的 title/aria 就是全称（含「设置/Settings」），
+      // 不排掉它，「找不到宿主触发器」时最后的 allButtons().find(named) 会命中它自己 → 自点自 → 同步递归到栈溢出。
+      const isOwnChrome = (b: HTMLElement): boolean => {
+        try {
+          if (b.hasAttribute && b.hasAttribute('data-dsh-prompt-chrome')) return true
+          return !!(b.closest && b.closest('[data-dsh-prompt-bar]'))
+        } catch (e) { return false }
+      }
       const allButtons = (): HTMLElement[] => {
-        try { return Array.prototype.slice.call(document.querySelectorAll('button')) as HTMLElement[] } catch (e) { return [] }
+        try { return (Array.prototype.slice.call(document.querySelectorAll('button')) as HTMLElement[]).filter((b) => !isOwnChrome(b)) } catch (e) { return [] }
       }
       const clickCell = (): boolean => {
         try {
@@ -263,7 +271,7 @@ export function apply(ctx: ClientContext): void {
         return SETTINGS_TRIGGER_LABEL_RE.test(hay)
       }
       const dialogTriggers = (): HTMLElement[] => {
-        try { return Array.prototype.slice.call(document.querySelectorAll('button[aria-haspopup="dialog"]')) as HTMLElement[] } catch (e) { return [] }
+        try { return (Array.prototype.slice.call(document.querySelectorAll('button[aria-haspopup="dialog"]')) as HTMLElement[]).filter((b) => !isOwnChrome(b)) } catch (e) { return [] }
       }
       const trig = dialogTriggers().find(named)
         || dialogTriggers().find((b) => /trigger/i.test(String((b as any).className || '')))

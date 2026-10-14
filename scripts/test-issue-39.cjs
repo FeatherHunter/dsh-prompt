@@ -112,7 +112,7 @@ const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 
 
   /* ── 3) 电话名与配置三要素 ── */
   const { buildPhoneNames } = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'config.js')).href);
-  eq(buildPhoneNames('prompt'), { updateStatus: 'prompt.updateStatus', updateCheck: 'prompt.updateCheck', updateInstall: 'prompt.updateInstall', updateChangelog: 'prompt.updateChangelog' }, 'buildPhoneNames(prompt) 口径（0.4.0 四电话）');
+  eq(buildPhoneNames('prompt'), { updateStatus: 'prompt.updateStatus', updateCheck: 'prompt.updateCheck', updateInstall: 'prompt.updateInstall', updateChangelog: 'prompt.updateChangelog', logAppend: 'prompt.logAppend' }, 'buildPhoneNames(prompt) 口径（0.16.0 五电话：多一个日志电话 logAppend）');
   const hostSrc = readSrc('src/update/host/index.ts');
   if (quotedAfter(hostSrc, 'PHONE_PREFIX =', 'host') !== 'prompt') fail('宿主 PHONE_PREFIX 应为 prompt');
   if (quotedAfter(hostSrc, 'TARGET_PACKAGE_NAME =', 'host') !== 'dsh-prompt') fail('宿主 TARGET 应为 dsh-prompt');

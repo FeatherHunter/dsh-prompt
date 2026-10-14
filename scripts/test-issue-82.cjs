@@ -176,25 +176,29 @@ ok('设置页与 /prompt 管理面保持原样（trigger 未动远程）');
 // ── 3) 渲染器：设置页装配 + 配置键直达 ──
 // settings 的 about/update 依赖重（含 bridge/derived），此处用桩替换——本票只断远程段装配，不测头部链接与更新入口。
 const MODULES = [
+  ['remoteInput.cjs', path.join(ROOT, 'src', 'client', 'remoteInput.ts'), []],
+  ['remoteInputSheet.cjs', path.join(ROOT, 'src', 'client', 'remoteInputSheet.ts'), ['./panel', './remoteView', './i18n', './locale', './smartstore', './remoteInput']],
   ['templates.ts', path.join(ROOT, 'src', 'client', 'templates.ts'), []],
   ['store.ts', path.join(ROOT, 'src', 'client', 'store.ts'), ['./templates']],
   ['state.ts', path.join(ROOT, 'src', 'client', 'state.ts'), []],
   ['i18n.ts', path.join(ROOT, 'src', 'client', 'i18n.ts'), ['./locale']],
   ['locale.ts', path.join(ROOT, 'src', 'client', 'locale.ts'), []],
   ['smartstore.ts', path.join(ROOT, 'src', 'client', 'smartstore.ts'), []],
-  ['remote2.cjs', REMOTE_TS, []],
+  ['remote2.cjs', REMOTE_TS, ['./remoteInput']],
   ['remoteView.cjs', path.join(ROOT, 'src', 'client', 'remoteView.ts'), []],
   ['systemOrientation.cjs', path.join(ROOT, 'src', 'client', 'systemOrientation.ts'), []],
   ['workspace.cjs', path.join(ROOT, 'src', 'client', 'workspace.ts'), []],
   ['pager.cjs', path.join(ROOT, 'src', 'client', 'pager.ts'), []],
-  ['picker.cjs', path.join(ROOT, 'src', 'client', 'picker.ts'), ['./panel', './remoteView', './i18n', './workspace', './pager', './locale']],
+  ['styleOwnership.cjs', path.join(ROOT, 'src', 'client', 'styleOwnership.ts'), []], // #127 起按钮/取色器经 styleOwnership 取宿主样式归属（手抄表跟上）
+['picker.cjs', path.join(ROOT, 'src', 'client', 'picker.ts'), ['./panel', './remoteView', './i18n', './workspace', './pager', './locale', './styleOwnership']],
   ['keys.cjs', path.join(ROOT, 'src', 'client', 'keys.ts'), ['./store', './i18n']], // #142 起 keys 引 ./store(展示映射)+./i18n(词表)，手抄表跟上
   ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView', './locale', './keys']],
-  ['settings.cjs', path.join(ROOT, 'src', 'client', 'settings.ts'), ['./panel', './about', './update', './smartstore', './remote', './remoteView', './systemOrientation', './i18n', './locale']],
-  ['button.cjs', path.join(ROOT, 'src', 'client', 'button.ts'), ['./panel', './state', './settings', './remote', './remoteView', './i18n', './workspace', './picker', './smartstore', './locale']],
+  ['settings.cjs', path.join(ROOT, 'src', 'client', 'settings.ts'), ['./panel', './about', './update', './update-http', './smartstore', './remote', './remoteView', './systemOrientation', './i18n', './locale']],
+  ['button.cjs', path.join(ROOT, 'src', 'client', 'button.ts'), ['./panel', './state', './settings', './remote', './remoteView', './i18n', './workspace', './picker', './smartstore', './locale', './styleOwnership', './remoteInput', './remoteInputSheet']],
 ];
 fs.writeFileSync(path.join(DIR, 'about.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;');
 fs.writeFileSync(path.join(DIR, 'update.cjs'), 'module.exports.UpdateEntry=()=>null;');
+fs.writeFileSync(path.join(DIR, 'update-http.cjs'), 'module.exports.UpdateEntryButton=()=>null;module.exports.UpdatePanelEmbedded=()=>null;'); // update-http 桩：#127 起 settings 引 ./update-http
 for (const [outName, srcPath, deps] of MODULES) {
   let src = fs.readFileSync(srcPath, 'utf8');
   let js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true } }).outputText;

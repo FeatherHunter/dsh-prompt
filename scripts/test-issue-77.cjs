@@ -27,13 +27,7 @@ buildFlat(DIR, [
   SRC('i18n.ts'),
   SRC('smartstore.ts'),
   SRC('panel.ts'),
-  SRC('about.ts'),
-  SRC('updauto.ts'),
-  SRC('upddialog.ts'),
-  SRC('update.ts'),
-  SRC('settings.ts'),
-  UPD('bridge.ts'),
-  UPD('gen/updateClient.derived.js'),
+  SRC('about.ts'),  SRC('settings.ts'),
 ], { suffix: '77' });
 const React = require('react');
 const TR = require('react-test-renderer');

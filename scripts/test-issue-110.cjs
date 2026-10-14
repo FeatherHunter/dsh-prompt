@@ -153,11 +153,12 @@ const MODULES = [
   ['picker.cjs', path.join(ROOT, 'src', 'client', 'picker.ts'), ['./panel', './remoteView', './i18n', './workspace', './locale']],
   ['keys.cjs', path.join(ROOT, 'src', 'client', 'keys.ts'), ['./store', './i18n']], // #142 起 keys 引 ./store(展示映射)+./i18n(词表)，手抄表跟上
   ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView', './locale', './keys']],
-  ['settings.cjs', path.join(ROOT, 'src', 'client', 'settings.ts'), ['./panel', './about', './update', './smartstore', './remote', './remoteView', './systemOrientation', './i18n', './locale']],
+  ['settings.cjs', path.join(ROOT, 'src', 'client', 'settings.ts'), ['./panel', './about', './update', './update-http', './smartstore', './remote', './remoteView', './systemOrientation', './i18n', './locale']],
   ['button.cjs', path.join(ROOT, 'src', 'client', 'button.ts'), ['./panel', './state', './settings', './remote', './i18n', './workspace', './picker', './smartstore', './remoteView', './locale']],
 ];
 fs.writeFileSync(path.join(DIR, 'about.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;');
 fs.writeFileSync(path.join(DIR, 'update.cjs'), 'module.exports.UpdateEntry=()=>null;');
+fs.writeFileSync(path.join(DIR, 'update-http.cjs'), 'module.exports.UpdateEntryButton=()=>null;module.exports.UpdatePanelEmbedded=()=>null;'); // update-http 桩：#127 起 settings 引 ./update-http
 for (const [outName, srcPath, deps] of MODULES) {
   let js = ts.transpileModule(fs.readFileSync(srcPath, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true } }).outputText;
   for (const d of deps) js = js.split('require("' + d + '")').join('require("' + d + '.cjs")');

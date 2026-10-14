@@ -354,8 +354,14 @@ for (const bad of ['width: 560', 'height: 360', '860', 'rows--']) {
 }
 if (/\dpx/.test(remoteSlice)) fail('远程分支不得出现长度常量');
 ok('尺寸规范源码齐（占满锚点上方、相对缩放、无封顶、不减行）');
-// 栏头不设切换（#85 US10）：compact 头行仍无远程字样（远程分支独立头行除外）
-const headSlice = panelCode.slice(panelCode.indexOf('compact ? h('), panelCode.indexOf('compact ? h(') + 3000);
+// 栏头不设切换（#85 US10）：compact 始终可见的铬里不得出现大/小列表切换字样。
+// #149 起 compact 的头行已并入底部动作栏（列表在上、底栏垫底），故锚点改指底栏；
+// 且锚点找不到直接失败 —— 老写法 `indexOf('compact ? h(')` 一旦落空会静默退化成
+// "切文件头 3000 字"，守护形同虚设（#149 实测：头行删除后该断言已空转）。
+const barStart = panelCode.indexOf("const barNode = h('div',");
+const barEnd = barStart >= 0 ? panelCode.indexOf('const compactBar = compact ? barNode', barStart) : -1;
+if (barStart < 0 || barEnd <= barStart) fail('compact 铬锚点缺失（#149 底部动作栏 barNode）');
+const headSlice = barStart >= 0 && barEnd > barStart ? panelCode.slice(barStart, barEnd) : '';
 if (/remote|远程|大列表|小列表/.test(headSlice)) fail('小列表栏头不得设大/小切换');
 // trigger 未动（US27 管理面保持原样）
 const triggerSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'trigger.ts'), 'utf8');

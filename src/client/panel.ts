@@ -808,6 +808,9 @@ export function TemplateBrowser(props: BrowserProps): any {
   const q = qState[0]
   const modalState = react.useState(null as ModalState | null)
   const modal = modalState[0]
+  // #149：设置入口的失败反馈态（跳转是异步 DOM 兜底，失败必须可见，不许静默 —— 见底栏 ③ 动作行）。
+  const goHintState = react.useState(false)
+  const goHint = goHintState[0]
   /**
    * #77 设置页折叠（默认收起）：只渲染头行，列表整块不挂载。
    * 只认「compact 为假 + 调用方显式给了 collapsible」——悬浮面板永远是展开的，
@@ -1075,19 +1078,25 @@ export function TemplateBrowser(props: BrowserProps): any {
   const muted = 'var(--dsw-alias-label-secondary)'
   const dim = 'var(--dsw-alias-label-tertiary)'
   const line = '1px solid var(--dsw-alias-border-l1)'
+  // #149 紧凑浮层底边锚点（px，来自定位 effect 的 pos.bottom，= 入口按钮顶边上方 8px）。
+  // 未定位时为 0（此刻面板 visibility:hidden，算出来的上限用不上）。
+  const panelBottom = (pos && typeof pos.bottom === 'number') ? pos.bottom : 0
   const panelStyle: any = compact
     ? {
         position: 'fixed', left: (pos && pos.left) || 0, bottom: (pos && pos.bottom) || 0,
         // #35：未定位前隐藏——宁可晚一帧出现，也不闪现在屏幕左下角
         visibility: pos ? 'visible' : 'hidden',
         zIndex: PANEL_Z, width: 560,
+        // #149：只封上限、不封高度 —— 上限 = 底边锚点（入口按钮上方 8px）到屏顶安全边（8px）。
+        // calc 相对视口：窗口怎么变，可用的最大高度自己跟着算；实际高度由内容决定（见 listStyle）。
+        maxHeight: 'calc(100vh - ' + panelBottom + 'px - 8px)',
         display: 'flex', flexDirection: 'column',        // #88 不透明兜底：宿主 --dsw-specific-menu 为玻璃半透明时面板跟着透，行文字被底层盖住。
         // 可读性必须建在不透明层上，故优先别名层实色（宿主保证不透明），menu 只作回退；backgroundColor 同链确保 shorthand 被覆盖后仍 opaque。
         background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
         backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
         border: '1px solid var(--dsw-alias-border-inverted)',
         borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)', overflow: 'hidden',
-        // 常规小列表同样跟字号档（calc 相对缩放，子项 em 全跟；宽 560/高 360 布局量不动）。
+        // 常规紧凑浮层同样跟字号档（calc 相对缩放，子项 em 全跟；宽度 560 与高度上限见 maxHeight）。
         fontFamily: 'var(--dsw-font-family)', fontSize: 'calc(var(--dsw-font-markdown-base-font-size) * ' + uiFontScale + ')', color: base,
       }
     : {
@@ -1099,7 +1108,6 @@ export function TemplateBrowser(props: BrowserProps): any {
   const titleStyle: any = { fontWeight: 700, fontSize: '1em' }
   const addBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-specific-accent,#f0a45c)', fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
   const closeBtn: any = { width: 26, height: 26, borderRadius: 7, border: 0, background: 'transparent', color: dim, fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
-  const headBtns: any = { display: 'flex', gap: 4, alignItems: 'center' }
   // #70 P6a 云行布局（顶部唯一行；flexWrap 承接自定义词增多时的换行）。
   const cloudRowStyle: any = { display: 'flex', gap: 4, padding: '3px 8px 0', flexWrap: 'wrap' }
   // #70 P6a 云按钮（全部/范围钮与行动词共用同一手感；首行 tabBtn 已随页签删除）。
@@ -1108,10 +1116,13 @@ export function TemplateBrowser(props: BrowserProps): any {
     color: on ? base : muted, cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em',
   })
   const searchStyle: any = { margin: '5px 8px 4px', padding: '5px 9px', borderRadius: 8, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: base, fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em', outline: 'none' }
-  // 固定 360 高度：过滤/搜索时不收缩，鼠标不因高度变化而移出面板而误关；约 10 个单行 item 可见，内部滚动
-  // 少量时（≤10）用 flex-end 把内容推到底部，使“最常用在底部”在视觉上贴底
+  // #149 紧凑浮层列表区：内容自适应 —— 不写死高度（旧的固定 360 只装得下约 10 行，就是需求里那个「上限」）。
+  // 条目多：面板向上长，长到面板 maxHeight 上限后由这里内滚；条目少：面板缩矮，最常用的照样贴着底栏。
+  // 下限 5 行：兑现「鼠标移出即关」语义（一行高的浮层一碰就关）。行高≈图钉 20px@14px 基座 = 1.43em，
+  // +30px 是 5 行各自的上下内边距（itemStyle 的 padding 本就是 px，em 覆盖不到）。
+  const COMPACT_LIST_MIN_H = 'calc(7.15em + 30px)'
   const listStyle: any = compact
-    ? { overflow: 'auto', padding: '2px 2px 8px', height: 360, display: 'flex', flexDirection: 'column', justifyContent: sorted.length <= 10 ? 'flex-end' : 'flex-start' }
+    ? { flex: '0 1 auto', minHeight: COMPACT_LIST_MIN_H, overflow: 'auto', padding: '2px 2px 4px', display: 'flex', flexDirection: 'column' }
     : { padding: '2px 2px 8px' } // 设置页：自然高度，由宿主设置面板整页滚动
   const itemStyle: any = { display: 'flex', gap: 6, borderRadius: 8, cursor: 'pointer', alignItems: compact ? 'center' : 'flex-start', padding: compact ? '3px 6px' : '4px 2px', transition: 'background-color .12s ease' }
   // #88 行强调 token（沿用仓内既有语义，不新造色）：hover=交互 hover，pressed=交互 active 回退层 3（比 hover 深一档）。
@@ -1651,27 +1662,82 @@ export function TemplateBrowser(props: BrowserProps): any {
   })
   const listNode = rows.length > 0
     ? h('div', { ref: compact ? listRef : null, style: listStyle }, rows)
-    : h('div', { style: { height: 360, display: 'flex', alignItems: 'center', justifyContent: 'center', color: dim, fontSize: '0.92em', padding: '2px 2px 8px' } }, t('noMatch'))
+    // #149：紧凑浮层空态同守 5 行下限（面板不该因为「无匹配」缩成一条）；设置页维持原高度，一字不动。
+    : h('div', {
+      style: {
+        ...(compact ? { minHeight: COMPACT_LIST_MIN_H } : { height: 360 }),
+        display: 'flex', alignItems: 'center', justifyContent: 'center', color: dim, fontSize: '0.92em', padding: '2px 2px 8px',
+      },
+    }, t('noMatch'))
 
   const footer = null
+
+  // #149 搜索框（两面共用同一节点）：紧凑浮层下沉到底栏 ② 位（tab 行之下、动作行之上），设置页仍在头行之下。
+  // #34 IME 语义一字不动：聚焦/组词期抑制 hover 关窗（含取消已挂起的 150ms 计时，见 setHoverCloseSuppressed）。
+  const searchNode = showList ? h('input', {
+    style: searchStyle, placeholder: t('searchPh'), value: q, onChange: (e: any) => qState[1](e.target.value),
+    onFocus: () => { focusState[1](true); if (compact) setHoverCloseSuppressed(true) },
+    onBlur: () => { focusState[1](false); if (compact && !composing && !modal) setHoverCloseSuppressed(false) },
+    onCompositionStart: () => { compState[1](true); if (compact) setHoverCloseSuppressed(true) },
+    onCompositionEnd: (e: any) => {
+      compState[1](false)
+      try { const v = e && e.target && typeof e.target.value === 'string' ? e.target.value : null; if (v !== null) qState[1](v) } catch (err) { /* ignore */ }
+      if (compact && !modal && !searchFocused) setHoverCloseSuppressed(false)
+    },
+  }) : null
+
+  // #149 紧凑浮层底栏：① tab 行（cloudNodes 原样下沉）② 搜索 ③ 动作行 ——
+  // 左＝条数摘要 + ＋新增（开新增弹窗），右＝设置入口 + ×（关闭）。
+  // flex:none 垫底：面板高度怎么变，这三行都钉在底部不动，这就是「高度随便变、这些栏都不抖」的全部实现。
+  const barNode = h('div', {
+    key: 'dsh-prompt-bar', 'data-dsh-prompt-bar': '1',
+    style: { flex: 'none', display: 'flex', flexDirection: 'column', borderTop: line },
+  }, [
+    cloudNodes,
+    searchNode,
+    h('div', { key: 'bar-actions', style: { display: 'flex', alignItems: 'center', gap: 6, padding: '2px 8px 4px', flexWrap: 'nowrap' } }, [
+      h('span', { key: 'counts', style: { fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', flex: 'none' } },
+        t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
+      h('button', {
+        key: 'add', 'data-dsh-prompt-chrome': 'plusGlyph', title: t('add'),
+        // #116 跟进同款：padding/圆角 em 化 + nowrap 锁单行 + flex:none 不被压窄（与设置页折叠卡那枚同形）。
+        style: { ...addBtn, width: 'auto', padding: '0 0.93em', borderRadius: '0.54em', fontSize: '0.92em', whiteSpace: 'nowrap', flex: 'none' },
+        onClick: () => modalState[1]({ kind: 'add' }),
+      }, t('plusGlyph') + ' ' + t('addShort')),
+      h('div', { key: 'spacer', style: { flex: 1, minWidth: 0 } }),
+      h('button', {
+        key: 'go-settings', style: { ...footLink, whiteSpace: 'nowrap', textAlign: 'right' }, 'data-dsh-prompt-chrome': 'goSettings',
+        // #149 B：宿主设置弹窗只能靠 DOM 兜底打开（异步），失败必须可见 ——
+        // 跳成功才收面板；跳不动就在原位换成提示（4 秒后复原），不再"先关面板、然后什么都没发生"。
+        onClick: () => {
+          emitGoSettings((ok: boolean) => {
+            if (ok) { setPanelOpen(false); return }
+            goHintState[1](true)
+            try { setTimeout(() => goHintState[1](false), 4000) } catch (e) { /* ignore */ }
+          })
+        },
+      }, goHint ? t('goSettingsFail') : t('goSettings')),
+      h('button', { key: 'close', style: { ...closeBtn, flex: 'none' }, title: t('close'), onClick: () => setPanelOpen(false) }, '×'),
+    ]),
+  ])
+  const compactBar = compact ? barNode : null
 
   // 浮层根节点 hover 接管：鼠标进列表 → 取消关窗；离开列表 → 延迟关窗（仅紧凑浮层有 hover 开合语义）
   // #14：弹窗打开时禁止触发关窗（本地防御 + 全局 gate 双保险，输入时微移动/焦点变化不丢弹窗）
   const rootHover = compact ? { onMouseEnter: () => cancelPanelClose(), onMouseLeave: () => { if (modal || searchFocused || composing) return; schedulePanelClose(150) } } : null
-  return h('div', { ref: rootRef, style: panelStyle, ...rootHover }, [
-    // #61 真修复：render 内订阅输入桥（DraftTap，无桥的设置页不挂载）
-    useInput ? h(DraftTap, { key: 'dsh-prompt-draft-tap', useInput }) : null,
-    compact ? h('div', { style: headStyle }, [
-      h(PromptMark, { size: 15 }),
-      h('span', { style: titleStyle }, t('panelTitle')),
-      h('span', { style: { fontSize: '0.85em', color: dim, marginLeft: 6 } }, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
-      h('div', { style: { flex: 1 } }),
-      h('button', { style: footLink, onClick: () => { setPanelOpen(false); emitGoSettings() } }, t('goSettings')),
-      h('div', { style: headBtns }, [
-        h('button', { style: addBtn, 'data-dsh-prompt-chrome': 'plusGlyph', title: t('add'), onClick: () => modalState[1]({ kind: 'add' }) }, t('plusGlyph')),
-        h('button', { style: closeBtn, title: t('close'), onClick: () => setPanelOpen(false) }, '×'),
-      ]),
-    ]) : h('div', {
+  return h('div', { ref: rootRef, style: panelStyle, ...rootHover },
+    // #149：紧凑浮层 = 列表在上、底栏垫底（高度自适应，见 listStyle 与 panelStyle.maxHeight）；
+    // 设置页那一支原样。
+    compact ? [
+      // #61 真修复：render 内订阅输入桥（DraftTap，无桥的设置页不挂载）
+      useInput ? h(DraftTap, { key: 'dsh-prompt-draft-tap', useInput }) : null,
+      showList ? listNode : null,
+      compactBar,
+      modalNode,
+    ] : [
+      // #61 真修复：render 内订阅输入桥（DraftTap，无桥的设置页不挂载）
+      useInput ? h(DraftTap, { key: 'dsh-prompt-draft-tap', useInput }) : null,
+    h('div', {
       // #77：可折叠时整行就是开关（cursor / aria-expanded / title / role 四条可点线索齐）；
       // 折叠状态只在组件局部 useState 里，不进 store、不落 localStorage。
       // 收起态**不留底部分隔线**：下面什么都没有，一条孤线会让这一行看着像被截断的卡片。
@@ -1724,29 +1790,23 @@ export function TemplateBrowser(props: BrowserProps): any {
         : null,
     ]),
     showList ? cloudNodes : null,
-    showList ? h('input', {
-      style: searchStyle, placeholder: t('searchPh'), value: q, onChange: (e: any) => qState[1](e.target.value),
-      // #34 IME 安全：聚焦即抑制 hover 关窗（含取消已挂起的 150ms 计时，见 setHoverCloseSuppressed），
-      // blur/组词结束同步释放（effect 会再对账一遍）；组词结束补提交一次最终值（部分浏览器 end 不带 onChange）。
-      onFocus: () => { focusState[1](true); if (compact) setHoverCloseSuppressed(true) },
-      onBlur: () => { focusState[1](false); if (compact && !composing && !modal) setHoverCloseSuppressed(false) },
-      onCompositionStart: () => { compState[1](true); if (compact) setHoverCloseSuppressed(true) },
-      onCompositionEnd: (e: any) => {
-        compState[1](false)
-        try { const v = e && e.target && typeof e.target.value === 'string' ? e.target.value : null; if (v !== null) qState[1](v) } catch (err) { /* ignore */ }
-        if (compact && !modal && !searchFocused) setHoverCloseSuppressed(false)
-      },
-    }) : null,
+    searchNode,
     showList ? listNode : null,
     footer,
     modalNode,
   ])
 }
 
-/** 面板 → 设置页跳转（宿主 settings 路由：由 index.ts 注册） */
-let goSettingsHandler: (() => void) | null = null
-export function setGoSettingsHandler(fn: (() => void) | null): void { goSettingsHandler = fn }
-function emitGoSettings(): void { if (goSettingsHandler) goSettingsHandler() }
+/** 面板 → 设置页跳转（宿主 settings 路由：由 index.ts 注册）。
+ *  #149：跳转是异步 DOM 兜底，失败要能报出来 —— 可选 done(ok) 回调；
+ *  旧调用方（remote.openRemoteSettings / globalThis.__dshPromptGoSettings）不传回调，行为不变。 */
+let goSettingsHandler: ((done?: (ok: boolean) => void) => void) | null = null
+export function setGoSettingsHandler(fn: ((done?: (ok: boolean) => void) => void) | null): void { goSettingsHandler = fn }
+function emitGoSettings(done?: (ok: boolean) => void): void {
+  const fn = goSettingsHandler
+  if (!fn) { if (done) { try { done(false) } catch (e) { /* ignore */ } } return }
+  try { fn(done) } catch (e) { if (done) { try { done(false) } catch (err) { /* ignore */ } } }
+}
 
 export function getPresetList(): PromptTemplate[] { return PRESET_TEMPLATES }
 export function getPreset(id: string): PromptTemplate | undefined { return getPresetById(id) }

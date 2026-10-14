@@ -86,7 +86,8 @@
     "test:issue-141": "node scripts/test-issue-141.cjs",
     "test:issue-134-gate": "node scripts/test-issue-134-gate.cjs",
     "test:issue-142": "node scripts/test-issue-142.cjs",
-    "test:issue-146": "node scripts/test-issue-146.cjs"
+    "test:issue-146": "node scripts/test-issue-146.cjs",
+    "test:issue-149": "node scripts/test-issue-149.cjs"
   },
   "dsh": {
     "bundle": {
@@ -106,7 +107,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.5.0",
-    "dsh-plugin-update": "0.12.0",
+    "dsh-plugin-update": "0.13.0",
     "esbuild": "^0.28.2",
     "marked": "^18.0.9",
     "react": "^18.3.1",

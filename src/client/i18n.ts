@@ -50,6 +50,9 @@ export const STR = {
   // （grep 仅 store.ts 创建行），故新建那一刻按当前语言取一次后缀；en 含前导空格（name + suffix 自然拼出 'name (copy)'）。
   copySuffix: { zh: '（副本）', en: ' (copy)' },
   goSettings: { zh: '设置 → 模板管理', en: 'Settings → Templates' },
+  // #149：设置入口是异步 DOM 兜底（宿主无插件级 open API），跳转失败必须可见 ——
+  // 原件是"先关面板再跳"，跳不动就什么都没发生。失败时按钮原位换成这句话（4 秒后复原）。
+  goSettingsFail: { zh: '没打开设置：走 ⚙ → 提示词模板', en: 'Settings not opened: use ⚙ → Prompt Templates' },
   edit: { zh: '编辑', en: 'Edit' },
   del: { zh: '删除', en: 'Delete' },
   copy: { zh: '复制', en: 'Copy' },

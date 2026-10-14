@@ -209,52 +209,80 @@ export function apply(ctx: ClientContext): void {
     ctx.slots.register({ name: 'settings.section', id: 'dsh-prompt-toolbox', priority: 10, order: 50, label: () => tr(getLang(), STR.sectionName) }, SettingsPage),
   ), 'dsh-prompt: settings')
 
-  // 面板「设置 → 模板管理」：当前 v1 关闭面板即可（设置页经 ⚙ → 插件 → dsh-prompt 到达）
-  // 面板「设置 → 模板管理」：打开设置面板并选中本插件配置页（宿主无全局 open API → DOM 触发侧栏设置按钮 + 导航项）
+  // 面板「设置 → 模板管理」：打开宿主设置面板并选中本插件配置页（宿主无插件级 open API）。
   // #82：同一份 DOM 触发另挂 globalThis.__dshPromptGoSettings，供 remote.openRemoteSettings 兜底复用；
   // 稳定直达（#87 H2）落地前一律走此兜底并由调用方明示。
   // 2026-09-29 加固（真机反馈齿轮点不开）：旧实现只点一次+150ms 硬等，宿主弹窗稍慢即静默失败。
-  // 新实现：已开设置页则直点本插件名；否则点设置触发后轮询等导航项出现再点，命中远程段后滚入视野。
-  const goSettings = (): void => {
+  // #149 与宿主侧对账后的二次加固（真机反馈「点开没反应」）：
+  //   宿主 SettingsRoot 渲染的是壳层按钮 chrome —— `<button aria-haspopup="dialog" aria-expanded
+  //   onClick={actions.open}>`，内容为 renderSlot("settings.trigger", { wide })；该槽位契约
+  //   （packages/client/ui-settings/src/client/contract/slots.ts）写明内容是"icon + label，
+  //   窄栏（rail）时 label 视觉隐藏"——即按钮的可访问名来自槽内容而非固定文案，贡献缺席时更会
+  //   退化成"没有可访问名的图标钮"。旧实现只拿 textContent 认「设置/Settings」：窄栏、文案变动、
+  //   贡献缺席任一情形都会让 trig 落空 → 一次都没点，而面板已经先关了，于是"点开没反应"。
+  //   现在按 aria-label / title / 可见文本三处认，再退到类名含 trigger / 带 aria-keyshortcuts 的那枚；
+  //   设置页已开则免触发直达本插件页；结果经 done(ok) 回给调用方（失败由面板原位提示 + 日志，绝不静默）。
+  const SETTINGS_TRIGGER_LABEL_RE = /设置|Settings/i
+  const goSettings = (done?: (ok: boolean) => void): void => {
+    const finish = (ok: boolean): void => {
+      // 事件沿用 remote.direct.open（同一条 DOM 兜底路径上 remote.ts 已在用，字段就 method/ok 两个，清单声明内）
+      if (!ok) logEvent('remote.direct.open', { method: 'dom', ok: false })
+      if (done) { try { done(ok) } catch (e) { /* ignore */ } }
+    }
     try {
-      if (typeof document === 'undefined') return
+      if (typeof document === 'undefined') { finish(false); return }
       const label = tr(getLang(), STR.sectionName)
+      const allButtons = (): HTMLElement[] => {
+        try { return Array.prototype.slice.call(document.querySelectorAll('button')) as HTMLElement[] } catch (e) { return [] }
+      }
       const clickCell = (): boolean => {
         try {
-          const cells = Array.prototype.slice.call(document.querySelectorAll('button')) as HTMLElement[]
-          const cell = cells.find((b) => (b.textContent || '').trim() === label)
-          if (cell) {
-            cell.click()
-            let tries = 0
-            const scroller = setInterval(() => {
-              try {
-                const el = document.querySelector('[data-dsh-prompt-remote-section]')
-                if (el && typeof (el as any).scrollIntoView === 'function') {
-                  (el as any).scrollIntoView({ block: 'start' })
-                  clearInterval(scroller)
-                } else if (++tries > 10) clearInterval(scroller)
-              } catch (e) { clearInterval(scroller) }
-            }, 200)
-            return true
-          }
+          const cell = allButtons().find((b) => (b.textContent || '').trim() === label)
+          if (!cell) return false
+          cell.click()
+          let tries = 0
+          const scroller = setInterval(() => {
+            try {
+              const el = document.querySelector('[data-dsh-prompt-remote-section]')
+              if (el && typeof (el as any).scrollIntoView === 'function') {
+                (el as any).scrollIntoView({ block: 'start' })
+                clearInterval(scroller)
+              } else if (++tries > 10) clearInterval(scroller)
+            } catch (e) { clearInterval(scroller) }
+          }, 200)
+          return true
         } catch (e) { /* ignore */ }
         return false
       }
       // 设置页已开（本插件名可见）→ 直达，不碰触发按钮。
-      if (clickCell()) return
-      const btns = Array.prototype.slice.call(document.querySelectorAll('button[aria-haspopup="dialog"]')) as HTMLElement[]
-      const trig = btns.find((b) => /设置|Settings/.test((b.textContent || '').trim()))
-        || (Array.prototype.slice.call(document.querySelectorAll('button')) as HTMLElement[])
-          .find((b) => /设置|Settings/.test((b.textContent || '').trim()))
-      if (trig) trig.click()
-      // 轮询等导航项挂载（宿主弹窗动画慢也不丢），最多约 2 秒。
+      if (clickCell()) { finish(true); return }
+      // 认触发器：aria-label / title / 可见文本任一处命中「设置/Settings」（图标钮只在前两处有字）。
+      const named = (b: HTMLElement): boolean => {
+        const hay = [b.getAttribute('aria-label'), b.getAttribute('title'), (b.textContent || '').trim()]
+          .filter((s) => !!s).join(' ')
+        return SETTINGS_TRIGGER_LABEL_RE.test(hay)
+      }
+      const dialogTriggers = (): HTMLElement[] => {
+        try { return Array.prototype.slice.call(document.querySelectorAll('button[aria-haspopup="dialog"]')) as HTMLElement[] } catch (e) { return [] }
+      }
+      const trig = dialogTriggers().find(named)
+        || dialogTriggers().find((b) => /trigger/i.test(String((b as any).className || '')))
+        || dialogTriggers().find((b) => !!b.getAttribute('aria-keyshortcuts'))
+        || allButtons().find(named)
+      if (!trig) { finish(false); return }
+      trig.click()
+      // 轮询等导航项挂载（宿主弹窗动画/本插件页注册都可能慢），最多约 3.6 秒。
       let n = 0
       const tid = setInterval(() => {
         try {
-          if (clickCell() || ++n > 10) clearInterval(tid)
-        } catch (e) { try { clearInterval(tid) } catch (err) { /* ignore */ } }
+          if (clickCell()) { clearInterval(tid); finish(true); return }
+          n += 1
+          // ~1.2 秒还没开：触发器补点一次（首次点空/焦点被抢的补救；宿主 actions.open 幂等，不会反关）。
+          if (n === 6) { try { trig.click() } catch (e) { /* ignore */ } }
+          if (n > 18) { clearInterval(tid); finish(false) }
+        } catch (e) { try { clearInterval(tid) } catch (err) { /* ignore */ } finish(false) }
       }, 200)
-    } catch (e) { /* ignore */ }
+    } catch (e) { finish(false) }
   }
   setGoSettingsHandler(goSettings)
   try { (globalThis as any).__dshPromptGoSettings = goSettings } catch (e) { /* ignore */ }
@@ -269,4 +297,12 @@ export function apply(ctx: ClientContext): void {
     ctx.slots.register({ name: 'shell.overlay', id: 'dsh-prompt-smart', order: 200, label: () => 'dsh-prompt smart' }, SmartCardHost),
   ), 'dsh-prompt: smart card')
 
+}
+
+/** 记一条日志事件（槽机制与 panel.ts/remote.ts 同构：#149 起「设置→模板管理」失败不再静默）。 */
+function logEvent(event: string, fields?: Record<string, unknown>): void {
+  try {
+    const log = (globalThis as any).__dshPromptLog
+    if (log && typeof log.log === 'function') log.log(event, fields)
+  } catch (e) { /* ignore */ }
 }

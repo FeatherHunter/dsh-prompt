@@ -14,13 +14,16 @@ Your ⭐ means the world to me.
 
 </div>
 
-<!-- Read by two surfaces: the GitHub repo page, and the awesome plugin market's detail page.
-     The market drops every bit of raw HTML (markdown only), so headings are `##` and images are
-     `![]()`; the outer `<div align="center">` only centers things on GitHub and being dropped on
-     the market costs nothing. Run `npm run test:marketplace` after editing — it replays the
-     market's own renderer locally. The other two market-side declarations live elsewhere: the
-     root `screenshots.json` (detail-page shots, order = display order) and `package.json`'s
-     `repository` (links the npm package to this repo: download counts, "installable from npm"). -->
+<!-- Read by three surfaces: the GitHub repo page, the npm package page, and the awesome plugin
+     market's detail page. The market's body drops every bit of raw HTML (markdown only), so
+     headings are always `##` (an <h2> simply vanishes there). Screenshots follow
+     dsh-mattpocock-skills-deck: `<img src="…" width="640|720|560">` — GitHub and npm honour
+     `width`, so shots render at that width and still open full size on click; the market body
+     drops the tag, and the root `screenshots.json` (detail-page shots, order = display order)
+     carries them instead. Every own screenshot in this README must be listed there too —
+     `npm run test:marketplace` checks exactly that. One more declaration lives outside this
+     file: `package.json`'s `repository` (links the npm package to this repo: download counts,
+     "installable from npm"). -->
 
 <div align="center">
 
@@ -57,7 +60,7 @@ Zero config: install and go, remove and it's gone.
 
 **👇 A new button left of the input box means success.**
 
-![Prompt button left of the input box after install](../assets/readme/01-install-ready.png)
+<img src="../assets/readme/01-install-ready.png" width="720" alt="Prompt button left of the input box after install" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -124,7 +127,7 @@ Most-used sinks to the bottom, closest to the button.
 
 **👇 The panel looks like this.**
 
-![Prompt button hover panel with phase filters and template list](../assets/readme/02-panel-button.png)
+<img src="../assets/readme/02-panel-button.png" width="640" alt="Prompt button hover panel with phase filters and template list" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -143,7 +146,7 @@ Half a name works too: `/prompt retro`.<br>
 
 **👇 Type half, candidates narrow down.**
 
-![`/prompt` trigger: filtered candidate list](../assets/readme/03-trigger-prompt.png)
+<img src="../assets/readme/03-trigger-prompt.png" width="640" alt="`/prompt` trigger: filtered candidate list" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -174,7 +177,7 @@ Clone to custom to tweak.
 
 **👇 All 24 on one settings page.**
 
-![Gallery: 24 preset templates on the settings page](../assets/readme/05-templates-gallery.png)
+<img src="../assets/readme/05-templates-gallery.png" width="640" alt="Gallery: 24 preset templates on the settings page" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -192,7 +195,7 @@ Separate storage — upgrades never eat yours.
 
 **👇 The new-template dialog.**
 
-![Custom management: new custom template dialog](../assets/readme/06-custom-manage.png)
+<img src="../assets/readme/06-custom-manage.png" width="560" alt="Custom management: new custom template dialog" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -298,8 +301,6 @@ MIT © FeatherHunter
 <div align="left">
 
 Thanks to everyone who filed issues, sent PRs, or starred the repo — you make this toolbox better, bit by bit.
-
-One 🌹 per issue or PR filed (counted by submission, not by merge); names are ordered by rose count.
 
 [@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) flagged five runtime-injected `<style>` blocks missing their `data-plugin` attribution (fixed), [#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) reported the dependency declaration pulling a DSH runtime package into the profile and leaving plugins pending on the CLI 0.2.1 line, and [#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) caught the remote tier resetting the whole UI to 14px when turned off (fixed)
 

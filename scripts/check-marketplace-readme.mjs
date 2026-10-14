@@ -17,10 +17,15 @@
  *   上游改了规则，这里要跟着改，否则体检会变成假绿。
  *
  * 判红（四条，都是「市场那侧悄悄少东西」的症状）：
- *   1. 源文件用原始 HTML `<img>` 装本仓自己的图 —— 一律丢，市场详情页没图；
+ *   1. 原始 HTML `<img>` 装的本仓截图，路径没在根目录 screenshots.json 里登记 ——
+ *      市场正文丢标签、详情页截图区又没这张，两个面就都看不到它；
  *   2. 源文件用原始 HTML `<h2>`–`<h6>` 写章节标题 —— 一律丢，市场正文没结构；
  *   3. markdown 图片没全部渲染出来；
  *   4. markdown 标题没全部渲染出来。
+ * 图片这条路是刻意的：截图统一走 `<img src="…" width="640|720|560" style="…">` 定宽
+ *   （跟 dsh-mattpocock-skills-deck 同一套）——GitHub 与 npm 认 `width`，图按定宽渲染、
+ *   点开仍可看原图；市场正文那侧连标签一起丢，图改由 screenshots.json 的详情页截图区承载。
+ *   所以「用了 <img>」不算缺陷，「<img> 里的图没登记」才算。
  * 只提示不判红：第三方图床的图（徽章，上游按隐私规则刻意丢弃）、`<summary>` 里的字、
  * 只有 GitHub 看得见的 `<details>` 折叠壳。
  *
@@ -47,6 +52,18 @@ const isOwnImage = (href) => {
   if (!href) return false
   if (!/^https?:\/\//i.test(href)) return true // 相对路径 → 上游改写成 raw.githubusercontent.com
   try { return SCREENSHOT_HOSTS.has(new URL(href).hostname) } catch { return false }
+}
+/** 路径归一化：README 里写 `../assets/x.png`，screenshots.json 里写 `assets/x.png`，要对得上。 */
+const normPath = (s) => String(s).trim().replace(/\\/g, '/').replace(/^(?:\.{1,2}\/)+/, '').replace(/^\/+/, '')
+/** 根目录 screenshots.json —— 详情页截图区（顺序即展示顺序），市场正文丢图时靠它兜。 */
+function loadScreenshots() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(ROOT, 'screenshots.json'), 'utf8'))
+    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.screenshots) ? raw.screenshots : []
+    return new Set(list.filter((s) => typeof s === 'string' && s.trim()).map(normPath))
+  } catch {
+    return new Set()
+  }
 }
 
 /** 逐行复刻上游 build-site.mjs::renderReadme。 */
@@ -116,7 +133,9 @@ const FILES = [
 ]
 
 const problems = []
+const shots = loadScreenshots()
 console.log('=== 市场侧 README 体检（awesome-dsh-plugin.com 详情页正文）===')
+console.log(`screenshots.json：${shots.size} 张详情页截图（README 里的定宽截图必须都在这里）`)
 
 for (const [file, dir, label] of FILES) {
   const md = fs.readFileSync(path.join(ROOT, file), 'utf8')
@@ -144,13 +163,16 @@ for (const [file, dir, label] of FILES) {
     problems.push(`${file}：${inv.headings - gotHeads} 个 markdown 标题没渲染出来`)
   }
 
-  // 1. 原始 HTML 装的本仓图片 —— 市场那侧一律丢
+  // 1. 原始 HTML 装的本仓截图 —— 市场正文丢标签，只有 screenshots.json 登记过才接得住
   const rawImgs = [...inv.html.matchAll(/<img\b[^>]*>/gi)]
     .map((m) => (m[0].match(/src\s*=\s*["']([^"']*)["']/i) ?? [])[1] ?? '')
     .filter((src) => isOwnImage(src))
-  if (rawImgs.length) {
-    problems.push(`${file}：${rawImgs.length} 张图写在原始 HTML <img> 里，市场详情页看不到`)
-    for (const s of rawImgs) console.log(`  ✗ 原始 <img>：${s} —— 改成 ![](路径)`)
+  const uncovered = rawImgs.filter((src) => !shots.has(normPath(src)))
+  if (uncovered.length) {
+    problems.push(`${file}：${uncovered.length} 张 <img> 装的截图没登记进 screenshots.json，市场详情页两处都看不到`)
+    for (const s of uncovered) console.log(`  ✗ 原始 <img>：${s} —— 把这条路径补进 screenshots.json`)
+  } else if (rawImgs.length) {
+    console.log(`  定宽 <img>     : 本仓 ${rawImgs.length} 张（市场正文看不到，已由 screenshots.json 截图区接住）`)
   }
 
   // 2. 原始 HTML 写的章节标题 —— 市场那侧一律丢
@@ -170,8 +192,9 @@ for (const [file, dir, label] of FILES) {
 if (problems.length) {
   console.log('\n=== 不合格 ===')
   for (const p of problems) console.log('  ✗ ' + p)
-  console.log('\n修法：市场那侧只认 markdown —— 标题 `## 标题`、图片 `![说明](路径)`；')
-  console.log('     想在 GitHub 上居中，用 <div align="center"> 包一层：壳被丢弃，里面的 markdown 照常渲染。')
+  console.log('\n修法：市场正文那侧只认 markdown —— 标题一律 `## 标题`（原始 <h2> 会被丢弃）；')
+  console.log('     截图用 `<img src="路径" width="640|720|560" …>` 定宽（GitHub/npm 认 width），')
+  console.log('     并把同一路径写进根目录 screenshots.json —— 市场正文丢标签，详情页截图区把图接住。')
   process.exit(1)
 }
 console.log('\n=== Test marketplace PASS ===')

@@ -16,12 +16,13 @@
 
 </div>
 
-<!-- 本 README 同时供两个地方读：GitHub 仓库页，以及 awesome 插件市场的详情页正文。
-     市场那侧会丢弃全部原始 HTML（只认 markdown），所以标题用 `##`、图片用 `![]()`，
-     外层 `<div align="center">` 只负责 GitHub 上的居中，在市场那侧被丢掉也不影响阅读。
-     改完跑 `npm run test:marketplace` 体检（它会用上游同一套规则预演市场那一侧）。
-     市场侧另外两处声明不在这里：根目录 `screenshots.json`（详情页截图，顺序即展示顺序）、
-     `package.json` 的 `repository`（把 npm 包认到本仓，决定下载量与「可从 npm 安装」）。 -->
+<!-- 本 README 同时供三个地方读：GitHub 仓库页、npm 包页，以及 awesome 插件市场的详情页正文。
+     市场正文那侧会丢弃全部原始 HTML（只认 markdown），所以标题一律用 `##`（写成 <h2> 那边就没了）。
+     截图跟 dsh-mattpocock-skills-deck 同一套写法：`<img src="…" width="640|720|560" …>` 定宽——
+     GitHub 与 npm 认 `width`，图按定宽渲染、点开仍可看原图；市场正文那侧连标签一起丢，
+     图片改由图兜：写进 README 的本仓截图，路径必须同时出现在根目录 `screenshots.json`
+     （详情页截图区，顺序即展示顺序），`npm run test:marketplace` 会核这一条。
+     另一处声明也在本文件之外：`package.json` 的 `repository` 把 npm 包认到本仓（下载量、「可从 npm 安装」）。 -->
 
 <div align="center">
 
@@ -60,7 +61,7 @@ dsh plugin --profile desktop add dsh-prompt@0.2.0 --registry https://registry.np
 
 **👇 装完重启，输入框左侧多出这枚按钮就是成功。**
 
-![安装成功后输入框左侧的 Prompt 按钮](assets/readme/01-install-ready.png)
+<img src="assets/readme/01-install-ready.png" width="720" alt="安装成功后输入框左侧的 Prompt 按钮" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -127,7 +128,7 @@ dsh.desktop = 2.0.9
 
 **👇 按钮一点，面板长这样。**
 
-![Prompt 按钮悬浮面板：阶段筛选与模板列表](assets/readme/02-panel-button.png)
+<img src="assets/readme/02-panel-button.png" width="640" alt="Prompt 按钮悬浮面板：阶段筛选与模板列表" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -145,7 +146,7 @@ dsh.desktop = 2.0.9
 
 **👇 输一半，候选自动收窄。**
 
-![`/prompt` 触发源：输入过滤后的候选列表](assets/readme/03-trigger-prompt.png)
+<img src="assets/readme/03-trigger-prompt.png" width="640" alt="`/prompt` 触发源：输入过滤后的候选列表" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -177,7 +178,7 @@ dsh.desktop = 2.0.9
 
 **👇 24 条全貌在设置页一次看完。**
 
-![模板一览：设置页中的 24 条预制模板](assets/readme/05-templates-gallery.png)
+<img src="assets/readme/05-templates-gallery.png" width="640" alt="模板一览：设置页中的 24 条预制模板" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -195,7 +196,7 @@ dsh.desktop = 2.0.9
 
 **👇 新增弹窗长这样，填完点添加。**
 
-![自定义管理：新增自定义模板弹窗](assets/readme/06-custom-manage.png)
+<img src="assets/readme/06-custom-manage.png" width="560" alt="自定义管理：新增自定义模板弹窗" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -310,8 +311,6 @@ MIT © FeatherHunter
 <div align="left">
 
 感谢每一位提交 Issue、PR 与点星的朋友，是你们让这个工具箱一点点变好。
-
-一朵 🌹 对应本人提交过的一次 Issue 或 PR（按「提交」算，不按「合入」算）；名单按花数从多到少排。
 
 [@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) 指出 5 处运行时注入的 `<style>` 缺 `data-plugin` 归属（已修）、[#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) 报出依赖声明把 DSH 运行时包装进 profile、CLI 0.2.1 线插件 pending，[#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) 揪出关闭远程档位会把整机字号打回 14px（已修）
 

@@ -1,6 +1,6 @@
 'use strict';
 /**
- * dsh-prompt #158 回归：取色控件（色相自由 + 深浅锁带）与四处名字染色（钩子属性 + 注入描边 + 落盘/清除/存量不改写）
+ * dsh-prompt #158/#161 回归：取色控件（弹窗内一行按钮 + 浮层全可点色块墙 + 预览）与四处名字染色（钩子属性 + 注入描边 + 落盘/清除/存量不改写）
  * 跑法：node scripts/test-issue-158.cjs（exit 0 = 全绿）
  *
  * 覆盖（对抗式，逐条对应票 158 的验收与「方案」评论里的自查清单）：
@@ -8,7 +8,7 @@
  *      零 media query、零 -webkit-text-stroke、注入只走 styleOwnership 共用缝（不自建裸 <style>）、
  *      裁切补偿一律写成「有颜色才加」的条件式。
  *   B) 注入缝运行时：applyOwnedStyle 打 data-plugin='dsh-prompt' + 私有标记，重复注入幂等（同标记只一段）。
- *   C) 控件形状与交互：默认格 / 6 色快选 / 色相条 0–359 / 深浅格（带外 disabled 且灰）/ 十六进制输入 + 带外提示。
+ *   C) 控件形状与交互（#161）：弹窗里只有一行按钮 → 点开浮层：12 档色相 × 带内深浅的色块墙（零灰格子）/
  *   D) 渲染：有色的名字带钩子属性 + 该色；未选色（含**存量里带外的值**）的名字属性为零、样式与未上色行逐字段相同。
  *   E) 落盘：新建带色 → 存储有该键；编辑点「默认」→ 键消失。
  *   F) ADR-0007：存量带外值（#ffffff）经编辑保存后原样保留（不吸附、不改写、不删），出站形状逐字段带着它。
@@ -117,7 +117,7 @@ function groupA() {
   const need = (cond, msg) => { if (!cond) { fail(msg); bad++; } };
 
   need(/export const INK_TINT_ATTR = 'data-dsh-prompt-tint'/.test(panelCode), 'A) 缺 INK_TINT_ATTR 唯一真相');
-  eq((panelCode.match(/\[INK_TINT_ATTR\]: ''/g) || []).length, 3, 'A) panel.ts 三处名字节点接钩子（紧凑行 / 设置行 / 远程卡）');
+  eq((panelCode.match(/\[INK_TINT_ATTR\]: ''/g) || []).length, 4, 'A) panel.ts 四处接钩子（紧凑行 / 设置行 / 远程卡 + 弹窗预览）');
   eq((smartCode.match(/\[INK_TINT_ATTR\]: ''/g) || []).length, 1, 'A) smart.ts 一处名字节点接钩子');
   need(!/\btextShadow\b/.test(all), 'A) 渲染层不得写内联 textShadow（内联优先级会焊死描边方案）');
   need(!/prefers-color-scheme/.test(all + idxCode), 'A) 不得用 media query 判主题（浏览器端与手动主题相反）');
@@ -127,11 +127,11 @@ function groupA() {
   need(/INK_TINT_CSS\b/.test(idxCode), 'A) index.ts 应复用 panel.ts 的 CSS 唯一真相');
   need(/applyInkTintStyle\(\)/.test(idxCode), 'A) index.ts 的 apply 里应调用一次注入');
   need(!/createElement\('style'\)/.test(idxCode), 'A) index.ts 不得自建裸 <style>（归属账本会认不出）');
-  // 裁切补偿：五处，每处都必须是「有颜色才加」的条件式（未上色的行与今天逐字节一致）
+  // 裁切补偿：六处，每处都必须是「有颜色才加」的条件式（未上色的行与今天逐字节一致）
   const padSites = [...all.matchAll(/paddingBlock: 2/g)];
-  eq(padSites.length, 5, 'A) 裁切补偿共五处（紧凑行宿主 / 设置行宿主 / nmStyle / 远程标题 / 智能卡行名）');
-  const conditional = padSites.filter((m) => all.slice(Math.max(0, m.index - 60), m.index).indexOf('ink ?') >= 0).length;
-  eq(conditional, padSites.length, 'A) 五处补偿一律条件式（ink 为真时才加，未上色的行零改动）');
+  eq(padSites.length, 6, 'A) 裁切补偿共六处（紧凑行宿主 / 设置行宿主 / nmStyle / 远程标题 / 智能卡行名 / 弹窗预览）');
+  const conditional = padSites.filter((m) => /(ink|value) \?/.test(all.slice(Math.max(0, m.index - 60), m.index))).length;
+  eq(conditional, padSites.length, 'A) 六处补偿一律条件式（有颜色时才加，未上色的行零改动）');
   if (failures === 0) ok('A) 静态接线：钩子唯一真相 + 4 处接线 + 零内联/零 media/零 stroke + 注入走共用缝 + 条件补偿');
 }
 
@@ -191,52 +191,71 @@ function clickSave(inst, key) {
   return true;
 }
 
-// ═══ C) 控件形状与交互 ═══
+// ═══ C) 控件形状与交互（#161：弹窗里一行按钮 + 点开的浮层色块墙）═══
 async function groupC() {
   await store.ensureLoaded();
   const inst = render(false);
   if (!openAddModal(inst)) return;
   const root = inst.root;
+  // 入口：弹窗里只有一行按钮；浮层默认不展开；旧控件（快选/色相条/灰格子）一律不再存在
+  const btn = byAttr(root, 'data-dsh-prompt-ink-field-btn')[0];
+  if (!btn) { fail('C) 缺取色入口按钮'); inst.unmount(); return; }
+  eq(btn.props['aria-expanded'], 'false', 'C) 未点开时入口按钮 aria-expanded=false');
+  if (byAttr(root, 'data-dsh-prompt-ink-pop').length !== 0) fail('C) 浮层不该默认展开（弹窗里只占一行）');
+  if (byAttr(root, 'data-dsh-prompt-ink-preset').length !== 0) fail('C) #161 起不再有 6 色快选（色块墙取代）');
+  if (byAttr(root, 'data-dsh-prompt-ink-hue').length !== 0) fail('C) #161 起不再有色相条（色块墙取代）');
+  if (byAttr(root, 'data-dsh-prompt-ink-shade').length !== 0) fail('C) #161 起不再有会灰掉的深浅格');
+  // 点开浮层
+  TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-field-btn')[0].props.onClick(); });
+  eq(byAttr(root, 'data-dsh-prompt-ink-field-btn')[0].props['aria-expanded'], 'true', 'C) 点开后入口按钮 aria-expanded=true');
+  if (!byAttr(root, 'data-dsh-prompt-ink-pop')[0]) fail('C) 点开入口按钮后应出现浮层');
   const dflt = byAttr(root, 'data-dsh-prompt-ink-default')[0];
   if (!dflt) fail('C) 缺「默认」格');
   else {
     eq(dflt.props['aria-pressed'], 'true', 'C) 新建时「默认」格选中（aria-pressed）');
-    eq(textOf(dflt), zh('colorDefault'), 'C) 「默认」格走词表 colorDefault');
+    eq(textOf(dflt), zh('colorDefaultShort'), 'C) 「默认」格走词表 colorDefaultShort');
   }
-  const presets = byAttr(root, 'data-dsh-prompt-ink-preset');
-  eq(presets.map((p) => p.props['data-dsh-prompt-ink-preset']).join(','), '#f43f5e,#ea580c,#16a34a,#0d9488,#0284c7,#a855f7', 'C) 6 色常用快选逐色一致');
-  if (presets.some((p) => p.props['aria-pressed'] !== 'false')) fail('C) 未选色时 6 色快选都不该是选中态');
-  const hue = byAttr(root, 'data-dsh-prompt-ink-hue')[0];
-  if (!hue) fail('C) 缺色相条');
+  // 色块墙：12 档色相 × 各色相下带内深浅；**每个格子都可点**（零灰格子 = #161 的要害）
+  if (!byAttr(root, 'data-dsh-prompt-ink-wall')[0]) fail('C) 浮层缺色块墙容器');
+  eq(byAttr(root, 'data-dsh-prompt-ink-hue-col').length, 12, 'C) 色块墙横轴 12 档色相');
+  const cells = byAttr(root, 'data-dsh-prompt-ink-cell');
+  if (cells.length < 24) fail('C) 色块墙太小（实得 ' + cells.length + '）');
+  eq(cells.filter((c) => c.props.disabled === true).length, 0, 'C) 墙上没有任何 disabled 格子（每个都点得动）');
+  const outOfBand = cells.filter((c) => {
+    const L = store.relativeLuminance(c.props['data-dsh-prompt-ink-cell']);
+    return !(L >= store.INK_PICK_L_MIN && L <= store.INK_PICK_L_MAX);
+  });
+  eq(outOfBand.length, 0, 'C) 墙上 ' + cells.length + ' 格逐格验算：全部落在可读带内');
+  // 预览条：未选色时不带描边钩子
+  const pv0 = byAttr(root, 'data-dsh-prompt-ink-preview')[0];
+  if (!pv0) fail('C) 浮层缺预览条');
   else {
-    eq(hue.props.type, 'range', 'C) 色相条是 range 控件');
-    eq(String(hue.props.min) + '-' + String(hue.props.max), '0-359', 'C) 色相全开 0–359');
-    eq(hue.props['aria-label'], zh('colorHue'), 'C) 色相条无障碍名走词表');
+    eq(pv0.props['data-dsh-prompt-ink-preview'], 'default', 'C) 未选色时预览态为 default');
+    if (pv0.findAll((n) => n.props && n.props[panel.INK_TINT_ATTR] !== undefined).length !== 0) fail('C) 未选色时预览不该带描边钩子');
   }
-  const shades = byAttr(root, 'data-dsh-prompt-ink-shade');
-  if (shades.length < 8) fail('C) 深浅格太少（实得 ' + shades.length + '）');
-  const grey = shades.filter((s) => s.props.disabled === true);
-  const live = shades.filter((s) => s.props.disabled !== true);
-  if (grey.length === 0) fail('C) 深浅格必须有「带外灰掉」的格子（不然锁带没生效）');
-  if (live.length === 0) fail('C) 深浅格必须至少有一格可选（色相 205 下有可读深浅）');
-  if (grey.some((s) => String(s.props.title).indexOf(zh('colorShade')) < 0)) fail('C) 灰格子应带「看不清」说明');
-  if (grey.some((s) => s.props.style.opacity >= 1)) fail('C) 灰格子必须真的灰掉（opacity < 1）');
-  const hex = byAttr(root, 'data-dsh-prompt-ink-hex')[0];
-  if (!hex) fail('C) 缺十六进制输入');
-  else eq(hex.props.placeholder, zh('colorHexPh'), 'C) 十六进制输入占位走词表');
-  // 交互：点一个带内格子 → 该格选中、十六进制同步
-  const pickCell = live[live.length - 1];
-  const picked = pickCell.props['data-dsh-prompt-ink-shade'];
-  TR.act(() => { pickCell.props.onClick(); });
-  eq(byAttr(root, 'data-dsh-prompt-ink-hex')[0].props.value, picked, 'C) 点深浅格后十六进制回填该值');
-  eq(byAttr(root, 'data-dsh-prompt-ink-shade', picked)[0].props['aria-pressed'], 'true', 'C) 点中的深浅格 aria-pressed=true');
+  // 交互：点一个格子 → 选中态 + 预览 + 十六进制三处同步
+  const picked = cells[cells.length - 1].props['data-dsh-prompt-ink-cell'];
+  TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-cell', picked)[0].props.onClick(); });
+  eq(byAttr(root, 'data-dsh-prompt-ink-hex')[0].props.value, picked, 'C) 点色块后十六进制回填该值');
+  eq(byAttr(root, 'data-dsh-prompt-ink-cell', picked)[0].props['aria-pressed'], 'true', 'C) 点中的色块 aria-pressed=true');
+  const pv1 = byAttr(root, 'data-dsh-prompt-ink-preview')[0];
+  eq(pv1.props['data-dsh-prompt-ink-preview'], picked, 'C) 预览态跟着选中色走');
+  const pvName = pv1.findAll((n) => n.props && n.props.style && n.props.style.color === picked)[0];
+  if (!pvName) fail('C) 预览里的名字没拿到该色');
+  else if (pvName.props[panel.INK_TINT_ATTR] === undefined) fail('C) 预览里的名字缺描边钩子（选了色就该描边）');
+  eq(byAttr(root, 'data-dsh-prompt-ink-hex')[0].props.placeholder, zh('colorHexPh'), 'C) 十六进制输入占位走词表');
   // 带外 hex：提示可见且状态不变（不吸附、不静默吞掉）
   TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-hex')[0].props.onChange({ target: { value: '#ffffff' } }); });
   if (!byAttr(root, 'data-dsh-prompt-ink-warn')[0]) fail('C) 带外十六进制应显示「看不清」提示');
   eq(byAttr(root, 'data-dsh-prompt-ink-hex')[0].props.value, '#ffffff', 'C) 输入框保留用户输入（不悄悄改写）');
-  eq(byAttr(root, 'data-dsh-prompt-ink-shade', picked)[0].props['aria-pressed'], 'true', 'C) 带外输入不改已选颜色（不吸附）');
+  eq(byAttr(root, 'data-dsh-prompt-ink-preview')[0].props['data-dsh-prompt-ink-preview'], picked, 'C) 带外输入不改已选颜色（不吸附）');
+  // 「完成」收起浮层
+  const done = byText(byAttr(root, 'data-dsh-prompt-ink-pop')[0], zh('colorDone'));
+  if (!done) fail('C) 浮层缺「完成」键');
+  else TR.act(() => { done.props.onClick(); });
+  if (byAttr(root, 'data-dsh-prompt-ink-pop').length !== 0) fail('C) 点「完成」应收起浮层');
   TR.act(() => { inst.unmount(); });
-  if (failures === 0) ok('C) 控件：默认格 + 6 色快选 + 色相 0–359 + 深浅锁带（带外 disabled 且灰）+ 十六进制 + 带外提示');
+  if (failures === 0) ok('C) 控件：一行按钮 + 浮层 12×带内深浅全可点色块墙（零 disabled）+ 预览 + 十六进制 + 带外提示');
 }
 
 // ═══ D/E/F) 渲染 + 落盘/清除 + 存量不改写 ═══
@@ -279,8 +298,12 @@ async function groupD() {
   }
   // E) 新建带色 → 落盘；编辑点「默认」→ 键消失
   if (openAddModal(inst)) {
-    TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-preset', '#16a34a')[0].props.onClick(); });
-    eq(byAttr(root, 'data-dsh-prompt-ink-hex')[0].props.value, '#16a34a', 'D) 点快选后十六进制回填');
+    TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-field-btn')[0].props.onClick(); });
+    const pickHex = byAttr(root, 'data-dsh-prompt-ink-cell')[0].props['data-dsh-prompt-ink-cell'];
+    TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-cell', pickHex)[0].props.onClick(); });
+    eq(byAttr(root, 'data-dsh-prompt-ink-hex')[0].props.value, pickHex, 'D) 点色块后十六进制回填');
+    TR.act(() => { byText(byAttr(root, 'data-dsh-prompt-ink-pop')[0], zh('colorDone')).props.onClick(); });
+    if (byAttr(root, 'data-dsh-prompt-ink-pop').length !== 0) fail('D) 点「完成」后浮层应收起');
     const nm = byPlaceholder(root, zh('namePh'));
     const bd = byPlaceholder(root, zh('bodyPh'));
     if (!nm || !bd) fail('D) 弹窗里找不到名称/正文输入框');
@@ -291,14 +314,16 @@ async function groupD() {
       const rec = store.allTemplates().filter((t) => t.name === 'NewInkFixture')[0];
       if (!rec) fail('D) 新建带色模板没落进存储');
       else {
-        eq(rec.color, '#16a34a', 'E) 新建带色落盘（addCustom 第 4 参）');
+        eq(rec.color, pickHex, 'E) 新建带色落盘（addCustom 第 4 参）');
         const newName = nameSpanOf(rec.id, 'NewInkFixture');
         if (!newName) fail('D) 新行没渲染出来');
         else if (newName.props[panel.INK_TINT_ATTR] === undefined) fail('D) 新行名字缺钩子属性');
         if (editRow(inst, rec.id)) {
+          TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-field-btn')[0].props.onClick(); });
           eq(byAttr(root, 'data-dsh-prompt-ink-default')[0].props['aria-pressed'], 'false', 'D) 编辑已有颜色时「默认」格不是选中态');
-          eq(byAttr(root, 'data-dsh-prompt-ink-preset', '#16a34a')[0].props['aria-pressed'], 'true', 'D) 编辑时该色快选为选中态');
+          eq(byAttr(root, 'data-dsh-prompt-ink-cell', pickHex)[0].props['aria-pressed'], 'true', 'D) 编辑时该色在墙上为选中态');
           TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-default')[0].props.onClick(); });
+          eq(byAttr(root, 'data-dsh-prompt-ink-cell', pickHex)[0].props['aria-pressed'], 'false', 'D) 点「默认」后墙上不再有选中态');
           clickSave(inst, 'save');
           const rec2 = store.allTemplates().filter((t) => t.id === rec.id)[0];
           eq(Object.prototype.hasOwnProperty.call(rec2, 'color'), false, 'E) 点「默认」保存后 color 键消失（不是写成 #ffffff）');

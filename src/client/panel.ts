@@ -588,14 +588,18 @@ export const INK_TINT_CSS = (function (): string {
   const ring = offsets.map((o) => o[0] + 'px ' + o[1] + 'px 0 ' + ink).join(',')
   return '[' + INK_TINT_ATTR + ']{text-shadow:' + ring + ';}'
 })()
-/** 常用色快选：研究 155 定的 6 色（全在可读带内、两两 ΔE2000 ≥19.4、带内无正黄）。 */
-const INK_PRESETS = ['#f43f5e', '#ea580c', '#16a34a', '#0d9488', '#0284c7', '#a855f7']
-/** 深浅格候选（HSL 亮度百分比，深→浅）：带内的可点、带外的灰掉不可点。 */
-const INK_SHADE_STEPS = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
-/** 没选过颜色时色相条停的档（蓝色系，与对照图一致）。 */
+/** 色块墙的候选网格：饱和度取样（只锁亮度，不锁死饱和度 —— 让饱和度也参与取样，才填得满带内的空间）。 */
+const INK_SAT_SAMPLES = [1, 0.85, 0.7, 0.55, 0.4]
+/** 亮度取样步长 3%：够密；每档色相最终只挑「墙面行数」那么多格（见 inkShadesOf）。 */
+const INK_LIGHT_STEPS: number[] = (function (): number[] {
+  const out: number[] = []
+  for (let l = 8; l <= 92; l += 3) out.push(l)
+  return out
+})()
+/** 墙面行数：每档色相最多露这么多格（同色相内按亮度均匀取样，深→浅）。 */
+const INK_WALL_ROWS = 5
+/** 没选过颜色时预览与初始色相停的档（蓝色系，与对照图一致）。 */
 const INK_HUE_FALLBACK = 205
-/** 深浅格的饱和度：与对照图/色板同口径的 0.72（不放开饱和度，避免第二个自由度把颜色选出台）。 */
-const INK_SATURATION = 0.72
 /** hex → [r,g,b]；非法/非六位回 null（颜色数学就地放本文件：本仓不为这点纯函数新开模块，#159 同结论）。 */
 function hexToRgb(v: unknown): [number, number, number] | null {
   if (typeof v !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(v)) return null
@@ -629,12 +633,61 @@ function inkShadePickable(hex: string): boolean {
   return typeof L === 'number' && L >= INK_PICK_L_MIN && L <= INK_PICK_L_MAX
 }
 
+/** 色块墙的横轴：12 档色相（每 30°）。 */
+const INK_HUES = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]
 /**
- * 取色控件（#158）：默认格 + 6 色快选 + 色相条（0–359 自由）+ 深浅格（带外灰掉不可点）+ 十六进制输入。
- * 模块级稳定组件：写成 TemplateModal 里的内联组件会在父级每次重渲染时被卸载重建，
- * 色相位置与输入中的十六进制会一起丢（与 #21 那条「模块级稳定组件」同因）。
- * 只管显示与选择：`value` 为 '' 即「默认」（不上色/跟随主题/无描边）；「这一项没动过」由调用方的
- * null 表示（见 TemplateModal —— 那条是 ADR-0007「绝不改写存量」的实现位）。
+ * 某色相下所有「看得清」的深浅：带外的直接不进墙 —— 而不是留在墙上灰掉。
+ * 这是 #161 的要害：用户看到的每一个方块都是能点的颜色，不再需要理解「灰=看不清」。
+ */
+function inkShadesOf(hue: number): string[] {
+  const seen: { [hex: string]: number } = {}
+  const all: string[] = []
+  INK_SAT_SAMPLES.forEach((s) => INK_LIGHT_STEPS.forEach((l) => {
+    const hex = rgbToHex(...hslToRgb(hue, s, l / 100))
+    if (seen[hex]) return
+    seen[hex] = 1
+    if (inkShadePickable(hex)) all.push(hex)
+  }))
+  all.sort((a, b) => (relativeLuminance(a) as number) - (relativeLuminance(b) as number))
+  if (all.length <= INK_WALL_ROWS) return all
+  const pick: string[] = []
+  for (let i = 0; i < INK_WALL_ROWS; i++) pick.push(all[Math.round((i * (all.length - 1)) / (INK_WALL_ROWS - 1))])
+  return pick.filter((v, i, arr) => arr.indexOf(v) === i)
+}
+/** 入口按钮的皮（与「悬浮式标签网格触发键」同一套宿主变量）。 */
+const inkFieldBtnStyle: any = {
+  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+  marginTop: '0.5em', padding: '0.55em 0.75em', borderRadius: '0.6em',
+  border: 'thin solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-3)',
+  color: 'var(--dsw-alias-label-primary)', cursor: 'pointer',
+  fontFamily: 'var(--dsw-font-family)', fontSize: '1em',
+}
+/** 浮层卡片的皮（同「悬浮标签网格」那张卡）。 */
+const inkPopCardStyle: any = {
+  width: 'min(470px, 92vw)', maxHeight: '80vh', overflowY: 'auto',
+  background: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+  backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
+  border: '1px solid var(--dsw-alias-border-inverted)', borderRadius: 12, padding: '0.9em',
+  fontFamily: 'var(--dsw-font-family)', color: 'var(--dsw-alias-label-primary)',
+  display: 'flex', flexDirection: 'column', gap: '0.7em',
+}
+/** 色块/预览用的小方块。 */
+function inkSwatchStyle(hex: string, size: string): any {
+  return {
+    width: size, height: size, borderRadius: 5, boxSizing: 'border-box', flex: 'none',
+    display: 'inline-block', background: hex || 'transparent',
+    border: '1px solid var(--dsw-alias-border-l1)',
+  }
+}
+
+/**
+ * 取色控件（#161 改版，据用户真机反馈重做）：弹窗里只占**一行** —— 一个按钮（当前色块 + 当前值），
+ * 点开浮层再选。浮层里的色块墙**每个格子都点得动**：横排 12 档色相，竖排该色相下亮度落在可读带内
+ * （inkShadePickable，与写入口同口径）的深浅 —— 于是「灰格子」这种只有设计者看得懂的暗示彻底消失。
+ * 浮层里还有一条真名预览（真名文本 + 该色 + INK_TINT_ATTR 描边钩子），选谁看谁。
+ * 模块级稳定组件：写成 TemplateModal 里的内联组件会在父级每次重渲染时被卸载重建（与 #21 同因）。
+ * 只管显示与选择：`value` 为 '' 即「默认」（不上色/跟随主题/无描边）；「这一项没动过」由调用方的 null
+ * 表示（见 TemplateModal —— 那条是 ADR-0007「绝不改写存量」的实现位）。
  */
 function InkPicker(props: any): any {
   const react = getReact()
@@ -642,18 +695,16 @@ function InkPicker(props: any): any {
   const h = react.createElement
   const t = props.t
   const value: string = typeof props.value === 'string' ? props.value : ''
-  const hueState = react.useState(() => {
-    const rgb = hexToRgb(value)
-    return rgb ? Math.round(rgbToHue(rgb[0], rgb[1], rgb[2])) : INK_HUE_FALLBACK
-  })
-  const hue = hueState[0]
-  const setHue = hueState[1]
+  const openState = react.useState(false)
+  const open = openState[0]
+  const setOpen = openState[1]
   const typedState = react.useState(value)
   const typed = typedState[0]
   const setTyped = typedState[1]
   const badState = react.useState(false)
   const bad = badState[0]
   const setBad = badState[1]
+  const sample = String(props.name || '').trim() || t('colorPreviewSample')
   const pick = (hex: string): void => { setTyped(hex); setBad(false); props.onChange(hex) }
   const onHex = (raw: string): void => {
     setTyped(raw)
@@ -663,58 +714,85 @@ function InkPicker(props: any): any {
     // 只有「看着像输完了」才报错：逐字符输入时不该一路闪红
     setBad(v.replace('#', '').length >= 6)
   }
-  const cellStyle = (on: boolean, extra?: any): any => ({
-    width: '1.4em', height: '1.4em', padding: 0, borderRadius: 6, cursor: 'pointer', boxSizing: 'border-box',
-    border: on ? '2px solid var(--dsw-alias-label-primary)' : '1px solid var(--dsw-alias-border-l1)',
-    background: 'transparent', fontFamily: 'var(--dsw-font-family)', ...(extra || {}),
-  })
-  const shades = INK_SHADE_STEPS.map((l) => rgbToHex(...hslToRgb(hue, INK_SATURATION, l / 100)))
-  return h('div', { key: 'ink', 'data-dsh-prompt-ink-picker': '1', style: { display: 'flex', flexDirection: 'column', gap: '0.45em', borderTop: '1px solid var(--dsw-alias-border-l1)', paddingTop: '0.6em' } }, [
-    h('span', { key: 'lb', style: { fontSize: '0.92em', color: 'var(--dsw-alias-label-primary)' } }, t('colorLabel')),
-    // ① 默认格 + 6 色常用快选：选中态走可见边框 + aria-pressed 双通道（settings.ts 分段控件同口径）
-    h('div', { key: 'fast', style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } }, [
-      h('button', {
-        key: 'default', type: 'button', 'data-dsh-prompt-ink-default': '1',
-        'aria-pressed': value === '' ? 'true' : 'false', title: t('colorDefault'), 'aria-label': t('colorDefault'),
-        style: { ...cellStyle(value === ''), width: 'auto', height: '1.4em', padding: '0 8px', fontSize: '0.82em', color: 'var(--dsw-alias-label-primary)' },
-        onClick: () => pick(''),
-      }, t('colorDefault')),
-      ...INK_PRESETS.map((hex) => h('button', {
-        key: hex, type: 'button', 'data-dsh-prompt-ink-preset': hex,
-        'aria-pressed': value.toLowerCase() === hex ? 'true' : 'false', title: hex, 'aria-label': hex,
-        style: cellStyle(value.toLowerCase() === hex, { background: hex }),
-        onClick: () => pick(hex),
-      })),
+  const close = (): void => setOpen(false)
+  return h('div', { key: 'ink', 'data-dsh-prompt-ink-field': '1' }, [
+    h('button', {
+      key: 'btn', type: 'button', style: inkFieldBtnStyle,
+      'data-dsh-prompt-ink-field-btn': '1', 'aria-haspopup': 'true', 'aria-expanded': open ? 'true' : 'false',
+      title: t('colorField'), onClick: () => setOpen(!open),
+    }, [
+      h('span', { key: 'sw', 'data-dsh-prompt-ink-swatch': value || 'default', style: inkSwatchStyle(value, '1.15em') }),
+      h('span', { key: 'l', style: { flex: '1 1 auto', textAlign: 'left' } }, t('colorField') + ' · ' + (value ? value : t('colorDefaultShort'))),
+      h('span', { key: 'c', style: { color: 'var(--dsw-alias-label-tertiary)' } }, '▾'),
     ]),
-    // ② 色相条：0–359 全开（只锁深浅，不锁色相）
-    h('input', {
-      key: 'hue', type: 'range', min: 0, max: 359, step: 1, value: hue,
-      'data-dsh-prompt-ink-hue': '1', 'aria-label': t('colorHue'), title: t('colorHue'),
-      style: { width: '100%', accentColor: 'var(--dsw-specific-accent,#f0a45c)' },
-      onChange: (e: any) => setHue(Number(e.target.value)),
-    }),
-    // ③ 深浅格：带内可点、带外 disabled 且灰掉 —— 选不动，于是选不出「有主题看不清」的颜色
-    h('div', { key: 'shades', style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' } }, shades.map((hex) => {
-      const ok = inkShadePickable(hex)
-      const on = ok && value.toLowerCase() === hex
-      return h('button', {
-        key: hex, type: 'button', disabled: !ok, 'data-dsh-prompt-ink-shade': hex,
-        'aria-pressed': on ? 'true' : 'false', 'aria-disabled': ok ? 'false' : 'true',
-        title: ok ? hex : hex + ' · ' + t('colorShade'),
-        style: cellStyle(on, { background: hex, opacity: ok ? 1 : 0.28, cursor: ok ? 'pointer' : 'not-allowed' }),
-        onClick: () => { if (ok) pick(hex) },
-      })
-    })),
-    // ④ 十六进制输入：带外值不落盘（写入口不吸附），所以这里必须明示而不是静默吞掉
-    h('div', { key: 'hex', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
-      h('input', {
-        key: 'hexin', type: 'text', value: typed, placeholder: t('colorHexPh'), 'aria-label': t('colorHexPh'),
-        'data-dsh-prompt-ink-hex': '1',
-        style: { ...modalFieldStyle, width: 'auto', flex: '0 1 12em' },
-        onChange: (e: any) => onHex(e.target.value),
-      }),
-      bad ? h('span', { key: 'warn', 'data-dsh-prompt-ink-warn': '1', style: { fontSize: '0.85em', color: 'var(--dsw-specific-danger,#e06c75)' } }, t('colorOutOfBand')) : null,
-    ]),
+    open ? h(ModalPortal, { key: 'pop' }, [
+      h('div', {
+        key: 'mask', 'data-dsh-prompt-ink-mask': '1',
+        style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: MODAL_Z },
+        onClick: (e: any) => { if (e.target === e.currentTarget) close() },
+      }, [
+        h('div', { key: 'card', 'data-dsh-prompt-ink-pop': '1', style: inkPopCardStyle }, [
+          h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } }, [
+            h('span', { key: 't', style: { fontSize: '1em', fontWeight: 700 } }, '🎨 ' + t('colorField')),
+            h('span', { key: 'b', style: { display: 'flex', gap: '0.5em' } }, [
+              h('button', { key: 'done', type: 'button', style: modalBtn(true), onClick: close }, t('colorDone')),
+              h('button', { key: 'x', type: 'button', style: modalBtn(), onClick: close }, '×'),
+            ]),
+          ]),
+          // 预览：真名 + 真色 + 描边钩子（与四处渲染同一套属性，所见即所得）
+          h('div', {
+            key: 'pv', 'data-dsh-prompt-ink-preview': value || 'default',
+            style: { display: 'flex', alignItems: 'baseline', gap: 8, padding: '0.5em 0.6em', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l1)' },
+          }, [
+            h('span', { key: 'l', style: { fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)', flex: 'none' } }, t('colorPreview')),
+            h('span', {
+              key: 'n',
+              style: { fontSize: '1em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(value ? { color: value, paddingBlock: 2, marginBlock: -2 } : {}) },
+              ...(value ? { [INK_TINT_ATTR]: '' } : {}),
+            }, sample),
+          ]),
+          // ① 色块墙：墙上只有「看得清」的颜色 ⇒ 每个格子都可点（零灰格子、零 disabled）
+          h('div', { key: 'wall', 'data-dsh-prompt-ink-wall': '1', style: { display: 'flex', gap: 4, alignItems: 'flex-end', flexWrap: 'wrap' } },
+            INK_HUES.map((hue) => h('div', {
+              key: 'h' + hue, 'data-dsh-prompt-ink-hue-col': String(hue),
+              style: { display: 'flex', flexDirection: 'column', gap: 4 },
+            }, inkShadesOf(hue).map((hex) => {
+              const on = value.toLowerCase() === hex
+              return h('button', {
+                key: hex, type: 'button', 'data-dsh-prompt-ink-cell': hex,
+                'aria-pressed': on ? 'true' : 'false', title: hex, 'aria-label': hex,
+                style: {
+                  width: '1.5em', height: '1.15em', padding: 0, borderRadius: 5, cursor: 'pointer',
+                  boxSizing: 'border-box', background: hex,
+                  border: on ? '2px solid var(--dsw-alias-label-primary)' : '1px solid var(--dsw-alias-border-l1)',
+                },
+                onClick: () => pick(hex),
+              })
+            })))),
+          // ② 一行收口：默认 + 十六进制 + 带外提示（写入口不吸附、不改写存量 ⇒ 必须明示而不是静默吞掉）
+          h('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } }, [
+            h('button', {
+              key: 'default', type: 'button', 'data-dsh-prompt-ink-default': '1',
+              'aria-pressed': value === '' ? 'true' : 'false', title: t('colorDefault'), 'aria-label': t('colorDefault'),
+              style: {
+                flex: 'none', padding: '0.45em 0.6em', borderRadius: 6, cursor: 'pointer', fontSize: '0.85em',
+                fontFamily: 'var(--dsw-font-family)', color: 'var(--dsw-alias-label-primary)', background: 'transparent',
+                border: value === '' ? '2px solid var(--dsw-alias-label-primary)' : '1px solid var(--dsw-alias-border-l1)',
+              },
+              onClick: () => pick(''),
+            }, t('colorDefaultShort')),
+            h('input', {
+              key: 'in', type: 'text', value: typed, placeholder: t('colorHexPh'), 'aria-label': t('colorHexPh'),
+              'data-dsh-prompt-ink-hex': '1',
+              style: { ...modalFieldStyle, width: 'auto', flex: '0 1 11em' },
+              onChange: (e: any) => onHex(e.target.value),
+            }),
+            bad ? h('span', { key: 'warn', 'data-dsh-prompt-ink-warn': '1', style: { fontSize: '0.85em', color: 'var(--dsw-specific-danger,#e06c75)' } }, t('colorOutOfBand')) : null,
+          ]),
+          h('div', { key: 'hint', style: { fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)' } }, t('colorWallHint')),
+        ]),
+      ]),
+    ]) : null,
   ])
 }
 
@@ -858,9 +936,9 @@ function TemplateModal(props: any): any {
         ]),
       ]) : null,
       h('div', { style: { fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)' } }, props.t('labelsHint')),
-      // #158：取色控件（模块级稳定组件，见 InkPicker 注释）。value 取 `ink || ''`：null 与 '' 都显示「默认」，
-      // 两者只在**保存时**分道（null → 不改这一项；'' → 清除），这层差别不上屏。
-      h(InkPicker, { key: 'ink-picker', t: props.t, value: ink || '', onChange: (v: string) => setInk(v) }),
+      // #161：取色入口收成一行按钮（点开才是浮层色块墙，见 InkPicker 注释）。value 取 `ink || ''`：null 与 ''
+      // 都显示「默认」，两者只在**保存时**分道（null → 不改这一项；'' → 清除），这层差别不上屏。
+      h(InkPicker, { key: 'ink-picker', t: props.t, value: ink || '', name, onChange: (v: string) => setInk(v) }),
       h('textarea', { style: { ...modalFieldStyle, height: labelGridOn ? 400 : 200, resize: 'vertical' }, placeholder: props.t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),
       err ? h('div', { style: { fontSize: '0.92em', color: 'var(--dsw-specific-danger,#e06c75)' } }, props.t(err as keyof typeof STR)) : null,
       h('div', { style: modalBtnsStyle }, [

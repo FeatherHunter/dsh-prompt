@@ -309,18 +309,14 @@ const KNOWN_HEX = {
   '#f0a45c': '既有插件铬：accent 令牌兜底（ADR-0007 明确不在本图范围、不许改动）',
   '#1a1a1e': '既有插件铬：accent 按钮前景（同上）',
   '#e06c75': '既有插件铬：danger 令牌兜底（同上）',
-  '#f43f5e': '用户数据色板：#155 定的 6 色常用快选（INK_PRESETS）之一',
-  '#ea580c': '用户数据色板：同上',
-  '#16a34a': '用户数据色板：同上',
-  '#0d9488': '用户数据色板：同上',
-  '#0284c7': '用户数据色板：同上',
-  '#a855f7': '用户数据色板：同上',
 };
 // 冻结基线：本图（151）改过的 6 个源文件 × 每个 hex 的**出现次数**（去注释后的代码级计数）。
-// 用计数而不是集合：注册过的色值被**新增**一处硬编码同样要红 —— 例如把用户色板的 `#0284c7`
-// 拿去当插件铬色（ADR-0007「用户数据与插件铬两条路不许互相渗透」），计数一变立刻暴露。
+// 用计数而不是集合：注册过的色值被**新增**一处硬编码同样要红 —— 例如把某个色值拿去当插件铬色
+// （ADR-0007「用户数据与插件铬两条路不许互相渗透」），计数一变立刻暴露。
+// #161 改版后的基线变化（已登记）：用户色板 6 色（#f43f5e…）**整组退场** —— 取色墙不再写死任何色值，
+// 每格颜色都由 store 的可读带判据即时生成；panel.ts 的 #f0a45c 由 14 降到 13（旧控件里那处兜底随旧控件一起删）。
 const FROZEN_HEX = {
-  'panel.ts': { '#f0a45c': 14, '#1a1a1e': 2, '#e06c75': 5, '#f43f5e': 1, '#ea580c': 1, '#16a34a': 1, '#0d9488': 1, '#0284c7': 1, '#a855f7': 1 },
+  'panel.ts': { '#f0a45c': 13, '#1a1a1e': 2, '#e06c75': 5 },
   'smart.ts': { '#f0a45c': 1 },
   'index.ts': {},
   'i18n.ts': {},
@@ -342,7 +338,12 @@ function groupD() {
   eq((css.match(/var\(--dsw-alias-label-primary\)/g) || []).length, 8, 'D) 八向描边全用宿主正文令牌（深白浅黑由令牌翻转）');
   const pcode = stripComments(fs.readFileSync(SRC('panel.ts'), 'utf8'));
   const m = /const INK_PRESETS = \[([^\]]*)\]/.exec(pcode);
-  eq((m ? m[1] : '').replace(/['\s]/g, ''), '#f43f5e,#ea580c,#16a34a,#0d9488,#0284c7,#a855f7', 'D) 快选色板与 #155 定的 6 色逐字一致');
+  eq(m ? m[1] : '', '', 'D) #161 起不再有写死的用户色板常量（颜色一律由 store 的带内判据即时生成）');
+  if (!/function inkShadesOf\(/.test(pcode)) fail('D) 缺色块墙生成器 inkShadesOf（取色墙的唯一颜色来源）');
+  else {
+    if (!/inkShadePickable\(hex\)/.test(pcode)) fail('D) 色块墙生成器必须逐格过 store 的可读带判据');
+    if (!/INK_WALL_ROWS/.test(pcode)) fail('D) 色块墙生成器必须按 INK_WALL_ROWS 取样（深→浅均匀）');
+  }
   for (const file of Object.keys(FROZEN_HEX)) {
     const counts = hexCounts(file);
     eq(hexDigest(counts), hexDigest(FROZEN_HEX[file]), 'D) ' + file + ' 的 hex 字面量出现次数等于冻结基线（新增或删掉一处硬编码都要在这里登记）');
@@ -350,7 +351,7 @@ function groupD() {
     eq(unregistered.join(','), '', 'D) ' + file + ' 里每个色值都已在归属登记表里写明属于哪条路');
   }
   if (/label-primary-inverted|specific-accent|specific-danger/.test(css)) fail('D) 描边样式表里混进了别的颜色令牌：' + css);
-  if (failures === 0) ok('D) 零新造色值：描边只用宿主令牌、快选 6 色逐字一致、6 个源文件的 hex 计数等于冻结基线');
+  if (failures === 0) ok('D) 零新造色值：描边只用宿主令牌、色板不写死（带内即时生成）、6 个源文件的 hex 计数等于冻结基线');
 }
 
 // ═══ E) 接线 ═══

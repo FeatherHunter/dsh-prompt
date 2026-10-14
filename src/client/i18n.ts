@@ -74,6 +74,14 @@ export const STR = {
   colorShade: { zh: '灰掉的格子看不清，不能选', en: 'greyed cells are unreadable and cannot be picked' },
   colorHexPh: { zh: '或填十六进制 #rrggbb', en: 'Or type a hex value #rrggbb' },
   colorOutOfBand: { zh: '这个颜色有主题看不清，换一档深浅', en: 'This color is unreadable in one theme — pick another shade' },
+  // #161 取色控件改版（用户真机反馈：看不懂、很多块点不动）：入口收成一个按钮 + 点开的浮层。
+  // 浮层里只放「看得清」的颜色，所以不再需要「灰格子」那套解释；这里补的是入口按钮、预览条与人话引导。
+  colorField: { zh: '文字颜色', en: 'Text color' },
+  colorDefaultShort: { zh: '默认（跟随主题）', en: 'Default (theme)' },
+  colorPreview: { zh: '预览', en: 'Preview' },
+  colorPreviewSample: { zh: '模板名字长这样', en: 'Your template name' },
+  colorDone: { zh: '完成', en: 'Done' },
+  colorWallHint: { zh: '点一个色块就行 —— 这里的每个颜色在深色和浅色主题下都看得清。', en: 'Just click a swatch — every color here stays readable in both light and dark themes.' },
   labelsPh: { zh: '添加标签（逗号/空格/顿号分隔，回车确认）', en: 'Add labels (comma/space separated, Enter to confirm)' },
   labelsHint: { zh: '最多 3 个，每条 1–10 字；可从已有词里选，也可新造', en: 'At most 3 labels, 1–10 chars each; pick existing or invent new' },
   labelsTooMany: { zh: '最多 3 个标签', en: 'At most 3 labels' },

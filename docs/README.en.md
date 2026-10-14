@@ -201,6 +201,28 @@ Separate storage — upgrades never eat yours.
 
 <div align="center">
 
+## Color tags <sub>COLOR TAGS</sub>
+
+</div>
+
+<div align="center">
+
+Give a custom template's name a color and spot it at a glance.<br>
+No color = follows the theme with no outline, exactly as before. Pick one and the name is tinted in all four
+places — the compact list, the settings list, remote cards and the smart card — with a white outline in dark
+themes and a black outline in light themes, so it stays readable on any background.<br>
+Drag the hue freely; only the shades that stay readable are pickable (the rest are greyed out). Six ready-made
+colors, or type a hex value.
+
+**👇 The same names in the light (top) and dark (bottom) themes.**
+
+<img src="../assets/readme/07-color-tags-light.png" width="640" alt="Color tags: the four render sites in the light theme" style="border:1px solid #30363d;border-radius:6px">
+<img src="../assets/readme/08-color-tags-dark.png" width="640" alt="Color tags: the four render sites in the dark theme" style="border:1px solid #30363d;border-radius:6px">
+
+</div>
+
+<div align="center">
+
 ## Privacy <sub>PRIVACY</sub>
 
 </div>

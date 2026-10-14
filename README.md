@@ -203,6 +203,26 @@ dsh.desktop = 2.0.9
 
 <div align="center">
 
+## 颜色标签 <sub>COLOR TAGS</sub>
+
+</div>
+
+<div align="center">
+
+给自定义模板的名字挑个颜色，列表里一眼认出来。<br>
+不挑颜色＝跟着主题走、没有描边，和以前一模一样；挑了颜色，这个名字在
+小列表、大列表、远程卡片、智能卡四处都变色，深色主题配白描边、浅色主题配黑描边，换什么底都看得清。<br>
+色相随便拖，深浅只放出「看得清」的那几档（其余灰掉，点不了）；6 个常用色一点就好，也能直接填十六进制。
+
+**👇 同一条名字在浅色（上）与深色（下）两主题下的样子。**
+
+<img src="assets/readme/07-color-tags-light.png" width="640" alt="颜色标签：浅色主题下的四处渲染" style="border:1px solid #30363d;border-radius:6px">
+<img src="assets/readme/08-color-tags-dark.png" width="640" alt="颜色标签：深色主题下的四处渲染" style="border:1px solid #30363d;border-radius:6px">
+
+</div>
+
+<div align="center">
+
 ## 隐私 <sub>PRIVACY</sub>
 
 </div>

@@ -2,6 +2,14 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
+## [0.4.17] - 2026-10-15
+
+### Added
+- README 新增「颜色标签」章节（英文版同步）：这份 README 同时供 GitHub 仓库页、npm 包页与插件市场详情页读，三处一起讲清颜色标签怎么用——不挑颜色＝跟随主题且无描边，挑了颜色则四处模板名都变色、深色主题白描边、浅色主题黑描边；并配深浅两主题下的四处渲染图（`assets/readme/07-color-tags-light.png`、`08-color-tags-dark.png`，已登记进 `screenshots.json`）。
+
+### Changed
+- 更新能力依赖 `dsh-plugin-update` 由 `0.16.0` 升到 `0.16.1`，`lib/update.js` 按新版本重建（内联版本标记同步）；仓库 HEAD 与已发布的 0.4.16 产物自此一致。
+
 ## [0.4.16] - 2026-10-15
 
 ### Added

@@ -19,10 +19,11 @@
 <!-- 本 README 同时供三个地方读：GitHub 仓库页、npm 包页，以及 awesome 插件市场的详情页正文。
      市场正文那侧会丢弃全部原始 HTML（只认 markdown），所以标题一律用 `##`（写成 <h2> 那边就没了）。
      截图跟 dsh-mattpocock-skills-deck 同一套写法：`<img src="…" width="640|720|560" …>` 定宽——
-     GitHub 与 npm 认 `width`，图按定宽渲染、点开仍可看原图；市场正文那侧连标签一起丢，
-     图片改由图兜：写进 README 的本仓截图，路径必须同时出现在根目录 `screenshots.json`
-     （详情页截图区，顺序即展示顺序），`npm run test:marketplace` 会核这一条。
-     另一处声明也在本文件之外：`package.json` 的 `repository` 把 npm 包认到本仓（下载量、「可从 npm 安装」）。 -->
+     GitHub 与 npm 认 `width`，图按定宽渲染、点开仍可看原图；市场 web 详情页那侧连标签一起丢，
+     正文只剩文字（skills-deck 的详情页同样是 0 张图），图片改由根目录 `screenshots.json`
+     的截图字段带给各 storefront：写进 README 的本仓截图必须登记在那儿，
+     `npm run test:marketplace` 会核这一条。另一处声明也在本文件之外：`package.json` 的
+     `repository` 把 npm 包认到本仓（下载量、「可从 npm 安装」）。 -->
 
 <div align="center">
 

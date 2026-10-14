@@ -1,5 +1,5 @@
 /**
- * 市场侧 README 体检 —— 「一份 README，两个面都要读得通」的守门人
+ * 市场侧 README 体检 —— 盯住「市场那侧悄悄少东西」，并记下刻意接受的那部分
  *
  * 为什么有这条：
  *   同一个 README 会被两处渲染——GitHub 仓库页，和 awesome 插件市场的详情页正文
@@ -18,13 +18,16 @@
  *
  * 判红（四条，都是「市场那侧悄悄少东西」的症状）：
  *   1. 原始 HTML `<img>` 装的本仓截图，路径没在根目录 screenshots.json 里登记 ——
- *      市场正文丢标签、详情页截图区又没这张，两个面就都看不到它；
+ *      市场 web 详情页只渲染 README 正文（原始 HTML 一律丢），图片还能走的只剩平台的
+ *      `screenshots.json` 截图字段；没登记的图，那侧就什么都拿不到；
  *   2. 源文件用原始 HTML `<h2>`–`<h6>` 写章节标题 —— 一律丢，市场正文没结构；
  *   3. markdown 图片没全部渲染出来；
  *   4. markdown 标题没全部渲染出来。
- * 图片这条路是刻意的：截图统一走 `<img src="…" width="640|720|560" style="…">` 定宽
+ * 图片这条路是刻意的取舍：截图统一走 `<img src="…" width="640|720|560" style="…">` 定宽
  *   （跟 dsh-mattpocock-skills-deck 同一套）——GitHub 与 npm 认 `width`，图按定宽渲染、
- *   点开仍可看原图；市场正文那侧连标签一起丢，图改由 screenshots.json 的详情页截图区承载。
+ *   点开仍可看原图。代价：市场 web 详情页正文只剩文字（上游 renderReadme 丢弃全部原始 HTML，
+ *   且详情页并不渲染 screenshots.json——实测 skills-deck 的详情页同样是 0 张图），
+ *   图片改由 screenshots.json 的截图字段供各 storefront 取用。
  *   所以「用了 <img>」不算缺陷，「<img> 里的图没登记」才算。
  * 只提示不判红：第三方图床的图（徽章，上游按隐私规则刻意丢弃）、`<summary>` 里的字、
  * 只有 GitHub 看得见的 `<details>` 折叠壳。
@@ -135,7 +138,7 @@ const FILES = [
 const problems = []
 const shots = loadScreenshots()
 console.log('=== 市场侧 README 体检（awesome-dsh-plugin.com 详情页正文）===')
-console.log(`screenshots.json：${shots.size} 张详情页截图（README 里的定宽截图必须都在这里）`)
+console.log(`screenshots.json：${shots.size} 张（平台截图字段；市场 web 详情页并不渲染它）`)
 
 for (const [file, dir, label] of FILES) {
   const md = fs.readFileSync(path.join(ROOT, file), 'utf8')
@@ -169,10 +172,10 @@ for (const [file, dir, label] of FILES) {
     .filter((src) => isOwnImage(src))
   const uncovered = rawImgs.filter((src) => !shots.has(normPath(src)))
   if (uncovered.length) {
-    problems.push(`${file}：${uncovered.length} 张 <img> 装的截图没登记进 screenshots.json，市场详情页两处都看不到`)
+    problems.push(`${file}：${uncovered.length} 张 <img> 装的截图没登记进 screenshots.json，市场那侧连截图字段都拿不到`)
     for (const s of uncovered) console.log(`  ✗ 原始 <img>：${s} —— 把这条路径补进 screenshots.json`)
   } else if (rawImgs.length) {
-    console.log(`  定宽 <img>     : 本仓 ${rawImgs.length} 张（市场正文看不到，已由 screenshots.json 截图区接住）`)
+    console.log(`  定宽 <img>     : 本仓 ${rawImgs.length} 张（市场 web 详情页看不到，已登记进 screenshots.json 截图字段）`)
   }
 
   // 2. 原始 HTML 写的章节标题 —— 市场那侧一律丢
@@ -193,8 +196,9 @@ if (problems.length) {
   console.log('\n=== 不合格 ===')
   for (const p of problems) console.log('  ✗ ' + p)
   console.log('\n修法：市场正文那侧只认 markdown —— 标题一律 `## 标题`（原始 <h2> 会被丢弃）；')
-  console.log('     截图用 `<img src="路径" width="640|720|560" …>` 定宽（GitHub/npm 认 width），')
-  console.log('     并把同一路径写进根目录 screenshots.json —— 市场正文丢标签，详情页截图区把图接住。')
+  console.log('     截图用 `<img src="路径" width="640|720|560" …>` 定宽（GitHub / npm 认 width），')
+  console.log('     但同一路径必须登记进根目录 screenshots.json —— 市场 web 详情页看不到它，')
+  console.log('     平台的截图字段还能把图带给各 storefront。')
   process.exit(1)
 }
 console.log('\n=== Test marketplace PASS ===')

@@ -18,12 +18,12 @@ Your ⭐ means the world to me.
      market's detail page. The market's body drops every bit of raw HTML (markdown only), so
      headings are always `##` (an <h2> simply vanishes there). Screenshots follow
      dsh-mattpocock-skills-deck: `<img src="…" width="640|720|560">` — GitHub and npm honour
-     `width`, so shots render at that width and still open full size on click; the market body
-     drops the tag, and the root `screenshots.json` (detail-page shots, order = display order)
-     carries them instead. Every own screenshot in this README must be listed there too —
-     `npm run test:marketplace` checks exactly that. One more declaration lives outside this
-     file: `package.json`'s `repository` (links the npm package to this repo: download counts,
-     "installable from npm"). -->
+     `width`, so shots render at that width and still open full size on click; the market's web
+     detail page drops the tag and keeps text only (skills-deck's page shows 0 images too), so the
+     root `screenshots.json` shot field carries them for storefronts. Every own screenshot in this
+     README must be listed there — `npm run test:marketplace` checks exactly that. One more
+     declaration lives outside this file: `package.json`'s `repository` (links the npm package to
+     this repo: download counts, "installable from npm"). -->
 
 <div align="center">
 

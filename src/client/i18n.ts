@@ -83,6 +83,7 @@ export const STR = {
   colorPreview: { zh: '预览', en: 'Preview' },
   colorPreviewSample: { zh: '模板名字长这样', en: 'Your template name' },
   colorDone: { zh: '完成', en: 'Done' },
+  colorOutline: { zh: '文字描边', en: 'Text outline' },
   colorWallHint: { zh: '所列颜色均通过深色与浅色主题的可读性校验，可直接点选。', en: 'All colors shown are verified for readability in both dark and light themes.' },
   labelsPh: { zh: '添加标签（逗号/空格/顿号分隔，回车确认）', en: 'Add labels (comma/space separated, Enter to confirm)' },
   labelsHint: { zh: '最多 3 个，每条 1–10 字；可从已有词里选，也可新造', en: 'At most 3 labels, 1–10 chars each; pick existing or invent new' },

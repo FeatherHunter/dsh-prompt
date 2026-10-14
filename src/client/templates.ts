@@ -23,6 +23,9 @@ export interface PromptTemplate {
    *  缺键／带外／非法都表示「未选颜色」——消费颜色一律走 store 的 inkColorOf()，
    *  它负责读侧回落；直接读本字段会拿到未经回落的值。 */
   color?: string
+  /** 文字描边开关（#162）：**只有 `false` 有意义**（用户明确关掉描边），缺键＝开。
+   *  未选颜色时这个键不该存在（无颜色＝无描边，用户口径）；消费一律走 store 的 inkOutlineOf()。 */
+  outline?: boolean
   body: string
   builtin: boolean
 }

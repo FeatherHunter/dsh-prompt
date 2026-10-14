@@ -20,7 +20,7 @@ import {
   allTemplates, sortedTemplates, sortedTemplatesBottomUp, templateLabels, matchLabel,
   allKnownLabels, normalizeLabels, validateLabels, isPinned, togglePin, canPinMore, LABEL_FALLBACK,
   addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, loadUsage, templateHaystack, MAX_BODY,
-  inkColorOf, relativeLuminance, INK_PICK_L_MIN, INK_PICK_L_MAX,
+  inkColorOf, inkOutlineOf, relativeLuminance, INK_PICK_L_MIN, INK_PICK_L_MAX,
   ensureLoaded, subscribeStore,
 } from './store'
 import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './state'
@@ -695,6 +695,8 @@ function InkPicker(props: any): any {
   const h = react.createElement
   const t = props.t
   const value: string = typeof props.value === 'string' ? props.value : ''
+  // #162 描边开关：只有「选了颜色」才谈得上描边；组件只负责显示与回调，状态由调用方持有。
+  const outlineOn = props.outline !== false
   const openState = react.useState(false)
   const open = openState[0]
   const setOpen = openState[1]
@@ -748,7 +750,7 @@ function InkPicker(props: any): any {
             h('span', {
               key: 'n',
               style: { fontSize: '1em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(value ? { color: value, paddingBlock: 2, marginBlock: -2 } : {}) },
-              ...(value ? { [INK_TINT_ATTR]: '' } : {}),
+              ...(value && outlineOn ? { [INK_TINT_ATTR]: '' } : {}),
             }, sample),
           ]),
           // ① 色块墙：墙上只有「看得清」的颜色 ⇒ 每个格子都可点（零灰格子、零 disabled）
@@ -789,6 +791,19 @@ function InkPicker(props: any): any {
             }),
             bad ? h('span', { key: 'warn', 'data-dsh-prompt-ink-warn': '1', style: { fontSize: '0.85em', color: 'var(--dsw-specific-danger,#e06c75)' } }, t('colorOutOfBand')) : null,
           ]),
+          // ③ 文字描边开关（#162）：只有选了颜色才出现 —— 没颜色就没有描边可言（用户口径），
+          // 所以这里不摆一个点不动的灰控件，而是「选了色，开关才长出来」。默认开（＝今天的行为）。
+          value ? h('label', {
+            key: 'ol', 'data-dsh-prompt-ink-outline-row': '1',
+            style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9em', color: 'var(--dsw-alias-label-primary)', cursor: 'pointer', userSelect: 'none' },
+          }, [
+            h('input', {
+              key: 'cb', type: 'checkbox', checked: outlineOn, 'data-dsh-prompt-ink-outline': '1',
+              style: { margin: 0, cursor: 'pointer' },
+              onChange: (e: any) => { props.onOutline && props.onOutline(!!(e.target && e.target.checked)) },
+            }),
+            h('span', { key: 'l' }, t('colorOutline')),
+          ]) : null,
         ]),
       ]),
     ]) : null,
@@ -822,6 +837,10 @@ function TemplateModal(props: any): any {
   // 「没有颜色」——ADR-0007 明令绝不改写用户数据（这也是本组件用三态而不是布尔的原因）。
   const s4 = react.useState(editing ? (inkColorOf(props.tpl) ?? null) : null)
   const ink = s4[0]; const setInk = s4[1]
+  // #162 描边开关：没有三态问题（读侧已给出确定答案），初值取 inkOutlineOf —— 存量缺键＝开。
+  // 未选颜色时它恒 false，而开关此时根本不渲染；保存时 store 会拒绝给无颜色的记录落 outline。
+  const s5 = react.useState(editing ? inkOutlineOf(props.tpl) : true)
+  const outline = s5[0]; const setOutline = s5[1]
   const errState = react.useState(null as string | null)
   const err = errState[0]; const setErr = errState[1]
   const commitInput = () => {
@@ -837,7 +856,7 @@ function TemplateModal(props: any): any {
     // 输入框残留文本一并计入（不静默丢），统一走校验：违规阻断并行内提示
     const checked = validateLabels([...labels, ...normalizeLabels(labelInput)])
     if (!checked.ok) { setErr(checked.error); return }
-    props.onOk && props.onOk({ name: nm, labels: checked.labels, body: bd, color: ink === null ? undefined : ink })
+    props.onOk && props.onOk({ name: nm, labels: checked.labels, body: bd, color: ink === null ? undefined : ink, outline: outline ? true : false })
   }
   const known = allKnownLabels()
   // 远程模式标签悬浮网格（2026-09-29 用户拍板）：常态只留一个触发键，点后浮出网格 overlay 选；
@@ -937,7 +956,7 @@ function TemplateModal(props: any): any {
       h('div', { style: { fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)' } }, props.t('labelsHint')),
       // #161：取色入口收成一行按钮（点开才是浮层色块墙，见 InkPicker 注释）。value 取 `ink || ''`：null 与 ''
       // 都显示「默认」，两者只在**保存时**分道（null → 不改这一项；'' → 清除），这层差别不上屏。
-      h(InkPicker, { key: 'ink-picker', t: props.t, value: ink || '', name, onChange: (v: string) => setInk(v) }),
+      h(InkPicker, { key: 'ink-picker', t: props.t, value: ink || '', name, outline: outline, onOutline: (v: boolean) => setOutline(v), onChange: (v: string) => setInk(v) }),
       h('textarea', { style: { ...modalFieldStyle, height: labelGridOn ? 400 : 200, resize: 'vertical' }, placeholder: props.t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),
       err ? h('div', { style: { fontSize: '0.92em', color: 'var(--dsw-specific-danger,#e06c75)' } }, props.t(err as keyof typeof STR)) : null,
       h('div', { style: modalBtnsStyle }, [
@@ -1430,11 +1449,11 @@ export function TemplateBrowser(props: BrowserProps): any {
           h(TemplateModal, {
             kind: modal.kind, tpl: modal.t, t,
             onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null) },
-            onOk: (f: { name: string; labels: string[]; body: string; color?: string }) => {
+            onOk: (f: { name: string; labels: string[]; body: string; color?: string; outline?: boolean }) => {
               // #158：color 为 undefined ＝「这一项没动过」（编辑时保持存量原样、新增时不写这个键）；
               // '' ＝ 用户点了「默认」（编辑时清掉这个键）。两者不能混用 —— 把 undefined 当清除用会误删存量颜色。
               if (modal.kind === 'edit' && modal.t) { updateCustom(modal.t.id, f) }
-              else { addCustom(f.name, f.labels, f.body, f.color || undefined) }
+              else { addCustom(f.name, f.labels, f.body, f.color || undefined, f.outline === false ? false : undefined) }
               setHoverCloseSuppressed(false); modalState[1](null)
               refresh()
             },
@@ -1630,6 +1649,8 @@ export function TemplateBrowser(props: BrowserProps): any {
       const custom = !tpl.builtin
       // #158 名字染色（与小列表同口径：读侧权威 inkColorOf，undefined 时不动这个节点）
       const ink = inkColorOf(tpl)
+      // #162 描边：颜色之上再问一句「要不要描边」（读侧权威 inkOutlineOf，缺键＝开）
+      const tint = ink !== undefined && inkOutlineOf(tpl)
       // 悬停/按压视觉反馈（复用 #88 行语义：hover 高亮、pressed 加深+微缩；触屏长按即保持 pressed）。
       const cardHover = hoverId === tpl.id
       const cardPressed = pressedId === tpl.id
@@ -1666,7 +1687,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('span', { style: remoteCardMeta }, [
           // #158：remoteCardTitle 自己就是裁切盒（overflow:hidden）⇒ 上色时给 2px 纵向余量 + 同量负 margin；
           // 外层卡片有 0.5rem 内边距，1px 环落在里面，卡片不动。
-          h('span', { style: { ...remoteCardTitle, flex: 'none', minWidth: 0, ...(ink ? { color: ink, paddingBlock: 2, marginBlock: -2 } : {}) }, ...(ink ? { [INK_TINT_ATTR]: '' } : {}) }, tpl.name),
+          h('span', { style: { ...remoteCardTitle, flex: 'none', minWidth: 0, ...(ink ? { color: ink, paddingBlock: 2, marginBlock: -2 } : {}) }, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, tpl.name),
           h('span', { style: remoteCardIntro }, intro),
         ]),
         h('span', { style: remoteCardFoot }, [
@@ -1828,6 +1849,8 @@ export function TemplateBrowser(props: BrowserProps): any {
     // #158 名字染色：读侧权威 inkColorOf（带外/非法/缺键都回 undefined＝「未选颜色」）。
     // undefined ⇒ 名字颜色与属性钩子都不动，与今天逐字节一致（地图 Destination 的硬约束）。
     const ink = inkColorOf(x)
+    // #162 描边：颜色之上再问一句「要不要描边」（缺键＝开；未选颜色时恒不加钩子）
+    const tint = ink !== undefined && inkOutlineOf(x)
     const acts = custom
       ? h('span', { style: actStyle }, [
           h('button', { style: actBtn(), onClick: (e: any) => handleEdit(e, x) }, t('edit')),
@@ -1876,7 +1899,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         // #158：1px 外环在裁切盒（本行内层，overflow:hidden）的 padding box 上会被切平 ⇒ 上色时给 2px 纵向余量、
         // 同量负 margin 抵消（margin 盒不变，多出的 1px 环落在行根自己的 3px padding 里）。未上色的行一字不动。
         h('span', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden', ...(ink ? { paddingBlock: 2, marginBlock: -2 } : {}) } }, [
-          h('span', { style: { flex: 'none', fontSize: '0.95em', color: ink || base, fontWeight: 600, whiteSpace: 'nowrap' }, ...(ink ? { [INK_TINT_ATTR]: '' } : {}) }, x.name),
+          h('span', { style: { flex: 'none', fontSize: '0.95em', color: ink || base, fontWeight: 600, whiteSpace: 'nowrap' }, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, x.name),
           h('span', { style: { flex: '0 1 auto', minWidth: 0, fontSize: '0.8em', color: muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }, ...(templateLabels(x).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, displayLabelString(x, lang)),
           h('span', { style: { flex: '1 1 auto', minWidth: 0, fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, intro),
         ]),
@@ -1904,7 +1927,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         // #158：nmStyle 自身与这一行都是裁切盒 ⇒ 上色时两处各给 2px 纵向余量（负 margin 抵消，行高预算不动）。
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', ...(ink ? { paddingBlock: 2, marginBlock: -2 } : {}) } }, [
           h('span', { style: { flex: 'none', fontSize: '0.75em', color: dim, width: '1.2em', textAlign: 'center', lineHeight: 1 }, 'aria-hidden': 'true' }, expanded.has(x.id) ? '▾' : '▸'),
-          h('span', { style: ink ? { ...nmStyle, color: ink, paddingBlock: 2, marginBlock: -2 } : nmStyle, ...(ink ? { [INK_TINT_ATTR]: '' } : {}) }, x.name),
+          h('span', { style: ink ? { ...nmStyle, color: ink, paddingBlock: 2, marginBlock: -2 } : nmStyle, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, x.name),
           h('span', { style: tagStyle, ...(templateLabels(x).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, displayLabelString(x, lang)),
         ]),
         expanded.has(x.id) ? h('span', { style: subStyle }, (x.body || '').slice(0, 44) + '…') : null,

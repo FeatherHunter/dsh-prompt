@@ -7,7 +7,7 @@
  */
 import { getReact, INK_TINT_ATTR } from './panel'
 import { smartCandidates, firstFieldCaret, type ScoredTemplate } from './match'
-import { allTemplates, bumpUsage, loadUsage, tieBreakOrder, templateLabels, LABEL_FALLBACK, inkColorOf } from './store'
+import { allTemplates, bumpUsage, loadUsage, tieBreakOrder, templateLabels, LABEL_FALLBACK, inkColorOf, inkOutlineOf } from './store'
 import { displayLabelString } from './keys'
 import {
   getSmartInput, onSmartInput, isSmartEnabled, setSmartEnabled,
@@ -371,6 +371,8 @@ export function SmartCardHost(props: any): any {
     const common = c.score === 0
     // #158 名字染色：读侧权威 inkColorOf（undefined＝未选颜色 ⇒ 颜色与钩子属性都不动）
     const ink = inkColorOf(c.tpl)
+    // #162 描边：颜色之上再问一句「要不要描边」（缺键＝开；未选颜色时恒不加钩子）
+    const tint = ink !== undefined && inkOutlineOf(c.tpl)
     // #23：展示行换为完整标签串；评分后缀（·分N/·常用）保留，评分链不动
     // #141：后缀是铬，走词表；单独成节点 —— 铬钩子节点里只有铬，数据词（标签串）留在外层
     const suffixKey = common ? 'smartCommonSuffix' : 'smartScoreSuffix'
@@ -381,7 +383,7 @@ export function SmartCardHost(props: any): any {
       h('span', { style: rowNum }, String(rows.length - i)),
       // #158：rowName 自己是裁切盒（overflow:hidden）⇒ 上色时给 2px 纵向余量 + 同量负 margin；
       // 行容器本来就有 3px 纵向内边距（> 1px 环），不必动。
-      h('span', { style: ink ? { ...rowName, color: ink, paddingBlock: 2, marginBlock: -2 } : rowName, ...(ink ? { [INK_TINT_ATTR]: '' } : {}) }, c.tpl.name),
+      h('span', { style: ink ? { ...rowName, color: ink, paddingBlock: 2, marginBlock: -2 } : rowName, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, c.tpl.name),
       // #142：标签段走显示映射（后缀已翻不动；混合串数据段由门禁 dataWords 剔除覆盖，不拆节点）
       h('span', { style: rowTag, ...(templateLabels(c.tpl).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, [
         displayLabelString(c.tpl, lang), ' ',

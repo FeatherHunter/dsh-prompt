@@ -210,9 +210,10 @@ Separate storage — upgrades never eat yours.
 Give a custom template's name a color and spot it at a glance.<br>
 No color = follows the theme with no outline, exactly as before. Pick one and the name is tinted in all four
 places — the compact list, the settings list, remote cards and the smart card — with a white outline in dark
-themes and a black outline in light themes, so it stays readable on any background.<br>
-Drag the hue freely; only the shades that stay readable are pickable (the rest are greyed out). Six ready-made
-colors, or type a hex value.
+themes and a black outline in light themes, so it stays readable on any background. Don't want the outline?
+Turn off "Text outline" in the same popover and keep the color.<br>
+The "Text color" button opens a wall of swatches: any hue you like, only shades that stay readable, every cell
+clickable, plus a hex field for exact values.
 
 **👇 The same names in the light (top) and dark (bottom) themes.**
 

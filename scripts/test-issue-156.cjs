@@ -85,19 +85,22 @@ function installDom(lang) {
 const writes = [];
 /** 四个面（用 CONTEXT.md 词表的叫法）：同一份颜色语义要在这四处同源（下面 A/B 两组共用这一张清单） */
 const FACES = ['悬浮列表', '设置页列表', '远程大列表', '智能卡'];
-function fixture(id, name, label, color) {
+function fixture(id, name, label, color, outline) {
   const t = { id, name, nameEn: '', labels: [label], body: name + ' body', builtin: false, createdAt: SEED_ORDER.length + 1 };
   SEED_ORDER.push(id);
   if (color) t.color = color;
+  // #162：只有 `false` 会被写下来（缺键＝开）
+  if (outline === false) t.outline = false;
   return t;
 }
 const SEED_ORDER = [];
 const SEED = [
   // 自选标签就是智能卡的候选闸门（match.ts:scoreCustomLabels，一个强命中 = 2 分 = 阈值），
-  // 故三个 fixture 各给一个专属标签，好按草稿精确点名要哪个面出哪几条。
+  // 故每个 fixture 各给一个专属标签，好按草稿精确点名要哪个面出哪几条。
   fixture('x-inband', 'InkFixture', 'alpha', '#0284c7'), // 带内色：应当四面都染色 + 带描边钩子
   fixture('x-outband', 'OutFixture', 'beta', '#ffffff'), // 可读带外：读侧回落成「未选颜色」，存储原值不动
   fixture('x-plain', 'PlainFixture', 'gamma'), // 真·未选颜色：对照组
+  fixture('x-nostroke', 'NoStrokeFixture', 'delta', '#16a34a', false), // #162：有色但关掉描边 ⇒ 染色、零钩子
 ];
 function installFetch() {
   globalThis.fetch = async (url, init) => {
@@ -130,6 +133,7 @@ const React = require('react');
 const TR = require('react-test-renderer');
 const INK_IN = '#0284c7';
 const INK_OUT = '#ffffff';
+const INK_NOSTROKE = '#16a34a';
 
 // ── 挂载工具 ──
 async function mount(el) {
@@ -240,9 +244,44 @@ async function groupA() {
   eq((panelCode.match(/color: ink,/g) || []).length, 2, 'A) 远程大列表卡 + 设置页列表行：同一个变量 ink');
   eq((smartCode.match(/color: ink,/g) || []).length, 1, 'A) 智能卡行：同一个变量 ink');
   eq(((panelCode + smartCode).match(/inkColorOf\(/g) || []).length, 4, 'A) 颜色只经 inkColorOf 读（三处渲染查值 + 编辑弹窗初值）');
-  eq((panelCode.match(/addCustom\(f\.name, f\.labels, f\.body, f\.color \|\| undefined\)/g) || []).length, 1, 'A) 唯一直接读 .color 的是导入写入口（经 sanitizeInkColor 守卫）');
+  eq((panelCode.match(/addCustom\(f\.name, f\.labels, f\.body, f\.color \|\| undefined/g) || []).length, 1, 'A) 唯一直接读 .color 的是导入写入口（经 sanitizeInkColor 守卫）');
   eq(((panelCode + smartCode).match(/[A-Za-z_$][\w$]*\.color\b/g) || []).length, 1, 'A) 除导入写入口外，渲染层零裸读 .color（一律过读侧回落）');
   if (failures === 0) ok('A) 四面同语义：四处名字节点都带钩子、都吃同一个读侧权威值');
+}
+
+// ═══ A2) 关掉描边（#162）：四个面都染色、都零钩子 ═══
+async function groupA2() {
+  const snap = {};
+  await setupHover();
+  const hover = await mountHoverFaces();
+  snap['悬浮列表'] = grabSpan(spanIn(hover['悬浮列表'].root, 'NoStrokeFixture'));
+  snap['设置页列表'] = grabSpan(spanIn(hover['设置页列表'].root, 'NoStrokeFixture'));
+  unmountAll(hover);
+  await setupRemoteOn();
+  const remote = await mountRemoteFaces('delta work');
+  const cards = await remoteCardsOf(remote['远程大列表'], ['x-nostroke']);
+  if (!cards['x-nostroke']) fail('A2) 远程面板翻遍页也没找到关描边的目标卡');
+  snap['远程大列表'] = grabSpan(cards['x-nostroke'] ? spanIn(cards['x-nostroke'], 'NoStrokeFixture') : null);
+  snap['智能卡'] = grabSpan(spanIn(remote['智能卡'].root, 'NoStrokeFixture'));
+  unmountAll(remote);
+
+  const seed = store.allTemplates().filter((t) => t.id === 'x-nostroke')[0];
+  eq(store.inkColorOf(seed), INK_NOSTROKE, 'A2) 关了描边的模板仍然读得出颜色');
+  eq(store.inkOutlineOf(seed), false, 'A2) 读侧权威 inkOutlineOf 回「不描边」');
+  const checked = [];
+  for (const face of FACES) {
+    const s = snap[face];
+    if (!s) { fail('A2) ' + face + ' 面没渲染出关描边的模板'); continue; }
+    if (s.hook) fail('A2) ' + face + ' 面关掉了描边却仍带钩子属性 ' + panel.INK_TINT_ATTR);
+    eq(s.style.color, INK_NOSTROKE, 'A2) ' + face + ' 面仍然染色（关掉的只是描边）');
+    checked.push(face);
+  }
+  eq(checked.join('/'), FACES.join('/'), 'A2) 四个面都验到（一个都不能少）');
+  // 源码层面：四处渲染都过同一个读侧判据，谁也不许自己去读 outline
+  const code = stripComments(fs.readFileSync(SRC('panel.ts'), 'utf8')) + stripComments(fs.readFileSync(SRC('smart.ts'), 'utf8'));
+  eq((code.match(/inkOutlineOf\(/g) || []).length, 4, 'A2) 四处渲染都过同一个读侧判据 inkOutlineOf');
+  eq(((code.match(/[A-Za-z_$][\w$]*\.outline\b/g) || []).join(',')), 'props.outline,f.outline', 'A2) 渲染层零裸读 .outline：只许控件自己的 prop 与写入口的表单值');
+  if (failures === 0) ok('A2) 关掉描边：四面仍染色、零钩子（同一份读侧判据）');
 }
 
 // ═══ B) 带外回落（四个面都当未选颜色） ═══
@@ -365,6 +404,7 @@ function groupE() {
 
 (async () => {
   await groupA();
+  await groupA2();
   await groupB();
   await groupC();
   groupD();

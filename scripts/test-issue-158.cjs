@@ -84,6 +84,8 @@ const SEED = [
   { id: 'x-inband', name: 'InkFixture', nameEn: '', labels: ['EnLabel'], body: 'in-band body', builtin: false, createdAt: 1, color: '#0284c7' },
   { id: 'x-outband', name: 'OutFixture', nameEn: '', labels: [], body: 'out-of-band body', builtin: false, createdAt: 2, color: '#ffffff' },
   { id: 'x-plain', name: 'PlainFixture', nameEn: '', labels: [], body: 'plain body', builtin: false, createdAt: 3 },
+  // #162：有色但用户关掉了描边 ⇒ 该染色、零描边钩子
+  { id: 'x-nostroke', name: 'NoStrokeFixture', nameEn: '', labels: [], body: 'no stroke body', builtin: false, createdAt: 4, color: '#16a34a', outline: false },
 ];
 function installFetch() {
   globalThis.fetch = async (url, init) => {
@@ -232,6 +234,8 @@ async function groupC() {
   else {
     eq(pv0.props['data-dsh-prompt-ink-preview'], 'default', 'C) 未选色时预览态为 default');
     if (pv0.findAll((n) => n.props && n.props[panel.INK_TINT_ATTR] !== undefined).length !== 0) fail('C) 未选色时预览不该带描边钩子');
+    // #162：没选颜色 ⇒ 连「文字描边」开关都不出现（无颜色＝无描边，不摆点不动的灰控件）
+    if (byAttr(root, 'data-dsh-prompt-ink-outline-row').length !== 0) fail('C) 未选色时不该出现描边开关');
   }
   // 交互：点一个格子 → 选中态 + 预览 + 十六进制三处同步
   const picked = cells[cells.length - 1].props['data-dsh-prompt-ink-cell'];
@@ -249,6 +253,28 @@ async function groupC() {
   if (!byAttr(root, 'data-dsh-prompt-ink-warn')[0]) fail('C) 带外十六进制应显示「看不清」提示');
   eq(byAttr(root, 'data-dsh-prompt-ink-hex')[0].props.value, '#ffffff', 'C) 输入框保留用户输入（不悄悄改写）');
   eq(byAttr(root, 'data-dsh-prompt-ink-preview')[0].props['data-dsh-prompt-ink-preview'], picked, 'C) 带外输入不改已选颜色（不吸附）');
+  // #162 文字描边开关：选了色才长出来，默认开；关掉预览立刻不描边，再打开立刻恢复
+  const olRow = byAttr(root, 'data-dsh-prompt-ink-outline-row')[0];
+  if (!olRow) fail('C) 选了颜色后应出现「文字描边」开关');
+  else {
+    const cb = byAttr(root, 'data-dsh-prompt-ink-outline')[0];
+    if (!cb) fail('C) 缺描边开关本体（checkbox）');
+    else {
+      eq(cb.props.type, 'checkbox', 'C) 描边开关是开关控件（checkbox）');
+      eq(cb.props.checked, true, 'C) 描边开关默认开（＝今天的行为）');
+      const olLabel = olRow.findAll((n) => n.type === 'span' && Array.isArray(n.children) && typeof n.children[0] === 'string')[0];
+      eq(olLabel ? olLabel.children[0] : '', zh('colorOutline'), 'C) 开关文案走词表 colorOutline');
+      TR.act(() => { cb.props.onChange({ target: { checked: false } }); });
+      eq(byAttr(root, 'data-dsh-prompt-ink-outline')[0].props.checked, false, 'C) 点一下变成关');
+      const pvOff = byAttr(root, 'data-dsh-prompt-ink-preview')[0];
+      if (pvOff.findAll((n) => n.props && n.props[panel.INK_TINT_ATTR] !== undefined).length !== 0) fail('C) 关掉描边后预览不该再带钩子');
+      const pvOffName = pvOff.findAll((n) => n.props && n.props.style && n.props.style.color === picked)[0];
+      if (!pvOffName) fail('C) 关掉描边后预览里的名字应仍是该色（只是不描边）');
+      TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-outline')[0].props.onChange({ target: { checked: true } }); });
+      const pvOn = byAttr(root, 'data-dsh-prompt-ink-preview')[0];
+      if (pvOn.findAll((n) => n.props && n.props[panel.INK_TINT_ATTR] !== undefined).length === 0) fail('C) 重新打开描边后预览应恢复钩子');
+    }
+  }
   // 「完成」收起浮层
   const done = byText(byAttr(root, 'data-dsh-prompt-ink-pop')[0], zh('colorDone'));
   if (!done) fail('C) 浮层缺「完成」键');
@@ -275,6 +301,14 @@ async function groupD() {
     eq(inName.props.style.paddingBlock, 2, 'D) 有色的名字给 2px 纵向余量（描边不被裁）');
     eq(inName.props.style.marginBlock, -2, 'D) 同量负 margin（行高预算不动）');
   }
+  // D) #162 存量「关了描边」的行 → 仍然染色、但零描边钩子
+  const noName = nameSpanOf('x-nostroke', 'NoStrokeFixture');
+  if (!noName) fail('D) 设置页找不到「关了描边」的存量行');
+  else {
+    if (noName.props[panel.INK_TINT_ATTR] !== undefined) fail('D) 关掉描边的名字节点不该带描边钩子');
+    eq(noName.props.style.color, '#16a34a', 'D) 关掉描边仍然染色（只是不描边）');
+    eq(noName.props.style.paddingBlock, 2, 'D) 关掉描边仍保留裁切余量（渲染路径不变，只少一个钩子）');
+  }
   // D) 存量带外值 → 读侧回落：无属性、样式与未上色行逐字段相同
   const outName = nameSpanOf('x-outband', 'OutFixture');
   const plainName = nameSpanOf('x-plain', 'PlainFixture');
@@ -296,12 +330,14 @@ async function groupD() {
     const last = outs[outs.length - 1];
     eq(last && last.color, '#ffffff', 'F) 出站形状逐字段带着带外值（toHostShape 不加工颜色）');
   }
-  // E) 新建带色 → 落盘；编辑点「默认」→ 键消失
+  // E) 新建带色 → 落盘；#162 描边开关：关 ⇒ 落 outline:false / 再开 ⇒ 删键 / 点「默认」⇒ color+outline 一起消失
   if (openAddModal(inst)) {
     TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-field-btn')[0].props.onClick(); });
     const pickHex = byAttr(root, 'data-dsh-prompt-ink-cell')[0].props['data-dsh-prompt-ink-cell'];
     TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-cell', pickHex)[0].props.onClick(); });
     eq(byAttr(root, 'data-dsh-prompt-ink-hex')[0].props.value, pickHex, 'D) 点色块后十六进制回填');
+    // #162：新建时把描边关掉
+    TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-outline')[0].props.onChange({ target: { checked: false } }); });
     TR.act(() => { byText(byAttr(root, 'data-dsh-prompt-ink-pop')[0], zh('colorDone')).props.onClick(); });
     if (byAttr(root, 'data-dsh-prompt-ink-pop').length !== 0) fail('D) 点「完成」后浮层应收起');
     const nm = byPlaceholder(root, zh('namePh'));
@@ -315,24 +351,43 @@ async function groupD() {
       if (!rec) fail('D) 新建带色模板没落进存储');
       else {
         eq(rec.color, pickHex, 'E) 新建带色落盘（addCustom 第 4 参）');
+        eq(rec.outline, false, 'E) 新建时关掉描边 ⇒ 落 outline:false（addCustom 第 5 参）');
         const newName = nameSpanOf(rec.id, 'NewInkFixture');
         if (!newName) fail('D) 新行没渲染出来');
-        else if (newName.props[panel.INK_TINT_ATTR] === undefined) fail('D) 新行名字缺钩子属性');
+        else {
+          eq(newName.props.style.color, pickHex, 'E) 关了描边的新行仍然染色');
+          if (newName.props[panel.INK_TINT_ATTR] !== undefined) fail('E) 关了描边的新行不该带钩子');
+        }
         if (editRow(inst, rec.id)) {
           TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-field-btn')[0].props.onClick(); });
           eq(byAttr(root, 'data-dsh-prompt-ink-default')[0].props['aria-pressed'], 'false', 'D) 编辑已有颜色时「默认」格不是选中态');
           eq(byAttr(root, 'data-dsh-prompt-ink-cell', pickHex)[0].props['aria-pressed'], 'true', 'D) 编辑时该色在墙上为选中态');
-          TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-default')[0].props.onClick(); });
-          eq(byAttr(root, 'data-dsh-prompt-ink-cell', pickHex)[0].props['aria-pressed'], 'false', 'D) 点「默认」后墙上不再有选中态');
+          eq(byAttr(root, 'data-dsh-prompt-ink-outline')[0].props.checked, false, 'E) 重开弹窗时描边开关如实反映存量（关）');
+          // 把描边打开 ⇒ 默认态不写键（键应被删掉，颜色保留）
+          TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-outline')[0].props.onChange({ target: { checked: true } }); });
           clickSave(inst, 'save');
-          const rec2 = store.allTemplates().filter((t) => t.id === rec.id)[0];
-          eq(Object.prototype.hasOwnProperty.call(rec2, 'color'), false, 'E) 点「默认」保存后 color 键消失（不是写成 #ffffff）');
+          const recOn = store.allTemplates().filter((t) => t.id === rec.id)[0];
+          eq(recOn.color, pickHex, 'E) 重新打开描边后颜色仍在');
+          eq(Object.prototype.hasOwnProperty.call(recOn, 'outline'), false, 'E) 打开描边 ⇒ outline 键删除（默认态不写键）');
+          const onName = nameSpanOf(rec.id, 'NewInkFixture');
+          if (onName && onName.props[panel.INK_TINT_ATTR] === undefined) fail('E) 重新打开描边后该行应恢复钩子');
+          // 再编辑：点「默认」清空颜色 ⇒ color 与 outline 一起消失
+          if (editRow(inst, rec.id)) {
+            TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-field-btn')[0].props.onClick(); });
+            TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-default')[0].props.onClick(); });
+            eq(byAttr(root, 'data-dsh-prompt-ink-cell', pickHex)[0].props['aria-pressed'], 'false', 'D) 点「默认」后墙上不再有选中态');
+            if (byAttr(root, 'data-dsh-prompt-ink-outline-row').length !== 0) fail('E) 点「默认」后描边开关应随颜色一起消失');
+            clickSave(inst, 'save');
+            const rec2 = store.allTemplates().filter((t) => t.id === rec.id)[0];
+            eq(Object.prototype.hasOwnProperty.call(rec2, 'color'), false, 'E) 点「默认」保存后 color 键消失（不是写成 #ffffff）');
+            eq(Object.prototype.hasOwnProperty.call(rec2, 'outline'), false, 'E) 点「默认」保存后 outline 键一并消失（不留孤儿数据）');
+          }
         }
       }
     }
   }
   TR.act(() => { inst.unmount(); });
-  if (failures === 0) ok('D/E/F) 渲染与落盘：带色名字染色 + 带外回落照旧 + 新建落键 + 清除删键 + 存量带外值不被改写');
+  if (failures === 0) ok('D/E/F) 渲染与落盘：带色名字染色 + 关描边零钩子 + 带外回落照旧 + 新建落键 + 清除删键 + 存量带外值不被改写');
 }
 
 (async () => {

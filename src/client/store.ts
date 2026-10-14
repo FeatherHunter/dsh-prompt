@@ -360,6 +360,17 @@ export function inkColorOf(t: { color?: unknown }): string | undefined {
   return sanitizeInkColor(t ? t.color : undefined)
 }
 
+/**
+ * #162 读侧唯一入口：这个模板的名字要不要描边。
+ * 规则只有两条：① **只有选了颜色才有描边可言**（未选颜色恒 false —— 用户口径「不选颜色的 prompt
+ * 不提供描边」）；② 存储里 `outline: false` 才是关，缺键（含 #162 之前的全部存量）＝开。
+ * 只认严格的 false，`'false'` / 0 / 其它杂值一律当作开 —— 读侧不做语义猜测（与 inkColorOf 同精神）。
+ */
+export function inkOutlineOf(t: { color?: unknown; outline?: unknown }): boolean {
+  if (inkColorOf(t) === undefined) return false
+  return t ? t.outline !== false : true
+}
+
 /** 检索串（面板搜索与 /prompt 触发源共用）：名称/英文名/正文/领域/阶段/动作/标签（旧找法不断） */
 export function templateHaystack(t: PromptTemplate): string {
   return (t.name + ' ' + (t.nameEn || '') + ' ' + (t.body || '') + ' ' + (t.domain || '') + ' ' + (t.stage || '') + ' ' + (t.action || []).join(' ') + ' ' + templateLabels(t).join(' ')).toLowerCase()
@@ -443,8 +454,9 @@ export function canPinMore(): boolean {
  * 先归一化+校验，不合法直接抛错——面板侧已做行内校验先行，此处是契约守卫，不静默截断。
  * 落盘新形状（只写 labels，不写旧 tag 与占位三件套）。
  * #159：color 可选；未选（缺参 / 非法 / 带外）时**根本不写这个键** —— 不是写默认白。
+ * #162：outline 可选；**只在「有颜色且用户关掉描边」时写 `false`**，其余一律不写键（默认态零改动）。
  */
-export function addCustom(name: string, labels: string | string[], body: string, color?: string): CustomTemplate {
+export function addCustom(name: string, labels: string | string[], body: string, color?: string, outline?: boolean): CustomTemplate {
   const checked = validateLabels(labels)
   if (!checked.ok) throw new Error('[dsh-prompt] invalid labels: ' + checked.error)
   const t: CustomTemplate = {
@@ -455,6 +467,7 @@ export function addCustom(name: string, labels: string | string[], body: string,
   }
   const ink = sanitizeInkColor(color)
   if (ink !== undefined) t.color = ink
+  if (ink !== undefined && outline === false) t.outline = false
   cache.customs = [...cache.customs, t]
   notifyStore()
   persist(PUT_URL, { template: toHostShape(t) })
@@ -463,8 +476,10 @@ export function addCustom(name: string, labels: string | string[], body: string,
 
 /** 更新自定义模板（#23：labels 数组或单字符串；兼容旧 patch.tag，折算为单标签）。
  *  #159：patch.color 是写入口 —— 合法（带内六位 hex）原样落；非法 / 空 / 带外落回「未选颜色」
- *  （删键，不吸附到最近的合法色）；缺参（undefined）表示这一项不改。 */
-export function updateCustom(id: string, patch: { name?: string; labels?: string | string[]; tag?: string; body?: string; color?: string }): void {
+ *  （删键，不吸附到最近的合法色）；缺参（undefined）表示这一项不改。
+ *  #162：patch.outline —— `false` 表示用户关掉描边（只在**有颜色**时落键）；`true` / 缺参一律不写键。
+ *  清空颜色的同时把 `outline` 一并删掉：无颜色＝无描边，不留孤儿数据。 */
+export function updateCustom(id: string, patch: { name?: string; labels?: string | string[]; tag?: string; body?: string; color?: string; outline?: boolean }): void {
   cache.customs = cache.customs.map((t) => {
     if (t.id !== id) return t
     const next: CustomTemplate = { ...t }
@@ -479,8 +494,12 @@ export function updateCustom(id: string, patch: { name?: string; labels?: string
     if (patch.body !== undefined) next.body = patch.body
     if (patch.color !== undefined) {
       const ink = sanitizeInkColor(patch.color)
-      if (ink === undefined) delete next.color
+      if (ink === undefined) { delete next.color; delete next.outline }
       else next.color = ink
+    }
+    if (patch.outline !== undefined) {
+      if (patch.outline === false && next.color !== undefined) next.outline = false
+      else delete next.outline
     }
     persist(PUT_URL, { template: toHostShape(next) })
     return next

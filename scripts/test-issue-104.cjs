@@ -652,8 +652,12 @@ fs.writeFileSync(path.join(DIR, 'update-http.cjs'), 'module.exports.UpdateEntryB
   if (String(tabrows[0].props['data-dsh-prompt-picker-tabrow']) !== '3') {
     fail('#115 无 DOM 时每页项数应回落默认 3，实际 ' + tabrows[0].props['data-dsh-prompt-picker-tabrow']);
   }
-  if (tabrows[0].props.style.display !== 'flex' || tabrows[0].props.style.flexDirection !== 'row') {
-    fail('#115 tab 行应横向 flex');
+  // #123 起 tab 行由「横向 flex」改成两行网格（gridAutoFlow: column），定宽 tab 均匀页的前提不变。
+  if (tabrows[0].props.style.display !== 'grid'
+    || tabrows[0].props.style.gridTemplateRows !== 'repeat(2, auto)'
+    || tabrows[0].props.style.gridAutoFlow !== 'column'
+    || tabrows[0].props.style.gridAutoColumns !== '9em') {
+    fail('#123 tab 行应为两行网格（gridAutoFlow: column，列宽 9em），实际 ' + JSON.stringify(tabrows[0].props.style));
   }
   const gcards = pkWc.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-groupcard'] === '1');
   if (gcards.length !== 2) fail('#115 应有 2 个 tab，实际 ' + gcards.length);
@@ -818,9 +822,11 @@ fs.writeFileSync(path.join(DIR, 'update-http.cjs'), 'module.exports.UpdateEntryB
   const pRoot = pkGridP.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-root'] === '1')[0];
   if (pRoot.props.style.fontSize !== 'calc(1em * 3)') fail('#115 em 缩放锚应在根（5 档=3x），实际 ' + pRoot.props.style.fontSize);
   const pMask = pkGridP.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-mask'] === '1')[0];
-  if (pMask.props.style.padding !== '0.5em') fail('#115 遮罩留边应为 0.5em，实际 ' + pMask.props.style.padding);
+  // #123 起遮罩留边改成「上 0 / 两侧 0.5em / 下 5em」（给底栏让位），不再是四边 0.5em。
+  if (pMask.props.style.padding !== '0 0.5em 5em') fail('#123 遮罩留边应为 0 0.5em 5em（底栏让位），实际 ' + pMask.props.style.padding);
   const pSheet = pkGridP.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-sheet'] === '1')[0];
-  if (pSheet.props.style.maxHeight !== '100%') fail('#115 面板天花板应为 100%（近全屏），实际 ' + pSheet.props.style.maxHeight);
+  // #150 起面板天花板改成长度式 calc(100dvh - 5.5em)（给悬浮小列表底栏留位），不再是 100%。
+  if (pSheet.props.style.maxHeight !== 'calc(100dvh - 5.5em)') fail('#150 面板天花板应为 calc(100dvh - 5.5em)，实际 ' + pSheet.props.style.maxHeight);
   if (pSheet.props.style.bottom !== undefined) fail('#115 面板不再底对齐（dockReserve 退役），实际 bottom=' + pSheet.props.style.bottom);
   const pClose = pkGridP.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-close'] === '1')[0];
   if (pClose.props.style.width !== '3em' || pClose.props.style.height !== '3em') {
@@ -836,7 +842,8 @@ fs.writeFileSync(path.join(DIR, 'update-http.cjs'), 'module.exports.UpdateEntryB
   await TR.act(async () => { await new Promise((r) => setTimeout(r, 400)); });
   if (gridOf(pkGridW.root).join(',') !== '3') fail('#104 横屏应为 3 列网格，实际 ' + JSON.stringify(gridOf(pkGridW.root)));
   const wSheet = pkGridW.root.findAll((x) => x.props && x.props['data-dsh-prompt-picker-sheet'] === '1')[0];
-  if (wSheet.props.style.maxHeight !== '100%') fail('#115 横屏面板天花板亦应为 100%，实际 ' + wSheet.props.style.maxHeight);
+  // 同 #150：横屏天花板也改成长度式 calc(100dvh - 5.5em)。
+  if (wSheet.props.style.maxHeight !== 'calc(100dvh - 5.5em)') fail('#150 横屏面板天花板亦应为 calc(100dvh - 5.5em)，实际 ' + wSheet.props.style.maxHeight);
   pkGridW.unmount();
   ok('渲染器：会话网格 2/3 列 + 近全屏内缩 + × 3em 圆（#115）');
 

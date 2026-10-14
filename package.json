@@ -89,6 +89,7 @@
     "test:issue-146": "node scripts/test-issue-146.cjs",
     "test:issue-148": "node scripts/test-issue-148.cjs",
     "test:issue-149": "node scripts/test-issue-149.cjs",
+    "test:issue-156": "node scripts/test-issue-156.cjs",
     "test:issue-158": "node scripts/test-issue-158.cjs"
   },
   "dsh": {

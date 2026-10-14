@@ -5,9 +5,9 @@
  * 评分=专属词×2+通用词×1（≥2 出卡）/ #22 bottom-up：评分升序（最相关在底部）→用量升序 / 序号按排名（1=最相关在底部）/ 点击即填入 + 光标定位首字段冒号后（DEC11 修订）/
  * 默认开可配置关闭 / 与面板各管各的；键盘可达（↑↓/Enter/Esc）。
  */
-import { getReact } from './panel'
+import { getReact, INK_TINT_ATTR } from './panel'
 import { smartCandidates, firstFieldCaret, type ScoredTemplate } from './match'
-import { allTemplates, bumpUsage, loadUsage, tieBreakOrder, templateLabels, LABEL_FALLBACK } from './store'
+import { allTemplates, bumpUsage, loadUsage, tieBreakOrder, templateLabels, LABEL_FALLBACK, inkColorOf } from './store'
 import { displayLabelString } from './keys'
 import {
   getSmartInput, onSmartInput, isSmartEnabled, setSmartEnabled,
@@ -369,6 +369,8 @@ export function SmartCardHost(props: any): any {
   }
   const rowNodes = rows.map((c, i) => {
     const common = c.score === 0
+    // #158 名字染色：读侧权威 inkColorOf（undefined＝未选颜色 ⇒ 颜色与钩子属性都不动）
+    const ink = inkColorOf(c.tpl)
     // #23：展示行换为完整标签串；评分后缀（·分N/·常用）保留，评分链不动
     // #141：后缀是铬，走词表；单独成节点 —— 铬钩子节点里只有铬，数据词（标签串）留在外层
     const suffixKey = common ? 'smartCommonSuffix' : 'smartScoreSuffix'
@@ -377,7 +379,9 @@ export function SmartCardHost(props: any): any {
     // #22（Q7=A）：序号按排名而非位置——1=最相关，出现在最底部
     return h('div', { key: c.tpl.id, style: rowStyle, onClick: () => doPick(c), title: t('smartFill') }, [
       h('span', { style: rowNum }, String(rows.length - i)),
-      h('span', { style: rowName }, c.tpl.name),
+      // #158：rowName 自己是裁切盒（overflow:hidden）⇒ 上色时给 2px 纵向余量 + 同量负 margin；
+      // 行容器本来就有 3px 纵向内边距（> 1px 环），不必动。
+      h('span', { style: ink ? { ...rowName, color: ink, paddingBlock: 2, marginBlock: -2 } : rowName, ...(ink ? { [INK_TINT_ATTR]: '' } : {}) }, c.tpl.name),
       // #142：标签段走显示映射（后缀已翻不动；混合串数据段由门禁 dataWords 剔除覆盖，不拆节点）
       h('span', { style: rowTag, ...(templateLabels(c.tpl).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, [
         displayLabelString(c.tpl, lang), ' ',

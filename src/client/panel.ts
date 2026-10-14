@@ -20,6 +20,7 @@ import {
   allTemplates, sortedTemplates, sortedTemplatesBottomUp, templateLabels, matchLabel,
   allKnownLabels, normalizeLabels, validateLabels, isPinned, togglePin, canPinMore, LABEL_FALLBACK,
   addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, loadUsage, templateHaystack, MAX_BODY,
+  inkColorOf, relativeLuminance, INK_PICK_L_MIN, INK_PICK_L_MAX,
   ensureLoaded, subscribeStore,
 } from './store'
 import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './state'
@@ -565,6 +566,158 @@ const modalFieldStyle: any = { width: '100%', background: 'var(--dsw-alias-bg-la
 const modalBtnsStyle: any = { display: 'flex', justifyContent: 'flex-end', gap: 8 }
 const modalBtn = (primary?: boolean, danger?: boolean): any => ({ padding: '6px 14px', borderRadius: 8, border: primary ? 0 : '1px solid var(--dsw-alias-border-l1)', background: primary ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-bg-layer-3)', color: primary ? '#1a1a1e' : (danger ? 'var(--dsw-specific-danger,#e06c75)' : 'var(--dsw-alias-label-primary)'), cursor: 'pointer', fontFamily: 'var(--dsw-font-family)', fontSize: '0.96em' })
 
+// ── #158 颜色标签（地图 #151）：名字染色钩子 + 取色控件 ────────────────────────
+/**
+ * 染色钩子属性（唯一真相）：名字节点**只在确实有颜色时**带它 —— 「不选颜色不描边」因此由属性有无
+ * 天然表达，不需要第二条 CSS 分支。描边样式段在 index.ts 启动时注入（那边写了为什么注入点不在本文件：
+ * panel.ts:47-52 记着「往本文件加 import 边会让既有回归脚本全部找不到模块」的代价）。
+ */
+export const INK_TINT_ATTR = 'data-dsh-prompt-tint'
+/**
+ * 染色描边的 CSS（与钩子属性同一处、唯一真相）：八向 1px `text-shadow`，颜色取宿主正文令牌
+ * `--dsw-alias-label-primary`（浅色 #0f1115 / 深色 #f9fafb）⇒ 一条规则白拿「深色主题白描边、
+ * 浅色主题黑描边」，零分支、零写死颜色，第三方用 ctx.theme 覆盖令牌时自动跟随（研究 152 §3）。
+ * 为什么八向而不是四向：四向留对角缺口（实心环只有 36–59%）；为什么不用 -webkit-text-stroke：
+ * 外露环只有半像素、DPR 1.25 时实心环掉 77%，且不带 paint-order 会把字心填色吃光（同 §1）。
+ * 只命中带钩子属性的名字 —— 未选颜色的模板不加该属性，「不选颜色不描边」不需要第二条规则。
+ * 注入在 index.ts 启动时做一次（那边写了为什么注入点不在本文件）。
+ */
+export const INK_TINT_CSS = (function (): string {
+  const ink = 'var(--dsw-alias-label-primary)'
+  const offsets: number[][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]
+  const ring = offsets.map((o) => o[0] + 'px ' + o[1] + 'px 0 ' + ink).join(',')
+  return '[' + INK_TINT_ATTR + ']{text-shadow:' + ring + ';}'
+})()
+/** 常用色快选：研究 155 定的 6 色（全在可读带内、两两 ΔE2000 ≥19.4、带内无正黄）。 */
+const INK_PRESETS = ['#f43f5e', '#ea580c', '#16a34a', '#0d9488', '#0284c7', '#a855f7']
+/** 深浅格候选（HSL 亮度百分比，深→浅）：带内的可点、带外的灰掉不可点。 */
+const INK_SHADE_STEPS = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
+/** 没选过颜色时色相条停的档（蓝色系，与对照图一致）。 */
+const INK_HUE_FALLBACK = 205
+/** 深浅格的饱和度：与对照图/色板同口径的 0.72（不放开饱和度，避免第二个自由度把颜色选出台）。 */
+const INK_SATURATION = 0.72
+/** hex → [r,g,b]；非法/非六位回 null（颜色数学就地放本文件：本仓不为这点纯函数新开模块，#159 同结论）。 */
+function hexToRgb(v: unknown): [number, number, number] | null {
+  if (typeof v !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(v)) return null
+  return [parseInt(v.slice(1, 3), 16), parseInt(v.slice(3, 5), 16), parseInt(v.slice(5, 7), 16)]
+}
+function rgbToHex(r: number, g: number, b: number): string {
+  const f = (n: number): string => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0')
+  return '#' + f(r) + f(g) + f(b)
+}
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const hh = ((h % 360) + 360) % 360
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs(((hh / 60) % 2) - 1))
+  const m = l - c / 2
+  let r = 0, g = 0, b = 0
+  if (hh < 60) { r = c; g = x } else if (hh < 120) { r = x; g = c } else if (hh < 180) { g = c; b = x }
+  else if (hh < 240) { g = x; b = c } else if (hh < 300) { r = x; b = c } else { r = c; b = x }
+  return [(r + m) * 255, (g + m) * 255, (b + m) * 255]
+}
+function rgbToHue(r: number, g: number, b: number): number {
+  const R = r / 255, G = g / 255, B = b / 255
+  const max = Math.max(R, G, B), min = Math.min(R, G, B), d = max - min
+  if (d === 0) return INK_HUE_FALLBACK
+  const h = max === R ? ((G - B) / d) % 6 : max === G ? (B - R) / d + 2 : (R - G) / d + 4
+  return (((h * 60) % 360) + 360) % 360
+}
+/** 控件侧带内判据：用 store 的 INK_PICK_L_*（比写入口的 INK_L_* 窄、留 3.2:1 余量），不另抄常量。 */
+function inkShadePickable(hex: string): boolean {
+  if (!hexToRgb(hex)) return false
+  const L = relativeLuminance(hex)
+  return typeof L === 'number' && L >= INK_PICK_L_MIN && L <= INK_PICK_L_MAX
+}
+
+/**
+ * 取色控件（#158）：默认格 + 6 色快选 + 色相条（0–359 自由）+ 深浅格（带外灰掉不可点）+ 十六进制输入。
+ * 模块级稳定组件：写成 TemplateModal 里的内联组件会在父级每次重渲染时被卸载重建，
+ * 色相位置与输入中的十六进制会一起丢（与 #21 那条「模块级稳定组件」同因）。
+ * 只管显示与选择：`value` 为 '' 即「默认」（不上色/跟随主题/无描边）；「这一项没动过」由调用方的
+ * null 表示（见 TemplateModal —— 那条是 ADR-0007「绝不改写存量」的实现位）。
+ */
+function InkPicker(props: any): any {
+  const react = getReact()
+  if (!react) return null
+  const h = react.createElement
+  const t = props.t
+  const value: string = typeof props.value === 'string' ? props.value : ''
+  const hueState = react.useState(() => {
+    const rgb = hexToRgb(value)
+    return rgb ? Math.round(rgbToHue(rgb[0], rgb[1], rgb[2])) : INK_HUE_FALLBACK
+  })
+  const hue = hueState[0]
+  const setHue = hueState[1]
+  const typedState = react.useState(value)
+  const typed = typedState[0]
+  const setTyped = typedState[1]
+  const badState = react.useState(false)
+  const bad = badState[0]
+  const setBad = badState[1]
+  const pick = (hex: string): void => { setTyped(hex); setBad(false); props.onChange(hex) }
+  const onHex = (raw: string): void => {
+    setTyped(raw)
+    const v = String(raw || '').trim()
+    if (v === '') { setBad(false); return } // 空＝还没输完（要清除请点「默认」）
+    if (hexToRgb(v) && inkShadePickable(v)) { setBad(false); props.onChange(v.toLowerCase()); return }
+    // 只有「看着像输完了」才报错：逐字符输入时不该一路闪红
+    setBad(v.replace('#', '').length >= 6)
+  }
+  const cellStyle = (on: boolean, extra?: any): any => ({
+    width: '1.4em', height: '1.4em', padding: 0, borderRadius: 6, cursor: 'pointer', boxSizing: 'border-box',
+    border: on ? '2px solid var(--dsw-alias-label-primary)' : '1px solid var(--dsw-alias-border-l1)',
+    background: 'transparent', fontFamily: 'var(--dsw-font-family)', ...(extra || {}),
+  })
+  const shades = INK_SHADE_STEPS.map((l) => rgbToHex(...hslToRgb(hue, INK_SATURATION, l / 100)))
+  return h('div', { key: 'ink', 'data-dsh-prompt-ink-picker': '1', style: { display: 'flex', flexDirection: 'column', gap: '0.45em', borderTop: '1px solid var(--dsw-alias-border-l1)', paddingTop: '0.6em' } }, [
+    h('span', { key: 'lb', style: { fontSize: '0.92em', color: 'var(--dsw-alias-label-primary)' } }, t('colorLabel')),
+    // ① 默认格 + 6 色常用快选：选中态走可见边框 + aria-pressed 双通道（settings.ts 分段控件同口径）
+    h('div', { key: 'fast', style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } }, [
+      h('button', {
+        key: 'default', type: 'button', 'data-dsh-prompt-ink-default': '1',
+        'aria-pressed': value === '' ? 'true' : 'false', title: t('colorDefault'), 'aria-label': t('colorDefault'),
+        style: { ...cellStyle(value === ''), width: 'auto', height: '1.4em', padding: '0 8px', fontSize: '0.82em', color: 'var(--dsw-alias-label-primary)' },
+        onClick: () => pick(''),
+      }, t('colorDefault')),
+      ...INK_PRESETS.map((hex) => h('button', {
+        key: hex, type: 'button', 'data-dsh-prompt-ink-preset': hex,
+        'aria-pressed': value.toLowerCase() === hex ? 'true' : 'false', title: hex, 'aria-label': hex,
+        style: cellStyle(value.toLowerCase() === hex, { background: hex }),
+        onClick: () => pick(hex),
+      })),
+    ]),
+    // ② 色相条：0–359 全开（只锁深浅，不锁色相）
+    h('input', {
+      key: 'hue', type: 'range', min: 0, max: 359, step: 1, value: hue,
+      'data-dsh-prompt-ink-hue': '1', 'aria-label': t('colorHue'), title: t('colorHue'),
+      style: { width: '100%', accentColor: 'var(--dsw-specific-accent,#f0a45c)' },
+      onChange: (e: any) => setHue(Number(e.target.value)),
+    }),
+    // ③ 深浅格：带内可点、带外 disabled 且灰掉 —— 选不动，于是选不出「有主题看不清」的颜色
+    h('div', { key: 'shades', style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' } }, shades.map((hex) => {
+      const ok = inkShadePickable(hex)
+      const on = ok && value.toLowerCase() === hex
+      return h('button', {
+        key: hex, type: 'button', disabled: !ok, 'data-dsh-prompt-ink-shade': hex,
+        'aria-pressed': on ? 'true' : 'false', 'aria-disabled': ok ? 'false' : 'true',
+        title: ok ? hex : hex + ' · ' + t('colorShade'),
+        style: cellStyle(on, { background: hex, opacity: ok ? 1 : 0.28, cursor: ok ? 'pointer' : 'not-allowed' }),
+        onClick: () => { if (ok) pick(hex) },
+      })
+    })),
+    // ④ 十六进制输入：带外值不落盘（写入口不吸附），所以这里必须明示而不是静默吞掉
+    h('div', { key: 'hex', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [
+      h('input', {
+        key: 'hexin', type: 'text', value: typed, placeholder: t('colorHexPh'), 'aria-label': t('colorHexPh'),
+        'data-dsh-prompt-ink-hex': '1',
+        style: { ...modalFieldStyle, width: 'auto', flex: '0 1 12em' },
+        onChange: (e: any) => onHex(e.target.value),
+      }),
+      bad ? h('span', { key: 'warn', 'data-dsh-prompt-ink-warn': '1', style: { fontSize: '0.85em', color: 'var(--dsw-specific-danger,#e06c75)' } }, t('colorOutOfBand')) : null,
+    ]),
+  ])
+}
+
 /** 新建/编辑弹窗（模块级稳定组件，避免父级重渲染时被卸载重置） */
 function TemplateModal(props: any): any {
   const react = getReact()
@@ -586,6 +739,12 @@ function TemplateModal(props: any): any {
   const labelInput = s2b[0]; const setLabelInput = s2b[1]
   const s3 = react.useState(editing ? props.tpl.body : '')
   const body = s3[0]; const setBody = s3[1]
+  // #158 颜色三态：null＝这一项没动过（保存时传 undefined＝不改这一项，存量原样保留）、
+  // ''＝用户点了「默认」（清除）、'<hex>'＝用户选了色。初值取读侧权威 inkColorOf：存量里带外的值
+  // （如手改的 #ffffff）读侧本就是「未选颜色」，控件显示「默认」，但保存时**绝不**因此把它改写成
+  // 「没有颜色」——ADR-0007 明令绝不改写用户数据（这也是本组件用三态而不是布尔的原因）。
+  const s4 = react.useState(editing ? (inkColorOf(props.tpl) ?? null) : null)
+  const ink = s4[0]; const setInk = s4[1]
   const errState = react.useState(null as string | null)
   const err = errState[0]; const setErr = errState[1]
   const commitInput = () => {
@@ -601,7 +760,7 @@ function TemplateModal(props: any): any {
     // 输入框残留文本一并计入（不静默丢），统一走校验：违规阻断并行内提示
     const checked = validateLabels([...labels, ...normalizeLabels(labelInput)])
     if (!checked.ok) { setErr(checked.error); return }
-    props.onOk && props.onOk({ name: nm, labels: checked.labels, body: bd })
+    props.onOk && props.onOk({ name: nm, labels: checked.labels, body: bd, color: ink === null ? undefined : ink })
   }
   const known = allKnownLabels()
   // 远程模式标签悬浮网格（2026-09-29 用户拍板）：常态只留一个触发键，点后浮出网格 overlay 选；
@@ -699,6 +858,9 @@ function TemplateModal(props: any): any {
         ]),
       ]) : null,
       h('div', { style: { fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)' } }, props.t('labelsHint')),
+      // #158：取色控件（模块级稳定组件，见 InkPicker 注释）。value 取 `ink || ''`：null 与 '' 都显示「默认」，
+      // 两者只在**保存时**分道（null → 不改这一项；'' → 清除），这层差别不上屏。
+      h(InkPicker, { key: 'ink-picker', t: props.t, value: ink || '', onChange: (v: string) => setInk(v) }),
       h('textarea', { style: { ...modalFieldStyle, height: labelGridOn ? 400 : 200, resize: 'vertical' }, placeholder: props.t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),
       err ? h('div', { style: { fontSize: '0.92em', color: 'var(--dsw-specific-danger,#e06c75)' } }, props.t(err as keyof typeof STR)) : null,
       h('div', { style: modalBtnsStyle }, [
@@ -1191,9 +1353,11 @@ export function TemplateBrowser(props: BrowserProps): any {
           h(TemplateModal, {
             kind: modal.kind, tpl: modal.t, t,
             onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null) },
-            onOk: (f: { name: string; labels: string[]; body: string }) => {
+            onOk: (f: { name: string; labels: string[]; body: string; color?: string }) => {
+              // #158：color 为 undefined ＝「这一项没动过」（编辑时保持存量原样、新增时不写这个键）；
+              // '' ＝ 用户点了「默认」（编辑时清掉这个键）。两者不能混用 —— 把 undefined 当清除用会误删存量颜色。
               if (modal.kind === 'edit' && modal.t) { updateCustom(modal.t.id, f) }
-              else { addCustom(f.name, f.labels, f.body) }
+              else { addCustom(f.name, f.labels, f.body, f.color || undefined) }
               setHoverCloseSuppressed(false); modalState[1](null)
               refresh()
             },
@@ -1387,6 +1551,8 @@ export function TemplateBrowser(props: BrowserProps): any {
       const usageN = remoteUsage[tpl.id] || 0
       const pinned = isPinned(tpl.id)
       const custom = !tpl.builtin
+      // #158 名字染色（与小列表同口径：读侧权威 inkColorOf，undefined 时不动这个节点）
+      const ink = inkColorOf(tpl)
       // 悬停/按压视觉反馈（复用 #88 行语义：hover 高亮、pressed 加深+微缩；触屏长按即保持 pressed）。
       const cardHover = hoverId === tpl.id
       const cardPressed = pressedId === tpl.id
@@ -1421,7 +1587,9 @@ export function TemplateBrowser(props: BrowserProps): any {
         ...cardInteract,
       }, [
         h('span', { style: remoteCardMeta }, [
-          h('span', { style: { ...remoteCardTitle, flex: 'none', minWidth: 0 } }, tpl.name),
+          // #158：remoteCardTitle 自己就是裁切盒（overflow:hidden）⇒ 上色时给 2px 纵向余量 + 同量负 margin；
+          // 外层卡片有 0.5rem 内边距，1px 环落在里面，卡片不动。
+          h('span', { style: { ...remoteCardTitle, flex: 'none', minWidth: 0, ...(ink ? { color: ink, paddingBlock: 2, marginBlock: -2 } : {}) }, ...(ink ? { [INK_TINT_ATTR]: '' } : {}) }, tpl.name),
           h('span', { style: remoteCardIntro }, intro),
         ]),
         h('span', { style: remoteCardFoot }, [
@@ -1580,6 +1748,9 @@ export function TemplateBrowser(props: BrowserProps): any {
   const rows = sorted.map((x) => {
     const pinned = isPinned(x.id)
     const custom = !x.builtin
+    // #158 名字染色：读侧权威 inkColorOf（带外/非法/缺键都回 undefined＝「未选颜色」）。
+    // undefined ⇒ 名字颜色与属性钩子都不动，与今天逐字节一致（地图 Destination 的硬约束）。
+    const ink = inkColorOf(x)
     const acts = custom
       ? h('span', { style: actStyle }, [
           h('button', { style: actBtn(), onClick: (e: any) => handleEdit(e, x) }, t('edit')),
@@ -1625,8 +1796,10 @@ export function TemplateBrowser(props: BrowserProps): any {
           ]),
         ]),
         // #71 用量徽标：行最右（操作按钮之后、最末尾），样式不变
-        h('span', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' } }, [
-          h('span', { style: { flex: 'none', fontSize: '0.95em', color: base, fontWeight: 600, whiteSpace: 'nowrap' } }, x.name),
+        // #158：1px 外环在裁切盒（本行内层，overflow:hidden）的 padding box 上会被切平 ⇒ 上色时给 2px 纵向余量、
+        // 同量负 margin 抵消（margin 盒不变，多出的 1px 环落在行根自己的 3px padding 里）。未上色的行一字不动。
+        h('span', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden', ...(ink ? { paddingBlock: 2, marginBlock: -2 } : {}) } }, [
+          h('span', { style: { flex: 'none', fontSize: '0.95em', color: ink || base, fontWeight: 600, whiteSpace: 'nowrap' }, ...(ink ? { [INK_TINT_ATTR]: '' } : {}) }, x.name),
           h('span', { style: { flex: '0 1 auto', minWidth: 0, fontSize: '0.8em', color: muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }, ...(templateLabels(x).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, displayLabelString(x, lang)),
           h('span', { style: { flex: '1 1 auto', minWidth: 0, fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, intro),
         ]),
@@ -1651,9 +1824,10 @@ export function TemplateBrowser(props: BrowserProps): any {
         ]),
       ]),
       h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden' } }, [
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' } }, [
+        // #158：nmStyle 自身与这一行都是裁切盒 ⇒ 上色时两处各给 2px 纵向余量（负 margin 抵消，行高预算不动）。
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', ...(ink ? { paddingBlock: 2, marginBlock: -2 } : {}) } }, [
           h('span', { style: { flex: 'none', fontSize: '0.75em', color: dim, width: '1.2em', textAlign: 'center', lineHeight: 1 }, 'aria-hidden': 'true' }, expanded.has(x.id) ? '▾' : '▸'),
-          h('span', { style: nmStyle }, x.name),
+          h('span', { style: ink ? { ...nmStyle, color: ink, paddingBlock: 2, marginBlock: -2 } : nmStyle, ...(ink ? { [INK_TINT_ATTR]: '' } : {}) }, x.name),
           h('span', { style: tagStyle, ...(templateLabels(x).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, displayLabelString(x, lang)),
         ]),
         expanded.has(x.id) ? h('span', { style: subStyle }, (x.body || '').slice(0, 44) + '…') : null,

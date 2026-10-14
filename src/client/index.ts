@@ -2,7 +2,7 @@
  * dsh-prompt — client 入口（v1 常规模式 + v1.1 智能模式）
  * 装配：input.left 入口按钮 / input.overlay 面板浮层 / settings.section 配置页（直属设置面板）/ inputTriggers /prompt 触发源（#9）/ shell.overlay 智能悬浮卡（#10）
  */
-import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler, armInputFocusTrack } from './panel'
+import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler, armInputFocusTrack, INK_TINT_CSS } from './panel'
 import { EntryButton } from './button'
 import { SettingsPage } from './settings'
 import { buildPromptSource } from './trigger'
@@ -12,6 +12,7 @@ import { ensureLoaded } from './store'
 import { ensureRemoteLoaded, subscribeRemote, getRemotePrefs, warmEnvOrientation } from './remote'
 import { getSystemOrientation } from './systemOrientation'
 import { syncHostFont, syncRemoteRows, syncAssistantZoom, clearHostBridges } from './hostfont'
+import { applyOwnedStyle, styleDocument } from './styleOwnership'
 import { getLang, tr, STR } from './i18n'
 import { installLocaleService } from './locale'
 import { isPanelOpen, onPanelOpen } from './state'
@@ -100,6 +101,27 @@ function PanelHost(props: any): any {
   return h(PanelPortal, null, h(TemplateBrowser, { compact: true, useInput: props.useInput, inputActions: props.inputActions }))
 }
 
+// ── #158 名字染色描边（地图 #151）：八向 1px text-shadow + 宿主正文令牌 ──────────────
+/**
+ * 注入染色描边样式段（CSS 本体在 `panel.ts` 的 `INK_TINT_CSS`，与钩子属性同一处；这里只做注入机制）。
+ * 三条「不这么写」的原因：① 内联 textShadow 优先级高于注入规则，会把方案焊死；② `@media
+ * (prefers-color-scheme)` 在纯浏览器里反映的是 OS 而不是手动选的主题（桌面端被 nativeTheme 同步、
+ * 浏览器端不会）⇒ 一律用令牌；③ 不用 `-webkit-text-stroke`：外露环只有半像素、DPR 1.25 时实心环
+ * 掉 77%，且不带 `paint-order` 会把字心填色吃光（研究 152 §1/§3/§4）。
+ * 为什么注入点在这里而不是 panel.ts：`panel.ts:47-52` 记着「往该文件加 import 边会让既有回归脚本
+ * 全部找不到模块」的代价（`./styleOwnership` 是 10+ 张手抄表的共同依赖）；index.ts 没有回归脚本把它
+ * 当手抄根，这条边零外溢。归属走 styleOwnership 的共用注入缝（`data-plugin='dsh-prompt'` + 私有标记，
+ * 幂等、同值不重写）；页面级只注一次，回收交给宿主样式账本，不随会话拆装。
+ */
+const INK_STYLE_MARKER = 'ink-tint'
+function applyInkTintStyle(): void {
+  try {
+    const doc = styleDocument()
+    if (!doc) return
+    applyOwnedStyle(doc, INK_STYLE_MARKER, INK_TINT_CSS)
+  } catch (e) { /* fail-soft：样式注入永不影响装配 */ }
+}
+
 export function apply(ctx: ClientContext): void {
   // 日志能力（#49）：先建日志器（本地开关秒显），再向宿主对账（以宿主为准），最后才写第一条事件。
   const log = startLog()
@@ -172,6 +194,9 @@ export function apply(ctx: ClientContext): void {
   // 不走 ctx.effect：这两个监听是页面生命周期级的、只挂一次（内部有幂等闩），没有按会话
   // 拆装语义，包一层 effect 只会得到一个假的 teardown。
   armInputFocusTrack()
+  // #158：染色描边样式段（幂等、页面级）。不走 ctx.effect：与上面两个监听同理 —— 它是页面生命周期级的
+  // 一次性注入，没有按会话拆装语义，包一层 effect 只会得到一个假的 teardown；回收由宿主样式账本负责。
+  applyInkTintStyle()
   // 入口按钮（input.left；开合状态跟随面板）
   ctx.effect(() => ctx.slots.inject('conversation.input.left', () =>
     ctx.slots.register({ name: 'conversation.input.left', id: 'dsh-prompt-entry', order: 10, label: () => 'dsh-prompt' },

@@ -68,6 +68,12 @@ export const STR = {
   // 不另造同义词（同概念两名正是 #141 presetCount/scopePreset 那类坑的来源）。
   colorLabel: { zh: '文字颜色', en: 'Text color' },
   colorDefault: { zh: '默认（跟随主题，无描边）', en: 'Default (follows theme, no outline)' },
+  // #158 取色控件（地图 #151）内部四条铬：色相条的无障碍名、深浅格说明（灰=看不清）、十六进制占位、
+  // 以及「带外值不落盘」的明示 —— 契约要求控件自己说清为什么存不进（写入口不吸附、不改写存量）。
+  colorHue: { zh: '色相', en: 'Hue' },
+  colorShade: { zh: '灰掉的格子看不清，不能选', en: 'greyed cells are unreadable and cannot be picked' },
+  colorHexPh: { zh: '或填十六进制 #rrggbb', en: 'Or type a hex value #rrggbb' },
+  colorOutOfBand: { zh: '这个颜色有主题看不清，换一档深浅', en: 'This color is unreadable in one theme — pick another shade' },
   labelsPh: { zh: '添加标签（逗号/空格/顿号分隔，回车确认）', en: 'Add labels (comma/space separated, Enter to confirm)' },
   labelsHint: { zh: '最多 3 个，每条 1–10 字；可从已有词里选，也可新造', en: 'At most 3 labels, 1–10 chars each; pick existing or invent new' },
   labelsTooMany: { zh: '最多 3 个标签', en: 'At most 3 labels' },

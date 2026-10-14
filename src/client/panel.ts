@@ -789,7 +789,6 @@ function InkPicker(props: any): any {
             }),
             bad ? h('span', { key: 'warn', 'data-dsh-prompt-ink-warn': '1', style: { fontSize: '0.85em', color: 'var(--dsw-specific-danger,#e06c75)' } }, t('colorOutOfBand')) : null,
           ]),
-          h('div', { key: 'hint', style: { fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)' } }, t('colorWallHint')),
         ]),
       ]),
     ]) : null,

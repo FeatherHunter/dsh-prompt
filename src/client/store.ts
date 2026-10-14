@@ -10,6 +10,12 @@
  *   不静默丢也不崩 UI；#49 起不再往 console 写）。
  * - #23 统一标签：模板统一携带 labels；templateLabels()/labelString()/matchLabel()
  *   是筛选与展示的唯一收敛点（三处共用，不另起新缝）。
+ * - #159 颜色标签：color 是**原始存储值**（可选、用户数据）。合法性判据与读侧回落都收在本模块
+ *   （sanitizeInkColor / inkColorOf；判据出自 research/ink-contrast-floor.md）；写入口拦非法值，
+ *   出站原样透传 —— 存量逐字节不变、绝不把带外值改写回存储
+ *   （docs/adr/0007-template-color-is-user-data.md）。
+ *   不新开 color.ts：本仓 8 个旧回归脚本各自手抄「转译哪些模块 + 改哪些 require」的表，
+ *   store 多一条 import 边会当场把它们打红（panel.ts:42 记着同一条代价）。
  */
 import type { PromptTemplate } from './templates'
 import { PRESET_TEMPLATES, getPresetById } from './templates'
@@ -143,7 +149,9 @@ export function ensureLoaded(): Promise<void> {
   return loadPromise
 }
 
-/** 落盘形状（#23：只写 labels；旧 tag 与占位三件套不写回，读时映射即可，不双写） */
+/** 落盘形状（#23：只写 labels；旧 tag 与占位三件套不写回，读时映射即可，不双写）
+ *  #159：color 经 {...rest} 原样透传 —— 有意为之：存量逐字节不变、带外值绝不改写回存储
+ *  （回落只发生在读侧 inkColorOf，不回写）。 */
 function toHostShape(t: CustomTemplate): object {
   const rest = { ...(t as unknown as Record<string, unknown>) }
   delete rest.tag
@@ -297,6 +305,61 @@ export function validateLabels(input: string | string[] | undefined): LabelsChec
   return { ok: true, labels: cleaned }
 }
 
+/* ── 颜色标签（#159）：可读性判据与读侧回落（判据出自 research/ink-contrast-floor.md） ── */
+
+/** 相对亮度下限（裸 3:1 线，含端点） */
+export const INK_L_MIN = 0.17602
+/** 相对亮度上限（同上） */
+export const INK_L_MAX = 0.3
+/** 控件取值带下限（含 3.2:1 余量；#158 的取色控件把可选范围收在这里，数据侧判据仍是上面两条） */
+export const INK_PICK_L_MIN = 0.19109
+/** 控件取值带上限（同上） */
+export const INK_PICK_L_MAX = 0.27813
+
+const HEX_RE = /^#[0-9a-fA-F]{6}$/
+
+/** sRGB 单通道线性化（WCAG 2.2 相对亮度定义里的第一步） */
+function linearize(v: number): number {
+  const s = v / 255
+  return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+}
+
+/** 六位 hex（带 #）判定：大小写都收（存储回原样，不归一） */
+export function isHexColor(v: unknown): v is string {
+  return typeof v === 'string' && HEX_RE.test(v)
+}
+
+/** WCAG 相对亮度 L = 0.2126R + 0.7152G + 0.0722B（入参须是合法 hex） */
+export function relativeLuminance(hex: string): number {
+  return 0.2126 * linearize(parseInt(hex.slice(1, 3), 16))
+    + 0.7152 * linearize(parseInt(hex.slice(3, 5), 16))
+    + 0.0722 * linearize(parseInt(hex.slice(5, 7), 16))
+}
+
+/** 可读性判据：形状合法 **且** L 落在裸 3:1 带内 */
+export function isReadableInk(v: unknown): v is string {
+  if (!isHexColor(v)) return false
+  const l = relativeLuminance(v)
+  return l >= INK_L_MIN && l <= INK_L_MAX
+}
+
+/**
+ * 写入口守卫：合法原样返回，非法 / 带外 / 空 ⇒ undefined（＝未选颜色）。
+ * 不吸附、不补默认白、不改大小写 —— 改写用户数据是 ADR-0007 明令禁止的。
+ */
+export function sanitizeInkColor(v: unknown): string | undefined {
+  return isReadableInk(v) ? v : undefined
+}
+
+/**
+ * 读侧唯一入口：模板 → 能用的颜色或 undefined。
+ * 存储里可能是手改 / 外部写入的带外值，这里一律回落成「未选颜色」（跟随主题、无描边）；
+ * 回落只发生在内存里，**不回写存储**。消费颜色的地方（小列表 / 大列表 / 设置页）都走这里。
+ */
+export function inkColorOf(t: { color?: unknown }): string | undefined {
+  return sanitizeInkColor(t ? t.color : undefined)
+}
+
 /** 检索串（面板搜索与 /prompt 触发源共用）：名称/英文名/正文/领域/阶段/动作/标签（旧找法不断） */
 export function templateHaystack(t: PromptTemplate): string {
   return (t.name + ' ' + (t.nameEn || '') + ' ' + (t.body || '') + ' ' + (t.domain || '') + ' ' + (t.stage || '') + ' ' + (t.action || []).join(' ') + ' ' + templateLabels(t).join(' ')).toLowerCase()
@@ -379,8 +442,9 @@ export function canPinMore(): boolean {
  * labels 接受数组或单字符串（单字符串兼容旧调用：视为一个标签）。
  * 先归一化+校验，不合法直接抛错——面板侧已做行内校验先行，此处是契约守卫，不静默截断。
  * 落盘新形状（只写 labels，不写旧 tag 与占位三件套）。
+ * #159：color 可选；未选（缺参 / 非法 / 带外）时**根本不写这个键** —— 不是写默认白。
  */
-export function addCustom(name: string, labels: string | string[], body: string): CustomTemplate {
+export function addCustom(name: string, labels: string | string[], body: string, color?: string): CustomTemplate {
   const checked = validateLabels(labels)
   if (!checked.ok) throw new Error('[dsh-prompt] invalid labels: ' + checked.error)
   const t: CustomTemplate = {
@@ -389,14 +453,18 @@ export function addCustom(name: string, labels: string | string[], body: string)
     labels: checked.labels,
     body, builtin: false, createdAt: Date.now(),
   }
+  const ink = sanitizeInkColor(color)
+  if (ink !== undefined) t.color = ink
   cache.customs = [...cache.customs, t]
   notifyStore()
   persist(PUT_URL, { template: toHostShape(t) })
   return t
 }
 
-/** 更新自定义模板（#23：labels 数组或单字符串；兼容旧 patch.tag，折算为单标签） */
-export function updateCustom(id: string, patch: { name?: string; labels?: string | string[]; tag?: string; body?: string }): void {
+/** 更新自定义模板（#23：labels 数组或单字符串；兼容旧 patch.tag，折算为单标签）。
+ *  #159：patch.color 是写入口 —— 合法（带内六位 hex）原样落；非法 / 空 / 带外落回「未选颜色」
+ *  （删键，不吸附到最近的合法色）；缺参（undefined）表示这一项不改。 */
+export function updateCustom(id: string, patch: { name?: string; labels?: string | string[]; tag?: string; body?: string; color?: string }): void {
   cache.customs = cache.customs.map((t) => {
     if (t.id !== id) return t
     const next: CustomTemplate = { ...t }
@@ -409,6 +477,11 @@ export function updateCustom(id: string, patch: { name?: string; labels?: string
       delete next.tag // 旧单标签字段不再保留（不双写）
     }
     if (patch.body !== undefined) next.body = patch.body
+    if (patch.color !== undefined) {
+      const ink = sanitizeInkColor(patch.color)
+      if (ink === undefined) delete next.color
+      else next.color = ink
+    }
     persist(PUT_URL, { template: toHostShape(next) })
     return next
   })

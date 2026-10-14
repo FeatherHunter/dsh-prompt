@@ -64,6 +64,10 @@ export const STR = {
   addTitle: { zh: '新增自定义模板', en: 'Add custom template' },
   editTitle: { zh: '编辑自定义模板', en: 'Edit custom template' },
   namePh: { zh: '模板名称', en: 'Template name' },
+  // #159 颜色标签（地图 #151）：字段名与「未选颜色」态文案收口在这里 —— 158 的取色控件复用同一份，
+  // 不另造同义词（同概念两名正是 #141 presetCount/scopePreset 那类坑的来源）。
+  colorLabel: { zh: '文字颜色', en: 'Text color' },
+  colorDefault: { zh: '默认（跟随主题，无描边）', en: 'Default (follows theme, no outline)' },
   labelsPh: { zh: '添加标签（逗号/空格/顿号分隔，回车确认）', en: 'Add labels (comma/space separated, Enter to confirm)' },
   labelsHint: { zh: '最多 3 个，每条 1–10 字；可从已有词里选，也可新造', en: 'At most 3 labels, 1–10 chars each; pick existing or invent new' },
   labelsTooMany: { zh: '最多 3 个标签', en: 'At most 3 labels' },

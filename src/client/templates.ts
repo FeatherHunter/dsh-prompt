@@ -19,6 +19,10 @@ export interface PromptTemplate {
   action?: string[]
   /** 统一标签（#23；旧数据缺失时由 templateLabels() 读时回落） */
   labels?: string[]
+  /** 颜色标签（#159）：**原始存储值**（六位 hex，用户数据）。
+   *  缺键／带外／非法都表示「未选颜色」——消费颜色一律走 store 的 inkColorOf()，
+   *  它负责读侧回落；直接读本字段会拿到未经回落的值。 */
+  color?: string
   body: string
   builtin: boolean
 }

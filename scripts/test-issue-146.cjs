@@ -52,15 +52,20 @@ console.log('=== R7: 源码纪律（单常量/查询键/无 creep） ===');
   ok(!hitPicker && !hitButton && !hitHost, 'picker/button/hostfont 不散写 data-plugin 字面量（走单常量 helper）');
   ok(/data-plugin/.test(ownerSrc), 'styleOwnership.ts 拥有 data-plugin 唯一真相');
   // 查询键不变：仍用 style[data-dsh-prompt-style="..."]（经 helper 或字面量，语义逐字一致）
-  for (const [nm, src] of [['picker', pickerSrc], ['button', buttonSrc], ['hostfont', hostSrc]]) {
+  // #148 起 hostfont 不再自己持有查询键（注入缝在 styleOwnership），故这里列缝的持有者。
+  for (const [nm, src] of [['picker', pickerSrc], ['button', buttonSrc], ['styleOwnership', ownerSrc]]) {
     ok(/data-dsh-prompt-style/.test(src), nm + ' 仍用私有标记查询键');
   }
-  // 5 处 createElement('style') 全在 src 且均走 helper
-  const allSrc = pickerSrc + buttonSrc + hostSrc;
+  // #148：hostfont 三条桥（宿主字/工作区行/AI 响应）收敛到 styleOwnership 的共用注入点
+  // （applyOwnedStyle / dropOwnedStyle），hostfont 由 2 处 createElement(style) 降为 0 处、
+  // 缝所在文件 1 处 ⇒ 计数集合换成 picker+button+styleOwnership 后仍是 4。不变式（运行时
+  // <style> 注入全走归属 helper）不变，且实现副本更少——#146 的漏打归属正是“多份拷贝漂移”的产物。
+  const allSrc = pickerSrc + buttonSrc + ownerSrc;
   const creates = (allSrc.match(/createElement\(['"]style['"]\)/g) || []).length;
-  ok(creates === 5, '全 src 恰好 5 处 createElement(style)，实际=' + creates);
+  ok(creates === 4, '全 src 恰好 4 处 createElement(style)（hostfont 三桥共用缝里那 1 处），实际=' + creates);
+  ok(!/createElement\(['"]style['"]\)/.test(hostSrc), 'hostfont.ts 不自建 <style>（注入全走归属缝）');
   const marks = (allSrc.match(/markOwnedStyleTag|ensureOwnedStyleTag/g) || []).length;
-  ok(marks >= 8, '5 处新建/收养/更新/闩全走 helper（mark/ensure 引用≥8，实际=' + marks + '）');
+  ok(marks >= 6, '各处新建/收养/更新/闩全走 helper（mark/ensure 引用≥6，实际=' + marks + '）');
   // 无新日志/持久化
   for (const [nm, src] of [['styleOwnership', ownerSrc], ['picker', pickerSrc], ['button', buttonSrc], ['hostfont', hostSrc]]) {
     ok(!/__dshPromptLog|logEvent|localStorage|sessionStorage/.test(src) || nm === 'picker' || nm === 'button',
@@ -163,11 +168,12 @@ const MARKERS = [
   'dsh-prompt-picker-anim',
   'dsh-prompt-entry-narrow',
   'dsh-prompt-remote-feedback',
+  'dsh-prompt-remote-hostfont',
   'dsh-prompt-remote-rows',
   'dsh-prompt-remote-assistant',
 ];
 
-console.log('=== R1: 新建边（5 角归属 + CSS 逐字） ===');
+console.log('=== R1: 新建边（6 角归属 + CSS 逐字） ===');
 {
   // 重置闩，保证新建路径
   try { button.__resetNarrowStyle(); } catch (e) {}
@@ -183,6 +189,7 @@ console.log('=== R1: 新建边（5 角归属 + CSS 逐字） ===');
   } catch (e) { fail('WorkspacePicker 渲染不应抛：' + ((e && e.message) || e)); }
   hostfont.syncRemoteRows(true, 5);
   hostfont.syncAssistantZoom(true, 5);
+  hostfont.syncHostFont(true, 5);
 
   for (const m of MARKERS) {
     const hits = mine(m);
@@ -197,6 +204,8 @@ console.log('=== R1: 新建边（5 角归属 + CSS 逐字） ===');
   if (narrow) ok(narrow.textContent === '@container (max-width: 560px) {\n  [data-dsh-prompt-entry] [data-dsh-prompt-label] { display: none; }\n}', '窄屏 CSS 逐字不变');
   const rows = mine('dsh-prompt-remote-rows')[0];
   if (rows) ok(rows.textContent === '[data-row-key^="session:"],[data-row-key^="workspace:"]{zoom:3;}', 'rows 5档 CSS 逐字，实际=' + (rows && rows.textContent));
+  const hf = mine('dsh-prompt-remote-hostfont')[0];
+  if (hf) ok(hf.textContent === 'body{--dsh-content-font-size:42px !important;}', 'hostfont 5档覆盖 CSS 逐字，实际=' + (hf && hf.textContent));
   const asst = mine('dsh-prompt-remote-assistant')[0];
   if (asst) ok(asst.textContent === '[data-chat-group-part="response"]{zoom:3;}', 'assistant 5档 CSS 逐字，实际=' + (asst && asst.textContent));
   const fb = mine('dsh-prompt-remote-feedback')[0];
@@ -210,7 +219,7 @@ console.log('=== R6: 作用域查询（自家零无主、值全对） ===');
   const orphans = global.document.querySelectorAll('style[data-dsh-prompt-style]:not([data-plugin])');
   ok(orphans.length === 0, '自家零无主，实际=' + orphans.length);
   const allMine = global.document.querySelectorAll('style[data-dsh-prompt-style]');
-  ok(allMine.length === 5, '自家共 5 段，实际=' + allMine.length);
+  ok(allMine.length === 6, '自家共 6 段（#148 起含宿主内容字覆盖段），实际=' + allMine.length);
   ok(allMine.every((el) => el.getAttribute('data-plugin') === 'dsh-prompt'), '自家归属值全等于 dsh-prompt');
 }
 

@@ -1,0 +1,140 @@
+<!doctype html>
+<!--
+  #148 机制探针：作者样式表 !important 覆盖 vs 宿主「body 行内普通声明」
+
+  为什么有这个文件：修复 #148 的全部依据是「CSS Cascade 4：important author > 行内普通声明」，
+  这条在假 DOM 单测里算不出来（jsdom 也不做 cascade 计算），所以钉成一份可复跑的实测。
+  跑法（Chrome / Edge 任一，headless 即可）：
+    & "C:\Program Files\Google\Chrome\Application\chrome.exe" --headless=new --disable-gpu `
+        --dump-dom "file:///<本文件绝对路径>"
+  或 Edge：& "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --headless=new --dump-dom <同>
+  看输出里的 <pre id="out">：#148 P1..P8 全 PASS 才算机制成立。
+  数值与结论同步记在 research/host-font-scale-bridge.md §5、issue #148 的实施评论、
+  scripts/test-issue-148.cjs 头注（那边钉声明形状，这边钉 cascade 真的这么算）。
+
+  宿主形态按 app.asar 产物逐条复刻：body 行内 setProperty（普通优先级，theme/change 时重放）、
+  派生链（delta / secondary / markdown 基准）声明在 body 规则里、消费方 font-size:var(...)。
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<title>#148 hostfont cascade probe</title>
+<style>
+  /* 宿主 boot 样式表：派生链声明在 body 规则里，全部由主变量推导（app.asar 实测同形） */
+  body {
+    --dsh-content-font-delta: calc(var(--dsh-content-font-size, 14px) - 14px);
+    --dsh-content-font-size-secondary: min(calc(var(--dsh-content-font-size, 14px) - 1px), max(13px, calc(var(--dsh-content-font-size, 14px) - 2px)));
+    --dsw-font-markdown-base-font-size: var(--dsh-content-font-size, 14px);
+  }
+  /* 内容消费方（宿主模块里是 .cJsG2q_bubble / v5IAXa_root 等） */
+  .content { font-size: var(--dsh-content-font-size, 14px); }
+  .delta { font-size: calc(14px + var(--dsh-content-font-delta)); }
+  .secondary { font-size: var(--dsh-content-font-size-secondary); }
+  .markdown-base { font-size: var(--dsw-font-markdown-base-font-size); }
+  /* 自家面复乘（panel.ts/settings.ts 的 scaledBaseFontSize = calc(基准 * 档位)）——已知交互，见 P9 */
+  .ownsurface { font-size: calc(var(--dsw-font-markdown-base-font-size) * 3); }
+  /* 子树局部声明：局部值应赢继承值（importance 不跨继承） */
+  #local { --dsh-content-font-size: 9px; }
+  #local .content { font-size: var(--dsh-content-font-size, 14px); }
+</style>
+</head>
+<body>
+  <div id="content" class="content">content</div>
+  <div id="delta" class="delta">delta</div>
+  <div id="secondary" class="secondary">secondary</div>
+  <div id="markdownBase" class="markdown-base">markdown base</div>
+  <div id="ownsurface" class="ownsurface">plugin own surface</div>
+  <div id="local"><span id="localContent" class="content">local</span></div>
+  <pre id="out"></pre>
+<script>
+'use strict';
+// ── 宿主侧：theme/change 时把用户字号重放成 body 行内普通声明（app.asar ThemePresenter.apply） ──
+const HOST_VAR = '--dsh-content-font-size';
+function hostApply(px) { document.body.style.setProperty(HOST_VAR, px); }
+function hostInline() { return document.body.style.getPropertyValue(HOST_VAR); }
+function hostRemove() { document.body.style.removeProperty(HOST_VAR); }
+// ── 插件侧：自家 <style data-plugin> 的声明式覆盖（src/client/hostfont.ts 的形状） ──
+function pluginApply(px) {
+  const st = document.createElement('style');
+  st.setAttribute('data-plugin', 'dsh-prompt');
+  st.setAttribute('data-dsh-prompt-style', 'dsh-prompt-remote-hostfont');
+  st.textContent = 'body{' + HOST_VAR + ':' + px + ' !important;}';
+  document.head.appendChild(st);
+  return st;
+}
+const cs = (sel) => getComputedStyle(document.querySelector(sel));
+const px = (sel) => cs(sel).fontSize;
+const mainVar = () => getComputedStyle(document.body).getPropertyValue(HOST_VAR).trim();
+
+const out = [];
+let failures = 0;
+function t(name, got, want) {
+  const ok = got === want;
+  if (!ok) failures++;
+  out.push((ok ? 'PASS ' : 'FAIL ') + name + '  got=' + JSON.stringify(got) + ' want=' + JSON.stringify(want));
+}
+function note(name, got) { out.push('NOTE ' + name + '  got=' + JSON.stringify(got)); }
+
+// 初始：宿主行内 17px（用户在设置里选的值）
+hostApply('17px');
+t('P0 宿主基线（无覆盖）', px('#content'), '17px');
+
+// P1 覆盖生效，且宿主行内原样保留（宿主状态零污染）
+const overlay = pluginApply('42px');
+t('P1a 覆盖生效', px('#content'), '42px');
+t('P1b 计算结果', mainVar(), '42px');
+t('P1c 宿主行内原样保留', hostInline(), '17px');
+t('P1d style 属性里还是宿主的值', /--dsh-content-font-size:\s*17px/.test(document.body.getAttribute('style') || ''), true);
+
+// P2 宿主随后重放自己的值（切主题 / 调官方步进器）→ 仍被自家 important 压住（重放免疫）
+hostApply('16px');
+t('P2a 重放后仍覆盖', px('#content'), '42px');
+t('P2b 宿主行内已是新值', hostInline(), '16px');
+
+// P3 派生链整条跟随（delta / secondary / markdown 基准）
+t('P3a delta 跟随', px('#delta'), '42px');          // calc(14px + (42px - 14px))
+t('P3b secondary 跟随', px('#secondary'), '40px');  // min(42-1, max(13, 42-2))
+t('P3c markdown 基准跟随', px('#markdownBase'), '42px');
+
+// P4 子树局部声明仍赢继承值（importance 不跨继承）
+t('P4 局部声明优先', px('#localContent'), '9px');
+
+// P5 摘掉自家段 → 当即回到宿主**当前**值（不是回放旧快照）
+overlay.remove();
+t('P5a 摘段即还原', px('#content'), '16px');
+t('P5b 宿主行内未被插件改过', hostInline(), '16px');
+
+// P6 落点必须是 body：html 上的 important 够不着 body 行内（旧稿双写 documentElement 是死码）
+const htmlTag = document.createElement('style');
+htmlTag.textContent = 'html{' + HOST_VAR + ':55px !important;}';
+document.head.appendChild(htmlTag);
+t('P6a :root 规则够不着 body 行内', mainVar(), '16px');
+t('P6b 消费方仍是宿主值', px('#content'), '16px');
+htmlTag.remove();
+
+// P7 宿主没有发布该变量时，自家覆盖照常生效（fallback 路径）
+hostRemove();
+const overlay2 = pluginApply('55px');
+t('P7 无宿主值时覆盖生效', px('#content'), '55px');
+overlay2.remove();
+
+// P8 未来宿主改用行内 important 时优雅降级（宿主赢，功能静默失效而不是打架）
+hostApply('17px');
+document.body.style.setProperty(HOST_VAR, '17px', 'important');
+const overlay3 = pluginApply('42px');
+t('P8 行内 important 时宿主赢（优雅降级）', px('#content'), '17px');
+overlay3.remove();
+document.body.style.removeProperty(HOST_VAR);
+
+// P9 已知交互（#148 审查记，本票未改）：自家面锚在 --dsw-font-markdown-base-font-size，
+//    而它由被覆盖的主变量派生 ⇒ 远程开时自家面把档位乘两遍。这里只把数测出来，供维护者裁定。
+hostApply('14px');
+const overlay4 = pluginApply('42px');
+note('P9 自家面复乘（5 档：42px × 3）', px('#ownsurface'));
+overlay4.remove();
+
+out.unshift(failures === 0 ? '#148 probe: ALL PASS' : '#148 probe: FAILURES=' + failures);
+document.getElementById('out').textContent = '\n' + out.join('\n') + '\n';
+</script>
+</body>
+</html>

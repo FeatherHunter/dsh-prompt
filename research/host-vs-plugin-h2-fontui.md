@@ -37,7 +37,8 @@
 - `dsh-client-ui-theme/README.md`（Summary）：“lets Web GUI users choose `light`, `dark`, or `system` and **set conversation content text from 12 to 17 px in Settings**”，持久化在 `ui-theme` settings namespace。Appearance and font size 节：“stepper accepts integer values **from 12 through 17 px and defaults to 14 px** … Each accepted change writes through the **Host settings API**.”
 - 关键约束句（Use this package）：“Feature plugins **consume the current snapshot through `ctx.theme` and read the `--dsw-*` tokens in CSS; they do not manage theme state themselves.**”（插件只消费、不管理主题状态。）
 - schema（`dsh-client-ui-theme/lib/index.js:19-26,82`）：`FONT_SIZE_MIN = 12`、`FONT_SIZE_MAX = 17`（`:19,:21`），`z.number().step(1).min(12).max(17).default(14)`（`:26`），live Config 同值 `.volatile()`（`:82`）。
-- bootstrap（同文件 `bootThemeBodyScript`）: `document.body.style.setProperty('--dsh-content-font-size', '"14px"')`——宿主把字号写在 **body 行内样式**（inline style），这是插件 stylesheet 规则覆盖不了的那一层（行内 > 样式表）；插件要改“宿主承认的字号”只能走服务，不能靠 CSS 覆盖。
+- bootstrap（同文件 `bootThemeBodyScript`）: `document.body.style.setProperty('--dsh-content-font-size', '"14px"')`——宿主把字号写在 **body 行内样式**（inline style），这是**宿主权威通道**那一层。
+  - ⚠️ **2026-10-14 更正（#148 实施期）**：原文接着写“这是插件 stylesheet 规则覆盖不了的那一层（行内 > 样式表）……只能走服务，不能靠 CSS 覆盖”——**只对普通声明成立**。级联里**作者样式表的 `!important` 声明赢过行内普通声明**（“行内最优先”仅对 `!important` 情境成立）。实测：自家 `<style>` 写 `body{--dsh-content-font-size:<px> !important}` 压过宿主行内，且宿主行内值一字不改（`research/probe-hostfont-cascade.html` P1a/P1c/P2a）。宿主的行内**写入**仍是权威通道、插件不该去写它，但**可以只读地不碰它、用更高优先级覆盖**。
 - client 侧（`dsh-client-ui-theme/lib/client.js`）：`setTheme(id)`（`:1409`）、“Change the conversation content font size — the only font-size write …”（`:1417` 起）、`document.body.style.getPropertyValue("--dsh-content-font-size")`（`:1531`）、bridge `{ setTheme, …, id: "font-size" }`（`:1599-1600,:1620`）。
 
 ### 3.2 `ctx.theme` 给插件的писан契约（由 theme-studio 的用法反推 + 宿主 README 印证）

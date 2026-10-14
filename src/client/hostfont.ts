@@ -1,18 +1,48 @@
 /**
- * dsh-prompt — 宿主内容字桥（#92 野路子，用户拍板已知局限：px 定死区不跟随；
- * #103 野路子三期：主会话 AI 定死区改 targeted zoom 覆盖，局限关闭）。
+ * dsh-prompt — 宿主内容字桥（#92 功能，机制 #148 重做）
  *
- * - 开远程后 DSH 宿主内容字按档位等比动（hostContentFontPx），关远程恢复原样（两边 removeProperty）。
- * - 落点 documentElement + body 双写：body 行内即时赢下 cascade（派生链定义在 body 上，
- *   行内优先级最高）；documentElement（:root）写入不被 theme/change 重放 смыв，
- *   作 body 行内被重放覆盖时的兜底与恢复语义的对称点。关即两边 removeProperty 回宿主真相。
+ * 目标（#92 用户拍板保留）：开远程后 DSH 宿主内容字按档位等比动，关远程恢复原样。
+ * 机制（#148）：**声明式覆盖，零宿主状态写入**——
+ * - 开 → 注入/更新自家 <style data-plugin>：body{--dsh-content-font-size:<hostContentFontPx>px !important;}
+ * - 关 → 摘掉自家 <style>。宿主行内值当即原样可见，无需快照、无需回滚、无需判定“宿主后来写没写”。
+ * - 注入缝不在本文件：`<style>` 的建/收养/更新/摘除归 styleOwnership.ts 的
+ *   applyOwnedStyle / dropOwnedStyle（#146 归属账本），本文件只决定“写什么 CSS、什么时候写”。
+ *   三条桥共用同一份协议，本包不再有第三份拷贝——#146 的漏打归属正是“多份拷贝漂移”的产物。
+ *
+ * 为什么是 !important 覆盖而不是直接写变量（#148 实测，Chromium 8 项断言）：
+ * - 这个变量的所有者是宿主：`ThemePresenter.apply` 每次 `theme/change` 都重放 body 行内
+ *   `setProperty`，只有 `dispose()` 才 `removeProperty`（注释原文 “Body variable carrying the
+ *   user's content font size in px.”）；宿主另有读回者 `bootstrapFontSize()` 读
+ *   `body.style.getPropertyValue('--dsh-content-font-size')`（越界回 14）。
+ *   插件写进去 = 写别人的状态：关远程时 `removeProperty` 删掉的是宿主的值（#148 报的就是这个），
+ *   而下一次主题重放又会把插件的值冲掉（“谁后写谁赢”，宿主有持续重放权，插件没有）。
+ * - 作者样式表的 !important 声明在 cascade 上高于行内**普通**声明
+ *   （CSS Cascade 4：important author > 行内）；实测：宿主行内 17px + 自家 !important 42px
+ *   → 算得 42px，且宿主行内 17px 原样保留；宿主随后重写 16px 仍被自家规则压住（重放免疫）；
+ *   摘掉自家 <style> 当即回到宿主值。research/host-font-scale-bridge.md:29
+ *   “行内样式优先级高于任何样式表规则，插件靠样式表覆盖赢不了水龙头”只在**普通**声明下成立。
+ *   复跑用探针：research/probe-hostfont-cascade.html（自包含，headless Chrome `--dump-dom` 即出结论）。
+ * - 落点必须是 body：:root 规则会被 body 行内值在 body 及其整棵子树赢掉（实测），
+ *   旧稿的 documentElement 双写是无的放矢（宿主从不写 :root）。
+ * - 派生链自动跟随：宿主在 body 的声明里由本变量推导 --dsh-content-font-delta /
+ *   --dsh-content-font-size-secondary / --dsh-content-font-delta-secondary /
+ *   --dsw-font-markdown-base-font-size 等（gradient-shadow-text.css），覆盖上游即整链等比。
+ * - 已知局限（#92 拍板保留，非本票范围）：宿主定死 px 处不跟（small/code 阶梯）；#103 已用
+ *   zoom 另行覆盖 AI 响应区。
+ * - 已知交互（#148 审查记，待维护者裁定，本票未改）：重放免疫是双向的——远程开着时用户在
+ *   「设置→通用→字号大小」改的值不会立即见效（关远程即见）；且自家面 scaledBaseFontSize 锚的
+ *   --dsw-font-markdown-base-font-size 由被覆盖的这个变量派生 ⇒ 远程开时自家面吃两遍档位
+ *   （实测覆盖值 5 档 = 42px，自家面 calc(42px × 3) = 126px，非本票引入、旧稿同样成立，
+ *   但旧稿会被宿主重放打回而自限，现为常驻）。见 issue #148 的 Q2 / follow-up。
  * - 本文件是唯一的 DOM 接触点；remoteView.ts 保持纯函数（禁 DOM/宿主调用）。
  * - 全程守卫 + try/catch fail-soft，不抛（单测无 DOM 时静默 no-op）。
  */
 import { hostContentFontPx, remoteSizeScale } from './remoteView'
-import { ensureOwnedStyleTag, markOwnedStyleTag, selectorForMarker } from './styleOwnership'
+import { applyOwnedStyle, dropOwnedStyle, styleDocument } from './styleOwnership'
 
 const HOST_CONTENT_FONT_VAR = '--dsh-content-font-size'
+/** 宿主内容字覆盖段的自家 style 钩 */
+const HOST_FONT_STYLE_ID = 'dsh-prompt-remote-hostfont'
 
 /** 工作区列表跟随样式钩（D-targeted，自家 style 注入惯例见 button.ts 窄屏/反馈样式） */
 const ROWS_STYLE_ID = 'dsh-prompt-remote-rows'
@@ -29,59 +59,37 @@ const ASSISTANT_STYLE_ID = 'dsh-prompt-remote-assistant'
  */
 const ASSISTANT_SELECTOR = '[data-chat-group-part="response"]'
 
-function collectStyleTargets(): any[] {
-  const out: any[] = []
+/** 档位倍数（非法 / 非正 / 非有限 → null，调用方按“摘掉”处理） */
+function zoomScale(size: unknown): number | null {
+  let scale: unknown = NaN
   try {
-    const g = globalThis as any
-    const doc = g && g.document
-    if (!doc) return out
-    try {
-      if (doc.documentElement && doc.documentElement.style) out.push(doc.documentElement.style)
-    } catch (e) { /* ignore */ }
-    try {
-      if (doc.body && doc.body.style) out.push(doc.body.style)
-    } catch (e) { /* ignore */ }
-  } catch (e) { /* ignore */ }
-  return out
+    scale = remoteSizeScale(size)
+  } catch (e) {
+    scale = NaN
+  }
+  if (typeof scale !== 'number' || !isFinite(scale) || scale <= 0) return null
+  return scale
 }
 
 /**
  * 同步宿主内容字（fail-soft，不抛）：
- * - enabled=true → 双写变量为 hostContentFontPx(size) + 'px'；
- * - 其它（含关/非法）→ 两边 removeProperty（恢复宿主原样）。
- * 无 DOM（typeof document 缺席 / element 缺席）时静默 no-op。
+ * - enabled=true 且档位是有限数值 → 覆盖变量为 hostContentFontPx(size) + 'px'（!important，压住宿主 body 行内）；
+ * - 其它（关 / 非法档位）→ 摘掉自家覆盖段，宿主原值当即生效。
+ *   非法档位按“摘掉”而不落 14px：宿主内容字可能被用户设成 18~22px，覆盖成 14px 等于以覆盖方式
+ *   改写宿主的有效字号（与另两条桥的非法档语义也对齐）。
+ * **永不读写宿主行内样式**（#148：那是宿主的状态，写它即删除宿主真相）。
+ * 无 DOM（typeof document 缺席 / head 缺席）时静默 no-op。
  */
 export function syncHostFont(enabled: unknown, size: unknown): void {
   try {
-    if (typeof document === 'undefined') {
-      try {
-        const g = globalThis as any
-        if (!g || !g.document) return
-      } catch (e) {
-        return
-      }
-    }
-    const targets = collectStyleTargets()
-    if (targets.length === 0) return
-    if (enabled !== true) {
-      for (const st of targets) {
-        try {
-          if (st && typeof st.removeProperty === 'function') st.removeProperty(HOST_CONTENT_FONT_VAR)
-        } catch (e) { /* ignore */ }
-      }
+    const doc = styleDocument()
+    if (!doc) return
+    if (enabled !== true || typeof size !== 'number' || !isFinite(size)) {
+      dropOwnedStyle(doc, HOST_FONT_STYLE_ID)
       return
     }
-    let px = '14px'
-    try {
-      px = hostContentFontPx(size) + 'px'
-    } catch (e) {
-      px = '14px'
-    }
-    for (const st of targets) {
-      try {
-        if (st && typeof st.setProperty === 'function') st.setProperty(HOST_CONTENT_FONT_VAR, px)
-      } catch (e) { /* ignore */ }
-    }
+    const px = hostContentFontPx(size) + 'px'
+    applyOwnedStyle(doc, HOST_FONT_STYLE_ID, 'body{' + HOST_CONTENT_FONT_VAR + ':' + px + ' !important;}')
   } catch (e) { /* fail-soft：宿主字桥永不影响自家面 */ }
 }
 
@@ -95,61 +103,18 @@ export function syncHostFont(enabled: unknown, size: unknown): void {
  */
 export function syncRemoteRows(enabled: unknown, size: unknown): void {
   try {
-    const g = globalThis as any
-    const doc = g && g.document
-    if (!doc || typeof doc.createElement !== 'function' || !doc.head) return
-    const sel = selectorForMarker(ROWS_STYLE_ID)
-    const find = (): any => {
-      try {
-        return typeof doc.querySelector === 'function' ? doc.querySelector(sel) : null
-      } catch (e) {
-        return null
-      }
-    }
-    const remove = (): void => {
-      try {
-        const el = find()
-        if (!el) return
-        if (el.parentNode && typeof el.parentNode.removeChild === 'function') el.parentNode.removeChild(el)
-        else if (typeof el.remove === 'function') el.remove()
-      } catch (e) { /* ignore */ }
-    }
+    const doc = styleDocument()
+    if (!doc) return
     if (enabled !== true) {
-      remove()
+      dropOwnedStyle(doc, ROWS_STYLE_ID)
       return
     }
-    let scale = 1
-    try {
-      scale = remoteSizeScale(size)
-    } catch (e) {
-      scale = NaN as unknown as number
-    }
-    if (typeof scale !== 'number' || !isFinite(scale) || scale <= 0) {
-      remove()
+    const scale = zoomScale(size)
+    if (scale === null) {
+      dropOwnedStyle(doc, ROWS_STYLE_ID)
       return
     }
-    const css = ROWS_SELECTOR + '{zoom:' + scale + ';}'
-    try {
-      const prev = find()
-      if (prev) {
-        // 更新边（#146 补丁 1b）：改 css 的同时补归属，无主旧 tag 就地转正。
-        ensureOwnedStyleTag(prev)
-        try {
-          prev.textContent = css
-        } catch (e) { /* ignore */ }
-        return
-      }
-    } catch (e) { /* ignore → 走新建 */ }
-    try {
-      const tag = doc.createElement('style')
-      if (!tag || typeof tag.setAttribute !== 'function') return
-      markOwnedStyleTag(tag)
-      tag.setAttribute('data-dsh-prompt-style', ROWS_STYLE_ID)
-      try {
-        tag.textContent = css
-      } catch (e) { /* ignore */ }
-      doc.head.appendChild(tag)
-    } catch (e) { /* ignore */ }
+    applyOwnedStyle(doc, ROWS_STYLE_ID, ROWS_SELECTOR + '{zoom:' + scale + ';}')
   } catch (e) { /* fail-soft：行跟随永不影响自家面 */ }
 }
 
@@ -166,60 +131,33 @@ export function syncRemoteRows(enabled: unknown, size: unknown): void {
  */
 export function syncAssistantZoom(enabled: unknown, size: unknown): void {
   try {
-    const g = globalThis as any
-    const doc = g && g.document
-    if (!doc || typeof doc.createElement !== 'function' || !doc.head) return
-    const sel = selectorForMarker(ASSISTANT_STYLE_ID)
-    const find = (): any => {
-      try {
-        return typeof doc.querySelector === 'function' ? doc.querySelector(sel) : null
-      } catch (e) {
-        return null
-      }
-    }
-    const remove = (): void => {
-      try {
-        const el = find()
-        if (!el) return
-        if (el.parentNode && typeof el.parentNode.removeChild === 'function') el.parentNode.removeChild(el)
-        else if (typeof el.remove === 'function') el.remove()
-      } catch (e) { /* ignore */ }
-    }
+    const doc = styleDocument()
+    if (!doc) return
     if (enabled !== true) {
-      remove()
+      dropOwnedStyle(doc, ASSISTANT_STYLE_ID)
       return
     }
-    let scale = 1
-    try {
-      scale = remoteSizeScale(size)
-    } catch (e) {
-      scale = NaN as unknown as number
-    }
-    if (typeof scale !== 'number' || !isFinite(scale) || scale <= 0) {
-      remove()
+    const scale = zoomScale(size)
+    if (scale === null) {
+      dropOwnedStyle(doc, ASSISTANT_STYLE_ID)
       return
     }
-    const css = ASSISTANT_SELECTOR + '{zoom:' + scale + ';}'
-    try {
-      const prev = find()
-      if (prev) {
-        // 更新边（#146 补丁 1b）：改 css 的同时补归属，无主旧 tag 就地转正。
-        ensureOwnedStyleTag(prev)
-        try {
-          prev.textContent = css
-        } catch (e) { /* ignore */ }
-        return
-      }
-    } catch (e) { /* ignore → 走新建 */ }
-    try {
-      const tag = doc.createElement('style')
-      if (!tag || typeof tag.setAttribute !== 'function') return
-      markOwnedStyleTag(tag)
-      tag.setAttribute('data-dsh-prompt-style', ASSISTANT_STYLE_ID)
-      try {
-        tag.textContent = css
-      } catch (e) { /* ignore */ }
-      doc.head.appendChild(tag)
-    } catch (e) { /* ignore */ }
+    applyOwnedStyle(doc, ASSISTANT_STYLE_ID, ASSISTANT_SELECTOR + '{zoom:' + scale + ';}')
   } catch (e) { /* fail-soft：AI 跟随永不影响自家面 */ }
+}
+
+/**
+ * 卸载/回收清场（#148 审查补）：覆盖段必须有一条**插件侧**摘除路径。
+ * 只靠宿主账本兜底的话，一旦 data-plugin 归属哪天失配（#146 立论所依赖的假设），
+ * 这个 !important 段没有任何路径能摘掉，整机内容字会被钉死一整个会话——
+ * 旧稿靠宿主重放能自愈，新机制不会。index.ts 的 effect cleanup 调它（退订后再摘）。
+ */
+export function clearHostBridges(): void {
+  try {
+    const doc = styleDocument()
+    if (!doc) return
+    dropOwnedStyle(doc, HOST_FONT_STYLE_ID)
+    dropOwnedStyle(doc, ROWS_STYLE_ID)
+    dropOwnedStyle(doc, ASSISTANT_STYLE_ID)
+  } catch (e) { /* fail-soft：清场永不影响装配 */ }
 }

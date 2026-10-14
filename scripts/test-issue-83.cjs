@@ -160,47 +160,93 @@ ok('宿主内容字纯函数（1档14/10档77/非法14）');
   } catch (e) { fail('无 DOM 时 syncHostFont 不应抛：' + ((e && e.message) || e)); }
   if (typeof document !== 'undefined') fail('回归环境应无 DOM（本断言仅在无 DOM 下有效）');
   ok('无 DOM 时 syncHostFont 静默 no-op 不抛');
-  // 源码级：落点双写（documentElement+body），关即两边 removeProperty；remoteView 保持纯（无 DOM 触点）
-  if (!/documentElement/.test(hostSrc) || !/\.body/.test(hostSrc)) fail('hostfont.ts 应双写 documentElement+body（#92 落点）');
-  if (!/removeProperty/.test(hostSrc) || !/setProperty/.test(hostSrc)) fail('hostfont.ts 应 setProperty 双写 / removeProperty 恢复');
+  // 源码级（#148 重定契约）：机制是**声明式覆盖**（自家 <style data-plugin> + !important），
+  // 契约第一条是“零宿主行内写入”——旧稿的 setProperty/removeProperty 双写正是 #148 的缺陷本体。
+  // 注释里出现这两个词是记录宿主行为（合法），故按**去注释后的代码**判定。
+  const hostCode = hostSrc.replace(/\/\*[\s\S]*?\*\//g, '').split(/\r?\n/).map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+  if (/\bsetProperty\b|\bremoveProperty\b/.test(hostCode)) fail('hostfont.ts 代码不得读写宿主行内样式（#148：--dsh-content-font-size 是宿主状态）');
+  if (!/!important/.test(hostSrc)) fail('hostfont.ts 覆盖必须带 !important（普通声明赢不了宿主 body 行内）');
+  if (!/HOST_CONTENT_FONT_VAR\s*=\s*'--dsh-content-font-size'/.test(hostSrc)) fail('hostfont.ts 应覆盖 --dsh-content-font-size');
+  if (!/'body\{'/.test(hostSrc)) fail('hostfont.ts 覆盖落点应为 body（:root 规则够不着 body 行内）');
+  if (!/from '\.\/styleOwnership'/.test(hostSrc) || !/applyOwnedStyle|dropOwnedStyle/.test(hostSrc)) fail('hostfont.ts 的注入/摘除应走 styleOwnership 归属缝（#148 收敛，别自建 <style>）');
+  if (!/dsh-prompt-remote-hostfont/.test(hostSrc)) fail('hostfont.ts 应有自家 style 钩 dsh-prompt-remote-hostfont');
   if (/__dshPromptLog|logEvent/.test(hostSrc)) fail('hostfont.ts 不应新增日志事件');
   const indexSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'index.ts'), 'utf8');
   if (!/subscribeRemote/.test(indexSrc) || !/syncHostFont/.test(indexSrc)) fail('index.ts 应在启动处订阅 remote 偏好并联动 syncHostFont（#92 接线）');
 }
-ok('宿主字桥接线（双写落点、无新日志事件）');
-// #92 行为级（#92 未生效复盘：此前只有源码存在性断言，“写变量”从未被执行过）：
-// 假 document 下直调 syncHostFont —— 开→两边 setProperty 且值为 hostContentFontPx(size)+'px'，
-// 关→两边 removeProperty；再走 remote.ts 全链路（index.ts 接线形状：sync+subscribeRemote，
-// setRemoteEnabled/Size 驱动），断每一次偏好变更都落到变量写操作。事后还原 document/fetch，不污染后续渲染器用例。
+ok('宿主字桥接线（覆盖落点、无新日志事件）');
+// #92/#148 行为级（#148 重定契约：机制从“写宿主行内变量”改为“自家 <style> !important 覆盖”）：
+// 假 document 下直调 syncHostFont —— 全程**不得**触碰宿主行内样式（body/documentElement.style），
+// 开→注入/更新自家覆盖段写 hostContentFontPx(size)+'px !important'，关→摘自家段而宿主值原样；
+// 再走 remote.ts 全链路（index.ts 接线形状：sync+subscribeRemote，setRemoteEnabled/Size 驱动）。
+// 事后还原 document/fetch，不污染后续渲染器用例。
 {
   const savedDoc = globalThis.document;
   const savedFetch = globalThis.fetch;
-  const seen = [];
-  const mkStyle = (tag) => ({
-    setProperty: (k, v) => seen.push(tag + '|set|' + k + '|' + v),
-    removeProperty: (k) => seen.push(tag + '|del|' + k),
-  });
-  globalThis.document = { documentElement: { style: mkStyle('root') }, body: { style: mkStyle('body') } };
-  try { globalThis.fetch = undefined; } catch (e) { /* ignore */ }
   const FAUCET = '--dsh-content-font-size';
+  const MARK = 'dsh-prompt-remote-hostfont';
+  const CSS = (px) => 'body{' + FAUCET + ':' + px + ' !important;}';
+  // 宿主真相：body 行内 17px（用户在设置里选的值）+ 宿主读回者；任何写入都记账
+  const hostWrites = [];
+  const hostInline = { [FAUCET]: '17px' };
+  const mkHostStyle = (tag) => ({
+    setProperty: (k, v) => { hostWrites.push(tag + '|set|' + k + '|' + v); hostInline[k] = v; },
+    removeProperty: (k) => { hostWrites.push(tag + '|del|' + k); delete hostInline[k]; },
+    getPropertyValue: (k) => (Object.prototype.hasOwnProperty.call(hostInline, k) ? hostInline[k] : ''),
+  });
+  const headKids = [];
+  const fakeHead = {
+    appendChild: (el) => { headKids.push(el); el.parentNode = fakeHead; return el; },
+    removeChild: (el) => { const i = headKids.indexOf(el); if (i >= 0) headKids.splice(i, 1); return el; },
+  };
+  const mkStyleTag = () => ({
+    attrs: {},
+    textContent: '',
+    parentNode: null,
+    setAttribute(k, v) { this.attrs[k] = v; },
+    remove() { if (this.parentNode && this.parentNode.removeChild) this.parentNode.removeChild(this); },
+  });
+  globalThis.document = {
+    documentElement: { style: mkHostStyle('root') },
+    body: { style: mkHostStyle('body') },
+    head: fakeHead,
+    querySelector: () => headKids[0] || null,
+    createElement: (tag) => (tag === 'style' ? mkStyleTag() : null),
+  };
+  try { globalThis.fetch = undefined; } catch (e) { /* ignore */ }
   const hostfont2 = require(path.join(DIR, 'hostfont.cjs'));
-  // 开 2 档 → 双写 21px（= hostContentFontPx(2) + 'px'）
-  hostfont2.syncHostFont(true, 2);
-  if (seen.join(';') !== 'root|set|' + FAUCET + '|21px;body|set|' + FAUCET + '|21px') fail('开2档应双写 21px，实际 ' + seen.join(';'));
-  // 开 10 档 → 双写 77px
-  seen.length = 0;
-  hostfont2.syncHostFont(true, 10);
-  if (seen.join(';') !== 'root|set|' + FAUCET + '|77px;body|set|' + FAUCET + '|77px') fail('开10档应双写 77px，实际 ' + seen.join(';'));
-  // 开 + 非法档 → 仍写默认 14px（开语义，不删）
-  seen.length = 0;
-  hostfont2.syncHostFont(true, 'x');
-  if (seen.join(';') !== 'root|set|' + FAUCET + '|14px;body|set|' + FAUCET + '|14px') fail('开非法档应双写默认 14px，实际 ' + seen.join(';'));
-  // 关 → 双写删（恢复宿主原样）
-  seen.length = 0;
+  const assertNoHostWrite = (where) => {
+    if (hostWrites.length !== 0) fail(where + ' 不得写宿主行内样式，实际 ' + hostWrites.join(';'));
+    if (hostInline[FAUCET] !== '17px') fail(where + ' 宿主值应原样 17px，实际 ' + hostInline[FAUCET]);
+  };
+  // #148 缺陷本体：档位默认关 → 旧稿在此删掉宿主发布的变量（整机回落 14px 且不自愈）
   hostfont2.syncHostFont(false, 10);
-  if (seen.join(';') !== 'root|del|' + FAUCET + ';body|del|' + FAUCET) fail('关应双写删除，实际 ' + seen.join(';'));
-  ok('宿主字桥直调行为（开写值/非法写默认/关删除）');
-  // 全链路：偏好变更 → 变量写操作（去重后断言；持久化失败的重复通知只产生重复写，不改变值）
+  if (headKids.length !== 0) fail('关远程不应注入覆盖段，实际 ' + headKids.length);
+  assertNoHostWrite('关远程');
+  ok('宿主字桥关闭态：零宿主写入、宿主 17px 原样');
+  // 开 2 档 → 注入 1 枚自家段，21px（= hostContentFontPx(2) + 'px'），仍零宿主写入
+  hostfont2.syncHostFont(true, 2);
+  if (headKids.length !== 1) fail('开应注入 1 枚 style，实际 ' + headKids.length);
+  if (headKids[0].textContent !== CSS('21px')) fail('开2档应覆盖 21px !important，实际 ' + headKids[0].textContent);
+  if (headKids[0].attrs['data-plugin'] !== 'dsh-prompt') fail('覆盖段归属应为 dsh-prompt，实际 ' + headKids[0].attrs['data-plugin']);
+  if (headKids[0].attrs['data-dsh-prompt-style'] !== MARK) fail('覆盖段私有标记应为 ' + MARK);
+  assertNoHostWrite('开远程');
+  // 开 10 档 → 原位更新不叠加，77px
+  hostfont2.syncHostFont(true, 10);
+  if (headKids.length !== 1) fail('换档不应叠加 style，实际 ' + headKids.length);
+  if (headKids[0].textContent !== CSS('77px')) fail('开10档应覆盖 77px，实际 ' + headKids[0].textContent);
+  // 开 + 非法档位（非数值/非有限）→ 摘段，不落 14px：宿主内容字可能是用户设的 18~22px，
+  // 覆盖成 14px 等于以覆盖方式把宿主的有效字号改小（与另两条桥的非法档语义对齐）。
+  hostfont2.syncHostFont(true, 'x');
+  if (headKids.length !== 0) fail('开非法档应摘段（不落 14px），实际残留 ' + headKids.length + ' 枚');
+  hostfont2.syncHostFont(true, 5);   // 回正常档：重建
+  if (headKids.length !== 1 || headKids[0].textContent !== CSS('42px')) fail('回 5 档应重建 42px，实际 ' + (headKids[0] && headKids[0].textContent));
+  // 关 → 摘自家段；宿主值必须原样（#148：恢复语义=撤自家覆盖，不是删宿主真相）
+  hostfont2.syncHostFont(false, 10);
+  if (headKids.length !== 0) fail('关应摘掉覆盖段，实际残留 ' + headKids.length);
+  assertNoHostWrite('关远程（摘段后）');
+  ok('宿主字桥直调行为（开覆盖值/换档更新/非法档摘段/关摘还原）');
+  // 全链路：偏好变更 → 覆盖段写操作（宿主行内全程零写入）
   let remote92Js = ts.transpileModule(fs.readFileSync(path.join(ROOT, 'src', 'client', 'remote.ts'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, isolatedModules: true },
   }).outputText;
@@ -213,20 +259,18 @@ ok('宿主字桥接线（双写落点、无新日志事件）');
   };
   sync92();
   remote92.subscribeRemote(sync92);
-  const uniqSeen = () => [...new Set(seen)].join(';');
-  seen.length = 0;
+  const soleCss = () => (headKids.length === 1 ? headKids[0].textContent : '<' + headKids.length + ' 段>');
+  headKids.length = 0;
   remote92.setRemoteEnabled(true);
-  if (uniqSeen() !== 'root|set|' + FAUCET + '|42px;body|set|' + FAUCET + '|42px') fail('开总闸应写默认5档 42px，实际 ' + uniqSeen());
-  seen.length = 0;
+  if (soleCss() !== CSS('42px')) fail('开总闸应覆盖默认5档 42px，实际 ' + soleCss());
   remote92.setRemoteSize(10);
-  if (uniqSeen() !== 'root|set|' + FAUCET + '|77px;body|set|' + FAUCET + '|77px') fail('拖到10档应写 77px，实际 ' + uniqSeen());
-  seen.length = 0;
+  if (soleCss() !== CSS('77px')) fail('拖到10档应覆盖 77px，实际 ' + soleCss());
   remote92.setRemoteSize(5);
-  if (uniqSeen() !== 'root|set|' + FAUCET + '|42px;body|set|' + FAUCET + '|42px') fail('拖到5档应写 42px，实际 ' + uniqSeen());
-  seen.length = 0;
+  if (soleCss() !== CSS('42px')) fail('拖到5档应覆盖 42px，实际 ' + soleCss());
   remote92.setRemoteEnabled(false);
-  if (uniqSeen() !== 'root|del|' + FAUCET + ';body|del|' + FAUCET) fail('关总闸应删变量，实际 ' + uniqSeen());
-  ok('宿主字桥全链路行为（开关/拖档落到变量写操作）');
+  if (headKids.length !== 0) fail('关总闸应摘掉覆盖段，实际残留 ' + headKids.length);
+  assertNoHostWrite('全链路');
+  ok('宿主字桥全链路行为（开关/拖档落到覆盖段，宿主行内零写入）');
   remote92.__resetRemoteForTests();
   try {
     if (savedFetch === undefined) { try { delete globalThis.fetch; } catch (e) { globalThis.fetch = savedFetch; } }

@@ -106,7 +106,7 @@ async function applyRemoteSizeToHost(size: 1|2|…|10): Promise<'applied-host'|'
 - 无 `ctx.theme`（未声明 inject）→ `self-only`，静默只大自家；
 - `setFontSize` 抛错（越界/非整数）→ `self-only`；
 - presenter 重放 смыв（用户随后动了官方设置）→ 以宿主为准，插件不重写、不 clobber，只记一条 `warn` 日志（事件清单需先收敛）；
-- 关闭远程/卸载 → 恢复进入前记录的 `originalPx`（一次性 `getTheme().fontSize` 快照）。
+- 关闭远程/卸载 → 恢复进入前记录的 `originalPx`（一次性 `getTheme().fontSize` 快照）。**[已作废，见 §5]** 快照回滚这条在 #148 定案时被否决：宿主每次 `apply()` 都重写行内，快照会过期；定案改为「从不写宿主行内」的声明式覆盖，关闭 = 摘自家 `<style>`，天然等价于「从未注入」，不需要快照、`applied` 标记与「放弃回滚」判定。
 
 ### 3.4 风险清单
 
@@ -139,3 +139,20 @@ async function applyRemoteSizeToHost(size: 1|2|…|10): Promise<'applied-host'|'
 - 本仓形态：`package.json:82-89`（inject 仅 runtime+slots；engines 下限）；`docs/adr/0002-remote-panel-sizing.md:3-5`（串流等比、观测不到手机视口与缩放比）。
 - 规格史：`.tmp-verify/issue-edit/issue-85.md:12,22,37-39,53-55`（旧三档/H1/H2/宽门槛原文——已被去宿主化修订覆盖，仅作史料）；`docs/adr/0002-remote-panel-sizing.md`（现行尺寸决策）。
 - 第三方机制（沿用姊妹篇，不复拉包）：`research/host-vs-plugin-h2-fontui.md §5–§6`（font-enhancer 全局 style、palette 双轨、theme-studio 官方通道 ceiling、四宗罪）。
+
+## 5. 增量更正（2026-10-14，#148）——§1.1/§1.4 的“覆盖不了水龙头”只在普通声明下成立
+
+- 背景：#92 仍按用户拍板落地了整机内容字跟随（野路子），本篇“建议不做”的 posture 对该功能已被用户决定取代；#148 是它的回归缺陷（关闭态删掉宿主变量 ⇒ 全站回落 14px 且不自愈）。
+- 更正点：§1.1 末句“行内样式优先级高于任何样式表规则，插件靠样式表覆盖赢不了水龙头”，以及 §2 表中 C 行“§1.4 的 5 条后果全中”——**对一个作者样式表里的 `!important` 声明不成立**。CSS Cascade 4 的排序是 `important author > 行内普通声明`（行内只在**同为普通**时才赢），自定义属性同样走这条 cascade。
+- 实测（真实 Chromium，headless `--dump-dom`，2026-10-14；把宿主形态按 §1.1 逐条复刻：boot 样式表在 body 上声明 `--dsh-content-font-delta` / `-secondary` / `--dsw-font-markdown-base-font-size` 派生链 + `ThemePresenter.apply` 式 body 行内 `setProperty`，8 项断言）：
+  1. 行内 17px + 自家 `body{--x:42px!important}` → 算得 **42px**，且行内 `style` 属性仍是 `17px`（宿主状态原样）；
+  2. 宿主在覆盖之后重写 16px → 算得仍 **42px**（**重放免疫**，§1.4-1 不成立）；`bootstrapFontSize()` 读回者看到的始终是宿主自己的值（§1.4-2 不成立）；
+  3. 摘掉自家 `<style>` → 当即回到宿主当前值（16px），无需快照/回滚；
+  4. `:root` 上的规则（即使 `!important`）在 body 及其整棵子树被 body 行内值赢掉 ⇒ 落点必须是 `body`；
+  5. 子树自己声明的同名变量仍赢继承值（局部覆盖不受影响，importance 不跨继承）；
+  6. 派生链整体跟随：`--dsh-content-font-delta` = `calc(42px - 14px)`、`-secondary`/`-delta-secondary`/`--dsw-font-markdown-base-font-size` 同步；实测行高 22px+28px=50px。
+- 仍然成立的后果（#92 拍板保留）：§1.4-3 双真相（宿主步进器仍显示用户值）、§1.4-4 定死 px 处不跟（`small/code` 阶梯；AI 区已由 #103 的 zoom 另覆盖）、§1.4-5 与其他主题插件的 cascade 叠加无仲裁。**§1.4-1/§1.4-2 两条（被重放冲掉、被 bootstrap 覆盖）对声明式覆盖不成立**，而它们恰是当初把 C 判死的理由。
+- 实现：`src/client/hostfont.ts`（#148）——开 = 自家 `<style data-plugin>` 覆盖 `body{--dsh-content-font-size:<px> !important;}`，关 = 摘自家段；**零宿主行内写入**（旧稿的 setProperty/removeProperty 双写即缺陷本体）。回归：`scripts/test-issue-148.cjs`（含“关闭态零写入 + 宿主值原样”的缺陷本体断言，对旧实现实测为红）。
+- 探针落仓：`research/probe-hostfont-cascade.html`（自包含，`chrome --headless=new --dump-dom` 即出 PASS/FAIL）。2026-10-14 实跑 **P0–P8 全 PASS**：P2a 重放免疫 42px、P5a 摘段即还原、P6a `:root` 够不着（16px）、P4 局部声明 9px、**P8 宿主改用行内 `!important` 时宿主赢、插件行内一字未改（优雅降级）**。
+- **已知交互（P9，实测 126px）**：`--dsw-font-markdown-base-font-size` 由主变量派生（宿主 `gradient_shadow_text_css_default.css` 的 body 规则），而自家面 `scaledBaseFontSize`（#116）又乘一次档位 ⇒ 远程开时**自家面吃两遍档位**（5 档 = 42px × 3 = 126px）。**非 #148 引入**（旧稿写行内同样让派生链取到 42px），但旧稿会被宿主重放打回而自限，#148 起为常驻。修它要动 #116 的基准锚（triage brief 列为 out of scope），已写入 issue #148 待维护者拍板。
+- 另修正两处研究结论（实施期实测推翻）：本文 §3.3 的 `originalPx` 快照回滚**已作废**（改为零写入的声明式覆盖）；`research/host-vs-plugin-h2-fontui.md:40` 的“行内 > 样式表，插件覆盖不了”只对普通声明成立（行内普通 < 作者 `!important`）。

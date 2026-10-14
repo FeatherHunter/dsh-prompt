@@ -11,7 +11,7 @@ import { setSmartInput } from './smartstore'
 import { ensureLoaded } from './store'
 import { ensureRemoteLoaded, subscribeRemote, getRemotePrefs, warmEnvOrientation } from './remote'
 import { getSystemOrientation } from './systemOrientation'
-import { syncHostFont, syncRemoteRows, syncAssistantZoom } from './hostfont'
+import { syncHostFont, syncRemoteRows, syncAssistantZoom, clearHostBridges } from './hostfont'
 import { getLang, tr, STR } from './i18n'
 import { installLocaleService } from './locale'
 import { isPanelOpen, onPanelOpen } from './state'
@@ -143,7 +143,8 @@ export function apply(ctx: ClientContext): void {
       })
       .catch(() => undefined)
   }, 'dsh-prompt: remote load')
-  // #92：宿主内容字跟随（野路子）：开则双写变量、关则两边 removeProperty 恢复原样；
+  // #92/#148：宿主内容字跟随（野路子）：开则注入自家覆盖段（body 变量 !important）、关则摘段，
+  // 零宿主行内写入（写它就是删宿主的真相，见 #148）；
   // 工作区列表跟随（D-targeted 二期）：同订阅同路，开注 zoom 关摘，无新设置 UI；
   // 主会话 AI 跟随（#103 野路子三期）：同订阅同路，开注 zoom 关摘，无新设置 UI；
   // 三条桥都无新日志事件名（沿用 setRemoteEnabled/Size 已有事件）。
@@ -157,7 +158,14 @@ export function apply(ctx: ClientContext): void {
       } catch (e) { /* fail-soft：宿主字桥永不影响装配 */ }
     }
     try { sync() } catch (e) { /* ignore */ }
-    try { return subscribeRemote(sync) } catch (e) { return undefined }
+    let off: undefined | (() => void)
+    try { off = subscribeRemote(sync) } catch (e) { off = undefined }
+    // 清场（#148 审查补）：先退订再摘自家覆盖段——!important 段不能只靠宿主账本兜底，
+    // 归属一旦失配就没有第二条摘除路径（见 hostfont.ts clearHostBridges）。
+    return () => {
+      try { if (typeof off === 'function') off() } catch (e) { /* ignore */ }
+      clearHostBridges()
+    }
   }, 'dsh-prompt: host font sync')
   // #76：启动即挂落点采样（selectionchange / focusin）。必须早于用户打字 ——
   // 只在点击时才挂监听的话，"用户编辑期的最后落点"根本没人记，失焦后的漂移就无从纠正。

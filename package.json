@@ -87,6 +87,7 @@
     "test:issue-134-gate": "node scripts/test-issue-134-gate.cjs",
     "test:issue-142": "node scripts/test-issue-142.cjs",
     "test:issue-146": "node scripts/test-issue-146.cjs",
+    "test:issue-148": "node scripts/test-issue-148.cjs",
     "test:issue-149": "node scripts/test-issue-149.cjs"
   },
   "dsh": {

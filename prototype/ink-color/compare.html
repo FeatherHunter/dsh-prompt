@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>模板名颜色与描边 · 方案对照</title>
+<link rel="stylesheet" href="../../.dsh-extract/theme-css/base_css_default.css" />
+<link rel="stylesheet" href="../../.dsh-extract/theme-css/gradient_shadow_text_css_default.css" />
+<style>
+  :root{
+    /* 宿主真实令牌值（研究票 152 实测：浅色 #0f1115 / 深色 #f9fafb） */
+    --ink-light: #0f1115;
+    --ink-dark: #f9fafb;
+    --bg-light: #ffffff;
+    --bg-dark: #151517;
+    --row-dark: #2c2c2e;
+    --row-dark-2: #353638;
+    --border-light: #0000001f;
+    --border-dark: #ffffff1f;
+    --meta-light: #61666b;
+    --meta-dark: #adb2b8;
+  }
+  html,body{ margin:0; padding:0; background:#f4f4f5; }
+  body{ font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif; color:#111; padding:18px 20px 26px; }
+  h1{ font-size:19px; margin:0 0 4px; }
+  .sub{ font-size:12px; color:#5b5f66; margin:0 0 14px; line-height:1.6; }
+  .grid{ display:flex; gap:16px; align-items:flex-start; }
+  .panel{ flex:1 1 0; min-width:0; border-radius:10px; padding:12px 14px 14px; }
+  .panel.dark{ background:var(--bg-dark); color:var(--ink-dark); --dsw-alias-label-primary:var(--ink-dark); }
+  .panel.light{ background:var(--bg-light); color:var(--ink-light); --dsw-alias-label-primary:var(--ink-light); border:1px solid var(--border-light); }
+  .panel h2{ font-size:13px; margin:0 0 10px; font-weight:600; opacity:.9; }
+  .rowlabel{ font-size:11px; margin:12px 0 5px; letter-spacing:.02em; opacity:.72; }
+  .list{ display:flex; flex-direction:column; gap:3px; }
+  /* 裁切宿主补 2px 纵向余量（研究票 152 的补偿写法，负 margin 保外边距盒不变） */
+  .row{ display:flex; align-items:baseline; gap:8px; padding:3px 6px; padding-block:5px; margin-block:-2px; border-radius:6px; }
+  .panel.dark .row{ background:var(--row-dark); }
+  .panel.light .row{ background:#fafafa; }
+  .name{ flex:none; font-size:0.95em; font-weight:600; white-space:nowrap; }
+  .meta{ flex:1 1 auto; min-width:0; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:.75; }
+  .panel.dark .meta{ color:var(--meta-dark); }
+  .panel.light .meta{ color:var(--meta-light); }
+  /* 三种描边：细 / 中 / 粗 */
+  .s-thin{
+    text-shadow:
+      1px 0 0 var(--dsw-alias-label-primary), -1px 0 0 var(--dsw-alias-label-primary),
+      0 1px 0 var(--dsw-alias-label-primary), 0 -1px 0 var(--dsw-alias-label-primary),
+      1px 1px 0 var(--dsw-alias-label-primary), -1px 1px 0 var(--dsw-alias-label-primary),
+      1px -1px 0 var(--dsw-alias-label-primary), -1px -1px 0 var(--dsw-alias-label-primary);
+  }
+  .s-mid{ paint-order: stroke fill; -webkit-text-stroke: 2px var(--dsw-alias-label-primary); }
+  .s-thick{
+    paint-order: stroke fill; -webkit-text-stroke: 2px var(--dsw-alias-label-primary);
+    text-shadow:
+      1px 0 0 var(--dsw-alias-label-primary), -1px 0 0 var(--dsw-alias-label-primary),
+      0 1px 0 var(--dsw-alias-label-primary), 0 -1px 0 var(--dsw-alias-label-primary),
+      1px 1px 0 var(--dsw-alias-label-primary), -1px 1px 0 var(--dsw-alias-label-primary),
+      1px -1px 0 var(--dsw-alias-label-primary), -1px -1px 0 var(--dsw-alias-label-primary);
+  }
+  .zoom .name{ font-size:40px; font-weight:600; }
+  .zoom .row{ padding:10px 12px; }
+  .zoom .meta{ font-size:12px; }
+  .legend{ font-size:11px; color:#5b5f66; margin-top:8px; line-height:1.7; }
+  .legend b{ color:#111; }
+  .fast{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .sw{ width:26px; height:26px; border-radius:6px; border:1px solid rgba(0,0,0,.25); }
+  .sw.default{ background:linear-gradient(115deg,#151517 0 50%,#ffffff 50% 100%); }
+  .hue{ height:16px; border-radius:4px; margin:8px 0 10px;
+    background:linear-gradient(90deg,#f43f5e,#ea580c,#eab308,#16a34a,#0d9488,#0284c7,#6366f1,#a855f7,#f43f5e); }
+  .band{ display:flex; flex-direction:column; gap:4px; }
+  .bandrow{ display:flex; align-items:center; gap:8px; }
+  .bandrow .tag{ width:104px; font-size:11px; opacity:.8; }
+  .cells{ display:flex; gap:3px; flex-wrap:wrap; }
+  .cell{ width:18px; height:16px; border-radius:3px; }
+  .cell.out{ opacity:.16; }
+  .bandtitle{ font-size:11px; opacity:.85; margin:2px 0 2px; }
+  .hint{ font-size:11px; opacity:.75; margin-top:6px; }
+  .panel h3{ font-size:12px; margin:14px 0 6px; font-weight:600; opacity:.9; }
+</style>
+</head>
+<body>
+  <h1>模板名颜色与描边 · 方案对照</h1>
+  <p class="sub">
+    下面是宿主真实的深色 / 浅色两套配色（描边色就是两套主题各自的正文色：深色 <b>#f9fafb</b>、浅色 <b>#0f1115</b>，与宿主文字同色）。
+    每一行＝模板列表里的一条，名字后面是简介（会像现在一样被省略号截断）。
+  </p>
+
+  <div class="grid">
+    <div class="panel dark">
+      <h2>深色主题</h2>
+      <div class="rowlabel">不上色（现状：跟随主题的正文色，没有描边）</div>
+      <div class="list">
+        <div class="row"><span class="name">第一性原理拆解</span><span class="meta">把问题拆到不能再拆的最小单元…</span></div>
+      </div>
+      <div class="rowlabel">细描边 · 贴着字画一圈 1 像素的边（推荐）</div>
+      <div class="list">
+        <div class="row"><span class="name s-thin" style="color:#f43f5e">第一性原理拆解</span><span class="meta">把问题拆到不能再拆的最小单元…</span></div>
+        <div class="row"><span class="name s-thin" style="color:#16a34a">深度阅读笔记</span><span class="meta">读完一篇长文后的结构化输出…</span></div>
+        <div class="row"><span class="name s-thin" style="color:#0284c7">代码评审清单</span><span class="meta">按可维护性、边界、错误处理逐条过…</span></div>
+      </div>
+      <div class="rowlabel">中描边 · 边加粗到 2 像素，字心仍是原来的颜色</div>
+      <div class="list">
+        <div class="row"><span class="name s-mid" style="color:#f43f5e">第一性原理拆解</span><span class="meta">把问题拆到不能再拆的最小单元…</span></div>
+        <div class="row"><span class="name s-mid" style="color:#16a34a">深度阅读笔记</span><span class="meta">读完一篇长文后的结构化输出…</span></div>
+        <div class="row"><span class="name s-mid" style="color:#0284c7">代码评审清单</span><span class="meta">按可维护性、边界、错误处理逐条过…</span></div>
+      </div>
+      <div class="rowlabel">粗描边 · 中描边再叠一圈细边，最重</div>
+      <div class="list">
+        <div class="row"><span class="name s-thick" style="color:#f43f5e">第一性原理拆解</span><span class="meta">把问题拆到不能再拆的最小单元…</span></div>
+        <div class="row"><span class="name s-thick" style="color:#0284c7">代码评审清单</span><span class="meta">按可维护性、边界、错误处理逐条过…</span></div>
+      </div>
+    </div>
+
+    <div class="panel light">
+      <h2>浅色主题</h2>
+      <div class="rowlabel">不上色（现状：跟随主题的正文色，没有描边）</div>
+      <div class="list">
+        <div class="row"><span class="name">第一性原理拆解</span><span class="meta">把问题拆到不能再拆的最小单元…</span></div>
+      </div>
+      <div class="rowlabel">细描边 · 贴着字画一圈 1 像素的边（推荐）</div>
+      <div class="list">
+        <div class="row"><span class="name s-thin" style="color:#f43f5e">第一性原理拆解</span><span class="meta">把问题拆到不能再拆的最小单元…</span></div>
+        <div class="row"><span class="name s-thin" style="color:#16a34a">深度阅读笔记</span><span class="meta">读完一篇长文后的结构化输出…</span></div>
+        <div class="row"><span class="name s-thin" style="color:#0284c7">代码评审清单</span><span class="meta">按可维护性、边界、错误处理逐条过…</span></div>
+      </div>
+      <div class="rowlabel">中描边 · 边加粗到 2 像素，字心仍是原来的颜色</div>
+      <div class="list">
+        <div class="row"><span class="name s-mid" style="color:#f43f5e">第一性原理拆解</span><span class="meta">把问题拆到不能再拆的最小单元…</span></div>
+        <div class="row"><span class="name s-mid" style="color:#16a34a">深度阅读笔记</span><span class="meta">读完一篇长文后的结构化输出…</span></div>
+        <div class="row"><span class="name s-mid" style="color:#0284c7">代码评审清单</span><span class="meta">按可维护性、边界、错误处理逐条过…</span></div>
+      </div>
+      <div class="rowlabel">粗描边 · 中描边再叠一圈细边，最重</div>
+      <div class="list">
+        <div class="row"><span class="name s-thick" style="color:#f43f5e">第一性原理拆解</span><span class="meta">把问题拆到不能再拆的最小单元…</span></div>
+        <div class="row"><span class="name s-thick" style="color:#0284c7">代码评审清单</span><span class="meta">按可维护性、边界、错误处理逐条过…</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h1 style="margin-top:22px;font-size:16px">放大 3 倍看细节（同一个名字，三种描边）</h1>
+  <div class="grid zoom">
+    <div class="panel dark">
+      <div class="rowlabel">细描边</div>
+      <div class="row"><span class="name s-thin" style="color:#0284c7">代码评审清单</span></div>
+      <div class="rowlabel">中描边</div>
+      <div class="row"><span class="name s-mid" style="color:#0284c7">代码评审清单</span></div>
+      <div class="rowlabel">粗描边</div>
+      <div class="row"><span class="name s-thick" style="color:#0284c7">代码评审清单</span></div>
+    </div>
+    <div class="panel light">
+      <div class="rowlabel">细描边</div>
+      <div class="row"><span class="name s-thin" style="color:#0284c7">代码评审清单</span></div>
+      <div class="rowlabel">中描边</div>
+      <div class="row"><span class="name s-mid" style="color:#0284c7">代码评审清单</span></div>
+      <div class="rowlabel">粗描边</div>
+      <div class="row"><span class="name s-thick" style="color:#0284c7">代码评审清单</span></div>
+    </div>
+  </div>
+
+  <h1 style="margin-top:22px;font-size:16px">取色控件示意：颜色随便挑，深浅自动限制在「两种主题都看得清」的范围</h1>
+  <p class="sub" style="margin-bottom:10px">
+    色相条上想选哪个颜色都行；下面那排格子是同一个颜色从深到浅的取值——<b>能看清的格子可选</b>，剩下的自动变灰不可选。
+    也就是说：随便挑色相，系统只把「深浅」锁在安全范围内，不会让你选到看不见的颜色。
+  </p>
+  <div class="grid">
+    <div class="panel dark">
+      <h2>深色主题下看到的控件</h2>
+      <div class="hue"></div>
+      <div class="band" id="band-dark"></div>
+      <div class="hint">拖色相条时，下面这排可选格子会实时跟着变。</div>
+      <h3>常用色快选</h3>
+      <div class="fast">
+        <span class="sw default" title="默认（跟随主题）"></span>
+        <span class="sw" style="background:#f43f5e"></span>
+        <span class="sw" style="background:#ea580c"></span>
+        <span class="sw" style="background:#16a34a"></span>
+        <span class="sw" style="background:#0d9488"></span>
+        <span class="sw" style="background:#0284c7"></span>
+        <span class="sw" style="background:#a855f7"></span>
+        <span style="font-size:11px;opacity:.75">← 最左是「默认」（不上色、跟随主题、没有描边）</span>
+      </div>
+      <h3>或者直接填十六进制</h3>
+      <div class="row" style="background:var(--row-dark-2)"><span class="meta" style="opacity:.9">#0284c7</span><span class="name s-thin" style="color:#0284c7">代码评审清单</span></div>
+    </div>
+    <div class="panel light">
+      <h2>浅色主题下看到的控件</h2>
+      <div class="hue"></div>
+      <div class="band" id="band-light"></div>
+      <div class="hint">拖色相条时，下面这排可选格子会实时跟着变。</div>
+      <h3>常用色快选</h3>
+      <div class="fast">
+        <span class="sw default" title="默认（跟随主题）"></span>
+        <span class="sw" style="background:#f43f5e"></span>
+        <span class="sw" style="background:#ea580c"></span>
+        <span class="sw" style="background:#16a34a"></span>
+        <span class="sw" style="background:#0d9488"></span>
+        <span class="sw" style="background:#0284c7"></span>
+        <span class="sw" style="background:#a855f7"></span>
+        <span style="font-size:11px;opacity:.75">← 最左是「默认」（不上色、跟随主题、没有描边）</span>
+      </div>
+      <h3>或者直接填十六进制</h3>
+      <div class="row" style="background:#f4f4f5"><span class="meta" style="opacity:.9">#0284c7</span><span class="name s-thin" style="color:#0284c7">代码评审清单</span></div>
+    </div>
+  </div>
+  <p class="legend">
+    判据来自可读性研究：颜色对宿主四种背景（深色主题的三种面板 + 浅色主题的白色面板）以及白/黑描边都要 ≥3:1；
+    满足这个条件的「深浅」范围是固定的，所以控件把深浅锁住、只放开色相与饱和度。
+  </p>
+
+<script>
+  function srgbToLin(c){ c/=255; return c<=0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055,2.4); }
+  function relLum(r,g,b){ return 0.2126*srgbToLin(r)+0.7152*srgbToLin(g)+0.0722*srgbToLin(b); }
+  function hslToRgb(h,s,l){
+    h=(h%360+360)%360; s/=100; l/=100;
+    const c=(1-Math.abs(2*l-1))*s, x=c*(1-Math.abs((h/60)%2-1)), m=l-c/2;
+    let r=0,g=0,b=0;
+    if(h<60){r=c;g=x;} else if(h<120){r=x;g=c;} else if(h<180){g=c;b=x;}
+    else if(h<240){g=x;b=c;} else if(h<300){r=x;b=c;} else {r=c;b=x;}
+    return [Math.round((r+m)*255),Math.round((g+m)*255),Math.round((b+m)*255)];
+  }
+  const BAND=[0.176,0.300];
+  function buildBand(host,hue,title){
+    const wrap=document.createElement('div');
+    const ttl=document.createElement('div'); ttl.className='bandtitle'; ttl.textContent=title;
+    const inRow=document.createElement('div'); inRow.className='bandrow';
+    const outRow=document.createElement('div'); outRow.className='bandrow';
+    const t1=document.createElement('span'); t1.className='tag'; t1.textContent='能看清（可选）';
+    const t2=document.createElement('span'); t2.className='tag'; t2.textContent='会自动排除';
+    const c1=document.createElement('div'); c1.className='cells';
+    const c2=document.createElement('div'); c2.className='cells';
+    for(let l=4;l<=96;l+=4){
+      const [r,g,b]=hslToRgb(hue,72,l);
+      const L=relLum(r,g,b);
+      const cell=document.createElement('span');
+      cell.className='cell'+(L>=BAND[0]&&L<=BAND[1]?'':' out');
+      cell.style.background='rgb('+r+','+g+','+b+')';
+      cell.title='L='+L.toFixed(3);
+      (L>=BAND[0]&&L<=BAND[1]?c1:c2).appendChild(cell);
+    }
+    inRow.append(t1,c1); outRow.append(t2,c2);
+    wrap.append(ttl,inRow,outRow);
+    host.appendChild(wrap);
+  }
+  for (const id of ['band-dark','band-light']) {
+    const host = document.getElementById(id);
+    buildBand(host, 205, '蓝色系：色相随便挑，能选的深浅只有这几个');
+    buildBand(host, 25, '橙色系：同一套深浅范围，和色相无关');
+  }
+</script>
+</body>
+</html>

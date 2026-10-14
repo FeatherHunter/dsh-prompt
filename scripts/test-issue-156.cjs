@@ -7,23 +7,26 @@
  * 这张票管「同一份颜色语义在四个面同源 + 读侧不写回 + 存量逐字节不变 + 零新造色值」。
  *
  * 分组：
- *   A) 四面同语义：悬浮小列表（compact + 远程关）／设置页（compact:false）／远程大列表（远程开，带
+ *   A) 四面同语义：悬浮列表（compact + 远程关）／设置页列表（compact:false）／远程大列表（远程开，带
  *      data-dsh-prompt-remote-panel 校验，名字节点从 remote-card 里取）／智能卡（SmartCardHost）。
  *      四处名字节点都带 data-dsh-prompt-tint，且都吃同一个读侧权威值。
  *   B) 带外回落：存量里的带外色（#ffffff）在四个面都回落成「未选颜色」——无钩子、样式与真·未选色行逐字段相同。
  *   C) 读不写回：读取 + 渲染全程零写请求（悬浮两窗 / 远程两窗各测一次）；allTemplates() 记录与宿主返回逐字段相同。
  *   D) 色值栅栏：INK_TINT_CSS 零 hex 且只用宿主令牌；四处染色表达式都写 `color: ink`（无字面量）；
- *      本图改过的源文件里出现的**不同** hex 字面量集合必须等于下方登记表（多一个新颜色就红）。
+ *      本图（151）改过的 6 个源文件里，每个 hex 字面量的**出现次数**必须等于下方冻结基线 —— 新加一处硬编码、
+ *      或把用户色板那 6 色当插件铬复用，都会当场红（ADR-0007「两条路不许互相渗透」的落点）。
  *   E) 接线：package.json 有 test:issue-156，且 #158 的脚本与接线仍在（两层并存）。
  *
- * 边界（不在本脚本覆盖内）：不打真实宿主、不做像素级观感。观感与「深浅两主题 × 四面」的渲染证据表见
- * research/assets/ink-color/；真机验收与发版由【真机验收与发版（下一个补丁版本）】承接。
+ * 边界（不在本脚本覆盖内）：不打真实宿主、不做像素级观感；控件的形状/交互与注入缝的归属标记在
+ * scripts/test-issue-158.cjs 里钉。「深浅两主题 × 四面」的**渲染证据表**见
+ * research/assets/ink-color/faces-{light,dark}.png（生成器 scripts/render-ink-evidence.cjs，
+ * 说明 research/ink-render-evidence.md）；真机验收与发版由【真机验收与发版（下一个补丁版本）】承接。
  */
 const fs = require('node:fs');
 const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 const SRC = (f) => path.join(ROOT, 'src', 'client', f);
-const DIR = path.join(__dirname, '.rt-tmp-156');
+const TMP_DIR = path.join(__dirname, '.rt-tmp-156');
 const { buildFlat, stripComments } = require('./lib/transpile-client.cjs');
 
 let failures = 0;
@@ -80,10 +83,21 @@ function installDom(lang) {
 
 // ── 宿主写桥：非 GET 一律记下来（C 组断言「读取 + 渲染零写请求」） ──
 const writes = [];
+/** 四个面（用 CONTEXT.md 词表的叫法）：同一份颜色语义要在这四处同源（下面 A/B 两组共用这一张清单） */
+const FACES = ['悬浮列表', '设置页列表', '远程大列表', '智能卡'];
+function fixture(id, name, label, color) {
+  const t = { id, name, nameEn: '', labels: [label], body: name + ' body', builtin: false, createdAt: SEED_ORDER.length + 1 };
+  SEED_ORDER.push(id);
+  if (color) t.color = color;
+  return t;
+}
+const SEED_ORDER = [];
 const SEED = [
-  { id: 'x-inband', name: 'InkFixture', nameEn: '', labels: ['plan'], body: 'in-band body', builtin: false, createdAt: 1, color: '#0284c7' },
-  { id: 'x-outband', name: 'OutFixture', nameEn: '', labels: ['plan'], body: 'out-of-band body', builtin: false, createdAt: 2, color: '#ffffff' },
-  { id: 'x-plain', name: 'PlainFixture', nameEn: '', labels: ['plan'], body: 'plain body', builtin: false, createdAt: 3 },
+  // 自选标签就是智能卡的候选闸门（match.ts:scoreCustomLabels，一个强命中 = 2 分 = 阈值），
+  // 故三个 fixture 各给一个专属标签，好按草稿精确点名要哪个面出哪几条。
+  fixture('x-inband', 'InkFixture', 'alpha', '#0284c7'), // 带内色：应当四面都染色 + 带描边钩子
+  fixture('x-outband', 'OutFixture', 'beta', '#ffffff'), // 可读带外：读侧回落成「未选颜色」，存储原值不动
+  fixture('x-plain', 'PlainFixture', 'gamma'), // 真·未选颜色：对照组
 ];
 function installFetch() {
   globalThis.fetch = async (url, init) => {
@@ -104,8 +118,8 @@ function installFetch() {
 }
 
 installDom('zh-CN');
-buildFlat(DIR, [SRC('keys.ts'), SRC('i18n.ts'), SRC('store.ts'), SRC('panel.ts'), SRC('smart.ts'), SRC('remote.ts'), SRC('smartstore.ts')]);
-const req = (n) => require(path.join(DIR, n + '.cjs'));
+buildFlat(TMP_DIR, [SRC('keys.ts'), SRC('i18n.ts'), SRC('store.ts'), SRC('panel.ts'), SRC('smart.ts'), SRC('remote.ts'), SRC('smartstore.ts')]);
+const req = (n) => require(path.join(TMP_DIR, n + '.cjs'));
 const panel = req('panel');
 const store = req('store');
 const smartMod = req('smart');
@@ -130,7 +144,7 @@ function spanIn(scope, name) {
 function hasMarker(inst, attr) {
   return inst.root.findAll((n) => n.props && n.props[attr] !== undefined).length > 0;
 }
-/** 悬浮两窗：远程总闸关（小列表 = 悬浮列表、设置页 = 管理列表） */
+/** 悬浮两窗：远程总闸关（悬浮列表 = 悬浮小列表、设置页列表 = 管理列表） */
 async function setupHover() {
   remoteMod.__resetRemoteForTests();
   remoteMod.setRemoteEnabled(false);
@@ -138,23 +152,23 @@ async function setupHover() {
 }
 async function mountHoverFaces() {
   return {
-    '小列表': await mount(React.createElement(panel.TemplateBrowser, { compact: true })),
-    '设置页': await mount(React.createElement(panel.TemplateBrowser, { compact: false })),
+    '悬浮列表': await mount(React.createElement(panel.TemplateBrowser, { compact: true })),
+    '设置页列表': await mount(React.createElement(panel.TemplateBrowser, { compact: false })),
   };
 }
-/** 远程两窗：远程总闸开（大列表 = 远程面板、智能卡另挂） */
+/** 远程两窗：远程总闸开（远程大列表 = 远程面板、智能卡另挂） */
 async function setupRemoteOn() {
   remoteMod.setRemoteEnabled(true);
   await store.ensureLoaded();
 }
-async function mountRemoteFaces() {
-  const ta = { tagName: 'TEXTAREA', value: 'plan the work', offsetParent: {}, closest: () => null, focus() {}, setSelectionRange() {}, selectionStart: 4 };
+async function mountRemoteFaces(draft) {
+  const ta = { tagName: 'TEXTAREA', value: draft, offsetParent: {}, closest: () => null, focus() {}, setSelectionRange() {}, selectionStart: 4 };
   globalThis.document.activeElement = ta;
   domTextareas.length = 0;
   domTextareas.push(ta);
-  smartstore.setSmartInput({ draft: 'plan the work' });
+  smartstore.setSmartInput({ draft });
   return {
-    '大列表': await mount(React.createElement(panel.TemplateBrowser, { compact: true })),
+    '远程大列表': await mount(React.createElement(panel.TemplateBrowser, { compact: true })),
     '智能卡': await mount(React.createElement(smartMod.SmartCardHost, {})),
   };
 }
@@ -193,41 +207,41 @@ async function groupA() {
   const snap = {};
   await setupHover();
   const hover = await mountHoverFaces();
-  eq(hasMarker(hover['小列表'], 'data-dsh-prompt-remote-panel'), false, 'A) 小列表面是悬浮列表（不是远程面板）');
-  eq(hasMarker(hover['设置页'], 'data-dsh-prompt-remote-panel'), false, 'A) 设置页面是管理列表（不是远程面板）');
-  snap['小列表'] = grabSpan(spanIn(hover['小列表'].root, 'InkFixture'));
-  snap['设置页'] = grabSpan(spanIn(hover['设置页'].root, 'InkFixture'));
+  eq(hasMarker(hover['悬浮列表'], 'data-dsh-prompt-remote-panel'), false, 'A) 悬浮列表面不是远程面板');
+  eq(hasMarker(hover['设置页列表'], 'data-dsh-prompt-remote-panel'), false, 'A) 设置页列表面不是远程面板');
+  snap['悬浮列表'] = grabSpan(spanIn(hover['悬浮列表'].root, 'InkFixture'));
+  snap['设置页列表'] = grabSpan(spanIn(hover['设置页列表'].root, 'InkFixture'));
   unmountAll(hover);
   await setupRemoteOn();
-  const remote = await mountRemoteFaces();
-  if (!hasMarker(remote['大列表'], 'data-dsh-prompt-remote-panel')) fail('A) 大列表面没渲染出远程面板（远程总闸没开？）');
-  const cards = await remoteCardsOf(remote['大列表'], ['x-inband']);
+  const remote = await mountRemoteFaces('alpha work');
+  if (!hasMarker(remote['远程大列表'], 'data-dsh-prompt-remote-panel')) fail('A) 远程大列表面没渲染出远程面板（远程总闸没开？）');
+  const cards = await remoteCardsOf(remote['远程大列表'], ['x-inband']);
   if (!cards['x-inband']) fail('A) 远程面板翻遍页也没找到目标卡');
-  snap['大列表'] = grabSpan(cards['x-inband'] ? spanIn(cards['x-inband'], 'InkFixture') : null);
+  snap['远程大列表'] = grabSpan(cards['x-inband'] ? spanIn(cards['x-inband'], 'InkFixture') : null);
   snap['智能卡'] = grabSpan(spanIn(remote['智能卡'].root, 'InkFixture'));
   unmountAll(remote);
 
   const seed = store.allTemplates().filter((t) => t.id === 'x-inband')[0];
   const want = store.inkColorOf(seed);
   eq(want, INK_IN, 'A) 读侧权威 inkColorOf 就是种子里的带内色');
-  const seen = [];
-  for (const face of ['小列表', '设置页', '大列表', '智能卡']) {
+  const checkedFaces = [];
+  for (const face of FACES) {
     const s = snap[face];
     if (!s) { fail('A) ' + face + ' 面没渲染出带色模板的名字节点'); continue; }
     if (!s.hook) fail('A) ' + face + ' 面名字节点缺钩子属性 ' + panel.INK_TINT_ATTR);
     eq(s.style.color, want, 'A) ' + face + ' 面吃同一个色');
-    seen.push(face);
+    checkedFaces.push(face);
   }
-  eq(seen.join('/'), '小列表/设置页/大列表/智能卡', 'A) 四个面都验到（一个都不能少）');
+  eq(checkedFaces.join('/'), FACES.join('/'), 'A) 四个面都验到（一个都不能少）');
   // 源码层面：四处染色表达式都吃同一个变量 ink（没有第二份判据、没有字面量）
-  const pc = stripComments(fs.readFileSync(SRC('panel.ts'), 'utf8'));
-  const sc = stripComments(fs.readFileSync(SRC('smart.ts'), 'utf8'));
-  eq((pc.match(/color: ink \|\| base/g) || []).length, 1, 'A) 小列表行：未上色回退宿主色、上色用用户色（同一个变量）');
-  eq((pc.match(/color: ink,/g) || []).length, 2, 'A) 大列表卡 + 设置页行：同一个变量 ink');
-  eq((sc.match(/color: ink,/g) || []).length, 1, 'A) 智能卡行：同一个变量 ink');
-  eq(((pc + sc).match(/inkColorOf\(/g) || []).length, 4, 'A) 颜色只经 inkColorOf 读（三处渲染查值 + 编辑弹窗初值）');
-  eq((pc.match(/addCustom\(f\.name, f\.labels, f\.body, f\.color \|\| undefined\)/g) || []).length, 1, 'A) 唯一直接读 .color 的是导入写入口（经 sanitizeInkColor 守卫）');
-  eq(((pc + sc).match(/[A-Za-z_$][\w$]*\.color\b/g) || []).length, 1, 'A) 除导入写入口外，渲染层零裸读 .color（一律过读侧回落）');
+  const panelCode = stripComments(fs.readFileSync(SRC('panel.ts'), 'utf8'));
+  const smartCode = stripComments(fs.readFileSync(SRC('smart.ts'), 'utf8'));
+  eq((panelCode.match(/color: ink \|\| base/g) || []).length, 1, 'A) 悬浮列表行：未上色回退宿主色、上色用用户色（同一个变量）');
+  eq((panelCode.match(/color: ink,/g) || []).length, 2, 'A) 远程大列表卡 + 设置页列表行：同一个变量 ink');
+  eq((smartCode.match(/color: ink,/g) || []).length, 1, 'A) 智能卡行：同一个变量 ink');
+  eq(((panelCode + smartCode).match(/inkColorOf\(/g) || []).length, 4, 'A) 颜色只经 inkColorOf 读（三处渲染查值 + 编辑弹窗初值）');
+  eq((panelCode.match(/addCustom\(f\.name, f\.labels, f\.body, f\.color \|\| undefined\)/g) || []).length, 1, 'A) 唯一直接读 .color 的是导入写入口（经 sanitizeInkColor 守卫）');
+  eq(((panelCode + smartCode).match(/[A-Za-z_$][\w$]*\.color\b/g) || []).length, 1, 'A) 除导入写入口外，渲染层零裸读 .color（一律过读侧回落）');
   if (failures === 0) ok('A) 四面同语义：四处名字节点都带钩子、都吃同一个读侧权威值');
 }
 
@@ -236,12 +250,12 @@ async function groupB() {
   const got = {};
   await setupHover();
   const hover = await mountHoverFaces();
-  for (const face of ['小列表', '设置页']) got[face] = { out: grabSpan(spanIn(hover[face].root, 'OutFixture')), plain: grabSpan(spanIn(hover[face].root, 'PlainFixture')) };
+  for (const face of ['悬浮列表', '设置页列表']) got[face] = { out: grabSpan(spanIn(hover[face].root, 'OutFixture')), plain: grabSpan(spanIn(hover[face].root, 'PlainFixture')) };
   unmountAll(hover);
   await setupRemoteOn();
-  const remote = await mountRemoteFaces();
-  const cards = await remoteCardsOf(remote['大列表'], ['x-outband', 'x-plain']);
-  got['大列表'] = {
+  const remote = await mountRemoteFaces('beta gamma work');
+  const cards = await remoteCardsOf(remote['远程大列表'], ['x-outband', 'x-plain']);
+  got['远程大列表'] = {
     out: grabSpan(cards['x-outband'] ? spanIn(cards['x-outband'], 'OutFixture') : null),
     plain: grabSpan(cards['x-plain'] ? spanIn(cards['x-plain'], 'PlainFixture') : null),
   };
@@ -250,7 +264,7 @@ async function groupB() {
 
   const bad = [];
   const compared = [];
-  for (const face of ['小列表', '设置页', '大列表', '智能卡']) {
+  for (const face of FACES) {
     const { out, plain } = got[face];
     if (!out) { fail('B) ' + face + ' 面没渲染出带外色的名字节点'); continue; }
     if (out.hook) bad.push(face + ':带外值上了钩子');
@@ -261,7 +275,7 @@ async function groupB() {
     }
   }
   eq(bad.join(' | '), '', 'B) 四个面：带外值无钩子、不上屏、样式与未选色行逐字段相同');
-  eq(compared.length >= 3, true, 'B) 至少三个面做了「带外 ≡ 未选色」逐字段对照（实得 ' + compared.join('/') + '）');
+  eq(compared.length, FACES.length, 'B) 四个面都做了「带外 ≡ 未选色」逐字段对照（实得 ' + compared.join('/') + '）');
   eq(store.allTemplates().filter((t) => t.id === 'x-outband')[0].color, INK_OUT, 'B) 存储里带外原值原样还在（只回落、不改写）');
   eq(store.inkColorOf(store.allTemplates().filter((t) => t.id === 'x-outband')[0]), undefined, 'B) 读侧权威回「未选颜色」');
   if (failures === 0) ok('B) 带外回落：四个面都无钩子、样式与未选色行逐字段相同，存储原值不动');
@@ -273,13 +287,13 @@ async function groupC() {
   writes.length = 0;
   const hover = await mountHoverFaces();
   const wHover = writes.length;
-  eq(wHover, 0, 'C) 悬浮两窗（小列表 + 设置页）读取与渲染零写请求：' + JSON.stringify(writes.map((w) => w.method + ' ' + w.url)));
+  eq(wHover, 0, 'C) 悬浮两窗（悬浮列表 + 设置页列表）读取与渲染零写请求：' + JSON.stringify(writes.map((w) => w.method + ' ' + w.url)));
   unmountAll(hover);
   await setupRemoteOn();
   writes.length = 0;
   const remote = await mountRemoteFaces();
   const wRemote = writes.length;
-  eq(wRemote, 0, 'C) 远程两窗（大列表 + 智能卡）读取与渲染零写请求：' + JSON.stringify(writes.map((w) => w.method + ' ' + w.url)));
+  eq(wRemote, 0, 'C) 远程两窗（远程大列表 + 智能卡）读取与渲染零写请求：' + JSON.stringify(writes.map((w) => w.method + ' ' + w.url)));
   unmountAll(remote);
   const now = store.allTemplates().filter((t) => !t.builtin).map((t) => JSON.stringify(t)).sort().join('\n');
   const seed = SEED.map((t) => JSON.stringify({ ...t })).sort().join('\n');
@@ -290,8 +304,7 @@ async function groupC() {
 }
 
 // ═══ D) 零新造色值栅栏 ═══
-// 登记表：本图改过的源文件里允许出现的**不同** hex 字面量。新增一个颜色 → 这条红，
-// 迫使作者先在这里登记它属于「用户数据色板」还是「插件铬色」（ADR-0007 的鉴别口径）。
+// 归属登记表：每个允许出现的 hex 属于哪条路，必须先在这里写清楚（ADR-0007 的鉴别口径）。
 const KNOWN_HEX = {
   '#f0a45c': '既有插件铬：accent 令牌兜底（ADR-0007 明确不在本图范围、不许改动）',
   '#1a1a1e': '既有插件铬：accent 按钮前景（同上）',
@@ -303,6 +316,26 @@ const KNOWN_HEX = {
   '#0284c7': '用户数据色板：同上',
   '#a855f7': '用户数据色板：同上',
 };
+// 冻结基线：本图（151）改过的 6 个源文件 × 每个 hex 的**出现次数**（去注释后的代码级计数）。
+// 用计数而不是集合：注册过的色值被**新增**一处硬编码同样要红 —— 例如把用户色板的 `#0284c7`
+// 拿去当插件铬色（ADR-0007「用户数据与插件铬两条路不许互相渗透」），计数一变立刻暴露。
+const FROZEN_HEX = {
+  'panel.ts': { '#f0a45c': 14, '#1a1a1e': 2, '#e06c75': 5, '#f43f5e': 1, '#ea580c': 1, '#16a34a': 1, '#0d9488': 1, '#0284c7': 1, '#a855f7': 1 },
+  'smart.ts': { '#f0a45c': 1 },
+  'index.ts': {},
+  'i18n.ts': {},
+  'store.ts': {},
+  'templates.ts': {},
+};
+const hexCounts = (file) => {
+  const counts = {};
+  for (const hit of stripComments(fs.readFileSync(SRC(file), 'utf8')).matchAll(/#[0-9a-fA-F]{3,8}\b/g)) {
+    const key = hit[0].toLowerCase();
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  return counts;
+};
+const hexDigest = (counts) => Object.keys(counts).sort().map((k) => k + '×' + counts[k]).join(' ');
 function groupD() {
   const css = panel.INK_TINT_CSS;
   if (/#[0-9a-fA-F]{3,8}\b/.test(css)) fail('D) 描边样式表里出现写死颜色：' + css);
@@ -310,15 +343,14 @@ function groupD() {
   const pcode = stripComments(fs.readFileSync(SRC('panel.ts'), 'utf8'));
   const m = /const INK_PRESETS = \[([^\]]*)\]/.exec(pcode);
   eq((m ? m[1] : '').replace(/['\s]/g, ''), '#f43f5e,#ea580c,#16a34a,#0d9488,#0284c7,#a855f7', 'D) 快选色板与 #155 定的 6 色逐字一致');
-  const files = ['panel.ts', 'smart.ts', 'index.ts', 'store.ts', 'templates.ts'];
-  const seen = new Set();
-  for (const f of files) {
-    const code = stripComments(fs.readFileSync(SRC(f), 'utf8'));
-    for (const hit of code.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) seen.add(hit[0].toLowerCase());
+  for (const file of Object.keys(FROZEN_HEX)) {
+    const counts = hexCounts(file);
+    eq(hexDigest(counts), hexDigest(FROZEN_HEX[file]), 'D) ' + file + ' 的 hex 字面量出现次数等于冻结基线（新增或删掉一处硬编码都要在这里登记）');
+    const unregistered = Object.keys(counts).filter((h) => !KNOWN_HEX[h]);
+    eq(unregistered.join(','), '', 'D) ' + file + ' 里每个色值都已在归属登记表里写明属于哪条路');
   }
-  eq([...seen].filter((h) => !KNOWN_HEX[h]).join(','), '', 'D) 没有登记表之外的新造色值（新颜色必须先在脚本里登记归属）');
   if (/label-primary-inverted|specific-accent|specific-danger/.test(css)) fail('D) 描边样式表里混进了别的颜色令牌：' + css);
-  if (failures === 0) ok('D) 零新造色值：描边只用宿主令牌、快选 6 色逐字一致、全文件 hex 集合等于登记表');
+  if (failures === 0) ok('D) 零新造色值：描边只用宿主令牌、快选 6 色逐字一致、6 个源文件的 hex 计数等于冻结基线');
 }
 
 // ═══ E) 接线 ═══

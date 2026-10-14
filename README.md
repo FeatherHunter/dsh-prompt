@@ -12,7 +12,7 @@
 
 *Stop copy-pasting — one click, template in chat.*
 
-[![版本](https://img.shields.io/npm/v/dsh-prompt?label=%E7%89%88%E6%9C%AC)](https://www.npmjs.com/package/dsh-prompt) [![下载量](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.npmjs.org%2Fdownloads%2Fpoint%2Flast-month%2Fdsh-prompt&query=%24.downloads&label=%E4%B8%8B%E8%BD%BD%E9%87%8F&suffix=%2F%E6%9C%88&color=brightgreen)](https://www.npmjs.com/package/dsh-prompt) [![最近更新](https://img.shields.io/github/last-commit/FeatherHunter/dsh-prompt?label=%E6%9C%80%E8%BF%91%E6%9B%B4%E6%96%B0&color=FE7D37)](https://github.com/FeatherHunter/dsh-prompt/commits/main) [![提交数](https://img.shields.io/github/commit-activity/m/FeatherHunter/dsh-prompt?label=%E6%8F%90%E4%BA%A4%E6%95%B0&color=DFAB01)](https://github.com/FeatherHunter/dsh-prompt/graphs/commit-activity) [![许可证](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-lightgrey.svg)](LICENSE) [![模板-24](https://img.shields.io/badge/%E6%A8%A1%E6%9D%BF-24-blueviolet.svg)](https://github.com/FeatherHunter/dsh-prompt/blob/main/src/client/templates.ts) [![dsh-plugin](https://img.shields.io/badge/dsh-plugin-orange.svg)](https://github.com/FeatherHunter/dsh-prompt) [![期待你参与](https://img.shields.io/badge/%E6%9C%9F%E5%BE%85%E4%BD%A0%E5%8F%82%E4%B8%8E-brightgreen.svg)](https://github.com/FeatherHunter/dsh-prompt/issues)
+[![版本](https://img.shields.io/npm/v/dsh-prompt?label=%E7%89%88%E6%9C%AC&color=92400E)](https://www.npmjs.com/package/dsh-prompt) [![下载量](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.npmjs.org%2Fdownloads%2Fpoint%2Flast-month%2Fdsh-prompt&query=%24.downloads&label=%E4%B8%8B%E8%BD%BD%E9%87%8F&suffix=%2F%E6%9C%88&color=B45309)](https://www.npmjs.com/package/dsh-prompt) [![最近更新](https://img.shields.io/github/last-commit/FeatherHunter/dsh-prompt?label=%E6%9C%80%E8%BF%91%E6%9B%B4%E6%96%B0&color=D97706)](https://github.com/FeatherHunter/dsh-prompt/commits/main) [![提交数](https://img.shields.io/github/commit-activity/m/FeatherHunter/dsh-prompt?label=%E6%8F%90%E4%BA%A4%E6%95%B0&color=F59E0B)](https://github.com/FeatherHunter/dsh-prompt/graphs/commit-activity) [![期待你参与](https://img.shields.io/badge/%E6%9C%9F%E5%BE%85%E4%BD%A0%E5%8F%82%E4%B8%8E-F0A45C.svg)](https://github.com/FeatherHunter/dsh-prompt/issues)
 
 </div>
 
@@ -309,10 +309,12 @@ MIT © FeatherHunter
 
 <div align="left">
 
-感谢每一位点星、提 Issue 的朋友，是你们让这个工具箱一点点变好。
+感谢每一位提交 Issue、PR 与点星的朋友，是你们让这个工具箱一点点变好。
 
-dsh-prompt 还在等第一位外部贡献者。<br>
-提交 Issue、PR 或分享自定义模板，你的名字就会出现在这里。<br>
-已经做过的朋友，请直接告诉我。
+一朵 🌹 对应本人提交过的一次 Issue 或 PR（按「提交」算，不按「合入」算）；名单按花数从多到少排。
+
+[@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) 指出 5 处运行时注入的 `<style>` 缺 `data-plugin` 归属（已修）、[#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) 报出依赖声明把 DSH 运行时包装进 profile、CLI 0.2.1 线插件 pending，[#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) 揪出关闭远程档位会把整机字号打回 14px（已修）
+
+提交 Issue、PR 或分享自定义模板，你的名字就会出现在这里。
 
 </div>

@@ -10,7 +10,7 @@ Works out of the box, fully customizable.
 
 Your ⭐ means the world to me.
 
-[![Version](https://img.shields.io/npm/v/dsh-prompt)](https://www.npmjs.com/package/dsh-prompt) [![Downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.npmjs.org%2Fdownloads%2Fpoint%2Flast-month%2Fdsh-prompt&query=%24.downloads&label=downloads&suffix=%2Fmonth&color=brightgreen)](https://www.npmjs.com/package/dsh-prompt) [![Last commit](https://img.shields.io/github/last-commit/FeatherHunter/dsh-prompt)](https://github.com/FeatherHunter/dsh-prompt/commits/main) [![Commits](https://img.shields.io/github/commit-activity/m/FeatherHunter/dsh-prompt)](https://github.com/FeatherHunter/dsh-prompt/graphs/commit-activity) [![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey.svg)](../LICENSE) [![Templates: 24](https://img.shields.io/badge/templates-24-blueviolet.svg)](https://github.com/FeatherHunter/dsh-prompt/blob/main/src/client/templates.ts) [![dsh-plugin](https://img.shields.io/badge/dsh-plugin-orange.svg)](https://github.com/FeatherHunter/dsh-prompt) [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://github.com/FeatherHunter/dsh-prompt/issues)
+[![Version](https://img.shields.io/npm/v/dsh-prompt?color=92400E)](https://www.npmjs.com/package/dsh-prompt) [![Downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.npmjs.org%2Fdownloads%2Fpoint%2Flast-month%2Fdsh-prompt&query=%24.downloads&label=downloads&suffix=%2Fmonth&color=B45309)](https://www.npmjs.com/package/dsh-prompt) [![Last commit](https://img.shields.io/github/last-commit/FeatherHunter/dsh-prompt?color=D97706)](https://github.com/FeatherHunter/dsh-prompt/commits/main) [![Commits](https://img.shields.io/github/commit-activity/m/FeatherHunter/dsh-prompt?color=F59E0B)](https://github.com/FeatherHunter/dsh-prompt/graphs/commit-activity) [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-F0A45C.svg)](https://github.com/FeatherHunter/dsh-prompt/issues)
 
 </div>
 
@@ -297,10 +297,12 @@ MIT © FeatherHunter
 
 <div align="left">
 
-Thanks to everyone who starred and filed issues — you make this toolbox better, bit by bit.
+Thanks to everyone who filed issues, sent PRs, or starred the repo — you make this toolbox better, bit by bit.
 
-dsh-prompt is still waiting for its first external contributor.<br>
-File an issue, a PR, or share your templates — your name lands here.<br>
-Ping me if you already did.
+One 🌹 per issue or PR filed (counted by submission, not by merge); names are ordered by rose count.
+
+[@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) flagged five runtime-injected `<style>` blocks missing their `data-plugin` attribution (fixed), [#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) reported the dependency declaration pulling a DSH runtime package into the profile and leaving plugins pending on the CLI 0.2.1 line, and [#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) caught the remote tier resetting the whole UI to 14px when turned off (fixed)
+
+File an issue, send a PR, or share your custom templates — your name lands here.
 
 </div>

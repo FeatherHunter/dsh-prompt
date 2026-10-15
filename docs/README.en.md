@@ -123,6 +123,7 @@ dsh.desktop = 2.0.9
 
 Hover the ⚡Prompt button and the panel opens (click works too).<br>
 Phase tabs + domain filter + search — click a row, body lands in the box.<br>
+Inserted at the cursor: existing text and trailing blank lines stay put — nothing overwritten, nothing glued.<br>
 Most-used sinks to the bottom, closest to the button.
 
 **👇 The panel looks like this.**

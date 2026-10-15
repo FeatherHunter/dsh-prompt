@@ -18,6 +18,7 @@
 //   L 作曲家持焦点时活读优先（采样不抢活落点）
 //   M DOM 多出换行（幻影空行）时信宿主模型
 //   N 失焦后的选择变化不覆盖编辑期采样
+//   R 尾部两空行 + 行尾光标注入不断行（真机报障：敲两次换行后注入，换行被吞、模板与末字粘连）
 const fs = require('node:fs');
 const path = require('node:path');
 let ts;
@@ -373,6 +374,39 @@ console.log('=== T-J: 元素锚点光标映射 ===');
   let got = null;
   panel.insertBody(NOP_BRIDGE, { setDraft: (v) => { got = v; } }, '[TPL]');
   ok(got === 'AB\n[TPL]CD', '块元素锚点落到块首，实际=' + JSON.stringify(got));
+}
+
+console.log('=== T-R: 尾部两空行 + 行尾光标注入不断行（真机报障） ===');
+{
+  // 用户在"xxx"后敲两次换行，光标在第三行空行上闪；桥模型滞后（还没有尾部换行）。
+  // DOM 真机形态：[P xxx][P 空][P 空·光标]（末空块多计出的那一个换行应先去掉，真值 2 个）。
+  const p1 = el('P', [tnode('xxx')]);
+  const p2 = el('P', [el('BR', [])]);
+  const p3 = el('P', [el('BR', [])]);
+  const root = composerRoot([p1, p2, p3]);
+  global.document = makeDocument([root], root);
+  setAnchor(p3, 0);                                   // 光标落在最后一个空块行首
+  tap('xxx');                                         // 桥滞后：模型里还没有两行尾部换行
+  let got = null;
+  panel.insertBody(NOP_BRIDGE, { setDraft: (v) => { got = v; } }, '[TPL]');
+  ok(got === 'xxx\n\n[TPL]', '尾部空行保留且落点在空行上，实际=' + JSON.stringify(got));
+}
+{
+  // R2 失焦 + 选择归一化：同一份 DOM，焦点已走、活选择被挪回上一行末尾 ——
+  // 编辑期采样（聚焦时读到的尾部空行）应把尾部补回来，结果与聚焦态一致。
+  const p1 = el('P', [tnode('xxx')]);
+  const p2 = el('P', [el('BR', [])]);
+  const p3 = el('P', [el('BR', [])]);
+  const root = composerRoot([p1, p2, p3]);
+  global.document = makeDocument([root], root);
+  setAnchor(p3, 0);                                   // 编辑期：光标在尾部空行
+  panel.insertBody(NOP_BRIDGE, { setDraft: () => {} }, ''); // 首调：挂监听 + 立刻采样
+  global.document.activeElement = bodyEl();           // 面板交互把焦点挪走
+  setSelection(p1.childNodes ? p1.childNodes[0] : null, 3); // 活选择归一化回上一行末尾
+  tap('xxx');
+  let got = null;
+  panel.insertBody(NOP_BRIDGE, { setDraft: (v) => { got = v; } }, '[TPL]');
+  ok(got === 'xxx\n\n[TPL]', '失焦归一化后采样补尾，结果一致，实际=' + JSON.stringify(got));
 }
 
 delete global.document;

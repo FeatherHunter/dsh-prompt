@@ -277,6 +277,8 @@ function mapCaret(from: string, caret: number, to: string): number {
 
 /** 读一个可编辑根的纯文本与活光标（同一套块映射，文本与光标同源，绝不错位）。
  * 文本≈宿主 clipboardText（段落↔\n，空段落即空行）；光标=当前 selection 锚点，无选择即末尾。
+ * 尾部换行：末空块多计出的那一个先去掉；剩下的只截光标之后的 —— 光标落在尾部空行里即用户所敲，
+ * 无框内有效选择时沿旧行为全截（防编辑器装饰空块污染）。
  * 元素锚点按宿主自己的规则解：offset 是该元素子节点下标 —— 越过末子节点 → 元素末尾，
  * 否则 → 该子节点的起点（#76；旧实现"取首个 run 的起或末"会把块边界的落点翻到上一行）。 */
 function readEditable(root: any): { text: string; caret: number } {
@@ -340,9 +342,23 @@ function readEditable(root: any): { text: string; caret: number } {
       }
       for (const c of kids) walkNode(c)
       bounds.set(root, { start: 0, end: text.length })
-      text = text.replace(/\n+$/, '')
+      // 终端多计修正：末子节点是空块元素时，它的那一份 forceBreak 落在光标行终结符之后
+      // （N 个块 = N 行 = N-1 个换行，走完会多出一个）—— 去掉恰好一个。
+      // 真机形态：xxx + 两次换行 = [P xxx][P 空][P 空·光标]，走完是 3 个 \n，真值 2 个。
+      // 单块内尾 BR（如 [单行<BR>]）不算：那是软换行的真换行，由下面的光标门控裁定去留。
+      try {
+        const lastKid: any = kids.length > 0 ? kids[kids.length - 1] : null
+        const lastTag = String((lastKid && lastKid.tagName) || '').toUpperCase()
+        if (lastKid && lastKid.nodeType === 1 && BLOCK_TAGS[lastTag] === 1 &&
+          String(lastKid.textContent || '') === '') {
+          text = text.replace(/\n$/, '')
+        }
+      } catch (e) { /* ignore */ }
     }
+    // 光标先按未截断文本算（尾部空行注入修：两行尾部空行曾被吞、prompt 与末字粘连）：
+    // 尾部换行只截光标之后的 —— 光标落在尾部空行里，那些空行是用户敲的；框内无有效选择时沿旧行为全截。
     let caret = text.length
+    let selInside = false
     try {
       const g: any = typeof window !== 'undefined' ? window : (globalThis as any)
       const sel = g && typeof g.getSelection === 'function' ? g.getSelection() : null
@@ -353,7 +369,7 @@ function readEditable(root: any): { text: string; caret: number } {
         if (inside) {
           const ao = (sel && typeof sel.anchorOffset === 'number') ? sel.anchorOffset : 0
           const hit = anchorToOffset(an, ao)
-          if (typeof hit === 'number' && hit >= 0) caret = hit
+          if (typeof hit === 'number' && hit >= 0) { caret = hit; selInside = true }
         }
       }
       // 锚点 → 文本偏移：文本节点直接查 run；元素节点按子节点下标（宿主同款规则）
@@ -380,6 +396,9 @@ function readEditable(root: any): { text: string; caret: number } {
         return -1
       }
     } catch (e) { /* ignore */ }
+    // 尾部截断门控（见本函数头注释）：有框内有效选择 ⇒ 只截光标之后的；否则全截（旧行为）。
+    if (selInside) text = text.slice(0, caret) + text.slice(caret).replace(/\n+$/, '')
+    else text = text.replace(/\n+$/, '')
     return { text, caret: Math.max(0, Math.min(caret, text.length)) }
   } catch (e) { return { text: '', caret: 0 } }
 }
@@ -465,7 +484,14 @@ function resolveDraft(): { text: string; caret: number; caretSrc: string } {
     if (live < 0) { caret = d.length; caretSrc = 'end' }
     // 采样只对"同一个作曲家根"有意义：换了会话/换了输入根，旧采样就是别人的落点。
     if (!composerFocused(root) && caretSample && caretSample.root === root) {
-      caret = mapCaret(norm(caretSample.text), caretSample.caret, d || norm(caretSample.text))
+      const st = norm(caretSample.text)
+      // 失焦后活读的尾部空行可能被选择归一化连带吞掉：采样是聚焦期经光标确认的读数，
+      // 若它仅比当前活读多出尾部换行 ⇒ 把尾部补回来（尾部空行注入修）。
+      // d 为空不补（真空/删空后，采样的旧尾部不得复活）。
+      if (d.length > 0 && st.length > d.length && st.startsWith(d) && /^\n*$/.test(st.slice(d.length))) {
+        d = st
+      }
+      caret = mapCaret(st, caretSample.caret, d || st)
       caretSrc = 'sample'
     }
     if (!d) {
@@ -480,8 +506,16 @@ function resolveDraft(): { text: string; caret: number; caretSrc: string } {
     if (CHIP_RE.test(H)) return { text: H, caret: H.length, caretSrc: 'end' }
     // #76 换行权威：可见字符一模一样、只有换行形态不同 → 信宿主模型 H，
     // 落点按"换行前/换行后"逐位对齐映射过去（见 mapCaret），不乱改行号。
+    // 例外（尾部空行注入修）：光标停在 D 的尾部换行区里且 D 尾部比 H 长 ⇒ 取 H 的行结构 + D 的尾部；
+    // 光标在文中 ⇒ 沿旧行为信 H（桥的尾部换行保留，T-H 锁定）。
     if (H.replace(/\n/g, '') === d.replace(/\n/g, '')) {
-      return { text: H, caret: mapCaret(d, caret, H), caretSrc }
+      const dTail = ((/(\n*)$/.exec(d) || [])[1]) || ''
+      const hTail = ((/(\n*)$/.exec(H) || [])[1]) || ''
+      let text = H
+      if (dTail.length > 0 && caret >= d.length - dTail.length && dTail.length !== hTail.length) {
+        text = H.slice(0, H.length - hTail.length) + dTail
+      }
+      return { text, caret: mapCaret(d, caret, text), caretSrc }
     }
     // 其余一切分歧（组词中/桥滞后/跨会话残留）：信看得见的，绝不丢字。
     return { text: d, caret, caretSrc }

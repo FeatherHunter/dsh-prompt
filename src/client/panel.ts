@@ -650,6 +650,11 @@ export const INK_UI_CSS = (function (): string {
     // 焦点环要挂在**真能聚焦**的东西上：色块 / 按钮 / 十六进制框 / 描边开关的 checkbox。
     // （描边行本身是 <label>，不可聚焦 ⇒ 写 row:focus-visible 永远不会亮，Tab 到 checkbox 时没反馈。）
     cell + ':focus-visible,' + btn + ':focus-visible,' + '[data-dsh-prompt-ink-outline]:focus-visible{outline:' + ring + ';outline-offset:2px;}',
+    // 鼠标粘滞杀（真机报障：默认/完成/× 的环常亮）：mousedown 默认行为就是聚焦按钮 —— 焦点一留，
+    // 环就亮到下一次焦点转移。源码侧用 onMouseDown 拦默认聚焦（见 noStickyFocus，click 照常、键盘全程不走
+    // mousedown）；这条是第二道闸 —— 万一某处 UA/宿主以 :focus（非 visible）画环，鼠标焦点也永不着色。
+    // 键盘 Tab 照常走上一条 :focus-visible，无障碍不受影响。
+    btn + ':focus:not(:focus-visible){outline:none;box-shadow:none;}',
     '[data-dsh-prompt-ink-outline]{accent-color:var(--dsw-alias-label-primary);cursor:pointer;}',
   ].join('')
 })()
@@ -750,6 +755,12 @@ const inkRowCtlOnStyle: any = {
   borderColor: 'var(--dsw-alias-label-primary)',
   boxShadow: 'inset 0 0 0 1px var(--dsw-alias-label-primary)',
 }
+/** 鼠标粘滞杀（取色浮层动作键共用）：mousedown 默认行为就是聚焦按钮 —— 焦点一留，
+ * :focus-visible 的环就常亮到下一次焦点转移（真机报障：默认/完成/× 的环常亮）。
+ * 拦掉它：click 照常触发（mousedown 的 preventDefault 不取消 click），键盘 Tab/Enter
+ * 全程不受影响（键盘不走 mousedown，Tab 停留时的环仍是正确的焦点指示）。
+ * :active 按压反馈不受影响（激活行为完整，位移动画照常）。 */
+const noStickyFocus = (e: any): void => { try { if (e && e.preventDefault) e.preventDefault() } catch (err) { /* ignore */ } }
 /** 浮层卡片的皮（同「悬浮标签网格」那张卡）。 */
 const inkPopCardStyle: any = {
   width: 'min(470px, 92vw)', maxHeight: '80vh', overflowY: 'auto',
@@ -809,7 +820,7 @@ function InkPicker(props: any): any {
     h('button', {
       key: 'btn', type: 'button', style: inkFieldBtnStyle,
       'data-dsh-prompt-ink-field-btn': '1', 'aria-haspopup': 'true', 'aria-expanded': open ? 'true' : 'false',
-      title: t('colorField'), onClick: () => setOpen(!open),
+      title: t('colorField'), onMouseDown: noStickyFocus, onClick: () => setOpen(!open),
     }, [
       h('span', { key: 'sw', 'data-dsh-prompt-ink-swatch': value || 'default', style: inkSwatchStyle(value, '1.15em') }),
       h('span', { key: 'l', style: { flex: '1 1 auto', textAlign: 'left' } }, t('colorField') + ' · ' + (value ? value : t('colorDefaultShort'))),
@@ -825,8 +836,8 @@ function InkPicker(props: any): any {
           h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } }, [
             h('span', { key: 't', style: { fontSize: '1em', fontWeight: 700 } }, '🎨 ' + t('colorField')),
             h('span', { key: 'b', style: { display: 'flex', gap: '0.5em' } }, [
-              h('button', { key: 'done', type: 'button', 'data-dsh-prompt-ink-done': '1', style: modalBtn(true), onClick: close }, t('colorDone')),
-              h('button', { key: 'x', type: 'button', 'data-dsh-prompt-ink-close': '1', style: modalBtn(), onClick: close }, '×'),
+              h('button', { key: 'done', type: 'button', 'data-dsh-prompt-ink-done': '1', style: modalBtn(true), onMouseDown: noStickyFocus, onClick: close }, t('colorDone')),
+              h('button', { key: 'x', type: 'button', 'data-dsh-prompt-ink-close': '1', style: modalBtn(), onMouseDown: noStickyFocus, onClick: close }, '×'),
             ]),
           ]),
           // 预览：真名 + 真色 + 描边钩子（与四处渲染同一套属性，所见即所得）
@@ -866,7 +877,7 @@ function InkPicker(props: any): any {
               key: 'default', type: 'button', 'data-dsh-prompt-ink-default': '1',
               'aria-pressed': value === '' ? 'true' : 'false', title: t('colorDefault'), 'aria-label': t('colorDefault'),
               style: { ...inkRowCtlStyle, flex: 'none', ...(value === '' ? inkRowCtlOnStyle : {}) },
-              onClick: () => pick(''),
+              onMouseDown: noStickyFocus, onClick: () => pick(''),
             }, t('colorDefaultShort')),
             h('input', {
               key: 'in', type: 'text', value: typed, placeholder: t('colorHexPh'), 'aria-label': t('colorHexPh'),

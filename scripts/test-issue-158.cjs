@@ -162,6 +162,11 @@ function groupA() {
     need(/\[data-dsh-prompt-ink-cell\]:hover\{[^}]*var\(--dsw-alias-border-l2\)/.test(ui), 'R3) 色块悬停环应用中性令牌（border-l2）');
     need(!/\[data-dsh-prompt-ink-cell\]:hover\{[^}]*var\(--dsw-alias-label-primary\)/.test(ui), 'R3) 色块悬停不得用选中态令牌 label-primary');
     need(/\[data-dsh-prompt-ink-outline-row\]:hover\{[^}]*var\(--dsw-alias-border-l2\)/.test(ui), 'R3) 描边开关整行悬停环也用中性令牌（背景令牌画环几乎看不见）');
+    // 常亮杀（真机报障：默认/完成/× 的环常亮，根因是鼠标点按留下的焦点不走）：
+    // 鼠标焦点永不着色（键盘 :focus-visible 不受影响）；三键 + 入口键 mousedown 拦默认聚焦。
+    need(/:focus:not\(:focus-visible\)\{[^}]*outline:none/.test(ui), 'R3) 鼠标焦点永不着色（:focus 非 visible 即清环）');
+    need((panelCode.match(/onMouseDown: noStickyFocus/g) || []).length >= 4, 'R3) 完成/×/默认/入口四键都应拦 mousedown 默认聚焦（实得 ' + ((panelCode.match(/onMouseDown: noStickyFocus/g) || []).length) + ' 处）');
+    need(/const noStickyFocus[\s\S]{0,300}preventDefault/.test(panelCode), 'R3) noStickyFocus 应拦默认行为（click 照常、键盘不受影响）');
     need(!/'ink-ui'/.test(panelCode), 'R3) 私有样式标记只在 index.ts 一处定义（panel.ts 不得再导出同值常量：同一标记两处真相会各自漂移）');
   }
   // 三控件同皮的实现：公共皮 inkRowCtlStyle（固定 height/1px 边框），选中态 inkRowCtlOnStyle 只改颜色 + inset 环。

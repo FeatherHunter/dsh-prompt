@@ -12,7 +12,7 @@
 
 *Stop copy-pasting — one click, template in chat.*
 
-[![版本](https://img.shields.io/npm/v/dsh-prompt?label=%E7%89%88%E6%9C%AC&color=92400E)](https://www.npmjs.com/package/dsh-prompt) [![下载量](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.npmjs.org%2Fdownloads%2Fpoint%2Flast-month%2Fdsh-prompt&query=%24.downloads&label=%E4%B8%8B%E8%BD%BD%E9%87%8F&suffix=%2F%E6%9C%88&color=B45309)](https://www.npmjs.com/package/dsh-prompt) [![最近更新](https://img.shields.io/github/last-commit/FeatherHunter/dsh-prompt?label=%E6%9C%80%E8%BF%91%E6%9B%B4%E6%96%B0&color=D97706)](https://github.com/FeatherHunter/dsh-prompt/commits/main) [![提交数](https://img.shields.io/github/commit-activity/m/FeatherHunter/dsh-prompt?label=%E6%8F%90%E4%BA%A4%E6%95%B0&color=F59E0B)](https://github.com/FeatherHunter/dsh-prompt/graphs/commit-activity) [![期待你参与](https://img.shields.io/badge/%E6%9C%9F%E5%BE%85%E4%BD%A0%E5%8F%82%E4%B8%8E-F0A45C.svg)](https://github.com/FeatherHunter/dsh-prompt/issues)
+[![版本](https://img.shields.io/npm/v/dsh-prompt?label=%E7%89%88%E6%9C%AC&color=2563EB)](https://www.npmjs.com/package/dsh-prompt) [![下载量](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.npmjs.org%2Fdownloads%2Fpoint%2Flast-month%2Fdsh-prompt&query=%24.downloads&label=%E4%B8%8B%E8%BD%BD%E9%87%8F&suffix=%2F%E6%9C%88&color=059669)](https://www.npmjs.com/package/dsh-prompt) [![最近更新](https://img.shields.io/github/last-commit/FeatherHunter/dsh-prompt?label=%E6%9C%80%E8%BF%91%E6%9B%B4%E6%96%B0&color=7C3AED)](https://github.com/FeatherHunter/dsh-prompt/commits/main) [![提交数](https://img.shields.io/github/commit-activity/m/FeatherHunter/dsh-prompt?label=%E6%8F%90%E4%BA%A4%E6%95%B0&color=DB2777)](https://github.com/FeatherHunter/dsh-prompt/graphs/commit-activity) [![期待你参与](https://img.shields.io/badge/%E6%9C%9F%E5%BE%85%E4%BD%A0%E5%8F%82%E4%B8%8E-EA580C.svg)](https://github.com/FeatherHunter/dsh-prompt/issues)
 
 </div>
 
@@ -126,6 +126,7 @@ dsh.desktop = 2.0.9
 鼠标移到输入框左侧的 ⚡Prompt 按钮，面板自动展开（点一下也行）。<br>
 阶段 tabs + 领域筛选 + 搜索，点一条，正文进输入框。<br>
 插在光标处：已有的字和末尾空行都保留，不覆盖不粘连。<br>
+鼠标移开即收回；在里面开弹窗办完事后，指针已在外面也会跟随关闭，不粘留。<br>
 最常用的沉在底部，离按钮最近。
 
 **👇 按钮一点，面板长这样。**
@@ -199,27 +200,6 @@ dsh.desktop = 2.0.9
 **👇 新增弹窗长这样，填完点添加。**
 
 <img src="assets/readme/06-custom-manage.png" width="560" alt="自定义管理：新增自定义模板弹窗" style="border:1px solid #30363d;border-radius:6px">
-
-</div>
-
-<div align="center">
-
-## 颜色标签 <sub>COLOR TAGS</sub>
-
-</div>
-
-<div align="center">
-
-给自定义模板的名字挑个颜色，列表里一眼认出来。<br>
-不挑颜色＝跟着主题走、没有描边，和以前一模一样；挑了颜色，这个名字在
-小列表、大列表、远程卡片、智能卡四处都变色，深色主题配白描边、浅色主题配黑描边，换什么底都看得清——
-不想要描边，就在同一个浮层里把「文字描边」关掉，颜色照旧。<br>
-点开「文字颜色」按钮就是一面色块墙：色相随意挑，深浅全是预先算好的「看得清」档位，每个格子都点得动，也能直接填十六进制。
-
-**👇 同一条名字在浅色（上）与深色（下）两主题下的样子。**
-
-<img src="assets/readme/07-color-tags-light.png" width="640" alt="颜色标签：浅色主题下的四处渲染" style="border:1px solid #30363d;border-radius:6px">
-<img src="assets/readme/08-color-tags-dark.png" width="640" alt="颜色标签：深色主题下的四处渲染" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 

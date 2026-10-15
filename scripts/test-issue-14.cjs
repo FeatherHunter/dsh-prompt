@@ -203,6 +203,7 @@ async function main() {
     await testCompactHover();
     await testNonCompactRemount();
     await testEntryButtonSuppression();
+    await testCompensateClose();
     console.log('ALL PASS: #14 regression suite');
     process.exit(0);
   } catch (e) {
@@ -210,4 +211,78 @@ async function main() {
     process.exit(1);
   }
 }
+async function testCompensateClose() {
+  console.log('=== Test D: compensate close after suppression lifted (stuck-panel bug) ===');
+  // D0：纯决策矩阵（shouldCompensateClose 可单测导出）
+  const panelMod = require(path.join(DIR, 'panel.cjs'));
+  const sc = panelMod.shouldCompensateClose;
+  if (typeof sc !== 'function') throw new Error('D: shouldCompensateClose not exported');
+  const T = (o, want, msg) => { if (sc(o) !== want) throw new Error('D pure: ' + msg + ' got=' + sc(o)); };
+  T({ compact: true, otherSuppressed: false, hoverCapable: true, entryHovered: false, rootHovered: false }, true, 'outside+hover => compensate');
+  T({ compact: true, otherSuppressed: false, hoverCapable: true, entryHovered: true, rootHovered: false }, false, 'pointer on entry => keep');
+  T({ compact: true, otherSuppressed: false, hoverCapable: true, entryHovered: false, rootHovered: true }, false, 'pointer on panel => keep');
+  T({ compact: true, otherSuppressed: false, hoverCapable: false, entryHovered: false, rootHovered: false }, false, 'touch/no-hover => keep (old behavior)');
+  T({ compact: true, otherSuppressed: true, hoverCapable: true, entryHovered: false, rootHovered: false }, false, 'other reason remains => keep');
+  T({ compact: false, otherSuppressed: false, hoverCapable: true, entryHovered: false, rootHovered: false }, false, 'settings page untouched');
+  console.log(' D0 pure matrix ok');
+
+  // D1/D2：集成 —— 弹窗开着时离场（被抑制丢弃），在外关闭弹窗后：指针在外则补关，指针在内则保持
+  async function runCase(entryHover, expectClosed, label) {
+    function Host() {
+      const [open, setOpen] = React.useState(state.isPanelOpen());
+      React.useEffect(() => state.onPanelOpen((v) => setOpen(v)), []);
+      if (!open) return React.createElement('div', { 'data-host': 'closed' }, 'closed');
+      return React.createElement('div', { 'data-host': 'open' },
+        React.createElement(TemplateBrowser, { compact: true }));
+    }
+    state.setPanelOpen(true);
+    if (state.setHoverCloseSuppressed) state.setHoverCloseSuppressed(false);
+    const prevWin = globalThis.window;
+    const prevDoc = globalThis.document;
+    const hadWin = ('window' in globalThis);
+    const hadDoc = ('document' in globalThis);
+    globalThis.window = { matchMedia: () => ({ matches: true }), addEventListener: () => {}, removeEventListener: () => {} };
+    globalThis.document = {
+      querySelector: (sel) => (sel === '[data-dsh-prompt-entry]' ? { matches: () => entryHover } : null),
+      createElement: () => null,
+      body: {},
+    };
+    let created = null;
+    try {
+      TR.act(() => { created = TR.create(React.createElement(Host)); });
+      const root = created.root;
+      const byText = (txt) => root.findAll((x) => x.type === 'button' && Array.isArray(x.children) && x.children.some((c) => typeof c === 'string' && c.includes(txt)))[0];
+      const byPlaceholder = (ph) => root.findAll((x) => (x.type === 'input' || x.type === 'textarea') && x.props && x.props.placeholder === ph)[0];
+      const addBtn = byText('\uFF0B');
+      if (!addBtn) throw new Error('D modal add not found');
+      TR.act(() => { addBtn.props.onClick(); });
+      if (!byPlaceholder(zh('namePh'))) throw new Error('D modal not open');
+      // 弹窗开着时离场 → 被抑制门丢弃（无待定计时，这就是 bug 的温床）
+      const panelRoot = root.findAll(x => x.props && typeof x.props.onMouseLeave === 'function' && typeof x.props.onMouseEnter === 'function')[0];
+      if (!panelRoot) throw new Error('D panel hover not found');
+      TR.act(() => { panelRoot.props.onMouseLeave(); });
+      // 在外关闭弹窗（取消键在弹窗里，指针位置由 entryHover 桩决定）
+      const cancelBtn = byText('\u53D6\u6D88');
+      if (!cancelBtn) throw new Error('D cancel not found');
+      TR.act(() => { cancelBtn.props.onClick(); });
+      if (byPlaceholder(zh('namePh'))) throw new Error('D modal should be closed after cancel');
+      await new Promise(r => setTimeout(r, 230));
+      TR.act(() => {});
+      const openNodes = root.findAll(x => x.props && x.props['data-host'] === 'open');
+      if (expectClosed && openNodes.length !== 0) throw new Error('D ' + label + ': panel should have compensated close');
+      if (!expectClosed && openNodes.length === 0) throw new Error('D ' + label + ': panel should stay open');
+      console.log(' D ' + label + ' ok');
+    } finally {
+      try { if (created) created.unmount(); } catch (e) {}
+      state.setPanelOpen(false);
+      if (state.setHoverCloseSuppressed) state.setHoverCloseSuppressed(false);
+      if (hadWin) globalThis.window = prevWin; else delete globalThis.window;
+      if (hadDoc) globalThis.document = prevDoc; else delete globalThis.document;
+    }
+  }
+  await runCase(false, true, 'D1 pointer-outside cancel compensates');
+  await runCase(true, false, 'D2 pointer-inside cancel keeps panel');
+  console.log('=== Test D PASS ===');
+}
+
 main();

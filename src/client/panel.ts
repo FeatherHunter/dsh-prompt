@@ -275,6 +275,23 @@ function mapCaret(from: string, caret: number, to: string): number {
   return Math.max(0, Math.min(j + cross, to.length))
 }
 
+/** 抑制解除后补关窗判定（纯函数，可单测；真 bug 修复的决策位）。
+ * 背景：抑制期间（弹窗开/搜索聚焦与组词/远程搜索态）`schedulePanelClose` 直接丢弃、不排计时；
+ * 若弹窗在指针已离场后关闭，此后永再无 mouseleave → 面板永久开着。补排仅当四者齐备：
+ * 紧凑浮层（hover 语义面）、无其他抑制理由、指针有 hover 能力、指针已不在入口键/浮层内。
+ * 键盘（指针在内 → 不排）、触屏（无 hover 能力 → 不排）、仍在输入（有其他抑制理由 → 不排）
+ * 一律沿旧行为；误判的最坏情况也只是“没修”，修不坏。 */
+export function shouldCompensateClose(opts: { compact: boolean; otherSuppressed: boolean; hoverCapable: boolean; entryHovered: boolean; rootHovered: boolean }): boolean {
+  if (!opts.compact) return false
+  if (opts.otherSuppressed) return false
+  if (!opts.hoverCapable) return false
+  return !opts.entryHovered && !opts.rootHovered
+}
+
+/** 读一个元素是否处于 :hover（只读探测；任何异常一律按“不在”处理，由调用方决定 fail-safe 方向）。 */
+function matchesHover(el: any): boolean {
+  try { return !!(el && typeof el.matches === 'function' && el.matches(':hover')) } catch (e) { return false }
+}
 /** 读一个可编辑根的纯文本与活光标（同一套块映射，文本与光标同源，绝不错位）。
  * 文本≈宿主 clipboardText（段落↔\n，空段落即空行）；光标=当前 selection 锚点，无选择即末尾。
  * 尾部换行：末空块多计出的那一个先去掉；剩下的只截光标之后的 —— 光标落在尾部空行里即用户所敲，
@@ -1225,6 +1242,25 @@ export function TemplateBrowser(props: BrowserProps): any {
   const remoteSearchFocused = remoteFocusState[0]
   const remoteCompState = react.useState(false)
   const remoteComposing = remoteCompState[0]
+  /** 抑制解除后补关窗（真 bug 修复的执行位，决策见 shouldCompensateClose）。
+   * otherSuppressed 由调用方按“除本次解除项之外的剩余抑制理由”传入（闭包 state 现值）；
+   * 指针位置经 :hover 只读探测。任何探测异常一律不排（沿旧行为）。 */
+  const maybeCloseAfterSuppress = (otherSuppressed: boolean): void => {
+    try {
+      if (!compact || otherSuppressed) return
+      const g: any = typeof globalThis !== 'undefined' ? globalThis : null
+      const w: any = (typeof window !== 'undefined' ? (window as any) : (g && g.window)) || null
+      let hoverCapable = false
+      try { hoverCapable = !!(w && typeof w.matchMedia === 'function' && w.matchMedia('(hover: hover)') && w.matchMedia('(hover: hover)').matches) } catch (e) { hoverCapable = false }
+      if (!hoverCapable) return
+      const doc: any = typeof document !== 'undefined' ? document : ((g && g.document) || null)
+      let entry: any = null
+      try { entry = doc && typeof doc.querySelector === 'function' ? doc.querySelector('[data-dsh-prompt-entry]') : null } catch (e) { entry = null }
+      const rootEl: any = (rootRef as any) ? (rootRef as any).current : null
+      if (!shouldCompensateClose({ compact, otherSuppressed, hoverCapable, entryHovered: matchesHover(entry), rootHovered: matchesHover(rootEl) })) return
+    } catch (e) { return }
+    schedulePanelClose(150)
+  }
   const orientState = react.useState('landscape' as RemoteOrientation)
   const remoteOrient = orientState[0]
   const remoteTickState = react.useState(0)
@@ -1553,13 +1589,14 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('div', { key: 'tplmodal-' + modal.kind + (modal.t ? '-' + modal.t.id : '') }, [
           h(TemplateModal, {
             kind: modal.kind, tpl: modal.t, t,
-            onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null) },
+            onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null); maybeCloseAfterSuppress(searchFocused || composing || remoteSearchFocused || remoteComposing) },
             onOk: (f: { name: string; labels: string[]; body: string; color?: string; outline?: boolean }) => {
               // #158：color 为 undefined ＝「这一项没动过」（编辑时保持存量原样、新增时不写这个键）；
               // '' ＝ 用户点了「默认」（编辑时清掉这个键）。两者不能混用 —— 把 undefined 当清除用会误删存量颜色。
               if (modal.kind === 'edit' && modal.t) { updateCustom(modal.t.id, f) }
               else { addCustom(f.name, f.labels, f.body, f.color || undefined, f.outline === false ? false : undefined) }
               setHoverCloseSuppressed(false); modalState[1](null)
+              maybeCloseAfterSuppress(searchFocused || composing || remoteSearchFocused || remoteComposing)
               refresh()
             },
           }),
@@ -1570,8 +1607,8 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('div', { key: 'del-' + modal.t.id }, [
           h(ConfirmDelete, {
             tpl: modal.t, t,
-            onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null) },
-            onOk: () => { removeCustom(modal.t!.id); setHoverCloseSuppressed(false); modalState[1](null); refresh() },
+            onCancel: () => { setHoverCloseSuppressed(false); modalState[1](null); maybeCloseAfterSuppress(searchFocused || composing || remoteSearchFocused || remoteComposing) },
+            onOk: () => { removeCustom(modal.t!.id); setHoverCloseSuppressed(false); modalState[1](null); maybeCloseAfterSuppress(searchFocused || composing || remoteSearchFocused || remoteComposing); refresh() },
           }),
         ]),
       ])
@@ -1834,12 +1871,13 @@ export function TemplateBrowser(props: BrowserProps): any {
           'data-dsh-prompt-remote-search-input': '1',
           onChange: (e: any) => { remoteQState[1](e.target.value); remotePageState[1](0); refresh() },
           onFocus: () => { remoteFocusState[1](true); if (compact) setHoverCloseSuppressed(true) },
-          onBlur: () => { remoteFocusState[1](false); if (compact && !remoteComposing && !modal) setHoverCloseSuppressed(false) },
+          onBlur: () => { remoteFocusState[1](false); if (compact && !remoteComposing && !modal) setHoverCloseSuppressed(false); maybeCloseAfterSuppress(!!modal || remoteComposing || searchFocused || composing) },
           onCompositionStart: () => { remoteCompState[1](true); if (compact) setHoverCloseSuppressed(true) },
           onCompositionEnd: (e: any) => {
             remoteCompState[1](false)
             try { const v = e && e.target && typeof e.target.value === 'string' ? e.target.value : null; if (v !== null) { remoteQState[1](v); remotePageState[1](0) } } catch (err) { /* ignore */ }
             if (compact && !modal && !remoteSearchFocused) setHoverCloseSuppressed(false)
+            maybeCloseAfterSuppress(!!modal || remoteSearchFocused || searchFocused || composing)
           },
         }),
       ]) : null,
@@ -2060,12 +2098,13 @@ export function TemplateBrowser(props: BrowserProps): any {
   const searchNode = showList ? h('input', {
     style: compact ? searchStyleCompact : searchStyle, placeholder: t('searchPh'), value: q, onChange: (e: any) => qState[1](e.target.value),
     onFocus: () => { focusState[1](true); if (compact) setHoverCloseSuppressed(true) },
-    onBlur: () => { focusState[1](false); if (compact && !composing && !modal) setHoverCloseSuppressed(false) },
+    onBlur: () => { focusState[1](false); if (compact && !composing && !modal) setHoverCloseSuppressed(false); maybeCloseAfterSuppress(!!modal || composing || remoteSearchFocused || remoteComposing) },
     onCompositionStart: () => { compState[1](true); if (compact) setHoverCloseSuppressed(true) },
     onCompositionEnd: (e: any) => {
       compState[1](false)
       try { const v = e && e.target && typeof e.target.value === 'string' ? e.target.value : null; if (v !== null) qState[1](v) } catch (err) { /* ignore */ }
       if (compact && !modal && !searchFocused) setHoverCloseSuppressed(false)
+      maybeCloseAfterSuppress(!!modal || searchFocused || remoteSearchFocused || remoteComposing)
     },
   }) : null
 

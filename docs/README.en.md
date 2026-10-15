@@ -10,7 +10,7 @@ Works out of the box, fully customizable.
 
 Your ⭐ means the world to me.
 
-[![Version](https://img.shields.io/npm/v/dsh-prompt?color=92400E)](https://www.npmjs.com/package/dsh-prompt) [![Downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.npmjs.org%2Fdownloads%2Fpoint%2Flast-month%2Fdsh-prompt&query=%24.downloads&label=downloads&suffix=%2Fmonth&color=B45309)](https://www.npmjs.com/package/dsh-prompt) [![Last commit](https://img.shields.io/github/last-commit/FeatherHunter/dsh-prompt?color=D97706)](https://github.com/FeatherHunter/dsh-prompt/commits/main) [![Commits](https://img.shields.io/github/commit-activity/m/FeatherHunter/dsh-prompt?color=F59E0B)](https://github.com/FeatherHunter/dsh-prompt/graphs/commit-activity) [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-F0A45C.svg)](https://github.com/FeatherHunter/dsh-prompt/issues)
+[![Version](https://img.shields.io/npm/v/dsh-prompt?color=2563EB)](https://www.npmjs.com/package/dsh-prompt) [![Downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.npmjs.org%2Fdownloads%2Fpoint%2Flast-month%2Fdsh-prompt&query=%24.downloads&label=downloads&suffix=%2Fmonth&color=059669)](https://www.npmjs.com/package/dsh-prompt) [![Last commit](https://img.shields.io/github/last-commit/FeatherHunter/dsh-prompt?color=7C3AED)](https://github.com/FeatherHunter/dsh-prompt/commits/main) [![Commits](https://img.shields.io/github/commit-activity/m/FeatherHunter/dsh-prompt?color=DB2777)](https://github.com/FeatherHunter/dsh-prompt/graphs/commit-activity) [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-EA580C.svg)](https://github.com/FeatherHunter/dsh-prompt/issues)
 
 </div>
 
@@ -124,6 +124,7 @@ dsh.desktop = 2.0.9
 Hover the ⚡Prompt button and the panel opens (click works too).<br>
 Phase tabs + domain filter + search — click a row, body lands in the box.<br>
 Inserted at the cursor: existing text and trailing blank lines stay put — nothing overwritten, nothing glued.<br>
+Moves away, panel goes away: after finishing a dialog inside, it follows and closes when the pointer is already outside — never stuck.<br>
 Most-used sinks to the bottom, closest to the button.
 
 **👇 The panel looks like this.**
@@ -197,29 +198,6 @@ Separate storage — upgrades never eat yours.
 **👇 The new-template dialog.**
 
 <img src="../assets/readme/06-custom-manage.png" width="560" alt="Custom management: new custom template dialog" style="border:1px solid #30363d;border-radius:6px">
-
-</div>
-
-<div align="center">
-
-## Color tags <sub>COLOR TAGS</sub>
-
-</div>
-
-<div align="center">
-
-Give a custom template's name a color and spot it at a glance.<br>
-No color = follows the theme with no outline, exactly as before. Pick one and the name is tinted in all four
-places — the compact list, the settings list, remote cards and the smart card — with a white outline in dark
-themes and a black outline in light themes, so it stays readable on any background. Don't want the outline?
-Turn off "Text outline" in the same popover and keep the color.<br>
-The "Text color" button opens a wall of swatches: any hue you like, only shades that stay readable, every cell
-clickable, plus a hex field for exact values.
-
-**👇 The same names in the light (top) and dark (bottom) themes.**
-
-<img src="../assets/readme/07-color-tags-light.png" width="640" alt="Color tags: the four render sites in the light theme" style="border:1px solid #30363d;border-radius:6px">
-<img src="../assets/readme/08-color-tags-dark.png" width="640" alt="Color tags: the four render sites in the dark theme" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 

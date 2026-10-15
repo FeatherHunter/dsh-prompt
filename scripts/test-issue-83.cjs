@@ -362,7 +362,8 @@ ok('底栏翻页使能与页码（两步可达输入）');
 // 源码级：纯模型不做排序与匹配（复用边界），无长度常量与减行逻辑
 const viewSrc = fs.readFileSync(VIEW_TS, 'utf8');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').split(/\r?\n/).map((l) => l.replace(/\/\/.*$/, '')).join('\n');
-const viewCode = strip(viewSrc);
+// #160 改锚：BASE_FONT_VAR 声明行含宿主默认 fallback（14px，非布局常量），断言前先摘掉该行
+const viewCode = strip(viewSrc).split('\n').filter((l) => !/BASE_FONT_VAR\s*=/.test(l)).join('\n');
 if (/sortedTemplates|matchLabel|templateHaystack/.test(viewCode)) fail('纯模型不应重做排序与匹配（复用 store 收敛点）');
 if (/\dpx/.test(viewCode)) fail('纯模型不得出现长度常量');
 if (/860/.test(viewCode)) fail('原型 min(860,room) 不得沿用');

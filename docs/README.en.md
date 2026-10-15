@@ -237,11 +237,13 @@ Removing the plugin removes the data.
 
 **Local diagnostic log (off by default, written to your own machine only)**
 
-When you are troubleshooting, the plugin can write a structured log to `<DSH home>/logs/dsh-prompt/YYYY-MM-DD.log` (on Windows: `C:\Users\<you>\.dsh\logs\dsh-prompt\`). The switch lives in **Settings → Plugins → Prompt Templates** and is off by default: with it off only errors and warnings are recorded; turning it on adds info and debug. The host is authoritative, so refreshing the page does not change the value.
+When you are troubleshooting, the plugin can write a structured log to `<DSH home>/logs/dsh-prompt/YYYY-MM-DD.log` (on Windows: `C:\Users\<you>\.dsh\logs\dsh-prompt\`). The switch lives in **Settings → Plugins → Prompt Templates** and is off by default: with it off only errors, warnings and key traces (resident events such as startup and panel-open) are recorded; turning it on adds the rest of info and debug. The host is authoritative, so refreshing the page does not change the value.
 
 - **Template names and prompt bodies are never recorded.** A line carries the event name, its level, counts, booleans, durations and short irreversible hashes only; a template is identified by an 8-character hash. The field whitelist lives in `event-list.dsh-prompt.json`, and both the client and the host drop anything outside it before it can reach the file.
 - **Nothing is ever reported automatically.** Logs stay on your disk; they leave the plugin only when you click "导出日志" (downloads a file) or "复制正文" (copies to the clipboard).
-- **No automatic cleanup**: one file per day, no rotation, no deletion. The "清空日志" button deletes every log file (two-step confirmation).
+- **Automatic rotation and retention**: one file per day; once today's file passes 5 MB it is atomically sealed as `YYYY-MM-DD.N.log` and a fresh one is started, and files older than the last 14 days are deleted automatically. Both are the upstream dsh-log defaults — this plugin adds no knobs of its own.
+- **The "清空日志" button (two-step confirmation) deletes the log files from before today.** Today's writable file is protected by the engine and is never removed; the note reports how many files were deleted.
+- **Want a look yourself?** `npx dsh-log tail <that directory>` reads it right in the terminal (`--level warn`, `--since 1h`, `-f`, `--json`), and `npx dsh-log export <directory>` prints a directory digest (file list, level and event counts, startup header). Both are read-only and write nothing.
 - A failing log pipeline never breaks the plugin: an unwritable directory degrades to the system temp directory, and a second failure stops writing entirely with a single warning on stderr.
 
 <div align="center">

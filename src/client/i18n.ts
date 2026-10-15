@@ -79,7 +79,10 @@ export const STR = {
   // 用户 2026-10-15 判定浮层不必再自我解释（墙上没有点不动的块、预览即时可见）⇒ colorWallHint 已不渲染，
   // 但按本仓「字典只增不减」的规矩**保留键**：将来要加回一句引导时，改回渲染即可。
   colorField: { zh: '文字颜色', en: 'Text color' },
-  colorDefaultShort: { zh: '默认（跟随主题）', en: 'Default (follows theme)' },
+  // 2026-10-15 真机反馈（#164 ①）：格子里只留「默认」两个字，剥掉「（跟随主题）」——
+  // 那行要挤「默认 + 十六进制 + 文字描边」三个控件，标签每宽一个字，宿主字号大档时就更早换行。
+  // 完整语义没丢：同一个格子仍带 title/aria = colorDefault（'默认（跟随主题，无描边）'）。
+  colorDefaultShort: { zh: '默认', en: 'Default' },
   colorPreview: { zh: '预览', en: 'Preview' },
   colorPreviewSample: { zh: '模板名字长这样', en: 'Your template name' },
   colorDone: { zh: '完成', en: 'Done' },
@@ -209,17 +212,18 @@ export const STR = {
   logCopyPath: { zh: '复制路径', en: 'Copy path' },
   logClear: { zh: '清空日志', en: 'Clear log' },
   logClearConfirm: { zh: '确认清空', en: 'Confirm clear' },
-  logClearAsk: { zh: '再点一次「确认清空」会删掉全部日志文件（正在排查的证据也会一起删掉）。', en: 'Click "Confirm clear" again to delete every log file — including any evidence you are collecting.' },
+  logClearAsk: { zh: '再点一次「确认清空」会删掉今天以前的日志文件（正在排查的证据也会一起删掉）。', en: 'Click "Confirm clear" again to delete log files from before today — including any evidence you are collecting.' },
   logSwitchOn: { zh: '日志已开启（信息与调试也会记录）。', en: 'Logging enabled (info and debug are recorded too).' },
-  logSwitchOff: { zh: '日志已关闭：错误与告警仍会记录。', en: 'Logging disabled: errors and warnings are still recorded.' },
+  logSwitchOff: { zh: '日志已关闭：错误、告警与关键轨迹（启动、面板打开等）仍会记录。', en: 'Logging disabled: errors, warnings and key traces (startup, panel open, …) are still recorded.' },
   logSwitchFail: { zh: '开关未保存，仍按原值：', en: 'Switch not saved, previous value kept: ' },
   logExportSaved: { zh: '已导出到下载目录：', en: 'Exported to your downloads: ' },
   logExportDownloadBlocked: { zh: '浏览器拦下了下载，请改用「复制正文」：', en: 'The browser blocked the download — use "Copy text" instead: ' },
-  logExportEmpty: { zh: '当天还没有日志文件（开关关闭时只有错误与告警会落盘）。', en: 'No log file for today yet (with the switch off, only errors and warnings are written).' },
+  logExportEmpty: { zh: '当天还没有日志文件（开关关闭时只有错误、告警与关键轨迹会落盘）。', en: 'No log file for today yet (with the switch off, only errors, warnings and key traces are written).' },
   logExportFail: { zh: '导出失败：', en: 'Export failed: ' },
   logPathCopied: { zh: '已复制日志文件路径：', en: 'Log file path copied: ' },
   logPathFail: { zh: '拿不到日志路径，请改用「导出日志」。', en: 'Could not resolve the log path — use "Export log" instead.' },
-  logClearOk: { zh: '已删除日志文件', en: 'Deleted log files: ' },
+  logClearOk: { zh: '已删除历史日志', en: 'Deleted past log files: ' },
+  logClearNone: { zh: '没有可删的历史日志（今天这一份会保留）。', en: "No past log files to delete (today's file is kept)." },
   logClearFail: { zh: '清空失败，请稍后再试。', en: 'Clear failed, please try again.' },
   logWorking: { zh: '处理中…', en: 'Working…' },
   logDropped: { zh: '日志管道已丢弃条数：', en: 'Entries dropped by the log pipeline: ' },

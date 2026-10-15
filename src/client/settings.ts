@@ -331,8 +331,13 @@ export function SettingsPage(props: any): any {
     if (!cap) { noteState[1](t('logUnavailable')); return }
     if (!confirming) { confirmState[1](true); noteState[1](t('logClearAsk')); return }
     confirmState[1](false)
-    const res = await cap.clearLog('all')
-    noteState[1](res.ok ? t('logClearOk') + ' ' + res.removed + ' ' + t('logFiles') : t('logClearFail'))
+    const res = await cap.clearLog()
+    noteState[1](
+      res.ok
+        // 0.3.x 起今天正在写的那一份由引擎保护：一份都没删掉时别说「删了 0 个文件」。
+        ? (res.removed > 0 ? t('logClearOk') + ' ' + res.removed + ' ' + t('logFiles') : t('logClearNone'))
+        : t('logClearFail'),
+    )
   }
 
   const dropped = (() => {

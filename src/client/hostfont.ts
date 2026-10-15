@@ -29,11 +29,11 @@
  *   --dsw-font-markdown-base-font-size 等（gradient-shadow-text.css），覆盖上游即整链等比。
  * - 已知局限（#92 拍板保留，非本票范围）：宿主定死 px 处不跟（small/code 阶梯）；#103 已用
  *   zoom 另行覆盖 AI 响应区。
- * - 已知交互（#148 审查记，待维护者裁定，本票未改）：重放免疫是双向的——远程开着时用户在
- *   「设置→通用→字号大小」改的值不会立即见效（关远程即见）；且自家面 scaledBaseFontSize 锚的
- *   --dsw-font-markdown-base-font-size 由被覆盖的这个变量派生 ⇒ 远程开时自家面吃两遍档位
- *   （实测覆盖值 5 档 = 42px，自家面 calc(42px × 3) = 126px，非本票引入、旧稿同样成立，
- *   但旧稿会被宿主重放打回而自限，现为常驻）。见 issue #148 的 Q2 / follow-up。
+ * - 已知交互（#148 审查记；#160 已改锚解决）：此前自家面 scaledBaseFontSize 锚
+ *   --dsw-font-markdown-base-font-size（由被覆盖的这个变量派生）且自乘档位 ⇒ 远程开时
+ *   自家面吃两遍档位（实测覆盖值 5 档 = 42px，自家面 calc(42px × 3) = 126px）。
+ *   #160 后锚改到 --dsh-content-font-size 且不再自乘，只吃字桥这一遍。
+ *   遗留语义（仍保留）：远程开着时用户在「设置→通用→字号大小」改的值不会立即见效（关远程即见）。
  * - 本文件是唯一的 DOM 接触点；remoteView.ts 保持纯函数（禁 DOM/宿主调用）。
  * - 全程守卫 + try/catch fail-soft，不抛（单测无 DOM 时静默 no-op）。
  */

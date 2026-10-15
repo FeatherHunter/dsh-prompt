@@ -137,18 +137,19 @@ export function remoteSizeScale(size: unknown): number {
   return REMOTE_SIZE_SCALES[idx - 1]
 }
 
-/** 宿主基准字号变量（缩放根的唯一锚点；各调用方不得另起第二套基准） */
-const BASE_FONT_VAR = 'var(--dsw-font-markdown-base-font-size)'
+/** 宿主基准字号变量（#160 改锚：自家面只吃一遍——锚到宿主内容字变量，它已由 #92 字桥按档位同步；各调用方不得另起第二套基准） */
+const BASE_FONT_VAR = 'var(--dsh-content-font-size, 14px)'
 
 /**
  * 缩放根收敛点（#116，不计成本的一致性收敛；纯函数，可转译断言）：
- * 开吃全额 calc(宿主基准变量 * 档位倍数)、关回基准变量。各调用方只传开关与档位，
- * 不手写表达式，防多处拷贝漂移。注意：设置页子树内必须用宿主变量基重算，
- * 禁用 `1em` 基——`1em` 在缩放祖先里会复乘（double-scale）。
+ * #160 改锚后恒返基准变量、不再乘档——档位只由 #92 字桥写进 --dsh-content-font-size
+ * 这唯一一处，自家面只吃一遍（此前 calc(42px × 3) = 126px 的复乘即以此消除）。
+ * 各调用方只传开关与档位（签名保留，防调用方分叉），不手写表达式，防多处拷贝漂移。
+ * 注意：设置页子树内必须用宿主变量基重算，禁用 `1em` 基——`1em` 在缩放祖先里会复乘（double-scale）。
  */
 export function scaledBaseFontSize(enabled: unknown, size: unknown): string {
-  if (enabled !== true) return BASE_FONT_VAR
-  return 'calc(' + BASE_FONT_VAR + ' * ' + remoteSizeScale(size) + ')'
+  void enabled; void size
+  return BASE_FONT_VAR
 }
 
 /**

@@ -182,7 +182,11 @@ async function drain(cap, home, expectEvent) {
   const dshLogHost = await import('dsh-log/host');
   const parsed = dshLogHost.parseEventListManifest(manifest);
   ok('parseEventListManifest 通过（形状合规）');
-  assert(dshLogHost.checkEventCounts(parsed).ok, 'checkEventCounts 通过（自报 counts 与实际条数逐项一致）');
+  // 0.3.4：清单不再自报 counts（唯一真源是现算的 computeEventCounts），checkEventCounts 已删；
+  // 新检查器 lintEventFields 把「未知字段」记黄、「未知事件」记红（黄红都只给作者看，不拦上线）。
+  const counts = dshLogHost.computeEventCounts(parsed);
+  const withBogusCounts = dshLogHost.parseEventListManifest({ ...manifest, counts: { resident: 999, ondemand: 0, selfmon: 0 } });
+  eq(dshLogHost.computeEventCounts(withBogusCounts), counts, '自报 counts 被忽略：计数一律现算');
   const names = Object.keys(parsed.events);
   assert(names.length === 47, `事件条数 47 → 实际 ${names.length}`);
   const actualKinds = { resident: 0, ondemand: 0, selfmon: 0 };
@@ -194,13 +198,21 @@ async function drain(cap, home, expectEvent) {
   // 去宿主化加一条：settings.remote.orientation（resident）。
   // #90 加一条：settings.remote.density（resident），总数 46→47。
   // 真切整机加两条：system.orientation.get/set（resident）。
-  eq(actualKinds, { resident: 33, ondemand: 9, selfmon: 5 }, '三类 kind 计数');
+  // 2026-10-15 dsh-log 0.3.x 升级：panel.open 由 ondemand 改回 resident（33→34、ondemand 9→8）。
+  // 理由是它一直就是常驻的：包内固定常驻表（43 条，DSH 侧单源）里就有同名事件，而写侧判定是
+  // 「包内固定 ∪ 清单里 kind === 'resident'」的并集 —— 清单写 ondemand 只是与真实行为不符；
+  // 声明成 resident 后，行为不再依赖一次同名撞车（上游哪天从固定表里删掉它，本仓行为也不变）。
+  eq(actualKinds, { resident: 34, ondemand: 8, selfmon: 5 }, '三类 kind 计数');
+  eq(counts, actualKinds, 'computeEventCounts 与逐条数出来的一致（清单里不再有会腐烂的自报 counts）');
 
   let fieldBad = 0;
   for (const n of names) if (!dshLogHost.checkEventFields(parsed, n, parsed.events[n].fields).ok) fieldBad += 1;
   eq(fieldBad, 0, '每个事件的允许字段都通过 checkEventFields');
   assert(!dshLogHost.checkEventFields(parsed, 'app.boot', ['__not_declared__']).ok, '反例：未声明字段被 checkEventFields 拒绝');
   assert(!dshLogHost.checkEventFields(parsed, 'no.such.event', []).ok, '反例：未声明事件被 checkEventFields 拒绝');
+  eq(dshLogHost.lintEventFields(parsed, 'app.boot', parsed.events['app.boot'].fields).severity, 'none', 'lintEventFields：声明齐全 → none');
+  eq(dshLogHost.lintEventFields(parsed, 'app.boot', ['__not_declared__']).severity, 'warn', 'lintEventFields：未知字段记黄（warn）');
+  eq(dshLogHost.lintEventFields(parsed, 'no.such.event', []).severity, 'error', 'lintEventFields：未知事件记红（error）');
 
   /* ── 2) 单条事件体积上限（字段填满 32 字符） ── */
   let worst = 0; let worstName = '';
@@ -222,9 +234,12 @@ async function drain(cap, home, expectEvent) {
   eq(cap.phoneNames.logBatch, 'dsh-prompt.logBatch', '电话名前缀用插件标识（不复用 wf）');
   eq(cap.store.config.logDirName, 'dsh-prompt', 'logDirName 显式覆盖为 dsh-prompt');
   eq(cap.store.config.switchFileName, 'log-switch-dsh-prompt.json', '开关文件名按插件标识派生');
+  eq(cap.store.config.prefix, 'dsh-prompt', 'prefix 显式传入（0.3.x 起 pluginId 与 prefix 双必填）');
+  eq(cap.store.config.pluginVersion, readJson(path.join(ROOT, 'package.json')).version, '启动头自述本包版本（pluginVersion）');
+  assert(typeof cap.registry.get('dsh-prompt.logQuery') === 'function', '0.3.x 的第 6 个电话（只读 logQuery）也注册了');
 
   // 开关默认关 → info 不落盘（第 6 节专门验这条）。这里先打开，验落盘路径与字段白名单。
-  await cap.runPhone(cap.phoneNames.logSetSwitch, { enabled: true, sampleRate: 1 });
+  await cap.runPhone(cap.phoneNames.logSetSwitch, { enabled: true });
   cap.log('app.boot', { hasReact: true, lang: 'zh', entryCount: 5 });
   await drain(cap, home, 'app.boot');
   let lines = logLines(home);
@@ -266,21 +281,28 @@ async function drain(cap, home, expectEvent) {
   const reject = logLines(home).filter((l) => l.event === 'host.bridge.reject').pop();
   eq(reject.fields.reason, 'R_TOKEN', '令牌形状命中 R_TOKEN，只记规则名');
 
-  /* ── 6) 开关语义：关只停 info 与 debug ── */
+  /* ── 6) 开关语义：关只停「非常驻」的 info 与 debug ── */
   const home2 = path.join(TMP, 'home-switch');
   const cap2 = await mod.createLogCapability({ env: { DSH_HOME: home2 } });
+  // 0.3.x 起开关管不住常驻事件：包内 isEnabled(level, event) 先看级别、再看常驻集合
+  // （包内固定 43 条 ∪ 调用方清单里 kind === 'resident' 的事件），最后才问开关。
+  // 本仓 47 条里 34 条 resident —— app.boot 正是常驻 info，关着开关也必须落盘（否则启动轨迹会缺）。
+  // 反例样本要挑「清单 ondemand + 不在包内固定表」的事件：host.log.batch 满足（panel.open 不满足，
+  // 它跟包内固定表同名，照样常驻 —— §1 的计数注释里记了这笔）。
   cap2.log('app.boot', { hasReact: true, lang: 'zh', entryCount: 5 });
+  cap2.log('host.log.batch', { entries: 1, accepted: 1, dropped: 0 });
   cap2.log('store.snapshot.fail', { reason: 'http-fail', latencyMs: 1 });
   await drain(cap2, home2, 'store.snapshot.fail');
-  eq(eventsOf(home2).filter((e) => e === 'app.boot').length, 0, '开关关：info 不落盘');
+  eq(eventsOf(home2).filter((e) => e === 'app.boot').length, 1, '开关关：常驻 info（app.boot）仍落盘（0.3.x 口径）');
+  eq(eventsOf(home2).filter((e) => e === 'host.log.batch').length, 0, '开关关：非常驻 info 不落盘');
   eq(eventsOf(home2).filter((e) => e === 'store.snapshot.fail').length, 1, '开关关：warn 仍落盘');
-  await cap2.runPhone(cap2.phoneNames.logSetSwitch, { enabled: true, sampleRate: 1 });
-  cap2.log('app.boot', { hasReact: true, lang: 'zh', entryCount: 5 });
-  await drain(cap2, home2, 'app.boot');
-  eq(eventsOf(home2).filter((e) => e === 'app.boot').length, 1, '开关开：info 落盘');
+  await cap2.runPhone(cap2.phoneNames.logSetSwitch, { enabled: true });
+  cap2.log('host.log.batch', { entries: 1, accepted: 1, dropped: 0 });
+  await drain(cap2, home2, 'host.log.batch');
+  eq(eventsOf(home2).filter((e) => e === 'host.log.batch').length, 1, '开关开：非常驻 info 落盘');
   const switchFile = path.join(home2, 'logs', 'log-switch-dsh-prompt.json');
   assert(fs.existsSync(switchFile), '开关文件落在 <home>/logs/log-switch-dsh-prompt.json');
-  eq(readJson(switchFile), { enabled: true, sampleRate: 1 }, '开关文件内容为 { enabled, sampleRate }');
+  eq(readJson(switchFile), { enabled: true }, '开关文件内容为 { enabled }（0.3.0 已删从来没被读过的 sampleRate）');
   const getSwitch = await cap2.runPhone(cap2.phoneNames.logGetSwitch, {});
   eq(getSwitch.ok && getSwitch.value.enabled, true, '电话 logGetSwitch 回 ok + enabled');
   assert(eventsOf(home2).includes('host.log.switch.set'), '宿主记了 host.log.switch.set');
@@ -290,7 +312,7 @@ async function drain(cap, home, expectEvent) {
   const home3 = path.join(TMP, 'home-badmanifest');
   const bad = await mod.createLogCapability({ env: { DSH_HOME: home3 }, manifest: { version: 2, pluginId: 'dsh-prompt', counts: {}, events: {} } });
   assert(bad.manifestOk === false, '坏清单被识别（manifestOk=false）');
-  await bad.runPhone(bad.phoneNames.logSetSwitch, { enabled: true, sampleRate: 1 });
+  await bad.runPhone(bad.phoneNames.logSetSwitch, { enabled: true });
   bad.log('app.boot', { hasReact: true, lang: 'zh' });
   await drain(bad, home3, 'app.boot');
   const badLines = logLines(home3);
@@ -344,6 +366,44 @@ async function drain(cap, home, expectEvent) {
   assert(fs.existsSync(fbFile), '降级后日志落在 os.tmpdir()/dsh-prompt/…（本次用注入的 fallbackDir 代替）');
   assert(fs.existsSync(fbFile) && fs.readFileSync(fbFile, 'utf8').includes('store.snapshot.fail'), '降级文件里能看到那条事件');
 
+  /* ── 8b) 轮转封存（0.3.x 新能力）：rename / listDir / sizeOf 三个适配器真的顶用 ── */
+  // 这一节直接对着 createLogSink 造一个 maxSize 很小的日志库：只有适配器真能列目录、真能原子改名，
+  // 当日文件才会被 rename 成 `<日期>.N.log` 并留下 audit.json —— 否则包会降级成 log.rotate.degraded。
+  const homeRot = path.join(TMP, 'home-rotate');
+  const rotSink = mod.createLogSink({ env: { DSH_HOME: homeRot } });
+  const rotStore = dshLogHost.createLogStore(
+    { fs: rotSink.fs, getCacheDir: rotSink.getCacheDir, getPlatform: rotSink.getPlatform },
+    { pluginId: 'dsh-prompt', prefix: 'dsh-prompt', logDirName: 'dsh-prompt', maxSize: 300, eventList: manifest },
+  );
+  await rotStore.setSwitch(true);
+  const rotFile = logFileOf(homeRot);
+  const rotDir = path.dirname(rotFile);
+  const sealedFile = rotFile.replace(/\.log$/, '.1.log');
+  for (let i = 0; i < 12; i += 1) {
+    rotStore.log('info', 'panel.open', { mode: 'compact', rows: i });
+    await rotStore.flushNow();
+  }
+  assert(fs.existsSync(sealedFile), `超过 maxSize 后当日文件被封存为 ${path.basename(sealedFile)}`);
+  assert(fs.existsSync(rotFile), '封存之后当日可写文件重新开始');
+  assert(!fs.readFileSync(rotFile, 'utf8').includes('log.rotate.degraded'), '三个适配器齐全时不出现 log.rotate.degraded');
+  assert(fs.readFileSync(rotFile, 'utf8').includes('log.rotate.seal'), '封存留了一行 info 自监控（log.rotate.seal）');
+  const auditFile = path.join(rotDir, 'audit.json');
+  assert(fs.existsSync(auditFile) && fs.readFileSync(auditFile, 'utf8').includes('"op":"rotate.seal"'), '同目录 audit.json 记下这次封存');
+  const rotSize = await rotSink.fs.sizeOf(await rotSink.fs.resolve(rotFile));
+  assert(typeof rotSize === 'number' && rotSize > 0, `sizeOf 适配器给出真实字节数（${rotSize}）`);
+  // 能力缺席时**不许挂空壳**：包靠 typeof 探测，空壳会让它信任一个什么都不做的实现（假 rename 会静默吃行）。
+  const bareSink = mod.createLogSink({
+    env: { DSH_HOME: path.join(TMP, 'home-bare') },
+    fsImpl: {
+      mkdir: async () => undefined,
+      readFile: async () => '',
+      readdir: async () => [],
+      unlink: async () => undefined,
+      writeFile: async () => undefined,
+    },
+  });
+  eq([typeof bareSink.fs.rename, typeof bareSink.fs.appendText, typeof bareSink.fs.sizeOf], ['undefined', 'undefined', 'undefined'], '适配器没给的能力不挂空壳（缺就缺，包内探测自然降级）');
+
   /* ── 9) 导出与清空电话的最小形状 ── */
   const unknown = await cap2.runPhone('dsh-prompt.noSuchPhone', {});
   eq(unknown.ok, false, '未知电话回 ok:false');
@@ -357,8 +417,19 @@ async function drain(cap, home, expectEvent) {
   assert(exp.path === path.join(path.dirname(exp.path), path.basename(exp.path)), '路径用本平台的分隔符（node:path 拼出来的，不是手拼斜杠）');
   assert(typeof exp.dir === 'string' && path.isAbsolute(exp.dir), '导出回参同时带目录（绝对路径）');
   assert(exp.path.startsWith(exp.dir) && exp.path.length > exp.dir.length, '文件路径落在报告的目录之下');
+  // 0.3.x 起「当日可写文件」受保护（host/files.js：`isProtectedLogFile(name, today)` 直接跳过）：
+  // 目录里只有今天的文件时，date:'all' 会诚实回 removed:0。所以先手写一份**往日**日志（取昨天，
+  // 落在保留窗口内，免得被 retainSweep 先清掉），再验清空真动手、且今天的可写文件活下来。
+  const logDir2 = path.join(home2, 'logs', 'dsh-prompt');
+  const y = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const ymd = y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0');
+  const oldFile = path.join(logDir2, ymd + '.log');
+  fs.mkdirSync(logDir2, { recursive: true });
+  fs.writeFileSync(oldFile, '{"v":3,"ts":1,"level":"info","event":"app.boot","fields":{}}\n', 'utf8');
   const cleared = await cap2.runPhone(cap2.phoneNames.logClear, { date: 'all' });
   assert(cleared.ok && cleared.value.removed >= 1, `logClear 报出删除文件数（实际 ${cleared.value.removed}）`);
+  assert(!fs.existsSync(oldFile), '往日日志被清掉（清空确实动手了）');
+  assert(fs.existsSync(logFileOf(home2)), '当日可写文件受保护：清空历史不动今天正在写的这一份');
 
   /* ── 10) 结构规则：对外导出不超过五个 + 路由常量不漂移 ── */
   const hostExports = Object.keys(mod).filter((k) => k !== 'default');
@@ -443,7 +514,7 @@ async function drain(cap, home, expectEvent) {
     const value = body.name.endsWith('.logExport') ? { ok: true, fileName: '2026-09-12.log', bytes: 12, fallback: true, text: '{"event":"a"}\n', dir: 'C:\\Users\\x\\.dsh\\logs\\dsh-prompt', path: 'C:\\Users\\x\\.dsh\\logs\\dsh-prompt\\2026-09-12.log' }
       : body.name.endsWith('.logClear') ? { ok: true, removed: 3 }
         : body.name.endsWith('.logSetSwitch') ? { ok: true, enabled: true }
-          : body.name.endsWith('.logGetSwitch') ? { ok: true, enabled: false, sampleRate: 1 }
+          : body.name.endsWith('.logGetSwitch') ? { ok: true, enabled: false }
             : { ok: true };
     return { ok: true, status: 200, json: async () => ({ ok: true, value }) };
   };
@@ -471,6 +542,10 @@ async function drain(cap, home, expectEvent) {
   // 三个入口的客户端半（#51）：开关 / 导出 / 清空 各发一次电话，回参能透到调用方。
   const sw = await slot.setSwitch(true);
   eq(sw.ok && sw.enabled, true, '开关入口：写入成功并回 enabled');
+  // 0.3.x 起本地开关按插件分键（`debugStorageKey(pluginId)` = `dsws.debug.<pluginId>`），不再共用 `dsws.debug`：
+  // 同一台机器上多个插件的调试开关不会互相顶掉。旧键的值作废一次，启动对账会从宿主开关文件恢复。
+  eq(JSON.parse(globalThis.localStorage.getItem('dsws.debug.dsh-prompt')), { enabled: true, rev: 1 }, '本地开关写到按插件分键的新位置');
+  assert(globalThis.localStorage.getItem('dsws.debug') === null, '旧共享键 dsws.debug 不再被写');
   const ex = await slot.exportLog();
   eq(ex.ok && ex.bytes === 12 && ex.text.indexOf('event') >= 0, true, '导出入口：拿到正文与长度');
   eq(typeof ex.path === 'string' && /[\\/]2026-09-12\.log$/.test(ex.path), true, '导出入口：把宿主给的绝对文件路径透给调用方（「复制路径」用它）');
@@ -490,6 +565,9 @@ async function drain(cap, home, expectEvent) {
   const hostLogSrc = fs.readFileSync(path.join(ROOT, 'lib', 'log', 'index.js'), 'utf8');
   assert(/import\(\s*['"]dsh-log\/host['"]\s*\)/.test(hostLogSrc), 'lib/log 里确实动态 import dsh-log/host');
   assert(!!(pkg.dependencies && pkg.dependencies['dsh-log']), `dsh-log 在 dependencies 里（${pkg.dependencies && pkg.dependencies['dsh-log']}）；否则宿主侧会静默退化成无日志`);
+  // 0.3.x 自带 .d.ts（0.2.1 不带，本仓曾为此手写一份 ambient 声明——它会把真类型遮蔽成假绿，必须不再存在）。
+  assert(!fs.existsSync(path.join(ROOT, 'src', 'client', 'log', 'dsh-log-client.d.ts')), '手写的 dsh-log 声明已删除（类型走包自带 .d.ts）');
+  assert(fs.existsSync(path.join(ROOT, 'node_modules', 'dsh-log', 'dist', 'client.d.ts')), 'dsh-log 自带 client.d.ts（typecheck 用真类型）');
   try {
     require.resolve('dsh-log/host', { paths: [ROOT] });
     ok('dsh-log/host 本地可解析');
@@ -532,7 +610,7 @@ async function drain(cap, home, expectEvent) {
     await capturedRoute.handler(req, res);
     return { status, body: body ? JSON.parse(body) : null };
   };
-  const swRes = await callRoute('/_dsh/dsh-prompt/log', 'POST', { name: 'dsh-prompt.logSetSwitch', args: { enabled: true, sampleRate: 1 } });
+  const swRes = await callRoute('/_dsh/dsh-prompt/log', 'POST', { name: 'dsh-prompt.logSetSwitch', args: { enabled: true } });
   eq(swRes.status, 200, '宿主日志路由存活（不是 404）');
   eq(swRes.body && swRes.body.ok, true, '电话经桥调用成功');
   eq(swRes.body && swRes.body.value && swRes.body.value.enabled, true, '回参透传（开关已置 true）');

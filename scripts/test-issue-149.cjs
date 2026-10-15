@@ -231,7 +231,20 @@ for (const needle of ['SETTINGS_TRIGGER_LABEL_RE', "b.getAttribute('aria-label')
 if (!indexSrc.includes('setGoSettingsHandler(goSettings)')) fail('index.ts 应把 goSettings 注册给面板');
 if (!indexSrc.includes('__dshPromptGoSettings = goSettings')) fail('index.ts 应保留 __dshPromptGoSettings 兜底挂载（remote.openRemoteSettings 复用）');
 if (!indexSrc.includes('const tid = setInterval(')) fail('等待导航项挂载应是轮询（setInterval），不是一次性硬等');
-if (!/if \(n === 6\) \{ try \{ trig\.click\(\) \}/.test(indexSrc)) fail('首次点空应有补点一次（不做"点一下就算了"）');
+if (!/if \(n === 6\) \{\s*hostOpenSettings\(\)\s*if \(!item\) clickDomEntries\(\)/.test(indexSrc)) fail('首次点空应有补点一次：重发宿主命令 + 菜单未弹开时补点 DOM 入口（不做"点一下就算了"）');
+// 2026-10-15 与宿主 0.2.0-rc.2 对账后的三级入口（旧实现只认 dialog 触发器，而外壳那枚按钮在本构建里
+// 根本不渲染：settings.launcher 单槽被账号菜单占着）—— 缺任一级就等于把"点开没反应"放回去。
+for (const needle of ['launcherAnchor', 'settingsMenuItem', 'button[role="menuitem"]', 'hostOpenSettings', 'clickDomEntries']) {
+  if (!indexSrc.includes(needle)) fail('index.ts 的 goSettings 三级入口缺：' + needle);
+}
+// 宿主 shortcuts 服务对外只有 dispatch，没有 invoke（命令在它内部的 registry 上）——调它等于死代码。
+if (/\.shortcuts\s*\.invoke\s*\(/.test(indexSrc)) fail('不得直接调 shortcuts.invoke（该服务没有这个成员）');
+if (!indexSrc.includes('sc.registry')) fail('宿主命令应取 shortcuts.registry（invoke 在那里）');
+if (!indexSrc.includes("invoke('settings.open', { modal: null })")) fail('宿主命令应 invoke settings.open（modal:null ⇒ 只会开不会反关）');
+// registry.invoke 没有返回值 ⇒ 只能当"点火"：一旦拿它短路 DOM 兜底，命令改名/静默无效时就是一次都没点。
+if (!/const commandSent = hostOpenSettings\(\)/.test(indexSrc)) fail('宿主命令只应"点火"，不得短路 DOM 兜底');
+if (!/if \(!commandSent\) clickDomEntries\(\)/.test(indexSrc)) fail('命令点不着时必须立刻走 DOM 兜底');
+if (!/if \(!item\) clickDomEntries\(\)/.test(indexSrc)) fail('补点时应跳过已弹开的菜单（免得把菜单又收回去）');
 // #150：候选必须排除本插件自己的铬 —— 面板里那枚设置入口的 title/aria 就是全称（含「设置/Settings」），
 // 不排掉它，「找不到宿主触发器」时会命中它自己 → 自点自 → 同步递归到栈溢出。
 if (!indexSrc.includes('isOwnChrome')) fail('index.ts 应排除本插件自己的铬（isOwnChrome）再挑触发器');

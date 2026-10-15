@@ -3,16 +3,18 @@
 // 验收（票面「要解决的问题」1–3）：
 //  1) 默认 storage 的求值整个包在 `try` 里，兜住「属性访问本身抛」
 //     （不能只 `try` 后面的 getItem/setItem —— 这正是本票的爆点形状）；
-//  2) 全仓无第二处裸访问；smartstore / updauto 的降级值不变
-//    （`false` / `null` / `''` / `false`）；
+//  2) 全仓无第二处裸访问；smartstore 的降级值不变（`false` / `null`）；
 //  3) 回归断言「整壳仍起」：模拟「访问 localStorage 就抛」的环境，
 //     客户端壳的 `apply` 走完（不只是日志能力降级）。
 //
 // 约束（分诊口径 + #53）：封装只住 `src/client/log/index.ts` 内部，不新建
 // `src/client/storage.ts` —— 本仓每个回归脚本都在各自的 `.rt-tmp` 系列目录里
 // 手写要转译的模块清单，往被普遍加载的路径上加一条 import 边会让既有脚本整批红
-//（#53 实测 15 条里红 9 条）。`smartstore.ts` / `updauto.ts` 的 4 处本来就在
-// `try` 里，刻意不收拢到一处共享封装（取舍见 `resolveDefaultStorage` 头注释）。
+//（#53 实测 15 条里红 9 条）。`smartstore.ts` 的那几处本来就在 `try` 里，
+// 刻意不收拢到一处共享封装（取舍见 `resolveDefaultStorage` 头注释）。
+// （#127 删掉自研更新 UI 后，同形的 `updauto.ts` 已不存在，本脚本不再转译它。）
+// 2026-10-15 dsh-log 0.3.4 升级：存储键由共享 `dsws.debug` 改为 `dsws.debug.<pluginId>`，
+// 开关形状只剩 `{ enabled, rev }`（sampleRate 已删）——T2 的注入桩按新键与新形状写。
 //
 // 跑法：npm run test:issue-59（或 node scripts/test-issue-59.cjs）
 // 口径：断言失败即退出码 1；T2/T3 转译源码直测（不依赖构建），T4 走构建产物
@@ -137,7 +139,8 @@ transpile(SRC('log/index.ts'), 'log.cjs', [
   ['require("../../../lib/log/gate.js")', 'require(' + JSON.stringify(path.join(ROOT, 'lib', 'log', 'gate.js')) + ')'],
 ]);
 transpile(SRC('smartstore.ts'), 'smartstore.cjs', []);
-transpile(SRC('updauto.ts'), 'updauto.cjs', []);
+// #127 删了自研更新 UI 与客户端 updauto.ts（排期判据随之下线），这里不再转译它 ——
+// 原来那几条 loadSkippedVersion / saveSkippedVersion 的降级断言已随源文件消失。
 
 console.log('=== T2: 默认 storage 兜住「属性访问就抛」（源码直测） ===');
 {
@@ -146,7 +149,7 @@ console.log('=== T2: 默认 storage 兜住「属性访问就抛」（源码直�
   try { Object.defineProperty(globalThis, 'BroadcastChannel', { value: undefined, configurable: true, writable: true }) } catch (e) { /* 无该全局则跳过 */ }
   globalThis.fetch = async (url, init) => {
     const body = JSON.parse((init && init.body) || '{}');
-    const value = /logGetSwitch$/.test(body.name || '') ? { ok: true, enabled: false, sampleRate: 1 } : { ok: true };
+    const value = /logGetSwitch$/.test(body.name || '') ? { ok: true, enabled: false } : { ok: true };
     return { ok: true, status: 200, json: async () => ({ ok: true, value }) };
   };
   const prevDesc = lsDescriptor();
@@ -173,7 +176,9 @@ console.log('=== T2: 默认 storage 兜住「属性访问就抛」（源码直�
     const log2 = require(path.join(DIR, 'log.cjs'));
     setThrowingLS();
     const injected = {
-      getItem: (k) => (k === 'dsws.debug' ? JSON.stringify({ enabled: true, sampleRate: 1, rev: 1 }) : null),
+      // 0.3.x 起存储键带插件名（包内 debugStorageKey(pluginId) = 'dsws.debug.' + pluginId），
+      // 开关状态也只剩 { enabled, rev }（sampleRate 在 0.3.0 被删，从来没被读过）。
+      getItem: (k) => (k === 'dsws.debug.dsh-prompt' ? JSON.stringify({ enabled: true, rev: 1 }) : null),
       setItem: () => undefined, removeItem: () => undefined,
     };
     let f2 = null; let t2 = null;
@@ -198,7 +203,7 @@ console.log('=== T2: 默认 storage 兜住「属性访问就抛」（源码直�
     purgeDir(DIR);
     const log4 = require(path.join(DIR, 'log.cjs'));
     const mem = setMemoryLS();
-    mem.set('dsws.debug', JSON.stringify({ enabled: true, sampleRate: 1, rev: 1 }));
+    mem.set('dsws.debug.dsh-prompt', JSON.stringify({ enabled: true, rev: 1 }));
     let f4 = null; let t4 = null;
     try { f4 = log4.startLog() } catch (e) { t4 = e }
     eq(t4, null, '正常存储下 startLog 不抛');
@@ -213,12 +218,11 @@ console.log('=== T2: 默认 storage 兜住「属性访问就抛」（源码直�
   } catch (e) { /* ignore */ }
 }
 
-console.log('=== T3: 同类 4 处降级值不变（smartstore / updauto，本票不动它们） ===');
+console.log('=== T3: 同类降级值不变（smartstore，本票不动它） ===');
 {
   const prevDesc = lsDescriptor();
   purgeDir(DIR);
   const smart = require(path.join(DIR, 'smartstore.cjs'));
-  const auto = require(path.join(DIR, 'updauto.cjs'));
 
   setThrowingLS();
   eq(smart.isSmartEnabled(), false, '抛环境：isSmartEnabled() → false');
@@ -227,20 +231,15 @@ console.log('=== T3: 同类 4 处降级值不变（smartstore / updauto，本票
   eq(t1, null, '抛环境：setSmartEnabled 不抛');
   let t2 = null; try { smart.saveSmartPos({ x: 1, y: 2 }) } catch (e) { t2 = e }
   eq(t2, null, '抛环境：saveSmartPos 不抛');
-  eq(auto.loadSkippedVersion(), '', '抛环境：loadSkippedVersion() → 空串');
-  eq(auto.saveSkippedVersion('0.1.9'), false, '抛环境：saveSkippedVersion() → false');
 
   // 正常存储下行为仍对（证明「不动它们」没有误伤正常路）
   const mem = setMemoryLS();
   purgeDir(DIR);
   const smart2 = require(path.join(DIR, 'smartstore.cjs'));
-  const auto2 = require(path.join(DIR, 'updauto.cjs'));
   smart2.setSmartEnabled(true);
   eq(smart2.isSmartEnabled(), true, '正常存储：开关置 1 后读回 true');
   smart2.saveSmartPos({ x: 3, y: 4 });
   eq(smart2.loadSmartPos(), { x: 3, y: 4 }, '正常存储：位置存取往返');
-  eq(auto2.saveSkippedVersion('0.1.9'), true, '正常存储：跳过写成功回 true');
-  eq(auto2.loadSkippedVersion(), '0.1.9', '正常存储：跳过读回刚写的版本');
   void mem;
 
   restoreLS(prevDesc);
@@ -267,7 +266,7 @@ console.log('=== T4: 整壳仍起 —— 抛环境下 apply 走完（构建产�
       if (!/\/_dsh\/dsh-prompt\/log$/.test(String(url))) return { ok: false, status: 503, json: async () => ({ ok: false }) };
       const body = JSON.parse(init.body);
       calls.push(body);
-      const value = body.name.endsWith('.logGetSwitch') ? { ok: true, enabled: false, sampleRate: 1 } : { ok: true };
+      const value = body.name.endsWith('.logGetSwitch') ? { ok: true, enabled: false } : { ok: true };
       return { ok: true, status: 200, json: async () => ({ ok: true, value }) };
     };
     const clientPath = path.join(ROOT, 'lib', 'client.js');

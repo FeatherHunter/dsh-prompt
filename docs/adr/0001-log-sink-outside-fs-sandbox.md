@@ -13,6 +13,6 @@
 ## 后果
 
 - 本插件在宿主进程里持有不受 `ctx.fs` 沙箱约束的写权限。**落点与写入点必须由本仓自己收敛，不得出现第二个写日志的地方** —— 这也是 map 里「单条事件序列化后不超过 1KB」与事件清单字段白名单两条硬约束存在的原因。
-- `ctx.fs` 没有 `mkdir` / `unlink`，所以 dsh-log 需要的文件服务（`resolve` / `readText` / `writeText` / `mkdir` / `unlink` / `listDir`）要由本仓用 `node:fs/promises` 自建一个适配器传给它，否则「清空」无得可用。
+- `ctx.fs` 没有 `mkdir` / `unlink`，所以 dsh-log 需要的文件服务（`resolve` / `readText` / `writeText` / `mkdir` / `unlink` / `listDir`）要由本仓用 `node:fs/promises` 自建一个适配器传给它，否则「清空」无得可用。**2026-10-15 补记（dsh-log 0.3.4）**：包还认 `rename`（原子封存轮转件）、`appendText`（`audit.json` 追加）与 `sizeOf`（封存前判尺寸）三项可选能力，本仓适配器按 `node:fs/promises` 的 `rename` / `appendFile` / `stat` 逐项挂载 —— 注入者没给的能力就**不挂**（包靠 `typeof` 探测，挂空壳等于让它信任一个什么都不做的实现）。
 - **不要写 `inject: ['platform']`** —— 0.1.5-rc.1 平台没有 `platform` 服务（全档 22094 文件中 `ctx.platform` 与 `provide("platform"` 零命中）；`getPlatform` 由本仓自建，形状为 `{ os: process.platform, path: node:path, fs: <上面的适配器> }`。
 - `@deepseek-ai/dsh-home-paths` 是**库不是服务**（无 inject，官方 README 明确说不要经 cordis.yml 加载），本仓不依赖它，自行解析 `$DSH_HOME` 与 `~/.dsh`。

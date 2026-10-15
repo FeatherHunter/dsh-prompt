@@ -1,11 +1,6 @@
 {
   "version": 1,
   "pluginId": "dsh-prompt",
-  "counts": {
-    "resident": 33,
-    "ondemand": 9,
-    "selfmon": 5
-  },
   "valueDomain": {
     "enumPattern": "^[A-Za-z0-9._:\\/-]{0,32}$",
     "enumMaxLength": 32,
@@ -531,7 +526,7 @@
     },
     "panel.open": {
       "level": "info",
-      "kind": "ondemand",
+      "kind": "resident",
       "fields": [
         "mode",
         "rows"

@@ -3,7 +3,7 @@
  */
 import { getReact, keepComposerFocus, ModalPortal, PanelPortal, MODAL_Z } from './panel'
 import { SettingsPage } from './settings'
-import { remoteChromeScale, remoteSizeScale } from './remoteView'
+import { remoteChromeScale, scaledBaseFontSize } from './remoteView'
 import { isPanelOpen, setPanelOpen, cancelPanelClose, schedulePanelClose, noteHoverOpen, takeHoverOpen } from './state'
 import {
   getRemotePrefs, subscribeRemote, ensureRemoteLoaded,
@@ -396,11 +396,11 @@ export function EntryButton(props: any): any {
     // 宽随字自适应（仅远程）：fit-content 吃内容——字小时窄版，字大换行后渐宽；
     // min 保可用（窄到 480 即停，小屏按 94vw 收），max 取现状上限（96vw，与全屏档同值）；非远程原尺寸不动。
     // #92 补齐：卡片根吃与 SettingsPage 根同构的全额 fontSize（标题 1em/关闭 1em·2em 锚到它才跟档；
-    // 此前只体跟、头不跟，10 档下标题/关闭显小且命中区不放大，与大触控目标相悖；关=不设回原样）。
+    // #160 改锚：经收敛点只吃一遍，此前只体跟、头不跟，10 档下标题/关闭显小且命中区不放大，与大触控目标相悖；关=不设回原样）。
     ? {
       ...settingsModalCardStyle, width: 'fit-content', minWidth: 'min(480px, 94vw)', maxWidth: '96vw',
       height: 'calc(96vh - 3.5rem)', maxHeight: 'calc(96vh - 3.5rem)', margin: 0, borderRadius: 12,
-      fontSize: 'calc(var(--dsw-font-markdown-base-font-size) * ' + remoteSizeScale(remote.size) + ')',
+      fontSize: scaledBaseFontSize(remote.enabled, remote.size),
     }
     : settingsModalCardStyle
   const gearHeadStyle = remote.enabled

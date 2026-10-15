@@ -2,7 +2,7 @@
  * dsh-prompt — client 入口（v1 常规模式 + v1.1 智能模式）
  * 装配：input.left 入口按钮 / input.overlay 面板浮层 / settings.section 配置页（直属设置面板）/ inputTriggers /prompt 触发源（#9）/ shell.overlay 智能悬浮卡（#10）
  */
-import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler, armInputFocusTrack, INK_TINT_CSS } from './panel'
+import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler, armInputFocusTrack, INK_TINT_CSS, INK_UI_CSS } from './panel'
 import { EntryButton } from './button'
 import { SettingsPage } from './settings'
 import { buildPromptSource } from './trigger'
@@ -121,6 +121,18 @@ function applyInkTintStyle(): void {
     applyOwnedStyle(doc, INK_STYLE_MARKER, INK_TINT_CSS)
   } catch (e) { /* fail-soft：样式注入永不影响装配 */ }
 }
+/**
+ * 取色浮层的交互反馈样式段（CSS 本体在 `panel.ts` 的 `INK_UI_CSS`）：可点控件的 hover / active /
+ * focus 反馈，同样走归属缝注入（另一条私有标记，互不覆盖），页面级只注一次。
+ */
+const INK_UI_STYLE_MARKER = 'ink-ui'
+function applyInkUiStyle(): void {
+  try {
+    const doc = styleDocument()
+    if (!doc) return
+    applyOwnedStyle(doc, INK_UI_STYLE_MARKER, INK_UI_CSS)
+  } catch (e) { /* fail-soft：样式注入永不影响装配 */ }
+}
 
 export function apply(ctx: ClientContext): void {
   // 日志能力（#49）：先建日志器（本地开关秒显），再向宿主对账（以宿主为准），最后才写第一条事件。
@@ -197,6 +209,8 @@ export function apply(ctx: ClientContext): void {
   // #158：染色描边样式段（幂等、页面级）。不走 ctx.effect：与上面两个监听同理 —— 它是页面生命周期级的
   // 一次性注入，没有按会话拆装语义，包一层 effect 只会得到一个假的 teardown；回收由宿主样式账本负责。
   applyInkTintStyle()
+  // 取色浮层的交互反馈样式段（同归属缝、另一条标记；同样页面级一次）。
+  applyInkUiStyle()
   // 入口按钮（input.left；开合状态跟随面板）
   ctx.effect(() => ctx.slots.inject('conversation.input.left', () =>
     ctx.slots.register({ name: 'conversation.input.left', id: 'dsh-prompt-entry', order: 10, label: () => 'dsh-prompt' },
@@ -295,8 +309,46 @@ export function apply(ctx: ClientContext): void {
         } catch (e) { /* ignore */ }
         return false
       }
-      // 设置页已开（本插件名可见）→ 直达，不碰触发按钮。
+      // 设置页已开（本插件名可见）→ 直达，不碰入口。
       if (clickCell()) { finish(true); return }
+      // ① 宿主自己的 settings.open 命令（dsh-client-ui-settings-general 注册，run() = 设置壳 actions.open()）。
+      //    **不能写成 ctx.shortcuts.invoke**：shortcuts 这个 Service 对外只有 dispatch（键盘适配），
+      //    invoke 在它内部持有的 ShortcutRegistry 上（dsh-client-shortcuts/lib/client.js:644，
+      //    服务在 :1867 `this.registry = new ShortcutRegistry(...)`），服务本身没有这个成员。
+      //    另外它**没有返回值**（命令不存在就地 return）⇒ 只当"点火"，成功与否一律交给后面的轮询判定，
+      //    绝不拿它短路 DOM 兜底 —— 否则命令改名/静默无效时就成了"一次都没点"的老毛病。
+      const hostOpenSettings = (): boolean => {
+        try {
+          const sc = (ctx as any).shortcuts
+          const reg = sc && sc.registry
+          if (!reg || typeof reg.invoke !== 'function') return false
+          reg.invoke('settings.open', { modal: null })
+          return true
+        } catch (e) { return false }
+      }
+      // ② 侧栏 launcher 锚点 → 菜单项两步。2026-10-15 真机复现的根因：宿主壳层把 sidebar.settings 的
+      //    settings.launcher 声明成**单槽**（settings-general 的 children 表），而本构建里它被
+      //    dsh-client-ui-settings-account 的 AccountMenu 占着（button[aria-haspopup="menu"] /
+      //    aria-label=「账号菜单（Account menu）」）——settings-general 里那枚 aria-haspopup="dialog" 的
+      //    兜底按钮**根本不会渲染**，于是旧的 dialog 三条候选全落空 ⇒ 一次都没点，面板原位提示失败。
+      //    菜单项由 primitives Menu 渲染成 button[role="menuitem"]，宿主给「设置」项挂了 settingsShortcut
+      //    ⇒ aria-keyshortcuts，文案走它自己的词表（设置/Settings），两条都认。
+      const launcherAnchor = (): HTMLElement | null => {
+        try {
+          const row = document.querySelector('[class*="triggerRow"]')
+          const btn = row ? (row.querySelector('button[aria-haspopup]') || row.querySelector('button')) : null
+          return btn && !isOwnChrome(btn as HTMLElement) ? (btn as HTMLElement) : null
+        } catch (e) { return null }
+      }
+      const settingsMenuItem = (): HTMLElement | null => {
+        try {
+          const items = (Array.prototype.slice.call(document.querySelectorAll('button[role="menuitem"]')) as HTMLElement[])
+            .filter((b) => !isOwnChrome(b))
+          return items.find((b) => SETTINGS_TRIGGER_LABEL_RE.test((b.textContent || '').trim()))
+            || items.find((b) => !!b.getAttribute('aria-keyshortcuts'))
+            || null
+        } catch (e) { return null }
+      }
       // 认触发器：aria-label / title / 可见文本任一处命中「设置/Settings」（图标钮只在前两处有字）。
       const named = (b: HTMLElement): boolean => {
         const hay = [b.getAttribute('aria-label'), b.getAttribute('title'), (b.textContent || '').trim()]
@@ -310,16 +362,36 @@ export function apply(ctx: ClientContext): void {
         || dialogTriggers().find((b) => /trigger/i.test(String((b as any).className || '')))
         || dialogTriggers().find((b) => !!b.getAttribute('aria-keyshortcuts'))
         || allButtons().find(named)
-      if (!trig) { finish(false); return }
-      trig.click()
+      // 开设置：宿主命令 → launcher 两步 → 旧 dialog 触发器，三条互补，任一走通即可（都不在则立即失败留痕）。
+      // 点火顺序：① 宿主命令（不碰 DOM、无声、无返回）→ ② 侧栏 launcher 锚点（账号菜单里那项「设置」）
+      // → ③ 旧 dialog 触发器。① 点着了就**先别点 DOM**（设置已经开了，再点锚点只会弹出一层菜单）；
+      // 轮询到 ~1.2 秒还没开，才把 ②③ 补上 —— 既不牺牲快路径，也不放过静默失效。
+      const commandSent = hostOpenSettings()
+      const anchor = launcherAnchor()
+      if (!commandSent && !anchor && !trig) { finish(false); return }
+      const clickDomEntries = (): void => {
+        if (anchor) { try { anchor.click() } catch (e) { /* ignore */ } }
+        if (trig) { try { trig.click() } catch (e) { /* ignore */ } }
+      }
+      if (!commandSent) clickDomEntries()
       // 轮询等导航项挂载（宿主弹窗动画/本插件页注册都可能慢），最多约 3.6 秒。
       let n = 0
       const tid = setInterval(() => {
         try {
           if (clickCell()) { clearInterval(tid); finish(true); return }
           n += 1
-          // ~1.2 秒还没开：触发器补点一次（首次点空/焦点被抢的补救；宿主 actions.open 幂等，不会反关）。
-          if (n === 6) { try { trig.click() } catch (e) { /* ignore */ } }
+          // 菜单形态：锚点点开的是账号菜单，里面那项「设置」才是真入口（取到就点；菜单收起后自然取不到）。
+          const item = settingsMenuItem()
+          if (item) { try { item.click() } catch (e) { /* ignore */ } }
+          // ~1.2 秒还没开：把没走通的入口补一遍（宿主命令静默无效 / 首次点空 / 焦点被抢）。
+          // 重发宿主命令是安全的：这里传的是 { modal: null }，而宿主 resolve 只在 modal === 'settings'
+          // 时才走 closeTopModal 分支、否则一律 shellInstance.actions.open()（已开＝无操作）
+          // （宿主 settings-general/lib/client.js:1097-1107）⇒ 不会把用户自己开的设置反关。
+          // 菜单已弹开时不再补点锚点，免得把菜单又收回去。
+          if (n === 6) {
+            hostOpenSettings()
+            if (!item) clickDomEntries()
+          }
           if (n > 18) { clearInterval(tid); finish(false) }
         } catch (e) { try { clearInterval(tid) } catch (err) { /* ignore */ } finish(false) }
       }, 200)

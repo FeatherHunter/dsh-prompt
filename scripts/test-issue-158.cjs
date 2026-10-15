@@ -134,7 +134,42 @@ function groupA() {
   eq(padSites.length, 6, 'A) 裁切补偿共六处（紧凑行宿主 / 设置行宿主 / nmStyle / 远程标题 / 智能卡行名 / 弹窗预览）');
   const conditional = padSites.filter((m) => /(ink|value) \?/.test(all.slice(Math.max(0, m.index - 60), m.index))).length;
   eq(conditional, padSites.length, 'A) 六处补偿一律条件式（有颜色时才加，未上色的行零改动）');
-  if (failures === 0) ok('A) 静态接线：钩子唯一真相 + 4 处接线 + 零内联/零 media/零 stroke + 注入走共用缝 + 条件补偿');
+  // R3（真机三项）：① 描边开关搬进「一行收口」 ② 该行三控件同皮等高 ③ 可点控件有 hover/active/focus 反馈
+  need(/export const INK_UI_CSS/.test(panelCode), 'R3) panel.ts 应导出取色浮层的交互反馈样式段 INK_UI_CSS');
+  need(/'data-dsh-prompt-ink-row': '1'/.test(panelCode), 'R3) 「一行收口」容器应带 data-dsh-prompt-ink-row');
+  {
+    const rowAt = panelCode.indexOf("'data-dsh-prompt-ink-row': '1'");
+    const olAt = panelCode.indexOf('data-dsh-prompt-ink-outline-row', rowAt);
+    const rowClose = panelCode.indexOf(']),', rowAt);
+    need(rowAt > 0 && olAt > rowAt, 'R3) 描边开关必须排在一行收口容器之后（同一行内，不再自己占一行）');
+    need(rowClose < 0 || olAt < rowClose, 'R3) 描边开关应落在该行容器的子节点里（不能挂在容器外）');
+  }
+  need(/applyOwnedStyle\(doc, INK_UI_STYLE_MARKER, INK_UI_CSS\)/.test(idxCode), 'R3) index.ts 应经归属缝注入交互反馈段（另一条私有标记）');
+  need(/INK_UI_CSS\b/.test(idxCode) && /applyInkUiStyle\(\)/.test(idxCode), 'R3) index.ts 应复用 panel.ts 的 INK_UI_CSS 并在 apply 里调一次');
+  {
+    const ui = panel.INK_UI_CSS;
+    need(typeof ui === 'string' && ui.length > 200, 'R3) INK_UI_CSS 应是一段真样式（实得 ' + String(ui).length + ' 字符）');
+    need(/:hover\{/.test(ui) && /:active\{/.test(ui) && /:focus-visible\{/.test(ui) && /:focus\{/.test(ui), 'R3) 反馈段应含 hover / active / focus / focus-visible 四类');
+    need(/\[data-dsh-prompt-ink-cell\]:hover/.test(ui), 'R3) 色块要有 hover 反馈');
+    need(/\[data-dsh-prompt-ink-default\]/.test(ui), 'R3) 「默认」键要有反馈');
+    need(/\[data-dsh-prompt-ink-outline-row\]:hover/.test(ui), 'R3) 描边开关整行要有 hover 反馈');
+    need(/\[data-dsh-prompt-ink-hex\]:focus/.test(ui), 'R3) 十六进制框聚焦要有环（它内联 outline:none）');
+    need(/\[data-dsh-prompt-ink-outline\]:focus-visible\{/.test(ui), 'R3) 焦点环要挂在能聚焦的 checkbox 上（挂在描边行的 <label> 上永远不会亮）');
+    need(!/#[0-9a-fA-F]{3,6}\b/.test(ui), 'R3) 反馈段不得写死颜色（一律走宿主令牌）');
+    need(!/text-shadow/.test(ui) && !/-webkit-text-stroke/.test(ui), 'R3) 反馈段不得碰描边通道（textShadow / -webkit-text-stroke）');
+    // 悬停 vs 选中：色块选中态是 2px label-primary 边框（panel.ts 色块 style），悬停若也用 label-primary
+    // 画环，两者同形 ⇒ 悬停一个没选中的格子看起来就是已选中。中性令牌画悬停、label-primary 留给选中/聚焦。
+    need(/\[data-dsh-prompt-ink-cell\]:hover\{[^}]*var\(--dsw-alias-border-l2\)/.test(ui), 'R3) 色块悬停环应用中性令牌（border-l2）');
+    need(!/\[data-dsh-prompt-ink-cell\]:hover\{[^}]*var\(--dsw-alias-label-primary\)/.test(ui), 'R3) 色块悬停不得用选中态令牌 label-primary');
+    need(/\[data-dsh-prompt-ink-outline-row\]:hover\{[^}]*var\(--dsw-alias-border-l2\)/.test(ui), 'R3) 描边开关整行悬停环也用中性令牌（背景令牌画环几乎看不见）');
+    need(!/'ink-ui'/.test(panelCode), 'R3) 私有样式标记只在 index.ts 一处定义（panel.ts 不得再导出同值常量：同一标记两处真相会各自漂移）');
+  }
+  // 三控件同皮的实现：公共皮 inkRowCtlStyle（固定 height/1px 边框），选中态 inkRowCtlOnStyle 只改颜色 + inset 环。
+  need(/const inkRowCtlStyle[\s\S]{0,240}height: '2\.6em'/.test(panelCode), 'R3) 该行控件共用公共皮，且高度用 em（写死 px 在大字档下会溢出：3 档实测）');
+  need(/const inkRowCtlOnStyle[\s\S]{0,200}boxShadow: 'inset 0 0 0 1px/.test(panelCode), 'R3) 选中态应是 inset 环而不是加粗边框');
+  need(!/const inkRowCtlOnStyle[\s\S]{0,160}border: '/.test(panelCode), 'R3) 选中态不得覆写 border（宽度一变，整行高度就跟着变）');
+  need(/'aria-pressed': value === '' \? 'true' : 'false'[\s\S]{0,160}inkRowCtlOnStyle/.test(panelCode), 'R3) 「默认」键选中态应走 inkRowCtlOnStyle');
+  if (failures === 0) ok('A) 静态接线：钩子唯一真相 + 4 处接线 + 零内联/零 media/零 stroke + 注入走共用缝 + 条件补偿 + R3 三项');
 }
 
 // ═══ B) 注入缝运行时 + CSS 本体 ═══
@@ -275,6 +310,31 @@ async function groupC() {
       if (pvOn.findAll((n) => n.props && n.props[panel.INK_TINT_ATTR] !== undefined).length === 0) fail('C) 重新打开描边后预览应恢复钩子');
     }
   }
+  // R3（真机三项）：描边开关与「默认 / 十六进制」同行且三控件等高 —— 真机反馈「高度不一致」的根因是
+  // 默认键选中态把边框 1px→2px、十六进制框整段套 modalFieldStyle（0.96em + 8/10 内边距），各按各的盒子算高。
+  {
+    const rowBox = byAttr(root, 'data-dsh-prompt-ink-row')[0];
+    if (!rowBox) fail('R3) 浮层缺「一行收口」容器（data-dsh-prompt-ink-row）');
+    else {
+      eq(rowBox.findAll((n) => n.props && n.props['data-dsh-prompt-ink-outline-row'] !== undefined).length, 1,
+        'R3) 描边开关应挂在一行收口容器内（不是容器外的独立行）');
+      const dCtl = byAttr(root, 'data-dsh-prompt-ink-default')[0];
+      const hCtl = byAttr(root, 'data-dsh-prompt-ink-hex')[0];
+      const oCtl = byAttr(root, 'data-dsh-prompt-ink-outline-row')[0];
+      const heights = [dCtl, hCtl, oCtl].map((n) => (n && n.props.style ? n.props.style.height : null));
+      // 断言口径：这里钉的是**内联样式对象**（jsdom 桩没有布局引擎，量不出真实盒高）。真正的不变量是
+      //「三控件共用同一高度口径，且高度用相对单位」—— headless Chrome 实测（research/palette-ui-163/
+      // _probe-variants.html 的 A/B/C 三方案）：写死 32px 时 2 档起 0.9em 文字就溢出盒子（3 档 50.4px
+      // 文字塞进 32px 盒）；min-height:32 三控件高不相等（输入框 35 vs 32）；2.6em 在 1/2/3/5 档全部
+      // 「三控件等高 + 零溢出」。所以断言 = 三个值彼此相等且以 em 结尾，不钉魔数。
+      eq(new Set(heights.map(String)).size, 1, 'R3) 该行三个控件共用同一高度口径（实得 ' + heights.join(',') + '）');
+      if (!heights.every((h) => /em$/.test(String(h)))) fail('R3) 高度必须用相对单位（写死 px 在大字档下会溢出：3 档实测）');
+      eq([dCtl, hCtl, oCtl].filter((n) => n && n.props.style && n.props.style.boxSizing === 'border-box').length, 3,
+        'R3) 三控件都应 box-sizing:border-box（边框宽度不许参与盒子尺寸）');
+      eq(String(dCtl.props.style.border || ''), '1px solid var(--dsw-alias-border-l1)',
+        'R3) 未选中态是 1px 边框（选中态只换色 + inset 环，永远不用 2px，见静态断言）');
+    }
+  }
   // 「完成」收起浮层
   const done = byText(byAttr(root, 'data-dsh-prompt-ink-pop')[0], zh('colorDone'));
   if (!done) fail('C) 浮层缺「完成」键');
@@ -329,7 +389,31 @@ async function groupD() {
     const outs = putBodies.filter((p) => /customs\/put/.test(p.url)).map((p) => p.body.template).filter((t) => t && t.id === 'x-outband');
     const last = outs[outs.length - 1];
     eq(last && last.color, '#ffffff', 'F) 出站形状逐字段带着带外值（toHostShape 不加工颜色）');
+    // #162 窄边界：color 带外 ⇒ 读侧就是「未选颜色」⇒ 这次只改名字的保存不得顺手写下 outline 键（ADR-0007）
+    eq(Object.prototype.hasOwnProperty.call(rec, 'outline'), false, 'F) 带外 color 的存量记录改名保存不得新增 outline 键（判据＝读侧 inkColorOf）');
+    eq(last && last.outline, undefined, 'F) 出站形状也不得凭空多出 outline 键');
   }
+  // F2) 同一行随后选一个合法颜色：开关必须以「开」长出来（#162：选了颜色时默认开），取消不改盘
+  if (editRow(inst, 'x-outband')) {
+    TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-field-btn')[0].props.onClick(); });
+    eq(byAttr(root, 'data-dsh-prompt-ink-outline-row').length, 0, 'F) 带外值（读侧＝未选颜色）在浮层里不该有描边开关');
+    const legal = byAttr(root, 'data-dsh-prompt-ink-cell')[0].props['data-dsh-prompt-ink-cell'];
+    TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-cell', legal)[0].props.onClick(); });
+    eq(byAttr(root, 'data-dsh-prompt-ink-outline-row').length, 1, 'F) 选一个合法颜色后描边开关长出来');
+    eq(byAttr(root, 'data-dsh-prompt-ink-outline')[0].props.checked, true, 'F) 带外值记录选色后开关默认开（不得预置为关）');
+    clickSave(inst, 'cancel');
+    const recKept = store.allTemplates().filter((t) => t.id === 'x-outband')[0];
+    eq(recKept.color, '#ffffff', 'F) 取消后存量带外值仍原样（弹窗只是本地态）');
+    eq(Object.prototype.hasOwnProperty.call(recKept, 'outline'), false, 'F) 取消也不得留下 outline 键');
+  }
+  // F3) 数据层守卫本身（不经弹窗）：带外 color 的记录，任何调用方送 outline:false 都不得落键
+  putBodies.length = 0;
+  store.updateCustom('x-outband', { outline: false });
+  const recGuard = store.allTemplates().filter((t) => t.id === 'x-outband')[0];
+  eq(recGuard.color, '#ffffff', 'F) 直调 updateCustom 后带外值仍原样');
+  eq(Object.prototype.hasOwnProperty.call(recGuard, 'outline'), false, 'F) 直调 updateCustom 送 outline:false：带外 color 记录不得落 outline 键（判据＝读侧 inkColorOf）');
+  const guardOut = putBodies.filter((p) => /customs\/put/.test(p.url)).map((p) => p.body.template).filter((t) => t && t.id === 'x-outband').pop();
+  eq(guardOut && guardOut.outline, undefined, 'F) 直调守卫的出站形状也不得多出 outline 键');
   // E) 新建带色 → 落盘；#162 描边开关：关 ⇒ 落 outline:false / 再开 ⇒ 删键 / 点「默认」⇒ color+outline 一起消失
   if (openAddModal(inst)) {
     TR.act(() => { byAttr(root, 'data-dsh-prompt-ink-field-btn')[0].props.onClick(); });
@@ -387,7 +471,7 @@ async function groupD() {
     }
   }
   TR.act(() => { inst.unmount(); });
-  if (failures === 0) ok('D/E/F) 渲染与落盘：带色名字染色 + 关描边零钩子 + 带外回落照旧 + 新建落键 + 清除删键 + 存量带外值不被改写');
+  if (failures === 0) ok('D/E/F) 渲染与落盘：带色名字染色 + 关描边零钩子 + 带外回落照旧 + 新建落键 + 清除删键 + 存量带外值零改写（含不新增 outline 键）');
 }
 
 (async () => {

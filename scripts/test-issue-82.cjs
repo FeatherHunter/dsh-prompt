@@ -367,20 +367,20 @@ ok('渲染器：配置键点击开自家设置弹窗（含远程段）');
   ok('渲染器：齿轮弹窗宽随字自适应（fit-content + min/max 钳制）');
 }
 // 单滑块全局跟随（无预览版）：大小预览块已删（钩子一并退役），滑块/size 值行为保留；
-// 设置页根跟档位（用户拍板：开吃全额、与 compact 小列表 uiFontScale 同构，关=原样零打扰）
+// 设置页根只吃一遍（#160 改锚：经收敛点落新基准，档位由 #92 字桥同步；关=原样零打扰）
 if (root.findAll((x) => x.props && (x.props['data-dsh-prompt-size-preview'] === '1' || x.props['data-dsh-prompt-size-sample'] === '1')).length !== 0) fail('大小预览块应已删除');
 // 滑块与档位值行为保留：10 档可落，值行随档变
 TR.act(() => { remote2.setRemoteSize(10); });
 if (remote2.getRemotePrefs().size !== 10) fail('10 档应落地，实际 ' + remote2.getRemotePrefs().size);
 const sizeVal = root.findAll((x) => x.props && x.props['data-dsh-prompt-size-value'] === '1')[0];
 if (!sizeVal) fail('设置页缺档位值行 [data-dsh-prompt-size-value]');
-// 开 10 档时设置页根吃全额（calc 相对缩放，与 compact 同构）
+// 开 10 档时设置页根只吃一遍（新基准；#160 改锚）
 const settingsRootOn = created.toJSON().props.style;
-if (settingsRootOn.fontSize !== 'calc(var(--dsw-font-markdown-base-font-size) * 5.5)') fail('开10档设置页根应跟全额，实际 ' + settingsRootOn.fontSize);
-// 关时根落宿主基准（em 子项锚点，与旧 px 视觉一致）
+if (settingsRootOn.fontSize !== 'var(--dsh-content-font-size, 14px)') fail('开10档设置页根应落新基准（只吃一遍），实际 ' + settingsRootOn.fontSize);
+// 关时根落同一新基准（em 子项锚点，与旧 px 视觉一致）
 TR.act(() => { remote2.setRemoteEnabled(false); });
 const settingsRootOff = created.toJSON().props.style;
-if (settingsRootOff.fontSize !== 'var(--dsw-font-markdown-base-font-size)') fail('关时设置页根应落基准 var，实际 ' + settingsRootOff.fontSize);
+if (settingsRootOff.fontSize !== 'var(--dsh-content-font-size, 14px)') fail('关时设置页根应落新基准 var，实际 ' + settingsRootOff.fontSize);
 TR.act(() => { remote2.setRemoteEnabled(true); });
 remote2.setRemoteEnabled(true);
 remote2.setRemoteSize(1);
@@ -393,7 +393,7 @@ let ebLarge;
 TR.act(() => { ebLarge = TR.create(React.createElement(buttonMod.EntryButton, { open: false })); });
 const gearLargeW = ebLarge.root.findAll((x) => x.props && x.props['data-dsh-prompt-remote-gear'] === '1')[0].props.style.width;
 if (!(gearLargeW > gearSmallW)) fail('齿轮尺寸应随大小档变大，实际小 ' + gearSmallW + ' 大 ' + gearLargeW);
-ok('渲染器：单滑块全局跟随（设置页根跟全额 + 入口/齿轮自由缩放）');
+ok('渲染器：单滑块全局跟随（设置页根只吃一遍 + 入口/齿轮自由缩放）');
 remote2.__resetRemoteForTests();
 remote2.__setRemoteHostCapsForTests(null);
 

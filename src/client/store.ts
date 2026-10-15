@@ -498,8 +498,12 @@ export function updateCustom(id: string, patch: { name?: string; labels?: string
       else next.color = ink
     }
     if (patch.outline !== undefined) {
-      if (patch.outline === false && next.color !== undefined) next.outline = false
-      else delete next.outline
+      // #162：判据是**读侧权威** inkColorOf(next)，不是原始存储值 —— color 是带外值（只能手改数据造成）的
+      // 存量记录，读侧就是「未选颜色」：此时这个键既不新增也不删除（ADR-0007：存量逐字节不变）。
+      // 旧写法 `next.color !== undefined` 会让「只改名字」的一次保存顺手写下 outline:false。
+      const hasInk = inkColorOf(next) !== undefined
+      if (hasInk && patch.outline === false) next.outline = false
+      else if (hasInk) delete next.outline
     }
     persist(PUT_URL, { template: toHostShape(next) })
     return next

@@ -5,6 +5,8 @@
  * 三件事：
  * 1) 建日志器：`dsh-log/client` 的 `createClientLog`，四个依赖由这里传入；宿主调用器桥接到
  *    `POST /_dsh/dsh-prompt/log`（复用现有 HTTP 桥，不新开通道），宿主那边再转给电话注册表。
+ *    0.3.x 契约：`pluginId` 与 `prefix` **都必填**（缺席直接抛，不再回退），开关状态只剩
+ *    `{ enabled, rev }`（上游 0.3.0 删掉了从没被读过的 `sampleRate`），`setLogSwitch(enabled)` 单参。
  * 2) 事件闸门：与宿主半同一套规则、同一份清单（构建期内联仓库根的 `event-list.dsh-prompt.json`），
  *    在**入队前**就把未声明的字段丢掉——用户内容根本不上桥。清单不可用时失败关闭。
  * 3) 界面要用的开关动作：读当前值、写开关、启动对账、跨标签页广播、导出、清空。
@@ -51,11 +53,16 @@ export interface LogFacade {
   log(event: LogEvent | string, fields?: Record<string, unknown>): boolean
   isEnabled(event: LogEvent | string): boolean
   status(): LogStatus
-  getSwitch(): { enabled: boolean; sampleRate: number }
+  getSwitch(): { enabled: boolean }
   setSwitch(enabled: boolean): Promise<{ ok: boolean; enabled: boolean; error?: string }>
   reconcile(): Promise<{ ok: boolean; enabled: boolean }>
   exportLog(date?: string): Promise<LogExportResult>
-  clearLog(scope?: 'day' | 'all'): Promise<{ ok: boolean; removed: number }>
+  /**
+   * 清空历史日志。0.3.x 起「当日可写文件」由包内保护（host/files.js 的 isProtectedLogFile）：
+   * 无论怎么点，今天正在写的那一份都不会被删 —— 所以这里不再有 scope 旋钮，
+   * 语义就是「删掉今天以前的日志文件，removed 是删掉的份数」。
+   */
+  clearLog(): Promise<{ ok: boolean; removed: number }>
   flush(): void
   /** 开关状态变化（对账、写入、跨标签页广播）时回调；返回取消订阅函数。 */
   subscribe(fn: () => void): () => void
@@ -149,7 +156,7 @@ export function startLog(deps: StartLogDeps = {}): LogFacade {
       storage: deps.storage ?? resolveDefaultStorage(),
       broadcastLogSwitch: channel ? () => { try { channel.postMessage({ on: clientLog.logSwitch.enabled }) } catch (e) { /* ignore */ } } : null,
     },
-    { pluginId: 'dsh-prompt', eventList: manifest },
+    { pluginId: 'dsh-prompt', prefix: 'dsh-prompt', eventList: manifest },
   )
 
   if (channel) {
@@ -190,9 +197,9 @@ export function startLog(deps: StartLogDeps = {}): LogFacade {
       scrubbed: gate.stats.scrubbed,
       manifestOk: gate.manifestOk,
     }),
-    getSwitch: () => ({ enabled: clientLog.logSwitch.enabled, sampleRate: clientLog.logSwitch.sampleRate }),
+    getSwitch: () => ({ enabled: clientLog.logSwitch.enabled }),
     async setSwitch(enabled) {
-      const res = await clientLog.setLogSwitch(enabled, 1)
+      const res = await clientLog.setLogSwitch(enabled)
       notify()
       return { ok: !!res?.ok, enabled: !!(res?.enabled ?? clientLog.logSwitch.enabled), error: res?.error }
     },
@@ -226,9 +233,9 @@ export function startLog(deps: StartLogDeps = {}): LogFacade {
         return { ok: false, reason }
       }
     },
-    async clearLog(scope = 'all') {
+    async clearLog() {
       try {
-        const res: any = await host!.call(clientLog.phoneNames.logClear, { date: scope === 'day' ? undefined : 'all' })
+        const res: any = await host!.call(clientLog.phoneNames.logClear, { date: 'all' })
         const out = { ok: !!res?.ok, removed: Number(res?.removed ?? 0) }
         facade.log('settings.log.clear', out)
         return out
@@ -268,7 +275,7 @@ export function getLog(): LogFacade {
     log: () => false,
     isEnabled: () => false,
     status: () => ({ dropped: 0, undeclared: 0, droppedFields: 0, oversize: 0, scrubbed: 0, manifestOk: false }),
-    getSwitch: () => ({ enabled: false, sampleRate: 1 }),
+    getSwitch: () => ({ enabled: false }),
     setSwitch: async (enabled) => ({ ok: false, enabled, error: 'log-not-started' }),
     reconcile: async () => ({ ok: false, enabled: false }),
     exportLog: async () => ({ ok: false, reason: 'log-not-started' }),

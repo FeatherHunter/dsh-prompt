@@ -588,6 +588,38 @@ export const INK_TINT_CSS = (function (): string {
   const ring = offsets.map((o) => o[0] + 'px ' + o[1] + 'px 0 ' + ink).join(',')
   return '[' + INK_TINT_ATTR + ']{text-shadow:' + ring + ';}'
 })()
+/**
+ * 取色浮层的交互反馈 CSS（真机反馈：色块、十六进制框、描边开关点上去没感觉）。
+ * 为什么是样式段而不是内联样式：`:hover/:active/:focus` 内联表达不了。
+ * 为什么走 filter / box-shadow / transform 而不是背景变色：这些控件的底色与边框多半是内联写死的
+ * （内联优先级高于任何选择器）⇒ 只用内联没占用的三个通道；十六进制框内联写了 `outline:'none'`，
+ * 所以它的聚焦环也用 box-shadow 而不是 outline。
+ * 注入点在 index.ts 启动时（与染色样式同一套归属缝，`data-plugin='dsh-prompt'`，幂等可回收）。
+ */
+export const INK_UI_CSS = (function (): string {
+  const cell = '[data-dsh-prompt-ink-cell]'
+  const btn = '[data-dsh-prompt-ink-default],[data-dsh-prompt-ink-field-btn],[data-dsh-prompt-ink-done],[data-dsh-prompt-ink-close]'
+  const field = '[data-dsh-prompt-ink-hex]'
+  const row = '[data-dsh-prompt-ink-outline-row]'
+  const ring = '2px solid var(--dsw-alias-label-primary)'
+  return [
+    cell + ',' + btn + ',' + field + ',' + row + '{transition:filter .12s ease,box-shadow .12s ease,transform .06s ease;}',
+    // 悬停环一律用中性令牌、只有「选中 / 聚焦」才用 label-primary —— 否则悬停一个未选中的格子
+    // 看起来就是已选中（色块选中态是 2px label-primary 边框，两者同形会让人误判当前颜色）。
+    cell + ':hover{filter:brightness(1.18);box-shadow:0 0 0 2px var(--dsw-alias-border-l2);}',
+    cell + ':active{transform:scale(.9);}',
+    btn + ':hover{filter:brightness(1.15);}',
+    btn + ':active{transform:translateY(1px);}',
+    row + ':hover{box-shadow:0 0 0 2px var(--dsw-alias-border-l2);}',
+    field + ':hover{box-shadow:0 0 0 1px var(--dsw-alias-border-l2);}',
+    field + ':focus{box-shadow:0 0 0 2px var(--dsw-alias-label-primary);}',
+    // 焦点环要挂在**真能聚焦**的东西上：色块 / 按钮 / 十六进制框 / 描边开关的 checkbox。
+    // （描边行本身是 <label>，不可聚焦 ⇒ 写 row:focus-visible 永远不会亮，Tab 到 checkbox 时没反馈。）
+    cell + ':focus-visible,' + btn + ':focus-visible,' + '[data-dsh-prompt-ink-outline]:focus-visible{outline:' + ring + ';outline-offset:2px;}',
+    '[data-dsh-prompt-ink-outline]{accent-color:var(--dsw-alias-label-primary);cursor:pointer;}',
+  ].join('')
+})()
+
 /** 色块墙的候选网格：饱和度取样（只锁亮度，不锁死饱和度 —— 让饱和度也参与取样，才填得满带内的空间）。 */
 const INK_SAT_SAMPLES = [1, 0.85, 0.7, 0.55, 0.4]
 /** 亮度取样步长 3%：够密；每档色相最终只挑「墙面行数」那么多格（见 inkShadesOf）。 */
@@ -661,6 +693,28 @@ const inkFieldBtnStyle: any = {
   border: 'thin solid var(--dsw-alias-border-l1)', background: 'var(--dsw-alias-bg-layer-3)',
   color: 'var(--dsw-alias-label-primary)', cursor: 'pointer',
   fontFamily: 'var(--dsw-font-family)', fontSize: '1em',
+}
+/**
+ * 浮层「一行收口」里各控件的公共皮（#164 真机反馈：默认 / 十六进制 / 文字描边）：同高（`2.6em`，
+ * 随宿主字号缩放，1 档 ≈ 33px）、同字号、同圆角。
+ * 真机反馈「这一行控件高度不一致」的根因：默认键的选中态把边框从 1px 加粗到 2px（比未选中高 2px），
+ * 十六进制框又整段套 modalFieldStyle（0.96em + 8px 内边距 + 8px 圆角）—— 三个控件各按自己的盒子算高。
+ * 现在统一：1px 边框 + box-sizing:border-box + 同一高度口径，选中态改用 inset 环（不碰边框宽度）。
+ * 高度用 em 不用 px：插件自家面字号会随远程档位放大（#160），写死 32px 时 0.9em 文字从 2 档起就
+ * 溢出这个盒子（headless Chrome 实测：1 档 32/32/32 装得下；3 档文字 50.4px 塞进 32px 盒 ⇒ 溢出；
+ * 5 档更甚）。2.6em ≈ 1 档 33px，档位放大时控件跟着长高，三控件仍等高（同字号/同行高/同内边距）、
+ * 永不溢出 —— 见 research/palette-ui-163/_probe-variants.html 的 A/B/C 三方案实测表。
+ */
+const inkRowCtlStyle: any = {
+  height: '2.6em', boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', gap: 6,
+  padding: '0 0.7em', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l1)',
+  background: 'transparent', color: 'var(--dsw-alias-label-primary)',
+  fontFamily: 'var(--dsw-font-family)', fontSize: '0.9em', lineHeight: 1, cursor: 'pointer',
+}
+/** 选中态：不碰边框宽度（会顶高整行），改用 1px inset 环。 */
+const inkRowCtlOnStyle: any = {
+  borderColor: 'var(--dsw-alias-label-primary)',
+  boxShadow: 'inset 0 0 0 1px var(--dsw-alias-label-primary)',
 }
 /** 浮层卡片的皮（同「悬浮标签网格」那张卡）。 */
 const inkPopCardStyle: any = {
@@ -737,8 +791,8 @@ function InkPicker(props: any): any {
           h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } }, [
             h('span', { key: 't', style: { fontSize: '1em', fontWeight: 700 } }, '🎨 ' + t('colorField')),
             h('span', { key: 'b', style: { display: 'flex', gap: '0.5em' } }, [
-              h('button', { key: 'done', type: 'button', style: modalBtn(true), onClick: close }, t('colorDone')),
-              h('button', { key: 'x', type: 'button', style: modalBtn(), onClick: close }, '×'),
+              h('button', { key: 'done', type: 'button', 'data-dsh-prompt-ink-done': '1', style: modalBtn(true), onClick: close }, t('colorDone')),
+              h('button', { key: 'x', type: 'button', 'data-dsh-prompt-ink-close': '1', style: modalBtn(), onClick: close }, '×'),
             ]),
           ]),
           // 预览：真名 + 真色 + 描边钩子（与四处渲染同一套属性，所见即所得）
@@ -771,39 +825,44 @@ function InkPicker(props: any): any {
                 onClick: () => pick(hex),
               })
             })))),
-          // ② 一行收口：默认 + 十六进制 + 带外提示（写入口不吸附、不改写存量 ⇒ 必须明示而不是静默吞掉）
-          h('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } }, [
+          // ② 一行收口：默认 + 十六进制 + 文字描边开关 + 带外提示（三者同高同行；真机口径：描边开关
+          //    属于这一行，不该自己占一行。写入口不吸附、不改写存量 ⇒ 带外值必须明示而不是静默吞掉）
+          h('div', { key: 'row', 'data-dsh-prompt-ink-row': '1', style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } }, [
             h('button', {
               key: 'default', type: 'button', 'data-dsh-prompt-ink-default': '1',
               'aria-pressed': value === '' ? 'true' : 'false', title: t('colorDefault'), 'aria-label': t('colorDefault'),
-              style: {
-                flex: 'none', padding: '0.45em 0.6em', borderRadius: 6, cursor: 'pointer', fontSize: '0.85em',
-                fontFamily: 'var(--dsw-font-family)', color: 'var(--dsw-alias-label-primary)', background: 'transparent',
-                border: value === '' ? '2px solid var(--dsw-alias-label-primary)' : '1px solid var(--dsw-alias-border-l1)',
-              },
+              style: { ...inkRowCtlStyle, flex: 'none', ...(value === '' ? inkRowCtlOnStyle : {}) },
               onClick: () => pick(''),
             }, t('colorDefaultShort')),
             h('input', {
               key: 'in', type: 'text', value: typed, placeholder: t('colorHexPh'), 'aria-label': t('colorHexPh'),
               'data-dsh-prompt-ink-hex': '1',
-              style: { ...modalFieldStyle, width: 'auto', flex: '0 1 11em' },
+              // 与同行两个控件共用一套皮（inkRowCtlStyle：高 32 / 0.9em / 6px 圆角 / 1px 边框）；
+              // 只补它没有的两件事：输入框要有填充底、内联 outline:none（聚焦环交给 INK_UI_CSS 的
+              // :focus 画）。不再整段套 modalFieldStyle —— 那套是 0.96em + 8/10 内边距，与同行控件
+              // 不一致，套上还得把 height/padding/圆角/字号/行高逐条覆写回去（两层互相打架）。
+              style: {
+                ...inkRowCtlStyle, display: 'inline-block', cursor: 'text',
+                width: 'auto', flex: '1 1 8em', minWidth: '6em',
+                background: 'var(--dsw-alias-bg-layer-3)', outline: 'none',
+              },
               onChange: (e: any) => onHex(e.target.value),
             }),
+            // ③ 文字描边开关（#162）：只有选了颜色才出现 —— 没颜色就没有描边可言（用户口径），
+            // 所以这里不摆一个点不动的灰控件，而是「选了色，开关才长出来」。默认开（＝今天的行为）。
+            value ? h('label', {
+              key: 'ol', 'data-dsh-prompt-ink-outline-row': '1',
+              style: { ...inkRowCtlStyle, flex: 'none', userSelect: 'none' },
+            }, [
+              h('input', {
+                key: 'cb', type: 'checkbox', checked: outlineOn, 'data-dsh-prompt-ink-outline': '1',
+                style: { margin: 0, width: '1em', height: '1em', cursor: 'pointer' },
+                onChange: (e: any) => { props.onOutline && props.onOutline(!!(e.target && e.target.checked)) },
+              }),
+              h('span', { key: 'l' }, t('colorOutline')),
+            ]) : null,
             bad ? h('span', { key: 'warn', 'data-dsh-prompt-ink-warn': '1', style: { fontSize: '0.85em', color: 'var(--dsw-specific-danger,#e06c75)' } }, t('colorOutOfBand')) : null,
           ]),
-          // ③ 文字描边开关（#162）：只有选了颜色才出现 —— 没颜色就没有描边可言（用户口径），
-          // 所以这里不摆一个点不动的灰控件，而是「选了色，开关才长出来」。默认开（＝今天的行为）。
-          value ? h('label', {
-            key: 'ol', 'data-dsh-prompt-ink-outline-row': '1',
-            style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9em', color: 'var(--dsw-alias-label-primary)', cursor: 'pointer', userSelect: 'none' },
-          }, [
-            h('input', {
-              key: 'cb', type: 'checkbox', checked: outlineOn, 'data-dsh-prompt-ink-outline': '1',
-              style: { margin: 0, cursor: 'pointer' },
-              onChange: (e: any) => { props.onOutline && props.onOutline(!!(e.target && e.target.checked)) },
-            }),
-            h('span', { key: 'l' }, t('colorOutline')),
-          ]) : null,
         ]),
       ]),
     ]) : null,
@@ -837,9 +896,10 @@ function TemplateModal(props: any): any {
   // 「没有颜色」——ADR-0007 明令绝不改写用户数据（这也是本组件用三态而不是布尔的原因）。
   const s4 = react.useState(editing ? (inkColorOf(props.tpl) ?? null) : null)
   const ink = s4[0]; const setInk = s4[1]
-  // #162 描边开关：没有三态问题（读侧已给出确定答案），初值取 inkOutlineOf —— 存量缺键＝开。
-  // 未选颜色时它恒 false，而开关此时根本不渲染；保存时 store 会拒绝给无颜色的记录落 outline。
-  const s5 = react.useState(editing ? inkOutlineOf(props.tpl) : true)
+  // #162 描边开关：没有三态问题（读侧已给出确定答案），初值＝有可读颜色时取 inkOutlineOf（存量缺键＝开），
+  // 没有可读颜色（含带外值的存量）时一律「开」：开关此刻不渲染，但用户随后选一个合法颜色，它就以此初值
+  // 长出来（#162 口径「选了颜色时默认开」）。照抄 inkOutlineOf 的 false 会让这类记录一选色就带出「关」。
+  const s5 = react.useState(editing && inkColorOf(props.tpl) !== undefined ? inkOutlineOf(props.tpl) : true)
   const outline = s5[0]; const setOutline = s5[1]
   const errState = react.useState(null as string | null)
   const err = errState[0]; const setErr = errState[1]
@@ -1328,8 +1388,8 @@ export function TemplateBrowser(props: BrowserProps): any {
   const presetCount = PRESET_TEMPLATES.length
   const customCount = customs.length
 
-  // 大小跟随开关（2026-09-29 用户拍板）：仅远程开时缩放，关=一切正常尺寸。
-  const uiFontScale = remoteSizeScale(remotePrefs.enabled ? remotePrefs.size : 1)
+  // 大小跟随开关（2026-09-29 用户拍板；#160 改锚后倍数只由 #92 字桥写进宿主内容字变量，
+  // 自家面经 scaledBaseFontSize 只吃一遍，此处不再自算倍数）。
 
   // ── 样式（DSH 主题变量）──
   const base = 'var(--dsw-alias-label-primary)'
@@ -1354,8 +1414,8 @@ export function TemplateBrowser(props: BrowserProps): any {
         backgroundColor: 'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))',
         border: '1px solid var(--dsw-alias-border-inverted)',
         borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)', overflow: 'hidden',
-        // 常规紧凑浮层同样跟字号档（calc 相对缩放，子项 em 全跟；宽度 560 与高度上限见 maxHeight）。
-        fontFamily: 'var(--dsw-font-family)', fontSize: 'calc(var(--dsw-font-markdown-base-font-size) * ' + uiFontScale + ')', color: base,
+        // 常规紧凑浮层同样跟字号档（#160 改锚：经收敛点只吃一遍，子项 em 全跟；宽度 560 与高度上限见 maxHeight）。
+        fontFamily: 'var(--dsw-font-family)', fontSize: scaledBaseFontSize(remotePrefs.enabled, remotePrefs.size), color: base,
       }
     : {
         display: 'flex', flexDirection: 'column', gap: 6, padding: '6px 8px',

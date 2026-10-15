@@ -243,7 +243,7 @@ async function groupA() {
   eq((panelCode.match(/color: ink \|\| base/g) || []).length, 1, 'A) 悬浮列表行：未上色回退宿主色、上色用用户色（同一个变量）');
   eq((panelCode.match(/color: ink,/g) || []).length, 2, 'A) 远程大列表卡 + 设置页列表行：同一个变量 ink');
   eq((smartCode.match(/color: ink,/g) || []).length, 1, 'A) 智能卡行：同一个变量 ink');
-  eq(((panelCode + smartCode).match(/inkColorOf\(/g) || []).length, 4, 'A) 颜色只经 inkColorOf 读（三处渲染查值 + 编辑弹窗初值）');
+  eq(((panelCode + smartCode).match(/inkColorOf\(/g) || []).length, 5, 'A) 颜色只经 inkColorOf 读（三处渲染查值 + 编辑弹窗颜色初值 + 编辑弹窗描边初值；两处初值同源＝判据不分裂）');
   eq((panelCode.match(/addCustom\(f\.name, f\.labels, f\.body, f\.color \|\| undefined/g) || []).length, 1, 'A) 唯一直接读 .color 的是导入写入口（经 sanitizeInkColor 守卫）');
   eq(((panelCode + smartCode).match(/[A-Za-z_$][\w$]*\.color\b/g) || []).length, 1, 'A) 除导入写入口外，渲染层零裸读 .color（一律过读侧回落）');
   if (failures === 0) ok('A) 四面同语义：四处名字节点都带钩子、都吃同一个读侧权威值');

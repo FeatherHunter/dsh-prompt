@@ -2,12 +2,12 @@
 // 根因（R1）：设置页内层浏览器根（TemplateBrowser compact=false 分支）把字号钉死在宿主基准，
 // 覆盖了设置页根已算好的放大字号，导致全部 em 子项锚死。修法：内层根跟随开关吃同一全额倍率
 // （var 基重算，与悬浮小列表/设置页根同构；禁用 1em 基，防复乘）。
-// 验收映射（#116 票面 Agent Brief + 架构复审）：
-//  A) helper 纯断言：关回基准 var；开吃全额；非法 size 回默认 5 档（3x）；enabled 非 true 回 var
-//  B) 开 10 档渲染设置页：折叠列表根字号 == 设置页根字号 == calc(var * 5.5)
+// 验收映射（#116 票面 Agent Brief + 架构复审；#160 改锚后 helper 恒返新基准，不再乘档）：
+//  A) helper 纯断言：开关/档位/非法输入一律返新基准 var(--dsh-content-font-size, 14px)
+//  B) 开 10 档渲染设置页：折叠列表根字号 == 设置页根字号 == 新基准（只吃字桥一遍）
 //  C) 关时渲染：折叠列表根落基准 var（零打扰，#77 F 类回归）
 //  D) 展开态：行全出来且根仍跟档；行标题走 em（0.98em），证明 em 链完好
-//  E) compact 悬浮分支行为不变（开 5.5x / 关 calc(var * 1) 原样）
+//  E) compact 悬浮分支行为不变（关=新基准 var；开=远程大面板 calc(1em * 5.5)，既有行为）
 //  F) 源码级：panel/settings 缩放根走 helper；helper 实现走 var 基（返回值断言已结构锁定）
 const fs = require('node:fs');
 const path = require('node:path');
@@ -16,7 +16,7 @@ try { ts = require('typescript') } catch (e) { ts = require('D:/0Tools/DSHDeskto
 const DIR = path.join(__dirname, '.rt-tmp-116');
 fs.mkdirSync(DIR, { recursive: true });
 const ROOT = path.join(__dirname, '..');
-const BASE_VAR = 'var(--dsw-font-markdown-base-font-size)';
+const BASE_VAR = 'var(--dsh-content-font-size, 14px)'; // #160 改锚：自家面只吃 #92 字桥这一遍
 
 let failures = 0;
 function fail(msg) { failures++; console.log('FAIL: ' + msg); }
@@ -59,20 +59,20 @@ const panelMod = req('panel.cjs');
 // 非 compact 浏览器根：设置页内唯一 padding 6px 8px + gap 6 的 div（模板卡内层根）
 const browserRootOf = (root) => root.findAll((n) => n.type === 'div' && n.props && n.props.style && n.props.style.padding === '6px 8px' && n.props.style.gap === 6)[0];
 
-// ── B) 开 10 档：折叠列表根 == 设置页根 == 全额（先跑=复现，未修时此处红） ──
+// ── B) 开 10 档：折叠列表根 == 设置页根 == 基准（#160 改锚：不再自乘，档位只由字桥同步） ──
 remote2.__resetRemoteForTests();
 TR.act(() => { remote2.setRemoteEnabled(true); remote2.setRemoteSize(10); });
 let pageOn;
 TR.act(() => { pageOn = TR.create(React.createElement(settingsMod.SettingsPage, {})); });
 const settingsRootOn = pageOn.toJSON().props.style.fontSize;
-if (settingsRootOn !== 'calc(' + BASE_VAR + ' * 5.5)') fail('开10档设置页根应跟全额，实际 ' + settingsRootOn);
+if (settingsRootOn !== BASE_VAR) fail('开10档设置页根应只吃一遍（新基准），实际 ' + settingsRootOn);
 const browserOn = browserRootOf(pageOn.root);
 if (!browserOn) fail('设置页内应找到折叠小列表根（padding 6px 8px + gap 6）');
 else {
-  if (browserOn.props.style.fontSize !== 'calc(' + BASE_VAR + ' * 5.5)') fail('开10档折叠小列表根应跟全额，实际 ' + browserOn.props.style.fontSize);
+  if (browserOn.props.style.fontSize !== BASE_VAR) fail('开10档折叠小列表根应只吃一遍（新基准），实际 ' + browserOn.props.style.fontSize);
   if (browserOn.props.style.fontSize !== settingsRootOn) fail('折叠列表根应与设置页根同值，实际列表 ' + browserOn.props.style.fontSize + ' vs 页根 ' + settingsRootOn);
 }
-if (failures === 0) ok('开10档：折叠列表根 == 设置页根 == 全额 5.5x');
+if (failures === 0) ok('开10档：折叠列表根 == 设置页根 == 新基准（只吃一遍）');
 
 // ── C) 关时：折叠列表根落基准（零打扰） ──
 remote2.__resetRemoteForTests();
@@ -93,7 +93,7 @@ else TR.act(() => { toggle.props.onClick(); });
 const rowsExp = pageExp.root.findAll((n) => n.props && n.props['data-dsh-prompt-id']);
 if (rowsExp.length === 0) fail('点开展开后模板行应渲染');
 const browserExp = browserRootOf(pageExp.root);
-if (browserExp && browserExp.props.style.fontSize !== 'calc(' + BASE_VAR + ' * 5.5)') fail('展开态根应仍跟全额，实际 ' + browserExp.props.style.fontSize);
+if (browserExp && browserExp.props.style.fontSize !== BASE_VAR) fail('展开态根应仍只吃一遍（新基准），实际 ' + browserExp.props.style.fontSize);
 const emTitles = pageExp.root.findAll((n) => n.type === 'span' && n.props && n.props.style && n.props.style.fontSize === '0.98em');
 if (emTitles.length === 0) fail('行标题应走 em（0.98em）锚到缩放根');
 if (failures === 0) ok('展开态：行渲染 + 根跟档 + 行标题 em 链完好');
@@ -115,11 +115,11 @@ if (failures === 0) ok('展开态：行渲染 + 根跟档 + 行标题 em 链完�
 }
 if (failures === 0) ok('新增按钮：背景跟档＋单行锁定');
 
-// ── E) compact 悬浮分支行为不变（关=小列表 calc(var * 1)；开=远程大面板 calc(1em * 5.5)，既有行为） ──
+// ── E) compact 悬浮分支行为不变（关=新基准；开=远程大面板 calc(1em * 5.5)，既有行为） ──
 remote2.__resetRemoteForTests();
 let compactOff;
 TR.act(() => { compactOff = TR.create(React.createElement(panelMod.TemplateBrowser, { compact: true })); });
-if (compactOff.toJSON().props.style.fontSize !== 'calc(' + BASE_VAR + ' * 1)') fail('compact 关时应保持原样 calc(var * 1)，实际 ' + compactOff.toJSON().props.style.fontSize);
+if (compactOff.toJSON().props.style.fontSize !== BASE_VAR) fail('compact 关时应落新基准，实际 ' + compactOff.toJSON().props.style.fontSize);
 if (compactOff.root.findAll((n) => n.props && n.props['data-dsh-prompt-remote-panel'] === '1').length !== 0) fail('compact 关时不应渲染远程大面板分支');
 TR.act(() => { remote2.setRemoteEnabled(true); remote2.setRemoteSize(10); });
 let compactOn;
@@ -130,25 +130,32 @@ else if (bigOn.props.style.fontSize !== 'calc(1em * 5.5)') fail('远程大面板
 if (failures === 0) ok('compact 悬浮分支行为不变（无回归）');
 remote2.__resetRemoteForTests();
 
-// ── A) helper 纯断言（收敛点结构锁定：开 calc(var 基)、关 var） ──
+// ── A) helper 纯断言（#160 改锚：恒返新基准，不再乘档） ──
 if (typeof view.scaledBaseFontSize !== 'function') fail('remoteView 应导出 scaledBaseFontSize（缩放根收敛点）');
 else {
   if (view.scaledBaseFontSize(false, 10) !== BASE_VAR) fail('关应回基准 var');
-  if (view.scaledBaseFontSize(true, 10) !== 'calc(' + BASE_VAR + ' * 5.5)') fail('开10档应全额 5.5');
-  if (view.scaledBaseFontSize(true, 1) !== 'calc(' + BASE_VAR + ' * 1)') fail('开1档应 1x');
-  if (view.scaledBaseFontSize(true, 99) !== 'calc(' + BASE_VAR + ' * 5.5)') fail('越界档应钳制到边缘');
-  if (view.scaledBaseFontSize(true, 'x') !== 'calc(' + BASE_VAR + ' * 3)') fail('非法档应回默认 5 档（3x）');
+  if (view.scaledBaseFontSize(true, 10) !== BASE_VAR) fail('开10档应只吃一遍（新基准），实际 ' + view.scaledBaseFontSize(true, 10));
+  if (view.scaledBaseFontSize(true, 1) !== BASE_VAR) fail('开1档应只吃一遍（新基准）');
+  if (view.scaledBaseFontSize(true, 99) !== BASE_VAR) fail('越界档应仍只吃一遍（新基准）');
+  if (view.scaledBaseFontSize(true, 'x') !== BASE_VAR) fail('非法档应仍只吃一遍（新基准）');
   if (view.scaledBaseFontSize('yes', 10) !== BASE_VAR) fail('enabled 非 true 应回基准');
-  if (view.scaledBaseFontSize(true, NaN) !== 'calc(' + BASE_VAR + ' * 3)') fail('NaN 档应回默认 5 档（3x）');
+  if (view.scaledBaseFontSize(true, NaN) !== BASE_VAR) fail('NaN 档应仍只吃一遍（新基准）');
 }
-if (failures === 0) ok('helper 纯断言（开关/档位/非法输入）');
+if (failures === 0) ok('helper 纯断言（恒返新基准，不再乘档）');
 
-// ── F) 源码级：缩放根走 helper（防手写表达式漂移） ──
+// ── F) 源码级：缩放根走 helper（防手写表达式漂移；#160 起 settings/panel/smart/button 四处收敛） ──
 const panelSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'panel.ts'), 'utf8');
 const settingsSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'settings.ts'), 'utf8');
+const smartSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'smart.ts'), 'utf8');
+const buttonSrc = fs.readFileSync(path.join(ROOT, 'src', 'client', 'button.ts'), 'utf8');
 if (!panelSrc.includes('scaledBaseFontSize')) fail('panel.ts 缩放根应走 scaledBaseFontSize');
 if (!settingsSrc.includes('scaledBaseFontSize')) fail('settings.ts 缩放根应走 scaledBaseFontSize');
-if (failures === 0) ok('源码级：双缩放根收敛到 helper');
+if (!smartSrc.includes('scaledBaseFontSize')) fail('smart.ts 缩放根应走 scaledBaseFontSize');
+if (!buttonSrc.includes('scaledBaseFontSize')) fail('button.ts 缩放根应走 scaledBaseFontSize');
+for (const [name, src] of [['panel.ts', panelSrc], ['settings.ts', settingsSrc], ['smart.ts', smartSrc], ['button.ts', buttonSrc]]) {
+  if (/calc\(var\(--dsw-font-markdown-base-font-size\)/.test(src)) fail(name + ' 不得手写旧锚缩放根表达式（#160 改锚）');
+}
+if (failures === 0) ok('源码级：四缩放根收敛到 helper，旧锚零残留');
 
 // 收尾：回归 #77 折叠语义不受影响（默认收起零行）由 test-issue-77 覆盖，此处只确认默认收起仍成立
 remote2.__resetRemoteForTests();

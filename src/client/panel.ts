@@ -1554,8 +1554,11 @@ export function TemplateBrowser(props: BrowserProps): any {
         // #116：设置页折叠小列表跟远程档（var 基重算，与设置页根/悬浮小列表同构；禁用 1em 基，防复乘）。
         fontFamily: 'var(--dsw-font-family)', fontSize: scaledBaseFontSize(remotePrefs.enabled, remotePrefs.size), color: base,
       }
-  const headStyle: any = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderBottom: line }
-  const titleStyle: any = { fontWeight: 700, fontSize: '1em' }
+  // #167：头行允许换行利用纵向空白（flexWrap:wrap，默认两行；1x 单行时像素不变，多行时 rowGap 给行距，em 化跟档）。
+  // minWidth:0 让容器可收缩后换行，而不是溢出重叠。justifyContent 保持 space-between（垫片 flex:1 吸走空闲，1x 与 flex-start 同形）。
+  const headStyle: any = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderBottom: line, flexWrap: 'wrap', rowGap: '0.15em', minWidth: 0 }
+  // #167：标题整块不换行不收缩（短串 1x 无视觉差，高档整块换行不再与计数交错）。
+  const titleStyle: any = { fontWeight: 700, fontSize: '1em', whiteSpace: 'nowrap', flex: 'none' }
   const addBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-specific-accent,#f0a45c)', fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
   // #165 需求 1：关闭显眼化 —— 描边框常驻（26×26 几何不动，只加框；hover 整颗变红走 BAR_UI_CSS）。
   const closeBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'transparent', color: dim, fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
@@ -2223,7 +2226,8 @@ export function TemplateBrowser(props: BrowserProps): any {
       h('button', {
         key: 'add', 'data-dsh-prompt-chrome': 'plusGlyph', title: t('add'),
         // #116 跟进同款：padding/圆角 em 化 + nowrap 锁单行 + flex:none 不被压窄（与设置页折叠卡那枚同形）。
-        style: { ...addBtn, width: 'auto', padding: '0 0.93em', borderRadius: '0.54em', fontSize: '0.92em', whiteSpace: 'nowrap', flex: 'none' },
+        // #167 同形同修：height:auto + 纵向 padding em 化（1x 总高与旧 26px 一致，之后同比放大）。
+        style: { ...addBtn, width: 'auto', height: 'auto', padding: '0.51em 0.93em', borderRadius: '0.54em', fontSize: '0.92em', whiteSpace: 'nowrap', flex: 'none' },
         onClick: () => modalState[1]({ kind: 'add' }),
       }, t('plusGlyph') + ' ' + t('addShort')),
       hideToggleNode('hide'),
@@ -2289,12 +2293,15 @@ export function TemplateBrowser(props: BrowserProps): any {
       h(PromptMark, { size: 15 }),
       h('span', { style: titleStyle }, t('panelTitle')),
       // 收起态这一行就是全部信息：预制 / 自定义条数（与悬浮面板头行同式同键）。
-      h('span', { style: { fontSize: '0.85em', color: dim, marginLeft: 6 } }, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
-      h('div', { style: { flex: 1 } }),
+      // #167：整块 nowrap + flex:none（短串 1x 无视觉差，高档整块换到下一行，不在内部压成竖排再与标题重叠）。
+      h('span', { style: { fontSize: '0.85em', color: dim, marginLeft: 6, whiteSpace: 'nowrap', flex: 'none' } }, t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount),
+      // #167：垫片 minWidth:0（空 div，1x 无差，高档先压到 0 再触发头行换行）。
+      h('div', { style: { flex: 1, minWidth: 0 } }),
       h('button', {
         // #116跟进：背景跟着字走——padding/圆角全 em 化（1x 下与旧 12px/7px 视觉一致：0.93em≈12px、0.54em≈7px，均按按钮自身 0.92em 锚算）。
         // 高档挤压防换行：nowrap 锁单行（'＋ 新增'中间空格可断行是祸根）＋flex:none 不参与头行收缩（内容多宽就多宽，绝不被压窄）。
-        style: { ...addBtn, width: 'auto', padding: '0 0.93em', borderRadius: '0.54em', fontSize: '0.92em', whiteSpace: 'nowrap', flex: 'none' },
+        // #167：高度内容自适应——height:auto + 纵向 padding em 化（内容 0.92em + 上下各 0.51em ≈ 旧 26px 内容高，1x 总高一致，之后同比放大；修前钉死 26px 直接卡住背景上下沿）。
+        style: { ...addBtn, width: 'auto', height: 'auto', padding: '0.51em 0.93em', borderRadius: '0.54em', fontSize: '0.92em', whiteSpace: 'nowrap', flex: 'none' },
         // #141：文本位铬（＋ 走词表）；title 是 add（已本地化）
         'data-dsh-prompt-chrome': 'plusGlyph', title: t('add'),
         // 收起态也留着「新增」：点它只开新增弹窗，**不**顺手把列表展开（stopPropagation）。

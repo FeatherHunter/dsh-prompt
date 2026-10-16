@@ -14,7 +14,7 @@
 - F3 调用呈星形：`panel.ts` 被 button/settings/smart/trigger/about 进口，`store.ts` 被 panel/trigger/match/smart 进口；反向边（被 UI 进口的纯模块）只有 `pager`、`remoteView`、`workspace`。
 - F4 数据规模小：预制 24 条（`templates.ts`），`smartCandidates` 全量打分（`match.ts:78-108`），`getTemplate` 线性找（`store.ts:255-257`），workspace 反查 `Map` 已建（`workspace.ts:254`）。
 - F5 门禁三桶已判：常驻 3 + check 9 + 归档 41（`docs/inventory-173-baseline.md` §3），`npm test` 仅三门。
-- F6 术语已冻：31 术语 + N1–N7 + 豁免白名单（`docs/naming-169-spec.md`），33 文件全映射。
+- F6 术语已冻：33 术语 + N1–N7 + 豁免白名单（`docs/naming-169-spec.md`），33 文件全映射。
 - F7 产物不同构：`lib/index.js` 检入源码不构建，`lib/client.js` tsdown 单入口，`lib/update.js` esbuild；`check-lib-sync.mjs` 快照 + 重建 + 逐字节比对。
 - F8 无 CI：门禁全本地（无 `.github`），`engines` 无旧 node 约束，`type: module`。
 
@@ -91,7 +91,7 @@ scripts/
 
 | 算法 | 位置 | 复杂度 | 结论 |
 |---|---|---|---|
-| `smartCandidates` 全量打分 + 双排序 | smart-score | O(T·D·W̄) + O(T log T) | T≈ dozens，每击键一次可忽略； bathing：T>200 或卡顿实测再上倒排，今不做 |
+| `smartCandidates` 全量打分 + 双排序 | smart-score | O(T·D·W̄) + O(T log T) | T≈ dozens，每击键一次可忽略； 阈值：T>200 或卡顿实测再上倒排，今不做 |
 | `sortedTemplatesBottomUp` 四键比较排序 | template-library | O(T log T)，比较器 O(1) | 规模内恒快；键顺序（置顶簇→用量→pin→末键）即 #68 终式，不动 |
 | `getTemplate` | template-library | 现 O(T)→ lazy 索引后 O(1) | T5 顺手改（建索引 O(T) 一次），行为零差 |
 | `buildWorkspaceIndex` / `filterWorkspaceSessions` | workspace-contract | O(W+S) / O(S·Q) | 已是最优形状；`sessionHaystack` 预拼串避免重复 join |

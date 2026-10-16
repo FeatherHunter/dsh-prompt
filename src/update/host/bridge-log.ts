@@ -1,4 +1,8 @@
 /**
+ * 更新包事件转日志桥（#171 N6：可 import 者 —— index）。
+ * 跑 node host 线（无 DOM）；禁被 src/client 进口（DO-NOT-IMPORT），禁 DOM/宿主调用。
+ */
+/**
  * dsh-prompt — 更新能力宿主半的**日志桥**（#39）：把更新包报的三条事件转给本仓日志能力。
  *
  * **签名按上游 `dist/` 的真实调用点抄，不按 README 的示例文字抄**：`dist/host.js:187,196` 发的是
@@ -28,7 +32,7 @@
 export interface UpdateLogCtx {
   fire(level: string, event: string, fields?: Record<string, unknown>): void
 }
-import { hash8 } from './hash.js'
+import { hash8 } from './error-fingerprint.js'
 import { safeFields, UPDATE_ROUTE_FAMILY } from './safe-values.js'
 
 /** 日志能力的形状（本能力只用到 `log`；`lib/index.js` 传进来的那个实例满足它）。 */

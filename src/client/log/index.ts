@@ -1,4 +1,8 @@
 /**
+ * 装配器（非 barrel，不扩转口）（#171 N6：可 import 者 —— index）。
+ * 跑浏览器 bundle 线；禁被 src/update/host 进口（DO-NOT-IMPORT），禁跨运行时进口。
+ */
+/**
  * dsh-prompt — 日志能力（客户端半，地图 #45 子票 #49）
  *
  * 客户端侧所有日志都从 `getLog()` 出去（六处 `console.*` 已全部收敛到这里，见 #48 的打点清单）。
@@ -92,7 +96,7 @@ const subscribers = new Set<() => void>()
  *
  * 落点取舍（#59 分诊口径 + #53 约束）：只住本文件内部，不新建 `src/client/storage.ts`
  * —— 本仓每个回归脚本都在 `scripts` 下的 `.rt-tmp` 系列目录里手写要转译的模块清单，往被普遍加载的
- * 路径上加一条 import 边会让既有脚本整批红（#53 实测 15 条里红 9 条）。`smartstore.ts` /
+ * 路径上加一条 import 边会让既有脚本整批红（#53 实测 15 条里红 9 条）。`smart-draft.ts` /
  * 的同类访问本来就在 `try` 里（#127 `updauto.ts` 已删；降级值 `false` / `null` / `''` / `false`
  * 保持不变），为避免两套写法漂移刻意不收拢到一处共享封装 —— 本函数只保这一处爆点。
  */

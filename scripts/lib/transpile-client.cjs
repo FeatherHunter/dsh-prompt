@@ -5,10 +5,10 @@
  * 【为什么有这一件】
  * 原来每个回归脚本都自己抄一份「要转译哪些模块 + 要把哪些 require 改写掉」的表。
  * 真相只有一份（各 .ts 自己的 import 边），表是它的手抄快照，于是：
- *   · `panel.ts` 多一条 `./remote` 边 → 11 个套件同时崩在 `Cannot find module './remote'`；
- *   · `settings.ts` 多一条 `./remoteView` → 再崩一个；
+ *   · `template-browser.ts` 多一条 `./remote` 边 → 11 个套件同时崩在 `Cannot find module './remote-mode'`；
+ *   · `settings-page.ts` 多一条 `./remote-grid`（当时名 `./remoteView`）→ 再崩一个；
  *   · 补一条边、下一行又缺另一个模块 —— 修一次红一次（打地鼠）；
- *   · 代价已经外溢到产品设计：`src/client/panel.ts:42` 明写「不新开模块，因为每个回归脚本
+ *   · 代价已经外溢到产品设计：`src/client/template-browser.ts:42` 明写「不新开模块，因为每个回归脚本
  *     都自己列一遍要转译的模块」。
  *
  * 现在反过来：**脚本只声明根，闭包与 require 改写由这里推导**。

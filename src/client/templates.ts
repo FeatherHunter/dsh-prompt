@@ -1,4 +1,8 @@
 /**
+ * 共享类型家 PromptTemplate + 24 预制数据（#171 N6：可 import 者 —— label-identity、prompt-trigger、smart-score、template-browser、template-library）。
+ * 跑浏览器 bundle 线；禁被 src/update/host 进口（DO-NOT-IMPORT），禁跨运行时进口。
+ */
+/**
  * dsh-prompt — 模板数据层
  * 24 条预制模板（#6 final.md 定稿，冒号表单式）+ 类型定义。
  * #23 统一标签：模板统一携带 labels；预制 labels 为领域+阶段+动作机械合并

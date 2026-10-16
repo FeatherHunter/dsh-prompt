@@ -1,0 +1,438 @@
+/**
+ * Smart Mode 悬浮卡宿主（#171 N6：可 import 者 —— index）。
+ * 跑浏览器 bundle 线；禁被 src/update/host 进口（DO-NOT-IMPORT），禁跨运行时进口。
+ */
+/**
+ * dsh-prompt — 智能模式悬浮卡（v1.1，shell.overlay root 作用域）
+ * #5 定稿：全局单手柄点（点=缩小的卡，卡显示时点消失，互斥）/ 卡从点向右展开 /
+ * 自由拖动 + 位置记忆（localStorage）+ 视口 clamp / 仅命中出现 / ≤3 候选（top-2 评分 + 最近使用，不足不凑）/
+ * 评分=专属词×2+通用词×1（≥2 出卡）/ #22 bottom-up：评分升序（最相关在底部）→用量升序 / 序号按排名（1=最相关在底部）/ 点击即填入 + 光标定位首字段冒号后（DEC11 修订）/
+ * 默认开可配置关闭 / 与面板各管各的；键盘可达（↑↓/Enter/Esc）。
+ */
+import { getReact, INK_TINT_ATTR } from './template-browser'
+import { smartCandidates, firstFieldCaret, type ScoredTemplate } from './smart-score'
+import { allTemplates, bumpUsage, loadUsage, tieBreakOrder, templateLabels, LABEL_FALLBACK, inkColorOf, inkOutlineOf } from './template-library'
+import { displayLabelString } from './label-identity'
+import {
+  getSmartInput, onSmartInput, isSmartEnabled, setSmartEnabled,
+  onSmartEnabled, loadSmartPos, saveSmartPos, suppressCard, isSuppressed, clearSuppression,
+  type SmartPos,
+} from './smart-draft'
+import { tr, STR } from './strings'
+import { resolveLocale, subscribeLocale } from './locale'
+import { getRemotePrefs, subscribeRemote } from './remote-mode'
+import { scaledBaseFontSize } from './remote-grid'
+const DOT_SIZE = 12 // 还原原设计：12px 次级色低调圆点（原型 GlobalDot 样式）
+const CARD_W = 280 // 内容宽度收窄
+const CARD_H_EST = 150 // 卡片高度估算（首次渲染未测量时用；测量后精确锚定）
+const CARD_H = 300
+
+function clampPos(p: SmartPos, w: number, h: number): SmartPos {
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+  return {
+    x: Math.max(8, Math.min(p.x, vw - w - 8)),
+    y: Math.max(8, Math.min(p.y, vh - h - 8)),
+  }
+}
+
+/** DOM 草稿探测结果：found=false 表示同类里找不到会话输入框（调用方据此回退输入桥草稿） */
+interface DraftProbe { found: boolean; text: string }
+
+let bridgeNoticeShown = false
+
+/**
+ * 读取会话输入框草稿（DOM 真实值优先——与面板插入同源，见 template-browser.ts insertBody）：
+ * - 焦点 textarea / 首个可见 textarea → { found: true, text: 真实值（可为空串） }
+ * - 焦点落在面板新增/编辑弹窗内 → { found: true, text: '' }（明确不出卡）
+ * - 找不到任何 textarea（焦点在非 textarea 元素、宿主换成富文本输入等）→ { found: false }
+ */
+function probeDraftFromDom(): DraftProbe {
+  try {
+    if (typeof document === 'undefined') return { found: false, text: '' }
+    const ae = document.activeElement as HTMLTextAreaElement | null
+    if (ae && ae.tagName === 'TEXTAREA') {
+      // 弹窗/表单输入 ≠ 会话草稿：面板新增/编辑弹窗内打字不应触发智能卡
+      try { if (ae.closest && ae.closest('[data-dsh-prompt-modal]')) return { found: true, text: '' } } catch (e) { /* ignore */ }
+      return { found: true, text: ae.value || '' }
+    }
+    const tas = document.querySelectorAll('textarea')
+    for (let i = 0; i < tas.length; i++) {
+      const ta = tas[i] as HTMLTextAreaElement
+      if (ta.offsetParent !== null) {
+        try { if (ta.closest && ta.closest('[data-dsh-prompt-modal]')) continue } catch (e) { /* ignore */ }
+        return { found: true, text: ta.value || '' }
+      }
+    }
+  } catch (e) { /* ignore */ }
+  return { found: false, text: '' }
+}
+
+/**
+ * 当前草稿 = DOM 真实值；DOM 读不到时才回退「输入桥」草稿
+ * （index.ts 用 useInput.getState().draft 发布，见 smartstore.setSmartInput）。
+ * 兜底只在"一个 textarea 都找不到"时生效：焦点在弹窗里（弹窗内编辑）与"输入框确实是空的"
+ * 都走 DOM 判定，语义与加兜底前完全一致。
+ * source 供卡片底部临时诊断行显示（排查"输入不自动出卡"用）。
+ */
+type DraftSource = 'dom' | 'bridge' | 'none'
+function currentDraftInfo(): { text: string; source: DraftSource } {
+  const p = probeDraftFromDom()
+  if (p.found) return { text: p.text, source: 'dom' }
+  try {
+    const d = getSmartInput().draft || ''
+    if (d && !bridgeNoticeShown) {
+      bridgeNoticeShown = true
+      const facts = domFacts()
+      logEvent('smart.draft.fallback', { textareas: facts.textareas, activeKind: facts.active })
+    }
+    return { text: d, source: d ? 'bridge' : 'none' }
+  } catch (e) { return { text: '', source: 'none' } }
+}
+
+function currentDraft(): string {
+  return currentDraftInfo().text
+}
+
+/* ── 诊断打点（#49 起走统一日志能力） ──
+   以前是把草稿前 80 字发到宿主 /_dsh/dsh-prompt/debug 落到磁盘文件（"输入不自动出卡"排查用）——
+   那既把用户草稿写进了磁盘、又是第二套日志出口。现在等价信息改由 smart.probe / smart.card.* 承担：
+   只记 DOM 现场计数与草稿长度，不记草稿正文，且受日志开关与事件清单管。 */
+function domFacts(): { textareas: number; active: string; modal: boolean } {
+  try {
+    if (typeof document === 'undefined') return { textareas: -1, active: 'no-document', modal: false }
+    return {
+      textareas: document.querySelectorAll('textarea').length,
+      active: (document.activeElement && document.activeElement.tagName) || 'none',
+      modal: !!(document.querySelector && document.querySelector('[data-dsh-prompt-modal]')),
+    }
+  } catch (e) { return { textareas: -1, active: 'error', modal: false } }
+}
+
+let lastProbeKey = ''
+/** 现场快照只记一次（同值去重）：草稿长度变了才算新现场，避免每次轮询刷一行。 */
+function probeOnce(source: DraftSource, draftChars: number, candidates: number): void {
+  try {
+    const facts = domFacts()
+    const key = [source, facts.textareas, facts.active, facts.modal, candidates, draftChars].join('|')
+    if (key === lastProbeKey) return
+    lastProbeKey = key
+    logEvent('smart.probe', {
+      source,
+      textareas: facts.textareas,
+      activeKind: facts.active,
+      modal: facts.modal,
+      customs: allTemplates().filter((x) => !x.builtin).length,
+      candidates,
+      draftChars,
+    })
+  } catch (e) { /* ignore */ }
+}
+
+/** 光标位置：焦点 textarea（value===draft）的 selectionStart，找不到 → 末尾 */
+function caretInDraft(draft: string): number {
+  try {
+    if (typeof document === 'undefined') return draft.length
+    const tas = document.querySelectorAll('textarea')
+    for (let i = 0; i < tas.length; i++) {
+      const ta = tas[i] as HTMLTextAreaElement
+      if (ta.value === draft && typeof ta.selectionStart === 'number') return ta.selectionStart
+    }
+  } catch (e) { /* ignore */ }
+  return draft.length
+}
+
+/** 智能插入：光标处插入模板正文（不覆盖），光标定位到首字段冒号后；用量+1；抑制卡片重现
+ *  草稿源与出卡判定同源（currentDraft）——卡片按哪份草稿出现，就按哪份草稿拼接，绝不覆盖用户已输入内容。 */
+export function smartInsert(body: string, id: string): void {
+  const { actions } = getSmartInput()
+  if (!actions || typeof actions.setDraft !== 'function') return
+  const draft = currentDraft()
+  const caret = caretInDraft(draft)
+  const newDraft = draft.slice(0, caret) + body + draft.slice(caret)
+  actions.setDraft(newDraft)
+  const fieldCaret = caret + firstFieldCaret(body)
+  setTimeout(() => {
+    try {
+      if (typeof document === 'undefined') return
+      const tas = document.querySelectorAll('textarea')
+      for (let i = 0; i < tas.length; i++) {
+        const ta = tas[i] as HTMLTextAreaElement
+        if (ta.value === newDraft) { ta.focus(); ta.setSelectionRange(fieldCaret, fieldCaret); break }
+      }
+    } catch (e) { /* ignore */ }
+  }, 0)
+  bumpUsage(id)
+  logEvent('pick.insert', {
+    source: 'smart',
+    templateKind: allTemplates().find((x) => x.id === id)?.builtin ? 'preset' : 'custom',
+    idHash: id,
+    draftChars: draft.length,
+  })
+  suppressCard(newDraft)
+}
+
+export function SmartCardHost(props: any): any {
+  const react = getReact()
+  if (!react) return null
+  const h = react.createElement
+
+  const [enabled, setEnabled] = react.useState(isSmartEnabled())
+  const [input, setInput] = react.useState(getSmartInput())
+  const [draft, setDraft] = react.useState(() => currentDraft())
+  const [pos, setPos] = react.useState(null as SmartPos | null)
+  const [dismissed, setDismissed] = react.useState(false)
+  const [manualOpen, setManualOpen] = react.useState(false)
+  const [cardH, setCardH] = react.useState(0)
+  const posRef = react.useRef(null as SmartPos | null)
+  const cardRef = react.useRef(null as any)
+  const rowsRef = react.useRef([] as ScoredTemplate[])
+  const dragMovedRef = react.useRef(false)
+
+  // 订阅输入桥（仅用于 actions/插入）+ 开关变更（设置页实时同步）
+  react.useEffect(() => {
+    const off1 = onSmartInput(() => setInput(getSmartInput()))
+    const off2 = onSmartEnabled((on) => setEnabled(on))
+    return () => { off1(); off2() }
+  }, [])
+
+  // 三档全局跟随（2026-09-29 用户拍板）：字号档缩放智能卡文字；tick 订阅保证调档即时重渲染。
+  const remoteTickState = react.useState(0)
+  react.useEffect(() => {
+    let on = true
+    try {
+      return subscribeRemote(() => { if (on) remoteTickState[1]((n: number) => n + 1) })
+    } catch (e) { /* ignore */ }
+    return () => { on = false }
+  }, [])
+  // 单滑块后智能卡吃控制面全额（2026-09-29 去封顶）；#160 改锚后经收敛点只吃一遍（档位由 #92 字桥同步）。
+
+  // 草稿来源 = 输入框真实值（轮询 + focus 事件；DOM 读不到时由 currentDraft 回退输入桥草稿）；
+  // 与面板插入同源，不依赖 overlay 重渲染
+  react.useEffect(() => {
+    const sync = () => { const d = currentDraft(); setDraft((prev: string) => (prev === d ? prev : d)) }
+    sync()
+    const timer = setInterval(sync, 350)
+    const off = onSmartInput(sync) // 输入桥更新（打字 / 会话切换）也即时同步，兜底路径不必等下一轮轮询
+    const onFocus = () => sync()
+    if (typeof document !== 'undefined') document.addEventListener('focusin', onFocus, true)
+    return () => { clearInterval(timer); off(); if (typeof document !== 'undefined') document.removeEventListener('focusin', onFocus, true) }
+  }, [])
+
+  // 位置：载入记忆（无 → 右下角、输入区上方默认），按圆点尺寸 clamp（圆点可贴近角落）
+  react.useEffect(() => {
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+    const saved = loadSmartPos() || { x: 32, y: Math.round(vh * 0.72) }
+    const p = clampPos(saved, DOT_SIZE, DOT_SIZE)
+    posRef.current = p
+    setPos(p)
+  }, [])
+  const applyPos = (p: SmartPos) => { const c = clampPos(p, DOT_SIZE, DOT_SIZE); posRef.current = c; setPos(c) }
+
+  // 用户改动草稿 → 解除「插入后抑制」「Esc 收起」「手动展开」（回到自动出卡行为）
+  react.useEffect(() => { clearSuppression(draft); if (dismissed) setDismissed(false); if (manualOpen) setManualOpen(false) }, [draft])
+
+  const langState = react.useState(resolveLocale())
+  const lang = langState[0]
+  const t = (k: keyof typeof STR) => tr(lang, STR[k])
+  // 语言跟随：共享单例订阅器（#137；观察者与去重都在 locale.ts 一处）
+  react.useEffect(() => subscribeLocale((l) => { langState[1](l) }), [])
+
+  const suppressed = isSuppressed(draft)
+  const candidates: ScoredTemplate[] = !enabled || suppressed ? [] : smartCandidates(draft)
+  // 诊断打点（#49 起走日志能力）：现场只记计数与草稿长度，不记草稿正文；受开关与清单约束。
+  if (enabled) {
+    const info = currentDraftInfo()
+    probeOnce(info.source, info.text.length, candidates.length)
+  }
+  // 手动展开且无匹配时：中性常用兜底（集合仍取预设前 3、不按用量选集——避免"用过一次就一直冒"；
+  // #22：集合不变，仅行内显示顺序套用 bottom-up=用量升序+末键预制顺序）
+  const fallbackUsage = loadUsage()
+  const fallbackRows: ScoredTemplate[] = [...allTemplates().slice(0, 3)]
+    .sort((a, b) => (fallbackUsage[a.id] || 0) - (fallbackUsage[b.id] || 0) || tieBreakOrder(a, b))
+    .map((tpl) => ({ tpl, score: 0, strongHits: [], weakHits: [] }))
+  const rows: ScoredTemplate[] = candidates.length > 0 ? candidates : (manualOpen ? fallbackRows : [])
+  rowsRef.current = rows
+  const showCard = rows.length > 0 && !dismissed
+
+  // 出卡与否（#49）：只在智能开关打开时才会走到这里；reason 是机器码，不带模板名与草稿正文。
+  react.useEffect(() => {
+    if (showCard) {
+      logEvent('smart.card.show', {
+        rows: rows.length,
+        source: currentDraftInfo().source,
+        draftChars: draft.length,
+        manual: manualOpen,
+      })
+      return
+    }
+    const reason = suppressed ? 'suppressed' : dismissed ? 'dismissed' : !draft ? 'empty-draft' : 'no-match'
+    logEvent('smart.card.miss', { reason, draftChars: draft.length })
+  }, [showCard, rows.length, draft, dismissed, manualOpen, suppressed])
+
+  // 测量卡片真实高度（布局后回调）：保证卡与圆点贴合，不因估算偏差悬空（hooks 顺序：在 early return 之前）
+  react.useEffect(() => {
+    if (!showCard) return
+    const el = cardRef.current
+    if (!el) return
+    const h = (el as HTMLElement).offsetHeight || 0
+    if (h > 0 && h !== cardH) setCardH(h)
+  }, [showCard, rows.length])
+
+  // 不捕获键盘：Enter/↑↓ 保持输入框原生语义（用户要求），仅手动点击「点击填入」按钮录入
+
+  const doPick = (c: ScoredTemplate) => {
+    smartInsert(c.tpl.body, c.tpl.id)
+    setDismissed(true); setManualOpen(false)
+  }
+
+  // 拖动（点/卡头均可）：pointer 事件 + 位置记忆；移动过则不算点击
+  const startDrag = (e: any) => {
+    e.preventDefault(); e.stopPropagation()
+    dragMovedRef.current = false
+    const base = posRef.current || { x: 0, y: 0 }
+    const sx = e.clientX, sy = e.clientY
+    const move = (ev: PointerEvent) => { dragMovedRef.current = true; applyPos({ x: base.x + (ev.clientX - sx), y: base.y + (ev.clientY - sy) }) }
+    const up = (ev: PointerEvent) => {
+      document.removeEventListener('pointermove', move)
+      document.removeEventListener('pointerup', up)
+      const p = clampPos({ x: base.x + (ev.clientX - sx), y: base.y + (ev.clientY - sy) }, DOT_SIZE, DOT_SIZE)
+      posRef.current = p; setPos(p); saveSmartPos(p)
+    }
+    document.addEventListener('pointermove', move)
+    document.addEventListener('pointerup', up)
+  }
+
+  // 首帧必渲染：pos 尚未从 localStorage 载入时先用默认值（右下角），effect 载入后精确定位
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+  const effectivePos = pos !== null ? pos : { x: 32, y: Math.round(vh * 0.72) }
+  if (!enabled) return null
+
+  const base = 'var(--dsw-alias-label-primary)'
+  const muted = 'var(--dsw-alias-label-secondary)'
+  const dim = 'var(--dsw-alias-label-tertiary)'
+  const accent = 'var(--dsw-specific-accent,#f0a45c)'
+  const line = '1px solid var(--dsw-alias-border-l1)'
+
+  // ── 点（idle 手柄；卡显示时互斥消失）── 还原原设计：12px 次级色低调圆点，点击展开
+  // #21 标尺：智能点/卡保持普通 UI 层 z=400，低于选择浮层 PANEL_Z=9999 与弹窗 MODAL_Z=11000（见 template-browser.ts）
+  const dot = h('div', {
+    key: 'dot',
+    style: {
+      position: 'fixed', left: effectivePos.x, top: effectivePos.y,
+      width: DOT_SIZE, height: DOT_SIZE, borderRadius: '50%',
+      background: 'var(--dsw-alias-label-tertiary)', opacity: 0.45,
+      boxShadow: 'var(--dsw-shadow-lv1)', cursor: 'grab', zIndex: 400, pointerEvents: 'auto',
+      userSelect: 'none',
+    },
+    title: t('smartDot'),
+    onPointerDown: startDrag,
+    onClick: () => { if (dragMovedRef.current) return; setManualOpen(true); setDismissed(false) },
+  })
+
+  // ── 卡：从圆点右侧展开（卡左缘 = 圆点右缘，垂直以圆点为中心）；用真实高度锚定，贴边自动折返 ──
+  const dotX = effectivePos.x, dotY = effectivePos.y
+  const cardHeight = cardH > 0 ? cardH : CARD_H_EST
+  // 圆点圆心 = 卡片左下角：卡左缘=圆点中心 x、卡底边=圆点中心 y，向 右上 展开
+  const dotCx = dotX + DOT_SIZE / 2, dotCy = dotY + DOT_SIZE / 2
+  let cardX = dotCx
+  if (cardX + CARD_W > vw - 8) cardX = Math.max(8, dotCx - CARD_W) // 右侧放不下 → 向左展开（卡右缘贴圆点中心）
+  cardX = Math.max(8, Math.min(cardX, vw - CARD_W - 8))
+  let cardY = dotCy - cardHeight
+  if (cardY < 8) cardY = 8 // 顶部放不下 → 贴顶（圆点保持在原位）
+  cardY = Math.max(8, Math.min(cardY, vh - cardHeight - 8))
+  const cardPos = { x: cardX, y: cardY }
+  const cardStyle: any = {
+    position: 'fixed', left: cardPos.x, top: cardPos.y,
+    width: CARD_W, zIndex: 400 /* #21 普通层，低于选择类 */, pointerEvents: 'auto',
+    background: 'var(--dsw-specific-menu)', border: '1px solid var(--dsw-alias-border-inverted)',
+    borderRadius: 12, boxShadow: 'var(--dsw-shadow-lv3)',
+    display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 10px',
+    fontFamily: 'var(--dsw-font-family)', fontSize: scaledBaseFontSize(getRemotePrefs().enabled, getRemotePrefs().size), color: base,
+  }
+  const headStyle: any = { display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderBottom: line, cursor: 'grab', minWidth: 0 }
+  // 行 = 圆角子卡片（原型样式）：编号 + 名称 + 标签(·分N/·最近) + 命中词 + 「点击填入」按钮
+  // 行 = 精简：编号 + 名称 + 标签 + 命中词 + 小按钮（点整行即填入，控件小而克制）
+  const rowStyle: any = {
+    display: 'flex', alignItems: 'center', gap: 6, padding: '3px 7px', minWidth: 0,
+    background: 'var(--dsw-alias-bg-layer-2)', border: '1px solid var(--dsw-alias-border-l1)',
+    borderRadius: 8, cursor: 'pointer', overflow: 'hidden',
+  }
+  const rowNum: any = { color: dim, fontSize: '0.77em', flex: 'none' }
+  const rowName: any = { fontWeight: 500, fontSize: '0.88em', flex: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }
+  const rowTag: any = { color: muted, flex: 'none', fontSize: '0.77em' }
+  const rowHint: any = { color: dim, flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.77em' }
+  const fillBtn: any = {
+    flex: 'none', border: '1px solid var(--dsw-alias-border-l2)',
+    background: 'var(--dsw-alias-bg-layer-3)', color: base,
+    borderRadius: 5, padding: '1px 7px', cursor: 'pointer',
+    fontFamily: 'var(--dsw-font-family)', fontSize: '0.8em', fontWeight: 500, whiteSpace: 'nowrap',
+  }
+  const rowNodes = rows.map((c, i) => {
+    const common = c.score === 0
+    // #158 名字染色：读侧权威 inkColorOf（undefined＝未选颜色 ⇒ 颜色与钩子属性都不动）
+    const ink = inkColorOf(c.tpl)
+    // #162 描边：颜色之上再问一句「要不要描边」（缺键＝开；未选颜色时恒不加钩子）
+    const tint = ink !== undefined && inkOutlineOf(c.tpl)
+    // #23：展示行换为完整标签串；评分后缀（·分N/·常用）保留，评分链不动
+    // #141：后缀是铬，走词表；单独成节点 —— 铬钩子节点里只有铬，数据词（标签串）留在外层
+    const suffixKey = common ? 'smartCommonSuffix' : 'smartScoreSuffix'
+    const suffixText = common ? t('smartCommonSuffix') : t('smartScoreSuffix').replace('{n}', String(c.score))
+    const hits = common ? t('smartCommon') : (c.strongHits.join(' / ') + (c.weakHits.length ? ' · ' + c.weakHits.join(' / ') : ''))
+    // #22（Q7=A）：序号按排名而非位置——1=最相关，出现在最底部
+    return h('div', { key: c.tpl.id, style: rowStyle, onClick: () => doPick(c), title: t('smartFill') }, [
+      h('span', { style: rowNum }, String(rows.length - i)),
+      // #158：rowName 自己是裁切盒（overflow:hidden）⇒ 上色时给 2px 纵向余量 + 同量负 margin；
+      // 行容器本来就有 3px 纵向内边距（> 1px 环），不必动。
+      h('span', { style: ink ? { ...rowName, color: ink, paddingBlock: 2, marginBlock: -2 } : rowName, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, c.tpl.name),
+      // #142：标签段走显示映射（后缀已翻不动；混合串数据段由门禁 dataWords 剔除覆盖，不拆节点）
+      h('span', { style: rowTag, ...(templateLabels(c.tpl).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, [
+        displayLabelString(c.tpl, lang), ' ',
+        h('span', { key: 'suffix', 'data-dsh-prompt-chrome': suffixKey }, suffixText),
+      ]),
+      h('span', { style: rowHint }, hits),
+      h('button', { style: fillBtn, title: t('smartFill'), onClick: (e: any) => { e.stopPropagation(); doPick(c) } }, t('smartFill')),
+    ])
+  })
+  // 临时诊断行（仅手动点开时显示）：排查"输入不自动出卡"——它把三件事一次摊开：
+  // 读到的草稿与来源（dom/bridge/none）、客户端已加载的自定义模板条数、本次评分候选数。
+  // #142 边缘裁决 b：确系渲染（manualOpen 时卡内 div，用户可见），但为手动点开排查用的临时诊断、
+  // 无 chrome 钩子（门禁不扫）、scan 归 C4（诊断），永不翻译，保持原样不动；删了即删用户可见排查功能（不许）。
+  const diagInfo = manualOpen ? currentDraftInfo() : null
+  const diagSrcLabel = diagInfo ? (diagInfo.source === 'dom' ? '输入框DOM' : diagInfo.source === 'bridge' ? '输入桥' : '读不到') : ''
+  const customCount = allTemplates().filter((x) => !x.builtin).length
+  const diagRow = diagInfo
+    ? h('div', { style: { borderTop: line, paddingTop: 4, color: dim, fontSize: '0.72em', lineHeight: 1.35, wordBreak: 'break-all' } },
+        '诊断(临时) 草稿=' + JSON.stringify(diagInfo.text).slice(0, 60) + ' 来源=' + diagSrcLabel + ' 自定义=' + customCount + '条 候选=' + candidates.length)
+    : null
+  const card = h('div', { key: 'card', ref: cardRef, style: cardStyle }, [
+    h('div', { style: headStyle, onPointerDown: startDrag }, [
+      h('span', { style: { fontWeight: 600, fontSize: '0.85em' } }, t('smartTitle')),
+      h('span', { style: { color: dim, fontSize: '0.77em' } }, t('smartHint')),
+      h('div', { style: { flex: 1 } }),
+      h('button', {
+        style: { border: 0, background: 'transparent', color: dim, cursor: 'pointer', fontSize: '0.92em', lineHeight: 1, padding: '0 2px', flex: 'none' },
+        title: t('smartDismiss'),
+        onPointerDown: (e: any) => e.stopPropagation(),
+        onClick: (e: any) => { e.stopPropagation(); setDismissed(true); setManualOpen(false) },
+      }, '×'),
+    ]),
+    h('div', { style: { maxHeight: 220, overflowY: 'auto', overflowX: 'hidden' } }, rowNodes),
+    diagRow,
+  ])
+
+  return showCard ? card : dot
+}
+
+/** 记一条日志事件。出口只有一个：日志能力装进 globalThis.__dshPromptLog 的那个实例。
+ *  走槽而不是 import 的原因：本仓既有回归脚本会把客户端模块逐个转译后单独 require
+ *  （scripts/.rt-tmp/*.cjs），而单文件 bundle 里也没有可用的模块内 require——槽是两边都能用的唯一机制。
+ *  能力缺席时是空操作，绝不因为记日志失败而影响功能。 */
+function logEvent(event: string, fields?: Record<string, unknown>): void {
+  try {
+    const log = (globalThis as any).__dshPromptLog
+    if (log && typeof log.log === 'function') log.log(event, fields)
+  } catch (e) { /* ignore */ }
+}

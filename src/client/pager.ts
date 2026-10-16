@@ -1,8 +1,12 @@
 /**
- * dsh-prompt — 无 DOM 分页纯模型（#115，仿 remoteView.ts 纯视图契约）
+ * 无 DOM 纯页数学（调用方量、本模块算）（#171 N6：可 import 者 —— workspace-picker）。
+ * 跑浏览器 bundle 线；禁被 src/update/host 进口（DO-NOT-IMPORT），禁跨运行时进口。
+ */
+/**
+ * dsh-prompt — 无 DOM 分页纯模型（#115，仿 remote-grid.ts 纯视图契约）
  *
  * 只做整数页数学：不读 store、不碰 DOM/React，可转译后直接断言（见 test-issue-104 纯函数段）。
- * 测量（容器宽÷项宽、卡高）发生在调用方（picker.ts 量、ResizeObserver 重算），本模块只收数字。
+ * 测量（容器宽÷项宽、卡高）发生在调用方（workspace-picker.ts 量、ResizeObserver 重算），本模块只收数字。
  * 与 Q3b 联动：tab 定宽是均匀页的前提；若后人改回内容宽，页边界须改累计宽模型。
  */
 

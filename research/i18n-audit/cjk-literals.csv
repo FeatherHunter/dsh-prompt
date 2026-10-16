@@ -1,765 +1,785 @@
 ﻿file,line,col,text,class,action,consumer_ticket,container
-src/client/i18n.ts,26,30,点击展开/收起模板列表,C1,已在STR,-,export const STR :: STR.templatesToggleHint.zh
-src/client/i18n.ts,28,22,提示词模板,C1,已在STR,-,export const STR :: STR.sectionName.zh
-src/client/i18n.ts,30,14,新增自定义模板,C1,已在STR,-,export const STR :: STR.add.zh
-src/client/i18n.ts,31,19,新增,C1,已在STR,-,export const STR :: STR.addShort.zh
-src/client/i18n.ts,32,19,搜索模板…,C1,已在STR,-,export const STR :: STR.searchPh.zh
-src/client/i18n.ts,33,17,全部,C1,已在STR,-,export const STR :: STR.tabAll.zh
-src/client/i18n.ts,34,20,执行前,C1,已在STR,-,export const STR :: STR.tabBefore.zh
-src/client/i18n.ts,35,20,执行中,C1,已在STR,-,export const STR :: STR.tabDuring.zh
-src/client/i18n.ts,36,19,执行后,C1,已在STR,-,export const STR :: STR.tabAfter.zh
-src/client/i18n.ts,37,20,自定义,C1,已在STR,-,export const STR :: STR.tabCustom.zh
-src/client/i18n.ts,38,20,全领域,C1,已在STR,-,export const STR :: STR.domainAll.zh
-src/client/i18n.ts,39,22,预制,C1,已在STR,-,export const STR :: STR.presetCount.zh
-src/client/i18n.ts,43,22,预制,C1,已在STR,-,export const STR :: STR.scopePreset.zh
-src/client/i18n.ts,44,22,自定义,C1,已在STR,-,export const STR :: STR.customCount.zh
-src/client/i18n.ts,48,24,自定义,C1,已在STR,-,export const STR :: STR.labelFallback.zh
-src/client/i18n.ts,51,21,（副本）,C1,已在STR,-,export const STR :: STR.copySuffix.zh
-src/client/i18n.ts,52,21,设置 → 模板管理,C1,已在STR,-,export const STR :: STR.goSettings.zh
-src/client/i18n.ts,53,15,编辑,C1,已在STR,-,export const STR :: STR.edit.zh
-src/client/i18n.ts,54,14,删除,C1,已在STR,-,export const STR :: STR.del.zh
-src/client/i18n.ts,55,15,复制,C1,已在STR,-,export const STR :: STR.copy.zh
-src/client/i18n.ts,56,14,置顶/取消置顶,C1,已在STR,-,export const STR :: STR.pin.zh
-src/client/i18n.ts,57,18,无匹配模板,C1,已在STR,-,export const STR :: STR.noMatch.zh
-src/client/i18n.ts,58,19,新增自定义模板,C1,已在STR,-,export const STR :: STR.addTitle.zh
-src/client/i18n.ts,59,20,编辑自定义模板,C1,已在STR,-,export const STR :: STR.editTitle.zh
-src/client/i18n.ts,60,17,模板名称,C1,已在STR,-,export const STR :: STR.namePh.zh
-src/client/i18n.ts,61,19,添加标签（逗号/空格/顿号分隔，回车确认）,C1,已在STR,-,export const STR :: STR.labelsPh.zh
-src/client/i18n.ts,62,21,最多 3 个，每条 1–10 字；可从已有词里选，也可新造,C1,已在STR,-,export const STR :: STR.labelsHint.zh
-src/client/i18n.ts,63,24,最多 3 个标签,C1,已在STR,-,export const STR :: STR.labelsTooMany.zh
-src/client/i18n.ts,64,23,每条标签 1–10 字,C1,已在STR,-,export const STR :: STR.labelTooLong.zh
-src/client/i18n.ts,65,22,移除标签,C1,已在STR,-,export const STR :: STR.removeLabel.zh
-src/client/i18n.ts,66,22,标签选择,C1,已在STR,-,export const STR :: STR.labelPicker.zh
-src/client/i18n.ts,67,20,完成,C1,已在STR,-,export const STR :: STR.labelDone.zh
-src/client/i18n.ts,68,17,Prompt 正文（≤10000 字）,C1,已在STR,-,export const STR :: STR.bodyPh.zh
-src/client/i18n.ts,69,17,取消,C1,已在STR,-,export const STR :: STR.cancel.zh
-src/client/i18n.ts,70,15,保存,C1,已在STR,-,export const STR :: STR.save.zh
-src/client/i18n.ts,71,16,添加,C1,已在STR,-,export const STR :: STR.addOk.zh
-src/client/i18n.ts,72,23,名称必填,C1,已在STR,-,export const STR :: STR.nameRequired.zh
-src/client/i18n.ts,73,22,正文超过 10000 字上限,C1,已在STR,-,export const STR :: STR.bodyTooLong.zh
-src/client/i18n.ts,74,19,删除确认,C1,已在STR,-,export const STR :: STR.delTitle.zh
-src/client/i18n.ts,75,17,确定删除自定义模板,C1,已在STR,-,export const STR :: STR.delMsg.zh
-src/client/i18n.ts,77,20,「{name}」,C1,已在STR,-,export const STR :: STR.nameQuote.zh
-src/client/i18n.ts,78,23,此操作不可撤销。,C1,已在STR,-,export const STR :: STR.delUnrecover.zh
-src/client/i18n.ts,79,16,删除,C1,已在STR,-,export const STR :: STR.delOk.zh
-src/client/i18n.ts,80,18,置顶已达上限（5 个）,C1,已在STR,-,export const STR :: STR.pinFull.zh
-src/client/i18n.ts,81,21,点击即插入,C1,已在STR,-,export const STR :: STR.insertHint.zh
-src/client/i18n.ts,83,21,已使用 {n} 次,C1,已在STR,-,export const STR :: STR.usageTitle.zh
-src/client/i18n.ts,85,24,点击展开/收起简介,C1,已在STR,-,export const STR :: STR.rowExpandHint.zh
-src/client/i18n.ts,86,16,关闭,C1,已在STR,-,export const STR :: STR.close.zh
-src/client/i18n.ts,88,20,＋,C1,已在STR,-,export const STR :: STR.plusGlyph.zh
-src/client/i18n.ts,89,22,智能模式悬浮卡（输入匹配时推荐模板；默认关）,C1,已在STR,-,export const STR :: STR.smartToggle.zh
-src/client/i18n.ts,90,26,默认关；打开后仅在输入匹配时出卡,C1,已在STR,-,export const STR :: STR.smartToggleHint.zh
-src/client/i18n.ts,91,19,智能模式 · 拖动调整位置；输入匹配时出卡,C1,已在STR,-,export const STR :: STR.smartDot.zh
-src/client/i18n.ts,92,21,智能推荐,C1,已在STR,-,export const STR :: STR.smartTitle.zh
-src/client/i18n.ts,93,20,点击即填入,C1,已在STR,-,export const STR :: STR.smartHint.zh
-src/client/i18n.ts,94,20,点击填入,C1,已在STR,-,export const STR :: STR.smartFill.zh
-src/client/i18n.ts,95,23,收起（继续输入可再次出现）,C1,已在STR,-,export const STR :: STR.smartDismiss.zh
-src/client/i18n.ts,96,22,最近使用,C1,已在STR,-,export const STR :: STR.smartRecent.zh
-src/client/i18n.ts,97,22,常用模板,C1,已在STR,-,export const STR :: STR.smartCommon.zh
-src/client/i18n.ts,99,28,·常用,C1,已在STR,-,export const STR :: STR.smartCommonSuffix.zh
-src/client/i18n.ts,100,27,·分{n},C1,已在STR,-,export const STR :: STR.smartScoreSuffix.zh
-src/client/i18n.ts,101,21,GitHub 仓库,C1,已在STR,-,export const STR :: STR.gitHubRepo.zh
-src/client/i18n.ts,102,19,反馈故障,C1,已在STR,-,export const STR :: STR.feedback.zh
-src/client/i18n.ts,104,18,你的 ⭐是我夜空中最亮的星。,C1,已在STR,-,export const STR :: STR.starTip.zh
-src/client/i18n.ts,105,22,提交反馈、建议和意见🌹,C1,已在STR,-,export const STR :: STR.feedbackTip.zh
-src/client/i18n.ts,106,20,作者其他插件,C1,已在STR,-,export const STR :: STR.moreTitle.zh
-src/client/i18n.ts,107,23,装好就有 25 个工程技能在右侧直接用,C1,已在STR,-,export const STR :: STR.moreDescDeck.zh
-src/client/i18n.ts,108,26,38 款长时间编程护眼配色，一键换上,C1,已在STR,-,export const STR :: STR.moreDescPalette.zh
-src/client/i18n.ts,109,25,本面板自己：24 条常用提示模板随手点，不用来回复制粘贴,C1,已在STR,-,export const STR :: STR.moreDescPrompt.zh
-src/client/i18n.ts,110,28,聊天机器人的伴侣插件：扫码或填凭据就把飞书、微信等 9 路聊天接进来,C1,已在STR,-,export const STR :: STR.moreDescCompanion.zh
-src/client/i18n.ts,114,20,调试日志,C1,已在STR,-,export const STR :: STR.logToggle.zh
-src/client/i18n.ts,115,24,关闭只停信息与调试两级，错误与告警始终记录。,C1,已在STR,-,export const STR :: STR.logToggleHint.zh
-src/client/i18n.ts,116,19,诊断日志,C1,已在STR,-,export const STR :: STR.logGroup.zh
-src/client/i18n.ts,117,19,落点：~/.dsh/logs/dsh-prompt/,C1,已在STR,-,export const STR :: STR.logWhere.zh
-src/client/i18n.ts,118,21,智能推荐,C1,已在STR,-,export const STR :: STR.smartGroup.zh
-src/client/i18n.ts,121,22,远程模式-配合网易UU远程等手机App,C1,已在STR,-,export const STR :: STR.remoteGroup.zh
-src/client/i18n.ts,122,23,远程模式-配合网易UU远程等手机App,C1,已在STR,-,export const STR :: STR.remoteToggle.zh
-src/client/i18n.ts,123,21,大小,C1,已在STR,-,export const STR :: STR.remoteSize.zh
-src/client/i18n.ts,124,24,1档,C1,已在STR,-,export const STR :: STR.remoteSizeMin.zh
-src/client/i18n.ts,125,24,10档,C1,已在STR,-,export const STR :: STR.remoteSizeMax.zh
-src/client/i18n.ts,127,26,{n}档·{p}%,C1,已在STR,-,export const STR :: STR.remoteSizeValue.zh
-src/client/i18n.ts,128,28,持久化失败：本次选择当次有效，下次恢复默认并请重试。,C1,已在STR,-,export const STR :: STR.remotePersistFail.zh
-src/client/i18n.ts,129,28,方向偏好,C1,已在STR,-,export const STR :: STR.remoteOrientation.zh
-src/client/i18n.ts,130,32,自动跟整机方向，无桥时跟视口；锁定先切整机方向，失败只锁自家布局。,C1,已在STR,-,export const STR :: STR.remoteOrientationHint.zh
-src/client/i18n.ts,131,32,自动,C1,已在STR,-,export const STR :: STR.remoteOrientationAuto.zh
-src/client/i18n.ts,132,37,横屏,C1,已在STR,-,export const STR :: STR.remoteOrientationLandscape.zh
-src/client/i18n.ts,133,36,竖屏,C1,已在STR,-,export const STR :: STR.remoteOrientationPortrait.zh
-src/client/i18n.ts,134,32,正在切换整机方向…,C1,已在STR,-,export const STR :: STR.remoteOrientationBusy.zh
-src/client/i18n.ts,135,34,整机未改变，已锁定自家布局（原因：{code}）。,C1,已在STR,-,export const STR :: STR.remoteOrientationOsFail.zh
-src/client/i18n.ts,136,23,需先开启远程模式,C1,已在STR,-,export const STR :: STR.remoteNeedOn.zh
-src/client/i18n.ts,137,29,当前：{orient}（{source}）,C1,已在STR,-,export const STR :: STR.remoteEffectiveNow.zh
-src/client/i18n.ts,138,29,整机,C1,已在STR,-,export const STR :: STR.remoteSourceSystem.zh
-src/client/i18n.ts,139,31,视口,C1,已在STR,-,export const STR :: STR.remoteSourceViewport.zh
-src/client/i18n.ts,140,34,锁定为{orient},C1,已在STR,-,export const STR :: STR.remoteLockedOrientation.zh
-src/client/i18n.ts,141,24,宫格密度,C1,已在STR,-,export const STR :: STR.remoteDensity.zh
-src/client/i18n.ts,142,25,12宫格,C1,已在STR,-,export const STR :: STR.remoteDensityA.zh
-src/client/i18n.ts,143,25,8宫格,C1,已在STR,-,export const STR :: STR.remoteDensityB.zh
-src/client/i18n.ts,144,28,整机待宿主,C1,已在STR,-,export const STR :: STR.remoteHostPending.zh
-src/client/i18n.ts,145,34,整机跟手转（需宿主 H1）,C1,已在STR,-,export const STR :: STR.remoteSystemOrientation.zh
-src/client/i18n.ts,146,38,宿主支持时一键切外部系统横竖屏；缺席只灰这一行，总闸照常可用。,C1,已在STR,-,export const STR :: STR.remoteSystemOrientationHint.zh
-src/client/i18n.ts,147,27,整机字号跟随（需宿主 H2）,C1,已在STR,-,export const STR :: STR.remoteSystemFont.zh
-src/client/i18n.ts,148,31,宿主支持时整机字号一起走；缺席先放大自家面并明示。,C1,已在STR,-,export const STR :: STR.remoteSystemFontHint.zh
-src/client/i18n.ts,149,26,远程设置,C1,已在STR,-,export const STR :: STR.remoteConfigKey.zh
-src/client/i18n.ts,150,38,打开设置页远程段,C1,已在STR,-,export const STR :: STR.remoteConfigKeyFallbackHint.zh
-src/client/i18n.ts,152,24,展开右侧边栏,C1,已在STR,-,export const STR :: STR.sidebarExpand.zh
-src/client/i18n.ts,153,26,折叠右侧边栏,C1,已在STR,-,export const STR :: STR.sidebarCollapse.zh
-src/client/i18n.ts,155,23,收起工具条,C1,已在STR,-,export const STR :: STR.dockCollapse.zh
-src/client/i18n.ts,156,21,展开工具条,C1,已在STR,-,export const STR :: STR.dockExpand.zh
-src/client/i18n.ts,158,30,展开左侧工作区,C1,已在STR,-,export const STR :: STR.workspaceLeftExpand.zh
-src/client/i18n.ts,159,32,折叠左侧工作区,C1,已在STR,-,export const STR :: STR.workspaceLeftCollapse.zh
-src/client/i18n.ts,160,26,选择会话,C1,已在STR,-,export const STR :: STR.workspacePicker.zh
-src/client/i18n.ts,161,23,搜索：标题 + 工作区名…,C1,已在STR,-,export const STR :: STR.pickerSearch.zh
-src/client/i18n.ts,162,24,加载中…,C1,已在STR,-,export const STR :: STR.pickerLoading.zh
-src/client/i18n.ts,163,23,取消等待,C1,已在STR,-,export const STR :: STR.pickerCancel.zh
-src/client/i18n.ts,164,22,整面重试,C1,已在STR,-,export const STR :: STR.pickerRetry.zh
-src/client/i18n.ts,165,22,真无会话：当前没有任何可用会话,C1,已在STR,-,export const STR :: STR.pickerEmpty.zh
-src/client/i18n.ts,166,28,搜无结果：换个关键词（不回退全量）,C1,已在STR,-,export const STR :: STR.pickerEmptySearch.zh
-src/client/i18n.ts,167,26,探测缺席：宿主机会面不可用，原地重试,C1,已在STR,-,export const STR :: STR.pickerProbeFail.zh
-src/client/i18n.ts,168,27,切换失败：留屏，可原地重试,C1,已在STR,-,export const STR :: STR.pickerSwitchFail.zh
-src/client/i18n.ts,169,32,切换失败,C1,已在STR,-,export const STR :: STR.pickerSwitchFailBadge.zh
-src/client/i18n.ts,170,26,正在切换,C1,已在STR,-,export const STR :: STR.pickerSwitching.zh
-src/client/i18n.ts,171,24,当前,C1,已在STR,-,export const STR :: STR.pickerCurrent.zh
-src/client/i18n.ts,172,22,空白,C1,已在STR,-,export const STR :: STR.pickerBlank.zh
-src/client/i18n.ts,173,25,（空白会话）,C1,已在STR,-,export const STR :: STR.pickerUntitled.zh
-src/client/i18n.ts,174,26,未归属,C1,已在STR,-,export const STR :: STR.pickerUngrouped.zh
-src/client/i18n.ts,175,32,散,C1,已在STR,-,export const STR :: STR.pickerUnassignedShort.zh
-src/client/i18n.ts,176,27,工作区,C1,已在STR,-,export const STR :: STR.pickerWorkspaces.zh
-src/client/i18n.ts,177,25,会话,C1,已在STR,-,export const STR :: STR.pickerSessions.zh
-src/client/i18n.ts,178,21,上一页,C1,已在STR,-,export const STR :: STR.pickerPrev.zh
-src/client/i18n.ts,179,21,下一页,C1,已在STR,-,export const STR :: STR.pickerNext.zh
-src/client/i18n.ts,180,22,翻页与关闭,C1,已在STR,-,export const STR :: STR.pickerOpBar.zh
-src/client/i18n.ts,181,20,导出日志,C1,已在STR,-,export const STR :: STR.logExport.zh
-src/client/i18n.ts,182,22,复制路径,C1,已在STR,-,export const STR :: STR.logCopyPath.zh
-src/client/i18n.ts,183,19,清空日志,C1,已在STR,-,export const STR :: STR.logClear.zh
-src/client/i18n.ts,184,26,确认清空,C1,已在STR,-,export const STR :: STR.logClearConfirm.zh
-src/client/i18n.ts,185,22,再点一次「确认清空」会删掉全部日志文件（正在排查的证据也会一起删掉）。,C1,已在STR,-,export const STR :: STR.logClearAsk.zh
-src/client/i18n.ts,186,22,日志已开启（信息与调试也会记录）。,C1,已在STR,-,export const STR :: STR.logSwitchOn.zh
-src/client/i18n.ts,187,23,日志已关闭：错误与告警仍会记录。,C1,已在STR,-,export const STR :: STR.logSwitchOff.zh
-src/client/i18n.ts,188,24,开关未保存，仍按原值：,C1,已在STR,-,export const STR :: STR.logSwitchFail.zh
-src/client/i18n.ts,189,25,已导出到下载目录：,C1,已在STR,-,export const STR :: STR.logExportSaved.zh
-src/client/i18n.ts,190,35,浏览器拦下了下载，请改用「复制正文」：,C1,已在STR,-,export const STR :: STR.logExportDownloadBlocked.zh
-src/client/i18n.ts,191,25,当天还没有日志文件（开关关闭时只有错误与告警会落盘）。,C1,已在STR,-,export const STR :: STR.logExportEmpty.zh
-src/client/i18n.ts,192,24,导出失败：,C1,已在STR,-,export const STR :: STR.logExportFail.zh
-src/client/i18n.ts,193,24,已复制日志文件路径：,C1,已在STR,-,export const STR :: STR.logPathCopied.zh
-src/client/i18n.ts,194,22,拿不到日志路径，请改用「导出日志」。,C1,已在STR,-,export const STR :: STR.logPathFail.zh
-src/client/i18n.ts,195,21,已删除日志文件,C1,已在STR,-,export const STR :: STR.logClearOk.zh
-src/client/i18n.ts,196,23,清空失败，请稍后再试。,C1,已在STR,-,export const STR :: STR.logClearFail.zh
-src/client/i18n.ts,197,21,处理中…,C1,已在STR,-,export const STR :: STR.logWorking.zh
-src/client/i18n.ts,198,21,日志管道已丢弃条数：,C1,已在STR,-,export const STR :: STR.logDropped.zh
-src/client/i18n.ts,199,25,日志能力当前不可用（宿主未接通）。,C1,已在STR,-,export const STR :: STR.logUnavailable.zh
-src/client/i18n.ts,200,19,字节,C1,已在STR,-,export const STR :: STR.logBytes.zh
-src/client/i18n.ts,202,21,（{v}）,C1,已在STR,-,export const STR :: STR.bytesParen.zh
-src/client/i18n.ts,203,19,个文件,C1,已在STR,-,export const STR :: STR.logFiles.zh
-src/client/i18n.ts,204,24,宿主不可达,C1,已在STR,-,export const STR :: STR.logReasonHost.zh
-src/client/i18n.ts,205,28,宿主拒绝写入,C1,已在STR,-,export const STR :: STR.logReasonRejected.zh
-src/client/i18n.ts,206,27,宿主超时未应答,C1,已在STR,-,export const STR :: STR.logReasonTimeout.zh
-src/client/i18n.ts,207,25,已有更新的开关操作，本次作废,C1,已在STR,-,export const STR :: STR.logReasonStale.zh
-src/client/i18n.ts,208,25,未知原因,C1,已在STR,-,export const STR :: STR.logReasonOther.zh
-src/client/i18n.ts,210,25,遥控输入（实时镜子）,C1,已在STR,-,export const STR :: STR.remoteInputKey.zh
-src/client/i18n.ts,211,27,✎ 遥控输入,C1,已在STR,-,export const STR :: STR.remoteInputTitle.zh
-src/client/i18n.ts,212,25,实时镜子 · 自动同步当前会话草稿,C1,已在STR,-,export const STR :: STR.remoteInputSub.zh
-src/client/i18n.ts,213,24,在此输入…自动同步到当前会话输入框（去抖串行 setDraft）,C1,已在STR,-,export const STR :: STR.remoteInputPh.zh
-src/client/i18n.ts,214,26,➤ 发送（禁用）,C1,已在STR,-,export const STR :: STR.remoteInputSend.zh
-src/client/i18n.ts,215,31,宿主未给提交面,C1,已在STR,-,export const STR :: STR.remoteInputSendTitle.zh
-src/client/i18n.ts,216,34,草稿已同步，去大屏那头发起发送,C1,已在STR,-,export const STR :: STR.remoteInputExplicitMain.zh
-src/client/i18n.ts,217,33,宿主未提供提交面，此键恒禁用、绝不伪造回车。,C1,已在STR,-,export const STR :: STR.remoteInputExplicitSub.zh
-src/client/i18n.ts,218,27,会话已切换，本框已停写（防串写），请重开。,C1,已在STR,-,export const STR :: STR.remoteInputStale.zh
-src/client/i18n.ts,219,26,实时镜子 · 去抖300ms串行 · session校验 · 组词中延迟,C1,已在STR,-,export const STR :: STR.remoteInputMeta.zh
-src/client/i18n.ts,220,27,{n}字,C1,已在STR,-,export const STR :: STR.remoteInputChars.zh
-src/client/i18n.ts,221,25,模型切换（休眠中）,C1,已在STR,-,export const STR :: STR.remoteModelKey.zh
-src/client/i18n.ts,222,27,▤ 模型切换,C1,已在STR,-,export const STR :: STR.remoteModelTitle.zh
-src/client/i18n.ts,223,27,宿主暂无模型面（首次出现会提示一次）,C1,已在STR,-,export const STR :: STR.remoteModelEmpty.zh
-src/client/keys.ts,55,3,全部,C2,不动(身份别名),-,export const SCOPE_ALIASES :: SCOPE_ALIASES.全部
-src/client/keys.ts,57,3,预置,C2,不动(身份别名),-,export const SCOPE_ALIASES :: SCOPE_ALIASES.预置
-src/client/keys.ts,58,3,预制,C2,不动(身份别名),-,export const SCOPE_ALIASES :: SCOPE_ALIASES.预制
-src/client/keys.ts,60,3,自定义,C2,不动(身份别名),-,export const SCOPE_ALIASES :: SCOPE_ALIASES.自定义
-src/client/keys.ts,158,64,思考框架,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[1]
-src/client/keys.ts,158,72,学习,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[2]
-src/client/keys.ts,158,78,工程,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[3]
-src/client/keys.ts,158,84,执行,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[4]
-src/client/keys.ts,158,90,执行前,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[5]
-src/client/keys.ts,158,97,执行中,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[6]
-src/client/keys.ts,158,104,执行后,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[7]
-src/client/keys.ts,158,111,自定义,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[8]
-src/client/keys.ts,182,3,思考框架,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.思考框架
-src/client/keys.ts,182,23,学习,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.学习
-src/client/keys.ts,182,41,工程,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.工程
-src/client/keys.ts,182,62,执行,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.执行
-src/client/keys.ts,184,3,执行前,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.执行前
-src/client/keys.ts,184,20,执行中,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.执行中
-src/client/keys.ts,184,37,执行后,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.执行后
-src/client/keys.ts,186,3,拆解,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.拆解
-src/client/keys.ts,186,22,检验,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.检验
-src/client/keys.ts,186,38,归因,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.归因
-src/client/keys.ts,186,59,决策,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.决策
-src/client/keys.ts,186,75,理解,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.理解
-src/client/keys.ts,187,3,路线,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.路线
-src/client/keys.ts,187,20,概念,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.概念
-src/client/keys.ts,187,38,考验,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.考验
-src/client/keys.ts,187,52,审查,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.审查
-src/client/keys.ts,187,68,测试,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.测试
-src/client/keys.ts,188,3,重构,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.重构
-src/client/keys.ts,188,21,解读,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.解读
-src/client/keys.ts,188,38,启动,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.启动
-src/client/keys.ts,188,55,固化,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.固化
-src/client/keys.ts,188,71,记录,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.记录
-src/client/keys.ts,188,84,复盘,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.复盘
-src/client/match.ts,112,26,：,C4,不动(内部匹配字符),-,export function firstFieldCaret :: firstFieldCaret
-src/client/smart.ts,395,64,输入框DOM,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/smart.ts,395,106,输入桥,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/smart.ts,395,114,读不到,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/smart.ts,399,9,诊断(临时) 草稿=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/smart.ts,399,69, 来源=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/smart.ts,399,93, 自定义=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/smart.ts,399,117,条 候选=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
-src/client/store.ts,36,31,自定义,C2,不动(身份值),-,export const LABEL_FALLBACK :: LABEL_FALLBACK
-src/client/store.ts,439,54,（副本）,C2,不动(写入用户数据),141,export function copyPresetToCustom :: copyPresetToCustom
-src/client/templates.ts,9,22,思考框架,C3,不动(内容资产),-,-
-src/client/templates.ts,9,31,学习,C3,不动(内容资产),-,-
-src/client/templates.ts,9,38,工程,C3,不动(内容资产),-,-
-src/client/templates.ts,9,45,执行,C3,不动(内容资产),-,-
-src/client/templates.ts,10,21,执行前,C3,不动(内容资产),-,-
-src/client/templates.ts,10,29,执行中,C3,不动(内容资产),-,-
-src/client/templates.ts,10,37,执行后,C3,不动(内容资产),-,-
-src/client/templates.ts,27,21,第一性原理拆解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].name
-src/client/templates.ts,27,68,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].domain
-src/client/templates.ts,27,83,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].stage
-src/client/templates.ts,27,99,拆解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].action[0]
-src/client/templates.ts,27,115,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].labels[0]
-src/client/templates.ts,27,123,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].labels[1]
-src/client/templates.ts,27,130,拆解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].labels[2]
-src/client/templates.ts,28,5,请用第一性原理分析以下主题，按编号结构化输出，结论先行：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,29,5,1. 这个问题的基本组成单元是什么？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,30,5,2. 哪些是真正不可改变的真理（而非假设）？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,31,5,3. 如果去掉所有既有假设，问题本身还剩下什么？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,32,5,4. 有哪些被大多数人默认为常识、但其实可以颠覆的？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,33,5,5. 基于以上推演给出你的原创见解，并说明它与主流看法的差异。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,34,5,主题：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,36,27,苏格拉底式追问,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].name
-src/client/templates.ts,36,78,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].domain
-src/client/templates.ts,36,93,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].stage
-src/client/templates.ts,36,109,检验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].action[0]
-src/client/templates.ts,36,125,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].labels[0]
-src/client/templates.ts,36,133,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].labels[1]
-src/client/templates.ts,36,140,检验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].labels[2]
-src/client/templates.ts,37,5,请用苏格拉底式追问帮助我思考，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,38,5,1. 先复述我当前的观点或核心假设；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,39,5,2. 提出 3 个最有力的质疑；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,40,5,3. 找出一个我尚未考虑到的视角；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,41,5,4. 如果你是深思熟虑的对话者，你会问我哪几个我没想到的问题？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,42,5,5. 追问结束后，把整个过程浓缩成一个更精准的问题。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,43,5,主题：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,45,23,深度多维分析,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].name
-src/client/templates.ts,45,66,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].domain
-src/client/templates.ts,45,81,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].stage
-src/client/templates.ts,45,97,归因,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].action[0]
-src/client/templates.ts,45,113,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].labels[0]
-src/client/templates.ts,45,121,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].labels[1]
-src/client/templates.ts,45,128,归因,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].labels[2]
-src/client/templates.ts,46,5,请从多个维度深度分析以下主题，按编号结构化输出，结论先行：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,47,5,1. 本质是什么？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,48,5,2. 有哪些常见的误解？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,49,5,3. 支持和反对的证据分别是什么？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,50,5,4. 这个问题的边界在哪里（什么情况下它不再成立）？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,51,5,5. 如果你必须做出一个判断，会是什么？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,52,5,6. 你最强的那个结论，弱点在哪里？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,53,5,主题：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [7]
-src/client/templates.ts,55,30,对抗式审查,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].name
-src/client/templates.ts,55,77,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].domain
-src/client/templates.ts,55,92,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].stage
-src/client/templates.ts,55,108,检验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].action[0]
-src/client/templates.ts,55,124,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].labels[0]
-src/client/templates.ts,55,132,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].labels[1]
-src/client/templates.ts,55,139,检验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].labels[2]
-src/client/templates.ts,56,5,请对以下方案/结论做对抗式审查（红队角色），先给一段结论摘要，再按编号展开：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,57,5,1. 找出其中最强的 5 个假设，逐一论证它们可能如何失效；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,58,5,2. 构造最可能推翻它的 3 个反例或失败场景；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,59,5,3. 指出其中隐藏的认知偏差与利益相关方视角的盲区；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,60,5,4. 给出「如果这个方案失败，最可能的原因是什么」的排序清单；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,61,5,5. 最后给出：在何种条件下你才会认为它是错的——以及何种证据能让你改变立场。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,62,5,方案 / 结论：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,64,27,决策博弈分析,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].name
-src/client/templates.ts,64,74,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].domain
-src/client/templates.ts,64,89,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].stage
-src/client/templates.ts,64,105,决策,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].action[0]
-src/client/templates.ts,64,121,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].labels[0]
-src/client/templates.ts,64,129,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].labels[1]
-src/client/templates.ts,64,136,决策,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].labels[2]
-src/client/templates.ts,65,5,你是一位冷静的决策分析师。请分析我的处境，按编号结构化输出（你的选择仅作参考，重点是分析过程）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,66,5,1. 列出每个选项最坏的结果是什么；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,67,5,2. 每个选项最好的结果是什么；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,68,5,3. 最可能的结果是什么；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,69,5,4. 如果 10 年后回头看，我可能会后悔什么；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,70,5,5. 有没有哪条路是「没有回头路」的；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,71,5,6. 给出你本人的选择并说明理由；再指出我可能忽略的第三个选项。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,72,5,我的处境（选项与背景）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [7]
-src/client/templates.ts,74,28,事前验尸,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].name
-src/client/templates.ts,74,66,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].domain
-src/client/templates.ts,74,81,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].stage
-src/client/templates.ts,74,97,决策,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].action[0]
-src/client/templates.ts,74,113,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].labels[0]
-src/client/templates.ts,74,121,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].labels[1]
-src/client/templates.ts,74,128,决策,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].labels[2]
-src/client/templates.ts,75,5,假设以下方案/项目已经在一年后彻底失败。请以「事后回溯」的方式写失败分析，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,76,5,1. 按可能性从高到低列出 8 个失败原因；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,77,5,2. 对前 3 个原因，给出现在就能做的预防措施；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,78,5,3. 指出哪些早期信号现在就该监控；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,79,5,4. 最后说明：这个方案是否从一开始就有致命缺陷。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,80,5,方案描述：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,82,26,费曼技巧,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].name
-src/client/templates.ts,82,71,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].domain
-src/client/templates.ts,82,86,执行后,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].stage
-src/client/templates.ts,82,102,理解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].action[0]
-src/client/templates.ts,82,118,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].labels[0]
-src/client/templates.ts,82,126,执行后,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].labels[1]
-src/client/templates.ts,82,133,理解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].labels[2]
-src/client/templates.ts,83,5,请用费曼技巧确认我是否真正理解了以下概念，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,84,5,1. 用最简单的语言、面向完全不懂的人解释这个概念（禁止术语）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,85,5,2. 给出 2 个生动类比和 2 个反例；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,86,5,3. 指出我理解中的错误或不准确之处；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,87,5,4. 设计 3 个判断题检验我是否真的懂了。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,88,5,概念：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,89,5,我的理解（可选）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,91,27,五个为什么,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].name
-src/client/templates.ts,91,65,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].domain
-src/client/templates.ts,91,80,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].stage
-src/client/templates.ts,91,96,归因,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].action[0]
-src/client/templates.ts,91,112,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].labels[0]
-src/client/templates.ts,91,120,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].labels[1]
-src/client/templates.ts,91,127,归因,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].labels[2]
-src/client/templates.ts,92,5,针对以下问题，请连续追问五个「为什么」，每层基于上一层的事实回答，最后区分根本原因与表层触发因素并给出解决方向：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,93,5,问题描述：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,95,23,MECE 拆解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].name
-src/client/templates.ts,95,72,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].domain
-src/client/templates.ts,95,87,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].stage
-src/client/templates.ts,95,103,拆解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].action[0]
-src/client/templates.ts,95,119,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].labels[0]
-src/client/templates.ts,95,127,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].labels[1]
-src/client/templates.ts,95,134,拆解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].labels[2]
-src/client/templates.ts,96,5,请用 MECE 原则拆解以下问题，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,97,5,1. 给出 3~6 个相互独立（Mutually Exclusive）的分类维度；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,98,5,2. 每个维度下列出所有子项，确保完全穷尽（Collectively Exhaustive）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,99,5,3. 指出拆解中可能的遗漏与重叠；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,100,5,4. 给出按重要性排序后的关键子问题清单。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,101,5,问题：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,103,23,认知偏差检查,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].name
-src/client/templates.ts,103,73,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].domain
-src/client/templates.ts,103,88,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].stage
-src/client/templates.ts,103,104,检验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].action[0]
-src/client/templates.ts,103,120,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].labels[0]
-src/client/templates.ts,103,128,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].labels[1]
-src/client/templates.ts,103,135,检验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].labels[2]
-src/client/templates.ts,104,5,请审查以下推理/计划/结论中的认知偏差，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,105,5,1. 列出可能影响它的偏差（确认偏误、沉没成本、可得性、锚定、乐观/悲观偏差、群体思维等），并指出具体证据；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,106,5,2. 对每条偏差，给出「如何检验是否真的受影响」的方法；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,107,5,3. 给出一个反事实检验：如果结论被证明是错的，最可能因为哪条偏差？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,108,5,推理 / 计划 / 结论：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,110,28,学习路线设计,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].name
-src/client/templates.ts,110,71,学习,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].domain
-src/client/templates.ts,110,84,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].stage
-src/client/templates.ts,110,100,路线,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].action[0]
-src/client/templates.ts,110,116,学习,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].labels[0]
-src/client/templates.ts,110,122,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].labels[1]
-src/client/templates.ts,110,129,路线,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].labels[2]
-src/client/templates.ts,111,5,请为以下领域/技能设计一条从零到可实战的学习路线，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,112,5,1. 按阶段拆分（入门→进阶→实战），每个阶段给出学习目标；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,113,5,2. 每个阶段推荐 2~3 个核心主题和练习方式；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,114,5,3. 指出常见的「伪学习陷阱」（只收藏不练习等）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,115,5,4. 给出一个 30 天内可完成的最小闭环，以及检验掌握程度的基准。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,116,5,领域 / 技能：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,117,5,当前水平（可选）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,118,5,目标（可选）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [7]
-src/client/templates.ts,120,26,概念澄清,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].name
-src/client/templates.ts,120,75,学习,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].domain
-src/client/templates.ts,120,88,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].stage
-src/client/templates.ts,120,104,概念,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].action[0]
-src/client/templates.ts,120,120,学习,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].labels[0]
-src/client/templates.ts,120,126,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].labels[1]
-src/client/templates.ts,120,133,概念,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].labels[2]
-src/client/templates.ts,121,5,请帮我彻底理解以下概念，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,122,5,1. 一句话定义 + 一个最小例子；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,123,5,2. 它与常见相近概念的本质区别（各给一个对比场景）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,124,5,3. 这个概念在什么情况下不适用（边界）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,125,5,4. 给出 3 个由浅入深的练习场景让我检验理解。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,126,5,概念：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,127,5,相近概念（可选，不知道可留空，AI 自行选常见相近概念对比）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,129,23,AI 反向考验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].name
-src/client/templates.ts,129,61,学习,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].domain
-src/client/templates.ts,129,74,执行后,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].stage
-src/client/templates.ts,129,90,考验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].action[0]
-src/client/templates.ts,129,106,学习,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].labels[0]
-src/client/templates.ts,129,112,执行后,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].labels[1]
-src/client/templates.ts,129,119,考验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].labels[2]
-src/client/templates.ts,130,5,请通过出题检验我是否真正理解了以下主题/交付内容：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,131,5,1. 设计选择题/判断题/简答题/案例题（由浅入深）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,132,5,2. 我作答后指出错误与盲区；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,133,5,3. 直到回答正确、知识点无盲区后再确认交付。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,134,5,主题 / 交付内容：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,136,29,代码审查,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].name
-src/client/templates.ts,136,68,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].domain
-src/client/templates.ts,136,81,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].stage
-src/client/templates.ts,136,97,审查,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].action[0]
-src/client/templates.ts,136,113,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].labels[0]
-src/client/templates.ts,136,119,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].labels[1]
-src/client/templates.ts,136,126,审查,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].labels[2]
-src/client/templates.ts,137,5,请审查以下代码，先给总体结论，再按严重程度排序输出，每个问题附具体修改建议（含示例代码）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,138,5,1. 正确性：潜在 bug、边界条件、并发/异步问题；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,139,5,2. 安全：注入、鉴权、敏感信息、依赖风险；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,140,5,3. 可维护性：命名、结构、重复、可读性；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,141,5,4. 性能：明显的低效点。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,142,5,代码过长时可分段审查，但最终汇总为一页结论。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,143,5,代码 / 文件 / 技术栈：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,145,29,测试用例设计,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].name
-src/client/templates.ts,145,70,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].domain
-src/client/templates.ts,145,83,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].stage
-src/client/templates.ts,145,99,测试,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].action[0]
-src/client/templates.ts,145,115,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].labels[0]
-src/client/templates.ts,145,121,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].labels[1]
-src/client/templates.ts,145,128,测试,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].labels[2]
-src/client/templates.ts,146,5,请为以下功能设计测试用例，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,147,5,1. 正常路径用例（含输入/预期输出）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,148,5,2. 边界与极端值用例；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,149,5,3. 异常与错误处理用例；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,150,5,4. 并发/重复/幂等场景（如适用）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,151,5,5. 指出哪些用例最容易漏、以及对应的风险。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,152,5,功能描述：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,154,27,重构方案,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].name
-src/client/templates.ts,154,71,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].domain
-src/client/templates.ts,154,84,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].stage
-src/client/templates.ts,154,100,重构,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].action[0]
-src/client/templates.ts,154,116,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].labels[0]
-src/client/templates.ts,154,122,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].labels[1]
-src/client/templates.ts,154,129,重构,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].labels[2]
-src/client/templates.ts,155,5,请为以下代码提出重构方案，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,156,5,1. 指出当前结构的主要问题（职责、耦合、可测试性）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,157,5,2. 给出目标结构（抽象与拆分建议，含示例）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,158,5,3. 按「小步重构」顺序列出步骤，每一步可独立提交且行为不变；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,159,5,4. 指出哪些重构有风险、需要测试保护。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,160,5,代码 / 模块：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,162,26,解释代码,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].name
-src/client/templates.ts,162,66,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].domain
-src/client/templates.ts,162,79,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].stage
-src/client/templates.ts,162,95,解读,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].action[0]
-src/client/templates.ts,162,111,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].labels[0]
-src/client/templates.ts,162,117,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].labels[1]
-src/client/templates.ts,162,124,解读,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].labels[2]
-src/client/templates.ts,163,5,请解释以下代码，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,164,5,1. 这段代码做什么（一句话）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,165,5,2. 逐段讲解执行流程与关键数据结构；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,166,5,3. 指出其中「为什么这样写」的设计取舍；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,167,5,4. 指出潜在问题与改进点；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,168,5,5. 用一句话概括它在我更大的系统里扮演的角色。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,169,5,代码：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,171,28,盲区检查,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].name
-src/client/templates.ts,171,71,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].domain
-src/client/templates.ts,171,84,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].stage
-src/client/templates.ts,171,100,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].action[0]
-src/client/templates.ts,171,116,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].labels[0]
-src/client/templates.ts,171,122,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].labels[1]
-src/client/templates.ts,171,129,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].labels[2]
-src/client/templates.ts,172,5,在我开始以下任务之前，请帮我做一次盲区检查，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,173,5,1. 我可能遗漏的关键变量有哪些？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,174,5,2. 潜在的风险与最容易忽略的影响因素？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,175,5,3. 哪些点需要提前决策、哪些可以后置？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,176,5,4. 给我一个 3 分钟内可完成的快速检查清单。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,177,5,我的计划（目标 / 约束）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,179,27,零丢失快照,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].name
-src/client/templates.ts,179,74,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].domain
-src/client/templates.ts,179,87,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].stage
-src/client/templates.ts,179,103,固化,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].action[0]
-src/client/templates.ts,179,119,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].labels[0]
-src/client/templates.ts,179,125,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].labels[1]
-src/client/templates.ts,179,132,固化,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].labels[2]
-src/client/templates.ts,180,5,请执行一次「零丢失快照」：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,181,5,1. 把我们从会话开始至今的关键信息，按「目的地 / 约束与偏好 / 已确认的决定 / 待决问题 / 雾区（隐约可见但还不清晰）」五类逐条列出——不压缩、不合并，宁可啰嗦不可省略；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,182,5,2. 每条标注出处（引用我原话）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,183,5,3. 单独列一节「可疑遗漏」：凡是我提过但你觉得与主线无关、太模糊或像执行细节而没纳入的，全部摆出并写明理由；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,184,5,4. 列完后停下等我逐条核对，确认后再落盘。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,186,26,任务启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].name
-src/client/templates.ts,186,66,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].domain
-src/client/templates.ts,186,79,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].stage
-src/client/templates.ts,186,95,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].action[0]
-src/client/templates.ts,186,111,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].labels[0]
-src/client/templates.ts,186,117,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].labels[1]
-src/client/templates.ts,186,124,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].labels[2]
-src/client/templates.ts,187,5,在开始以下任务之前，请先确认起点并澄清细节，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,188,5,1. 最终目标（要做什么）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,189,5,2. 当前进度（目前想到哪一步）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,190,5,3. 经验水平（新手 / 有经验 / 专家）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,191,5,4. 不熟悉的地方；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,192,5,5. 成功的标准；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,193,5,6. 通过提问澄清细节（成功标准之外还有哪些约束、有哪些风险现在就该知道）。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,194,5,最终目标：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [7]
-src/client/templates.ts,195,5,当前进度（可选）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [8]
-src/client/templates.ts,196,5,经验水平（新手 / 有经验 / 专家）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [9]
-src/client/templates.ts,197,5,不熟悉的地方（可选）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [10]
-src/client/templates.ts,199,28,原型验证,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].name
-src/client/templates.ts,199,74,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].domain
-src/client/templates.ts,199,87,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].stage
-src/client/templates.ts,199,103,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].action[0]
-src/client/templates.ts,199,119,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].labels[0]
-src/client/templates.ts,199,125,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].labels[1]
-src/client/templates.ts,199,132,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].labels[2]
-src/client/templates.ts,200,5,请为以下主题/想法做原型验证，每轮输出保持克制（方向概要即可，不要太长）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,201,5,1. 给出 2~4 个方向差距很大的候选方案；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,202,5,2. 每个方向给出最小的验证方式（怎么快速试错）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,203,5,3. 由我选择和反馈，几轮后逐步收敛到满意的方向；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,204,5,4. 收敛后给出下一步的执行计划要点。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,205,5,主题 / 想法：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,207,23,执行计划,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].name
-src/client/templates.ts,207,65,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].domain
-src/client/templates.ts,207,78,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].stage
-src/client/templates.ts,207,94,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].action[0]
-src/client/templates.ts,207,110,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].labels[0]
-src/client/templates.ts,207,116,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].labels[1]
-src/client/templates.ts,207,123,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].labels[2]
-src/client/templates.ts,208,5,请为以下目标制定执行计划，按编号结构化输出（时间安排是可调整的草案）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,209,5,1. 明确步骤（含顺序与依赖）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,210,5,2. 时间安排（每步预计时长/里程碑）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,211,5,3. 所需资源和工具；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,212,5,4. 交付物和验收标准；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,213,5,5. 风险和应对方案。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,214,5,目标：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/templates.ts,215,5,约束（可选）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [7]
-src/client/templates.ts,217,28,记录偏离,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].name
-src/client/templates.ts,217,69,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].domain
-src/client/templates.ts,217,82,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].stage
-src/client/templates.ts,217,98,记录,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].action[0]
-src/client/templates.ts,217,114,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].labels[0]
-src/client/templates.ts,217,120,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].labels[1]
-src/client/templates.ts,217,127,记录,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].labels[2]
-src/client/templates.ts,218,5,请担任我的过程记录员（多轮持续角色）：从现在起，在每次交互后更新一份简洁的偏离记录，按编号结构化：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,219,5,1. 遇到了什么新的情况？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,220,5,2. 为什么改变了方案？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,221,5,3. 做了哪些关键决定？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,222,5,4. 对结果有什么影响？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,223,5,每次只输出「新增/变更」条目，不要重复已记录内容。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,225,24,过程复盘,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].name
-src/client/templates.ts,225,65,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].domain
-src/client/templates.ts,225,78,执行后,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].stage
-src/client/templates.ts,225,94,复盘,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].action[0]
-src/client/templates.ts,225,110,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].labels[0]
-src/client/templates.ts,225,116,执行后,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].labels[1]
-src/client/templates.ts,225,123,复盘,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].labels[2]
-src/client/templates.ts,226,5,请帮我复盘刚刚完成的以下任务/项目，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
-src/client/templates.ts,227,5,1. 整体步骤回顾（实际 vs 计划的差异）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
-src/client/templates.ts,228,5,2. 使用的资料和工具；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
-src/client/templates.ts,229,5,3. 遇到的困难；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
-src/client/templates.ts,230,5,4. 解决思路与可复用经验；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
-src/client/templates.ts,231,5,5. 如果重来一次，哪些地方会做得不同？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
-src/client/templates.ts,232,5,任务 / 项目：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
-src/client/words.ts,14,18,第一性原理,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.strong[0]
-src/client/words.ts,14,27,基本组成单元,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.strong[1]
-src/client/words.ts,14,37,不可改变的真理,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.strong[2]
-src/client/words.ts,14,48,颠覆,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.strong[3]
-src/client/words.ts,14,54,去掉假设,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.strong[4]
-src/client/words.ts,14,70,分析,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.weak[0]
-src/client/words.ts,14,76,本质,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.weak[1]
-src/client/words.ts,14,82,假设,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.weak[2]
-src/client/words.ts,14,88,拆解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.weak[3]
-src/client/words.ts,14,94,主题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.weak[4]
-src/client/words.ts,15,24,苏格拉底,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.strong[0]
-src/client/words.ts,15,32,追问,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.strong[1]
-src/client/words.ts,15,38,质疑,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.strong[2]
-src/client/words.ts,15,44,复述观点,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.strong[3]
-src/client/words.ts,15,52,没想到的问题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.strong[4]
-src/client/words.ts,15,70,思考,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.weak[0]
-src/client/words.ts,15,76,问题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.weak[1]
-src/client/words.ts,15,82,假设,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.weak[2]
-src/client/words.ts,15,88,观点,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.weak[3]
-src/client/words.ts,16,20,深度分析,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.strong[0]
-src/client/words.ts,16,28,多维,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.strong[1]
-src/client/words.ts,16,34,常见误解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.strong[2]
-src/client/words.ts,16,42,边界,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.strong[3]
-src/client/words.ts,16,48,证据,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.strong[4]
-src/client/words.ts,16,62,分析,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.weak[0]
-src/client/words.ts,16,68,本质,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.weak[1]
-src/client/words.ts,16,74,判断,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.weak[2]
-src/client/words.ts,16,80,主题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.weak[3]
-src/client/words.ts,17,27,对抗式,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.strong[0]
-src/client/words.ts,17,34,红队,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.strong[1]
-src/client/words.ts,17,40,反例,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.strong[2]
-src/client/words.ts,17,46,推翻,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.strong[3]
-src/client/words.ts,17,52,失败场景,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.strong[4]
-src/client/words.ts,17,60,认知偏差,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.strong[5]
-src/client/words.ts,17,76,审查,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.weak[0]
-src/client/words.ts,17,82,方案,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.weak[1]
-src/client/words.ts,17,88,结论,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.weak[2]
-src/client/words.ts,17,94,假设,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.weak[3]
-src/client/words.ts,18,24,决策,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[0]
-src/client/words.ts,18,30,选项,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[1]
-src/client/words.ts,18,36,纠结,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[2]
-src/client/words.ts,18,42,后悔,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[3]
-src/client/words.ts,18,48,最坏,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[4]
-src/client/words.ts,18,54,沉没成本,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[5]
-src/client/words.ts,18,62,没有回头路,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[6]
-src/client/words.ts,18,79,选择,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.weak[0]
-src/client/words.ts,18,85,权衡,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.weak[1]
-src/client/words.ts,18,91,处境,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.weak[2]
-src/client/words.ts,18,97,分析,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.weak[3]
-src/client/words.ts,19,25,事前验尸,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.strong[0]
-src/client/words.ts,19,46,失败原因,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.strong[2]
-src/client/words.ts,19,54,回溯,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.strong[3]
-src/client/words.ts,19,60,预防,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.strong[4]
-src/client/words.ts,19,66,致命缺陷,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.strong[5]
-src/client/words.ts,19,74,早期信号,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.strong[6]
-src/client/words.ts,19,90,方案,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.weak[0]
-src/client/words.ts,19,96,项目,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.weak[1]
-src/client/words.ts,19,102,风险,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.weak[2]
-src/client/words.ts,19,108,失败,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.weak[3]
-src/client/words.ts,20,23,费曼,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.strong[0]
-src/client/words.ts,20,29,类比,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.strong[1]
-src/client/words.ts,20,35,反例,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.strong[2]
-src/client/words.ts,20,41,禁止术语,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.strong[3]
-src/client/words.ts,20,49,判断题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.strong[4]
-src/client/words.ts,20,64,理解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.weak[0]
-src/client/words.ts,20,70,概念,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.weak[1]
-src/client/words.ts,20,76,解释,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.weak[2]
-src/client/words.ts,21,24,五个为什么,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.strong[0]
-src/client/words.ts,21,41,根本原因,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.strong[2]
-src/client/words.ts,21,49,根因,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.strong[3]
-src/client/words.ts,21,55,连续追问,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.strong[4]
-src/client/words.ts,21,71,为什么,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.weak[0]
-src/client/words.ts,21,78,问题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.weak[1]
-src/client/words.ts,21,84,原因,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.weak[2]
-src/client/words.ts,22,28,相互独立,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.strong[1]
-src/client/words.ts,22,36,完全穷尽,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.strong[2]
-src/client/words.ts,22,44,不重不漏,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.strong[3]
-src/client/words.ts,22,52,分类维度,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.strong[4]
-src/client/words.ts,22,68,拆解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.weak[0]
-src/client/words.ts,22,74,分类,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.weak[1]
-src/client/words.ts,22,80,问题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.weak[2]
-src/client/words.ts,23,20,认知偏差,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.strong[0]
-src/client/words.ts,23,28,确认偏误,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.strong[1]
-src/client/words.ts,23,36,锚定,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.strong[2]
-src/client/words.ts,23,42,群体思维,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.strong[3]
-src/client/words.ts,23,50,反事实,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.strong[4]
-src/client/words.ts,23,57,可得性,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.strong[5]
-src/client/words.ts,23,72,偏差,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.weak[0]
-src/client/words.ts,23,78,检查,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.weak[1]
-src/client/words.ts,23,84,推理,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.weak[2]
-src/client/words.ts,23,90,结论,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.weak[3]
-src/client/words.ts,24,25,学习路线,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.strong[0]
-src/client/words.ts,24,33,从零到实战,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.strong[1]
-src/client/words.ts,24,42,伪学习,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.strong[2]
-src/client/words.ts,24,49,最小闭环,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.strong[3]
-src/client/words.ts,24,57,掌握程度,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.strong[4]
-src/client/words.ts,24,73,学习,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.weak[0]
-src/client/words.ts,24,79,路线,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.weak[1]
-src/client/words.ts,24,85,技能,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.weak[2]
-src/client/words.ts,24,91,入门,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.weak[3]
-src/client/words.ts,24,97,进阶,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.weak[4]
-src/client/words.ts,25,23,概念澄清,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.strong[0]
-src/client/words.ts,25,31,本质区别,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.strong[1]
-src/client/words.ts,25,39,一句话定义,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.strong[2]
-src/client/words.ts,25,48,对比场景,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.strong[3]
-src/client/words.ts,25,56,不适用,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.strong[4]
-src/client/words.ts,25,71,概念,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.weak[0]
-src/client/words.ts,25,77,理解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.weak[1]
-src/client/words.ts,25,83,定义,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.weak[2]
-src/client/words.ts,26,26,代码审查,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.strong[0]
-src/client/words.ts,26,65,正确性,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.strong[4]
-src/client/words.ts,26,72,并发,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.strong[5]
-src/client/words.ts,26,78,注入,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.strong[6]
-src/client/words.ts,26,84,可维护性,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.strong[7]
-src/client/words.ts,26,92,性能,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.strong[8]
-src/client/words.ts,26,106,安全,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.weak[0]
-src/client/words.ts,26,112,技术栈,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.weak[1]
-src/client/words.ts,27,26,测试用例,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.strong[0]
-src/client/words.ts,27,34,正常路径,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.strong[1]
-src/client/words.ts,27,42,边界值,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.strong[2]
-src/client/words.ts,27,49,异常,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.strong[3]
-src/client/words.ts,27,55,幂等,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.strong[4]
-src/client/words.ts,27,61,并发,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.strong[5]
-src/client/words.ts,27,75,测试,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.weak[0]
-src/client/words.ts,27,81,用例,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.weak[1]
-src/client/words.ts,27,87,功能,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.weak[2]
-src/client/words.ts,28,24,重构,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.strong[0]
-src/client/words.ts,28,42,小步,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.strong[2]
-src/client/words.ts,28,48,可测试性,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.strong[3]
-src/client/words.ts,28,56,耦合,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.strong[4]
-src/client/words.ts,28,70,代码,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.weak[0]
-src/client/words.ts,28,76,方案,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.weak[1]
-src/client/words.ts,28,82,结构,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.weak[2]
-src/client/words.ts,28,88,职责,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.weak[3]
-src/client/words.ts,29,23,解释代码,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.strong[0]
-src/client/words.ts,29,31,执行流程,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.strong[1]
-src/client/words.ts,29,39,为什么这样写,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.strong[2]
-src/client/words.ts,29,49,设计取舍,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.strong[3]
-src/client/words.ts,29,57,扮演的角色,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.strong[4]
-src/client/words.ts,29,74,代码,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.weak[0]
-src/client/words.ts,29,80,解释,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.weak[1]
-src/client/words.ts,29,86,讲解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.weak[2]
-src/client/words.ts,30,25,盲区,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.strong[0]
-src/client/words.ts,30,31,遗漏,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.strong[1]
-src/client/words.ts,30,37,检查清单,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.strong[2]
-src/client/words.ts,30,45,关键变量,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.strong[3]
-src/client/words.ts,30,61,计划,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.weak[0]
-src/client/words.ts,30,67,开始,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.weak[1]
-src/client/words.ts,30,73,任务,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.weak[2]
-src/client/words.ts,30,79,启动,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.weak[3]
-src/client/words.ts,30,85,风险,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.weak[4]
-src/client/words.ts,31,24,零丢失,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.strong[0]
-src/client/words.ts,31,31,快照,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.strong[1]
-src/client/words.ts,31,37,出处,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.strong[2]
-src/client/words.ts,31,43,逐条核对,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.strong[3]
-src/client/words.ts,31,51,可疑遗漏,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.strong[4]
-src/client/words.ts,31,67,记录,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.weak[0]
-src/client/words.ts,31,73,固化,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.weak[1]
-src/client/words.ts,31,79,里程碑,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.weak[2]
-src/client/words.ts,31,86,会话,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.weak[3]
-src/client/words.ts,32,23,任务启动,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.strong[0]
-src/client/words.ts,32,42,成功标准,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.strong[2]
-src/client/words.ts,32,50,澄清,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.strong[3]
-src/client/words.ts,32,56,经验水平,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.strong[4]
-src/client/words.ts,32,72,任务,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.weak[0]
-src/client/words.ts,32,78,开始,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.weak[1]
-src/client/words.ts,32,84,目标,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.weak[2]
-src/client/words.ts,32,90,启动,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.weak[3]
-src/client/words.ts,33,25,原型,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.strong[0]
-src/client/words.ts,33,31,试错,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.strong[1]
-src/client/words.ts,33,37,候选方案,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.strong[2]
-src/client/words.ts,33,45,快速验证,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.strong[3]
-src/client/words.ts,33,61,想法,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.weak[0]
-src/client/words.ts,33,67,验证,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.weak[1]
-src/client/words.ts,33,73,方案,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.weak[2]
-src/client/words.ts,33,79,方向,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.weak[3]
-src/client/words.ts,34,20,执行计划,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.strong[0]
-src/client/words.ts,34,28,里程碑,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.strong[1]
-src/client/words.ts,34,35,验收标准,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.strong[2]
-src/client/words.ts,34,43,依赖,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.strong[3]
-src/client/words.ts,34,57,计划,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.weak[0]
-src/client/words.ts,34,63,目标,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.weak[1]
-src/client/words.ts,34,69,安排,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.weak[2]
-src/client/words.ts,34,75,步骤,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.weak[3]
-src/client/words.ts,35,25,偏离,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.strong[0]
-src/client/words.ts,35,31,记录偏离,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.strong[1]
-src/client/words.ts,35,39,关键决定,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.strong[2]
-src/client/words.ts,35,47,变更,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.strong[3]
-src/client/words.ts,35,61,记录,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.weak[0]
-src/client/words.ts,35,67,过程,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.weak[1]
-src/client/words.ts,35,73,复盘,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.weak[2]
-src/client/words.ts,36,21,复盘,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.strong[0]
-src/client/words.ts,36,36,重来一次,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.strong[2]
-src/client/words.ts,36,44,可复用经验,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.strong[3]
-src/client/words.ts,36,53,实际 vs 计划,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.strong[4]
-src/client/words.ts,36,73,回顾,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.weak[0]
-src/client/words.ts,36,79,总结,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.weak[1]
-src/client/words.ts,36,85,任务,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.weak[2]
-src/client/words.ts,36,91,项目,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.weak[3]
-src/client/words.ts,37,20,反向考验,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.strong[0]
-src/client/words.ts,37,28,出题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.strong[1]
-src/client/words.ts,37,34,选择题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.strong[2]
-src/client/words.ts,37,41,判断题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.strong[3]
-src/client/words.ts,37,48,盲区,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.strong[4]
-src/client/words.ts,37,62,考验,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.weak[0]
-src/client/words.ts,37,68,检验,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.weak[1]
-src/client/words.ts,37,74,主题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.weak[2]
-src/client/words.ts,37,80,理解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.weak[3]
-src/client/workspace.ts,289,96,未归属,C1,保持(调用方已本地化),-,export function groupWorkspaceSessions :: groupWorkspaceSessions
-src/client/workspace.ts,365,36,刚刚,C1,保持(函数内双语),-,export function relativeWorkspaceTime :: relativeWorkspaceTime
-src/client/workspace.ts,367,36,刚刚,C1,保持(函数内双语),-,export function relativeWorkspaceTime :: relativeWorkspaceTime
-src/client/workspace.ts,368,43,分,C1,保持(函数内双语),-,export function relativeWorkspaceTime :: relativeWorkspaceTime
-src/client/workspace.ts,370,43,时,C1,保持(函数内双语),-,export function relativeWorkspaceTime :: relativeWorkspaceTime
-src/client/workspace.ts,371,65,天,C1,保持(函数内双语),-,export function relativeWorkspaceTime :: relativeWorkspaceTime
+src/client/label-identity.ts,59,3,全部,C2,不动(身份别名),-,export const SCOPE_ALIASES :: SCOPE_ALIASES.全部
+src/client/label-identity.ts,61,3,预置,C2,不动(身份别名),-,export const SCOPE_ALIASES :: SCOPE_ALIASES.预置
+src/client/label-identity.ts,62,3,预制,C2,不动(身份别名),-,export const SCOPE_ALIASES :: SCOPE_ALIASES.预制
+src/client/label-identity.ts,64,3,自定义,C2,不动(身份别名),-,export const SCOPE_ALIASES :: SCOPE_ALIASES.自定义
+src/client/label-identity.ts,162,64,思考框架,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[1]
+src/client/label-identity.ts,162,72,学习,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[2]
+src/client/label-identity.ts,162,78,工程,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[3]
+src/client/label-identity.ts,162,84,执行,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[4]
+src/client/label-identity.ts,162,90,执行前,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[5]
+src/client/label-identity.ts,162,97,执行中,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[6]
+src/client/label-identity.ts,162,104,执行后,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[7]
+src/client/label-identity.ts,162,111,自定义,C2,不动(存量拼写/身份值),-,export const EXCLUDED_LABEL_WORDS :: EXCLUDED_LABEL_WORDS[8]
+src/client/label-identity.ts,186,3,思考框架,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.思考框架
+src/client/label-identity.ts,186,23,学习,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.学习
+src/client/label-identity.ts,186,41,工程,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.工程
+src/client/label-identity.ts,186,62,执行,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.执行
+src/client/label-identity.ts,188,3,执行前,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.执行前
+src/client/label-identity.ts,188,20,执行中,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.执行中
+src/client/label-identity.ts,188,37,执行后,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.执行后
+src/client/label-identity.ts,190,3,拆解,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.拆解
+src/client/label-identity.ts,190,22,检验,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.检验
+src/client/label-identity.ts,190,38,归因,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.归因
+src/client/label-identity.ts,190,59,决策,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.决策
+src/client/label-identity.ts,190,75,理解,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.理解
+src/client/label-identity.ts,191,3,路线,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.路线
+src/client/label-identity.ts,191,20,概念,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.概念
+src/client/label-identity.ts,191,38,考验,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.考验
+src/client/label-identity.ts,191,52,审查,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.审查
+src/client/label-identity.ts,191,68,测试,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.测试
+src/client/label-identity.ts,192,3,重构,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.重构
+src/client/label-identity.ts,192,21,解读,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.解读
+src/client/label-identity.ts,192,38,启动,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.启动
+src/client/label-identity.ts,192,55,固化,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.固化
+src/client/label-identity.ts,192,71,记录,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.记录
+src/client/label-identity.ts,192,84,复盘,C3,显示映射(en 词表),145,export const PRESET_WORD_EN :: PRESET_WORD_EN.复盘
+src/client/smart-card.ts,404,64,输入框DOM,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart-card.ts,404,106,输入桥,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart-card.ts,404,114,读不到,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart-card.ts,408,9,诊断(临时) 草稿=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart-card.ts,408,69, 来源=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart-card.ts,408,93, 自定义=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart-card.ts,408,117,条 候选=,C4,不动(诊断),-,export function SmartCardHost :: SmartCardHost
+src/client/smart-score.ts,116,26,：,C4,不动(内部匹配字符),-,export function firstFieldCaret :: firstFieldCaret
+src/client/smart-words.ts,18,18,第一性原理,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.strong[0]
+src/client/smart-words.ts,18,27,基本组成单元,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.strong[1]
+src/client/smart-words.ts,18,37,不可改变的真理,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.strong[2]
+src/client/smart-words.ts,18,48,颠覆,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.strong[3]
+src/client/smart-words.ts,18,54,去掉假设,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.strong[4]
+src/client/smart-words.ts,18,70,分析,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.weak[0]
+src/client/smart-words.ts,18,76,本质,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.weak[1]
+src/client/smart-words.ts,18,82,假设,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.weak[2]
+src/client/smart-words.ts,18,88,拆解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.weak[3]
+src/client/smart-words.ts,18,94,主题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fp.weak[4]
+src/client/smart-words.ts,19,24,苏格拉底,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.strong[0]
+src/client/smart-words.ts,19,32,追问,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.strong[1]
+src/client/smart-words.ts,19,38,质疑,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.strong[2]
+src/client/smart-words.ts,19,44,复述观点,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.strong[3]
+src/client/smart-words.ts,19,52,没想到的问题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.strong[4]
+src/client/smart-words.ts,19,70,思考,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.weak[0]
+src/client/smart-words.ts,19,76,问题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.weak[1]
+src/client/smart-words.ts,19,82,假设,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.weak[2]
+src/client/smart-words.ts,19,88,观点,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.socratic.weak[3]
+src/client/smart-words.ts,20,20,深度分析,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.strong[0]
+src/client/smart-words.ts,20,28,多维,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.strong[1]
+src/client/smart-words.ts,20,34,常见误解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.strong[2]
+src/client/smart-words.ts,20,42,边界,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.strong[3]
+src/client/smart-words.ts,20,48,证据,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.strong[4]
+src/client/smart-words.ts,20,62,分析,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.weak[0]
+src/client/smart-words.ts,20,68,本质,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.weak[1]
+src/client/smart-words.ts,20,74,判断,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.weak[2]
+src/client/smart-words.ts,20,80,主题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deep.weak[3]
+src/client/smart-words.ts,21,27,对抗式,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.strong[0]
+src/client/smart-words.ts,21,34,红队,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.strong[1]
+src/client/smart-words.ts,21,40,反例,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.strong[2]
+src/client/smart-words.ts,21,46,推翻,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.strong[3]
+src/client/smart-words.ts,21,52,失败场景,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.strong[4]
+src/client/smart-words.ts,21,60,认知偏差,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.strong[5]
+src/client/smart-words.ts,21,76,审查,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.weak[0]
+src/client/smart-words.ts,21,82,方案,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.weak[1]
+src/client/smart-words.ts,21,88,结论,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.weak[2]
+src/client/smart-words.ts,21,94,假设,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.adversarial.weak[3]
+src/client/smart-words.ts,22,24,决策,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[0]
+src/client/smart-words.ts,22,30,选项,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[1]
+src/client/smart-words.ts,22,36,纠结,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[2]
+src/client/smart-words.ts,22,42,后悔,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[3]
+src/client/smart-words.ts,22,48,最坏,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[4]
+src/client/smart-words.ts,22,54,沉没成本,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[5]
+src/client/smart-words.ts,22,62,没有回头路,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.strong[6]
+src/client/smart-words.ts,22,79,选择,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.weak[0]
+src/client/smart-words.ts,22,85,权衡,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.weak[1]
+src/client/smart-words.ts,22,91,处境,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.weak[2]
+src/client/smart-words.ts,22,97,分析,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.decision.weak[3]
+src/client/smart-words.ts,23,25,事前验尸,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.strong[0]
+src/client/smart-words.ts,23,46,失败原因,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.strong[2]
+src/client/smart-words.ts,23,54,回溯,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.strong[3]
+src/client/smart-words.ts,23,60,预防,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.strong[4]
+src/client/smart-words.ts,23,66,致命缺陷,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.strong[5]
+src/client/smart-words.ts,23,74,早期信号,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.strong[6]
+src/client/smart-words.ts,23,90,方案,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.weak[0]
+src/client/smart-words.ts,23,96,项目,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.weak[1]
+src/client/smart-words.ts,23,102,风险,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.weak[2]
+src/client/smart-words.ts,23,108,失败,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.premortem.weak[3]
+src/client/smart-words.ts,24,23,费曼,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.strong[0]
+src/client/smart-words.ts,24,29,类比,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.strong[1]
+src/client/smart-words.ts,24,35,反例,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.strong[2]
+src/client/smart-words.ts,24,41,禁止术语,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.strong[3]
+src/client/smart-words.ts,24,49,判断题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.strong[4]
+src/client/smart-words.ts,24,64,理解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.weak[0]
+src/client/smart-words.ts,24,70,概念,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.weak[1]
+src/client/smart-words.ts,24,76,解释,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.feynman.weak[2]
+src/client/smart-words.ts,25,24,五个为什么,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.strong[0]
+src/client/smart-words.ts,25,41,根本原因,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.strong[2]
+src/client/smart-words.ts,25,49,根因,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.strong[3]
+src/client/smart-words.ts,25,55,连续追问,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.strong[4]
+src/client/smart-words.ts,25,71,为什么,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.weak[0]
+src/client/smart-words.ts,25,78,问题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.weak[1]
+src/client/smart-words.ts,25,84,原因,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.fivewhys.weak[2]
+src/client/smart-words.ts,26,28,相互独立,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.strong[1]
+src/client/smart-words.ts,26,36,完全穷尽,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.strong[2]
+src/client/smart-words.ts,26,44,不重不漏,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.strong[3]
+src/client/smart-words.ts,26,52,分类维度,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.strong[4]
+src/client/smart-words.ts,26,68,拆解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.weak[0]
+src/client/smart-words.ts,26,74,分类,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.weak[1]
+src/client/smart-words.ts,26,80,问题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.mece.weak[2]
+src/client/smart-words.ts,27,20,认知偏差,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.strong[0]
+src/client/smart-words.ts,27,28,确认偏误,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.strong[1]
+src/client/smart-words.ts,27,36,锚定,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.strong[2]
+src/client/smart-words.ts,27,42,群体思维,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.strong[3]
+src/client/smart-words.ts,27,50,反事实,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.strong[4]
+src/client/smart-words.ts,27,57,可得性,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.strong[5]
+src/client/smart-words.ts,27,72,偏差,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.weak[0]
+src/client/smart-words.ts,27,78,检查,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.weak[1]
+src/client/smart-words.ts,27,84,推理,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.weak[2]
+src/client/smart-words.ts,27,90,结论,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.bias.weak[3]
+src/client/smart-words.ts,28,25,学习路线,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.strong[0]
+src/client/smart-words.ts,28,33,从零到实战,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.strong[1]
+src/client/smart-words.ts,28,42,伪学习,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.strong[2]
+src/client/smart-words.ts,28,49,最小闭环,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.strong[3]
+src/client/smart-words.ts,28,57,掌握程度,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.strong[4]
+src/client/smart-words.ts,28,73,学习,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.weak[0]
+src/client/smart-words.ts,28,79,路线,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.weak[1]
+src/client/smart-words.ts,28,85,技能,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.weak[2]
+src/client/smart-words.ts,28,91,入门,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.weak[3]
+src/client/smart-words.ts,28,97,进阶,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.learnpath.weak[4]
+src/client/smart-words.ts,29,23,概念澄清,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.strong[0]
+src/client/smart-words.ts,29,31,本质区别,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.strong[1]
+src/client/smart-words.ts,29,39,一句话定义,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.strong[2]
+src/client/smart-words.ts,29,48,对比场景,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.strong[3]
+src/client/smart-words.ts,29,56,不适用,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.strong[4]
+src/client/smart-words.ts,29,71,概念,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.weak[0]
+src/client/smart-words.ts,29,77,理解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.weak[1]
+src/client/smart-words.ts,29,83,定义,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.concept.weak[2]
+src/client/smart-words.ts,30,26,代码审查,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.strong[0]
+src/client/smart-words.ts,30,65,正确性,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.strong[4]
+src/client/smart-words.ts,30,72,并发,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.strong[5]
+src/client/smart-words.ts,30,78,注入,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.strong[6]
+src/client/smart-words.ts,30,84,可维护性,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.strong[7]
+src/client/smart-words.ts,30,92,性能,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.strong[8]
+src/client/smart-words.ts,30,106,安全,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.weak[0]
+src/client/smart-words.ts,30,112,技术栈,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.codereview.weak[1]
+src/client/smart-words.ts,31,26,测试用例,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.strong[0]
+src/client/smart-words.ts,31,34,正常路径,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.strong[1]
+src/client/smart-words.ts,31,42,边界值,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.strong[2]
+src/client/smart-words.ts,31,49,异常,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.strong[3]
+src/client/smart-words.ts,31,55,幂等,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.strong[4]
+src/client/smart-words.ts,31,61,并发,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.strong[5]
+src/client/smart-words.ts,31,75,测试,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.weak[0]
+src/client/smart-words.ts,31,81,用例,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.weak[1]
+src/client/smart-words.ts,31,87,功能,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.testdesign.weak[2]
+src/client/smart-words.ts,32,24,重构,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.strong[0]
+src/client/smart-words.ts,32,42,小步,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.strong[2]
+src/client/smart-words.ts,32,48,可测试性,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.strong[3]
+src/client/smart-words.ts,32,56,耦合,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.strong[4]
+src/client/smart-words.ts,32,70,代码,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.weak[0]
+src/client/smart-words.ts,32,76,方案,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.weak[1]
+src/client/smart-words.ts,32,82,结构,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.weak[2]
+src/client/smart-words.ts,32,88,职责,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.refactor.weak[3]
+src/client/smart-words.ts,33,23,解释代码,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.strong[0]
+src/client/smart-words.ts,33,31,执行流程,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.strong[1]
+src/client/smart-words.ts,33,39,为什么这样写,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.strong[2]
+src/client/smart-words.ts,33,49,设计取舍,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.strong[3]
+src/client/smart-words.ts,33,57,扮演的角色,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.strong[4]
+src/client/smart-words.ts,33,74,代码,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.weak[0]
+src/client/smart-words.ts,33,80,解释,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.weak[1]
+src/client/smart-words.ts,33,86,讲解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.explain.weak[2]
+src/client/smart-words.ts,34,25,盲区,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.strong[0]
+src/client/smart-words.ts,34,31,遗漏,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.strong[1]
+src/client/smart-words.ts,34,37,检查清单,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.strong[2]
+src/client/smart-words.ts,34,45,关键变量,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.strong[3]
+src/client/smart-words.ts,34,61,计划,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.weak[0]
+src/client/smart-words.ts,34,67,开始,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.weak[1]
+src/client/smart-words.ts,34,73,任务,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.weak[2]
+src/client/smart-words.ts,34,79,启动,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.weak[3]
+src/client/smart-words.ts,34,85,风险,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.blindspot.weak[4]
+src/client/smart-words.ts,35,24,零丢失,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.strong[0]
+src/client/smart-words.ts,35,31,快照,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.strong[1]
+src/client/smart-words.ts,35,37,出处,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.strong[2]
+src/client/smart-words.ts,35,43,逐条核对,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.strong[3]
+src/client/smart-words.ts,35,51,可疑遗漏,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.strong[4]
+src/client/smart-words.ts,35,67,记录,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.weak[0]
+src/client/smart-words.ts,35,73,固化,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.weak[1]
+src/client/smart-words.ts,35,79,里程碑,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.weak[2]
+src/client/smart-words.ts,35,86,会话,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.snapshot.weak[3]
+src/client/smart-words.ts,36,23,任务启动,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.strong[0]
+src/client/smart-words.ts,36,42,成功标准,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.strong[2]
+src/client/smart-words.ts,36,50,澄清,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.strong[3]
+src/client/smart-words.ts,36,56,经验水平,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.strong[4]
+src/client/smart-words.ts,36,72,任务,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.weak[0]
+src/client/smart-words.ts,36,78,开始,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.weak[1]
+src/client/smart-words.ts,36,84,目标,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.weak[2]
+src/client/smart-words.ts,36,90,启动,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.kickoff.weak[3]
+src/client/smart-words.ts,37,25,原型,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.strong[0]
+src/client/smart-words.ts,37,31,试错,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.strong[1]
+src/client/smart-words.ts,37,37,候选方案,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.strong[2]
+src/client/smart-words.ts,37,45,快速验证,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.strong[3]
+src/client/smart-words.ts,37,61,想法,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.weak[0]
+src/client/smart-words.ts,37,67,验证,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.weak[1]
+src/client/smart-words.ts,37,73,方案,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.weak[2]
+src/client/smart-words.ts,37,79,方向,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.prototype.weak[3]
+src/client/smart-words.ts,38,20,执行计划,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.strong[0]
+src/client/smart-words.ts,38,28,里程碑,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.strong[1]
+src/client/smart-words.ts,38,35,验收标准,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.strong[2]
+src/client/smart-words.ts,38,43,依赖,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.strong[3]
+src/client/smart-words.ts,38,57,计划,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.weak[0]
+src/client/smart-words.ts,38,63,目标,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.weak[1]
+src/client/smart-words.ts,38,69,安排,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.weak[2]
+src/client/smart-words.ts,38,75,步骤,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.plan.weak[3]
+src/client/smart-words.ts,39,25,偏离,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.strong[0]
+src/client/smart-words.ts,39,31,记录偏离,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.strong[1]
+src/client/smart-words.ts,39,39,关键决定,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.strong[2]
+src/client/smart-words.ts,39,47,变更,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.strong[3]
+src/client/smart-words.ts,39,61,记录,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.weak[0]
+src/client/smart-words.ts,39,67,过程,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.weak[1]
+src/client/smart-words.ts,39,73,复盘,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.deviation.weak[2]
+src/client/smart-words.ts,40,21,复盘,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.strong[0]
+src/client/smart-words.ts,40,36,重来一次,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.strong[2]
+src/client/smart-words.ts,40,44,可复用经验,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.strong[3]
+src/client/smart-words.ts,40,53,实际 vs 计划,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.strong[4]
+src/client/smart-words.ts,40,73,回顾,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.weak[0]
+src/client/smart-words.ts,40,79,总结,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.weak[1]
+src/client/smart-words.ts,40,85,任务,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.weak[2]
+src/client/smart-words.ts,40,91,项目,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.retro.weak[3]
+src/client/smart-words.ts,41,20,反向考验,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.strong[0]
+src/client/smart-words.ts,41,28,出题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.strong[1]
+src/client/smart-words.ts,41,34,选择题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.strong[2]
+src/client/smart-words.ts,41,41,判断题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.strong[3]
+src/client/smart-words.ts,41,48,盲区,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.strong[4]
+src/client/smart-words.ts,41,62,考验,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.weak[0]
+src/client/smart-words.ts,41,68,检验,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.weak[1]
+src/client/smart-words.ts,41,74,主题,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.weak[2]
+src/client/smart-words.ts,41,80,理解,C3,不动(内容资产),-,export const SMART_WORDS :: SMART_WORDS.quiz.weak[3]
+src/client/strings.ts,30,30,点击展开/收起模板列表,C1,已在STR,-,export const STR :: STR.templatesToggleHint.zh
+src/client/strings.ts,32,22,提示词模板,C1,已在STR,-,export const STR :: STR.sectionName.zh
+src/client/strings.ts,34,14,新增自定义模板,C1,已在STR,-,export const STR :: STR.add.zh
+src/client/strings.ts,35,19,新增,C1,已在STR,-,export const STR :: STR.addShort.zh
+src/client/strings.ts,36,19,搜索模板…,C1,已在STR,-,export const STR :: STR.searchPh.zh
+src/client/strings.ts,37,17,全部,C1,已在STR,-,export const STR :: STR.tabAll.zh
+src/client/strings.ts,38,20,执行前,C1,已在STR,-,export const STR :: STR.tabBefore.zh
+src/client/strings.ts,39,20,执行中,C1,已在STR,-,export const STR :: STR.tabDuring.zh
+src/client/strings.ts,40,19,执行后,C1,已在STR,-,export const STR :: STR.tabAfter.zh
+src/client/strings.ts,41,20,自定义,C1,已在STR,-,export const STR :: STR.tabCustom.zh
+src/client/strings.ts,42,20,全领域,C1,已在STR,-,export const STR :: STR.domainAll.zh
+src/client/strings.ts,43,22,预制,C1,已在STR,-,export const STR :: STR.presetCount.zh
+src/client/strings.ts,47,22,预制,C1,已在STR,-,export const STR :: STR.scopePreset.zh
+src/client/strings.ts,51,21,展示预制模板,C1,已在STR,-,export const STR :: STR.showPreset.zh
+src/client/strings.ts,52,21,屏蔽预制模板,C1,已在STR,-,export const STR :: STR.hidePreset.zh
+src/client/strings.ts,54,27,屏蔽预制模板,C1,已在STR,-,export const STR :: STR.hidePresetToggle.zh
+src/client/strings.ts,55,25,打开后列表与标签云不再展示预制模板,C1,已在STR,-,export const STR :: STR.hidePresetHint.zh
+src/client/strings.ts,56,22,自定义,C1,已在STR,-,export const STR :: STR.customCount.zh
+src/client/strings.ts,60,24,自定义,C1,已在STR,-,export const STR :: STR.labelFallback.zh
+src/client/strings.ts,63,21,（副本）,C1,已在STR,-,export const STR :: STR.copySuffix.zh
+src/client/strings.ts,64,21,设置 → 模板管理,C1,已在STR,-,export const STR :: STR.goSettings.zh
+src/client/strings.ts,67,26,模板管理,C1,已在STR,-,export const STR :: STR.goSettingsShort.zh
+src/client/strings.ts,70,25,没打开设置：走 ⚙ → 提示词模板,C1,已在STR,-,export const STR :: STR.goSettingsFail.zh
+src/client/strings.ts,71,15,编辑,C1,已在STR,-,export const STR :: STR.edit.zh
+src/client/strings.ts,72,14,删除,C1,已在STR,-,export const STR :: STR.del.zh
+src/client/strings.ts,73,15,复制,C1,已在STR,-,export const STR :: STR.copy.zh
+src/client/strings.ts,74,14,置顶/取消置顶,C1,已在STR,-,export const STR :: STR.pin.zh
+src/client/strings.ts,75,18,无匹配模板,C1,已在STR,-,export const STR :: STR.noMatch.zh
+src/client/strings.ts,76,19,新增自定义模板,C1,已在STR,-,export const STR :: STR.addTitle.zh
+src/client/strings.ts,77,20,编辑自定义模板,C1,已在STR,-,export const STR :: STR.editTitle.zh
+src/client/strings.ts,78,17,模板名称,C1,已在STR,-,export const STR :: STR.namePh.zh
+src/client/strings.ts,81,21,文字颜色,C1,已在STR,-,export const STR :: STR.colorLabel.zh
+src/client/strings.ts,82,23,默认（跟随主题，无描边）,C1,已在STR,-,export const STR :: STR.colorDefault.zh
+src/client/strings.ts,85,19,色相,C1,已在STR,-,export const STR :: STR.colorHue.zh
+src/client/strings.ts,86,21,灰掉的格子看不清，不能选,C1,已在STR,-,export const STR :: STR.colorShade.zh
+src/client/strings.ts,87,21,或输入十六进制色值（#rrggbb）,C1,已在STR,-,export const STR :: STR.colorHexPh.zh
+src/client/strings.ts,88,25,该颜色在深色或浅色主题下对比度不足，请换一档深浅。,C1,已在STR,-,export const STR :: STR.colorOutOfBand.zh
+src/client/strings.ts,93,21,文字颜色,C1,已在STR,-,export const STR :: STR.colorField.zh
+src/client/strings.ts,97,28,默认,C1,已在STR,-,export const STR :: STR.colorDefaultShort.zh
+src/client/strings.ts,98,23,预览,C1,已在STR,-,export const STR :: STR.colorPreview.zh
+src/client/strings.ts,99,29,模板名字长这样,C1,已在STR,-,export const STR :: STR.colorPreviewSample.zh
+src/client/strings.ts,100,20,完成,C1,已在STR,-,export const STR :: STR.colorDone.zh
+src/client/strings.ts,101,23,文字描边,C1,已在STR,-,export const STR :: STR.colorOutline.zh
+src/client/strings.ts,102,24,所列颜色均通过深色与浅色主题的可读性校验，可直接点选。,C1,已在STR,-,export const STR :: STR.colorWallHint.zh
+src/client/strings.ts,103,19,添加标签（逗号/空格/顿号分隔，回车确认）,C1,已在STR,-,export const STR :: STR.labelsPh.zh
+src/client/strings.ts,104,21,最多 3 个，每条 1–10 字；可从已有词里选，也可新造,C1,已在STR,-,export const STR :: STR.labelsHint.zh
+src/client/strings.ts,105,24,最多 3 个标签,C1,已在STR,-,export const STR :: STR.labelsTooMany.zh
+src/client/strings.ts,106,23,每条标签 1–10 字,C1,已在STR,-,export const STR :: STR.labelTooLong.zh
+src/client/strings.ts,107,22,移除标签,C1,已在STR,-,export const STR :: STR.removeLabel.zh
+src/client/strings.ts,108,22,标签选择,C1,已在STR,-,export const STR :: STR.labelPicker.zh
+src/client/strings.ts,109,20,完成,C1,已在STR,-,export const STR :: STR.labelDone.zh
+src/client/strings.ts,110,17,Prompt 正文（≤10000 字）,C1,已在STR,-,export const STR :: STR.bodyPh.zh
+src/client/strings.ts,111,17,取消,C1,已在STR,-,export const STR :: STR.cancel.zh
+src/client/strings.ts,112,15,保存,C1,已在STR,-,export const STR :: STR.save.zh
+src/client/strings.ts,113,16,添加,C1,已在STR,-,export const STR :: STR.addOk.zh
+src/client/strings.ts,114,23,名称必填,C1,已在STR,-,export const STR :: STR.nameRequired.zh
+src/client/strings.ts,115,22,正文超过 10000 字上限,C1,已在STR,-,export const STR :: STR.bodyTooLong.zh
+src/client/strings.ts,116,19,删除确认,C1,已在STR,-,export const STR :: STR.delTitle.zh
+src/client/strings.ts,117,17,确定删除自定义模板,C1,已在STR,-,export const STR :: STR.delMsg.zh
+src/client/strings.ts,119,20,「{name}」,C1,已在STR,-,export const STR :: STR.nameQuote.zh
+src/client/strings.ts,120,23,此操作不可撤销。,C1,已在STR,-,export const STR :: STR.delUnrecover.zh
+src/client/strings.ts,121,16,删除,C1,已在STR,-,export const STR :: STR.delOk.zh
+src/client/strings.ts,122,18,置顶已达上限（5 个）,C1,已在STR,-,export const STR :: STR.pinFull.zh
+src/client/strings.ts,123,21,点击即插入,C1,已在STR,-,export const STR :: STR.insertHint.zh
+src/client/strings.ts,125,21,已使用 {n} 次,C1,已在STR,-,export const STR :: STR.usageTitle.zh
+src/client/strings.ts,127,24,点击展开/收起简介,C1,已在STR,-,export const STR :: STR.rowExpandHint.zh
+src/client/strings.ts,128,16,关闭,C1,已在STR,-,export const STR :: STR.close.zh
+src/client/strings.ts,130,20,＋,C1,已在STR,-,export const STR :: STR.plusGlyph.zh
+src/client/strings.ts,131,22,智能模式悬浮卡（输入匹配时推荐模板；默认关）,C1,已在STR,-,export const STR :: STR.smartToggle.zh
+src/client/strings.ts,132,26,默认关；打开后仅在输入匹配时出卡,C1,已在STR,-,export const STR :: STR.smartToggleHint.zh
+src/client/strings.ts,133,19,智能模式 · 拖动调整位置；输入匹配时出卡,C1,已在STR,-,export const STR :: STR.smartDot.zh
+src/client/strings.ts,134,21,智能推荐,C1,已在STR,-,export const STR :: STR.smartTitle.zh
+src/client/strings.ts,135,20,点击即填入,C1,已在STR,-,export const STR :: STR.smartHint.zh
+src/client/strings.ts,136,20,点击填入,C1,已在STR,-,export const STR :: STR.smartFill.zh
+src/client/strings.ts,137,23,收起（继续输入可再次出现）,C1,已在STR,-,export const STR :: STR.smartDismiss.zh
+src/client/strings.ts,138,22,最近使用,C1,已在STR,-,export const STR :: STR.smartRecent.zh
+src/client/strings.ts,139,22,常用模板,C1,已在STR,-,export const STR :: STR.smartCommon.zh
+src/client/strings.ts,141,28,·常用,C1,已在STR,-,export const STR :: STR.smartCommonSuffix.zh
+src/client/strings.ts,142,27,·分{n},C1,已在STR,-,export const STR :: STR.smartScoreSuffix.zh
+src/client/strings.ts,143,21,GitHub 仓库,C1,已在STR,-,export const STR :: STR.gitHubRepo.zh
+src/client/strings.ts,144,19,反馈故障,C1,已在STR,-,export const STR :: STR.feedback.zh
+src/client/strings.ts,146,18,你的 ⭐是我夜空中最亮的星。,C1,已在STR,-,export const STR :: STR.starTip.zh
+src/client/strings.ts,147,22,提交反馈、建议和意见🌹,C1,已在STR,-,export const STR :: STR.feedbackTip.zh
+src/client/strings.ts,148,20,作者其他插件,C1,已在STR,-,export const STR :: STR.moreTitle.zh
+src/client/strings.ts,149,23,装好就有 25 个工程技能在右侧直接用,C1,已在STR,-,export const STR :: STR.moreDescDeck.zh
+src/client/strings.ts,150,26,38 款长时间编程护眼配色，一键换上,C1,已在STR,-,export const STR :: STR.moreDescPalette.zh
+src/client/strings.ts,151,25,本面板自己：24 条常用提示模板随手点，不用来回复制粘贴,C1,已在STR,-,export const STR :: STR.moreDescPrompt.zh
+src/client/strings.ts,152,28,聊天机器人的伴侣插件：扫码或填凭据就把飞书、微信等 9 路聊天接进来,C1,已在STR,-,export const STR :: STR.moreDescCompanion.zh
+src/client/strings.ts,156,20,调试日志,C1,已在STR,-,export const STR :: STR.logToggle.zh
+src/client/strings.ts,157,24,关闭只停信息与调试两级，错误与告警始终记录。,C1,已在STR,-,export const STR :: STR.logToggleHint.zh
+src/client/strings.ts,158,19,诊断日志,C1,已在STR,-,export const STR :: STR.logGroup.zh
+src/client/strings.ts,159,19,落点：~/.dsh/logs/dsh-prompt/,C1,已在STR,-,export const STR :: STR.logWhere.zh
+src/client/strings.ts,160,21,智能推荐,C1,已在STR,-,export const STR :: STR.smartGroup.zh
+src/client/strings.ts,163,22,远程模式-配合网易UU远程等手机App,C1,已在STR,-,export const STR :: STR.remoteGroup.zh
+src/client/strings.ts,164,23,远程模式-配合网易UU远程等手机App,C1,已在STR,-,export const STR :: STR.remoteToggle.zh
+src/client/strings.ts,165,21,大小,C1,已在STR,-,export const STR :: STR.remoteSize.zh
+src/client/strings.ts,166,24,1档,C1,已在STR,-,export const STR :: STR.remoteSizeMin.zh
+src/client/strings.ts,167,24,10档,C1,已在STR,-,export const STR :: STR.remoteSizeMax.zh
+src/client/strings.ts,169,26,{n}档·{p}%,C1,已在STR,-,export const STR :: STR.remoteSizeValue.zh
+src/client/strings.ts,170,28,持久化失败：本次选择当次有效，下次恢复默认并请重试。,C1,已在STR,-,export const STR :: STR.remotePersistFail.zh
+src/client/strings.ts,171,28,方向偏好,C1,已在STR,-,export const STR :: STR.remoteOrientation.zh
+src/client/strings.ts,172,32,自动跟整机方向，无桥时跟视口；锁定先切整机方向，失败只锁自家布局。,C1,已在STR,-,export const STR :: STR.remoteOrientationHint.zh
+src/client/strings.ts,173,32,自动,C1,已在STR,-,export const STR :: STR.remoteOrientationAuto.zh
+src/client/strings.ts,174,37,横屏,C1,已在STR,-,export const STR :: STR.remoteOrientationLandscape.zh
+src/client/strings.ts,175,36,竖屏,C1,已在STR,-,export const STR :: STR.remoteOrientationPortrait.zh
+src/client/strings.ts,176,32,正在切换整机方向…,C1,已在STR,-,export const STR :: STR.remoteOrientationBusy.zh
+src/client/strings.ts,177,34,整机未改变，已锁定自家布局（原因：{code}）。,C1,已在STR,-,export const STR :: STR.remoteOrientationOsFail.zh
+src/client/strings.ts,178,23,需先开启远程模式,C1,已在STR,-,export const STR :: STR.remoteNeedOn.zh
+src/client/strings.ts,179,29,当前：{orient}（{source}）,C1,已在STR,-,export const STR :: STR.remoteEffectiveNow.zh
+src/client/strings.ts,180,29,整机,C1,已在STR,-,export const STR :: STR.remoteSourceSystem.zh
+src/client/strings.ts,181,31,视口,C1,已在STR,-,export const STR :: STR.remoteSourceViewport.zh
+src/client/strings.ts,182,34,锁定为{orient},C1,已在STR,-,export const STR :: STR.remoteLockedOrientation.zh
+src/client/strings.ts,183,24,宫格密度,C1,已在STR,-,export const STR :: STR.remoteDensity.zh
+src/client/strings.ts,184,25,12宫格,C1,已在STR,-,export const STR :: STR.remoteDensityA.zh
+src/client/strings.ts,185,25,8宫格,C1,已在STR,-,export const STR :: STR.remoteDensityB.zh
+src/client/strings.ts,186,28,整机待宿主,C1,已在STR,-,export const STR :: STR.remoteHostPending.zh
+src/client/strings.ts,187,34,整机跟手转（需宿主 H1）,C1,已在STR,-,export const STR :: STR.remoteSystemOrientation.zh
+src/client/strings.ts,188,38,宿主支持时一键切外部系统横竖屏；缺席只灰这一行，总闸照常可用。,C1,已在STR,-,export const STR :: STR.remoteSystemOrientationHint.zh
+src/client/strings.ts,189,27,整机字号跟随（需宿主 H2）,C1,已在STR,-,export const STR :: STR.remoteSystemFont.zh
+src/client/strings.ts,190,31,宿主支持时整机字号一起走；缺席先放大自家面并明示。,C1,已在STR,-,export const STR :: STR.remoteSystemFontHint.zh
+src/client/strings.ts,191,26,远程设置,C1,已在STR,-,export const STR :: STR.remoteConfigKey.zh
+src/client/strings.ts,192,38,打开设置页远程段,C1,已在STR,-,export const STR :: STR.remoteConfigKeyFallbackHint.zh
+src/client/strings.ts,194,24,展开右侧边栏,C1,已在STR,-,export const STR :: STR.sidebarExpand.zh
+src/client/strings.ts,195,26,折叠右侧边栏,C1,已在STR,-,export const STR :: STR.sidebarCollapse.zh
+src/client/strings.ts,197,23,收起工具条,C1,已在STR,-,export const STR :: STR.dockCollapse.zh
+src/client/strings.ts,198,21,展开工具条,C1,已在STR,-,export const STR :: STR.dockExpand.zh
+src/client/strings.ts,200,30,展开左侧工作区,C1,已在STR,-,export const STR :: STR.workspaceLeftExpand.zh
+src/client/strings.ts,201,32,折叠左侧工作区,C1,已在STR,-,export const STR :: STR.workspaceLeftCollapse.zh
+src/client/strings.ts,202,26,选择会话,C1,已在STR,-,export const STR :: STR.workspacePicker.zh
+src/client/strings.ts,203,23,搜索：标题 + 工作区名…,C1,已在STR,-,export const STR :: STR.pickerSearch.zh
+src/client/strings.ts,204,24,加载中…,C1,已在STR,-,export const STR :: STR.pickerLoading.zh
+src/client/strings.ts,205,23,取消等待,C1,已在STR,-,export const STR :: STR.pickerCancel.zh
+src/client/strings.ts,206,22,整面重试,C1,已在STR,-,export const STR :: STR.pickerRetry.zh
+src/client/strings.ts,207,22,真无会话：当前没有任何可用会话,C1,已在STR,-,export const STR :: STR.pickerEmpty.zh
+src/client/strings.ts,208,28,搜无结果：换个关键词（不回退全量）,C1,已在STR,-,export const STR :: STR.pickerEmptySearch.zh
+src/client/strings.ts,209,26,探测缺席：宿主机会面不可用，原地重试,C1,已在STR,-,export const STR :: STR.pickerProbeFail.zh
+src/client/strings.ts,210,27,切换失败：留屏，可原地重试,C1,已在STR,-,export const STR :: STR.pickerSwitchFail.zh
+src/client/strings.ts,211,32,切换失败,C1,已在STR,-,export const STR :: STR.pickerSwitchFailBadge.zh
+src/client/strings.ts,212,26,正在切换,C1,已在STR,-,export const STR :: STR.pickerSwitching.zh
+src/client/strings.ts,213,24,当前,C1,已在STR,-,export const STR :: STR.pickerCurrent.zh
+src/client/strings.ts,214,22,空白,C1,已在STR,-,export const STR :: STR.pickerBlank.zh
+src/client/strings.ts,215,25,（空白会话）,C1,已在STR,-,export const STR :: STR.pickerUntitled.zh
+src/client/strings.ts,216,26,未归属,C1,已在STR,-,export const STR :: STR.pickerUngrouped.zh
+src/client/strings.ts,217,32,散,C1,已在STR,-,export const STR :: STR.pickerUnassignedShort.zh
+src/client/strings.ts,218,27,工作区,C1,已在STR,-,export const STR :: STR.pickerWorkspaces.zh
+src/client/strings.ts,219,25,会话,C1,已在STR,-,export const STR :: STR.pickerSessions.zh
+src/client/strings.ts,220,21,上一页,C1,已在STR,-,export const STR :: STR.pickerPrev.zh
+src/client/strings.ts,221,21,下一页,C1,已在STR,-,export const STR :: STR.pickerNext.zh
+src/client/strings.ts,222,22,翻页与关闭,C1,已在STR,-,export const STR :: STR.pickerOpBar.zh
+src/client/strings.ts,223,20,导出日志,C1,已在STR,-,export const STR :: STR.logExport.zh
+src/client/strings.ts,224,22,复制路径,C1,已在STR,-,export const STR :: STR.logCopyPath.zh
+src/client/strings.ts,225,19,清空日志,C1,已在STR,-,export const STR :: STR.logClear.zh
+src/client/strings.ts,226,26,确认清空,C1,已在STR,-,export const STR :: STR.logClearConfirm.zh
+src/client/strings.ts,227,22,再点一次「确认清空」会删掉今天以前的日志文件（正在排查的证据也会一起删掉）。,C1,已在STR,-,export const STR :: STR.logClearAsk.zh
+src/client/strings.ts,228,22,日志已开启（信息与调试也会记录）。,C1,已在STR,-,export const STR :: STR.logSwitchOn.zh
+src/client/strings.ts,229,23,日志已关闭：错误、告警与关键轨迹（启动、面板打开等）仍会记录。,C1,已在STR,-,export const STR :: STR.logSwitchOff.zh
+src/client/strings.ts,230,24,开关未保存，仍按原值：,C1,已在STR,-,export const STR :: STR.logSwitchFail.zh
+src/client/strings.ts,231,25,已导出到下载目录：,C1,已在STR,-,export const STR :: STR.logExportSaved.zh
+src/client/strings.ts,232,35,浏览器拦下了下载，请改用「复制正文」：,C1,已在STR,-,export const STR :: STR.logExportDownloadBlocked.zh
+src/client/strings.ts,233,25,当天还没有日志文件（开关关闭时只有错误、告警与关键轨迹会落盘）。,C1,已在STR,-,export const STR :: STR.logExportEmpty.zh
+src/client/strings.ts,234,24,导出失败：,C1,已在STR,-,export const STR :: STR.logExportFail.zh
+src/client/strings.ts,235,24,已复制日志文件路径：,C1,已在STR,-,export const STR :: STR.logPathCopied.zh
+src/client/strings.ts,236,22,拿不到日志路径，请改用「导出日志」。,C1,已在STR,-,export const STR :: STR.logPathFail.zh
+src/client/strings.ts,237,21,已删除历史日志,C1,已在STR,-,export const STR :: STR.logClearOk.zh
+src/client/strings.ts,238,23,没有可删的历史日志（今天这一份会保留）。,C1,已在STR,-,export const STR :: STR.logClearNone.zh
+src/client/strings.ts,239,23,清空失败，请稍后再试。,C1,已在STR,-,export const STR :: STR.logClearFail.zh
+src/client/strings.ts,240,21,处理中…,C1,已在STR,-,export const STR :: STR.logWorking.zh
+src/client/strings.ts,241,21,日志管道已丢弃条数：,C1,已在STR,-,export const STR :: STR.logDropped.zh
+src/client/strings.ts,242,25,日志能力当前不可用（宿主未接通）。,C1,已在STR,-,export const STR :: STR.logUnavailable.zh
+src/client/strings.ts,243,19,字节,C1,已在STR,-,export const STR :: STR.logBytes.zh
+src/client/strings.ts,245,21,（{v}）,C1,已在STR,-,export const STR :: STR.bytesParen.zh
+src/client/strings.ts,246,19,个文件,C1,已在STR,-,export const STR :: STR.logFiles.zh
+src/client/strings.ts,247,24,宿主不可达,C1,已在STR,-,export const STR :: STR.logReasonHost.zh
+src/client/strings.ts,248,28,宿主拒绝写入,C1,已在STR,-,export const STR :: STR.logReasonRejected.zh
+src/client/strings.ts,249,27,宿主超时未应答,C1,已在STR,-,export const STR :: STR.logReasonTimeout.zh
+src/client/strings.ts,250,25,已有更新的开关操作，本次作废,C1,已在STR,-,export const STR :: STR.logReasonStale.zh
+src/client/strings.ts,251,25,未知原因,C1,已在STR,-,export const STR :: STR.logReasonOther.zh
+src/client/strings.ts,253,25,遥控输入（实时镜子）,C1,已在STR,-,export const STR :: STR.remoteInputKey.zh
+src/client/strings.ts,254,27,✎ 遥控输入,C1,已在STR,-,export const STR :: STR.remoteInputTitle.zh
+src/client/strings.ts,255,25,实时镜子 · 自动同步当前会话草稿,C1,已在STR,-,export const STR :: STR.remoteInputSub.zh
+src/client/strings.ts,256,24,在此输入…自动同步到当前会话输入框（去抖串行 setDraft）,C1,已在STR,-,export const STR :: STR.remoteInputPh.zh
+src/client/strings.ts,257,26,➤ 发送（禁用）,C1,已在STR,-,export const STR :: STR.remoteInputSend.zh
+src/client/strings.ts,258,31,宿主未给提交面,C1,已在STR,-,export const STR :: STR.remoteInputSendTitle.zh
+src/client/strings.ts,259,34,草稿已同步，去大屏那头发起发送,C1,已在STR,-,export const STR :: STR.remoteInputExplicitMain.zh
+src/client/strings.ts,260,33,宿主未提供提交面，此键恒禁用、绝不伪造回车。,C1,已在STR,-,export const STR :: STR.remoteInputExplicitSub.zh
+src/client/strings.ts,261,27,会话已切换，本框已停写（防串写），请重开。,C1,已在STR,-,export const STR :: STR.remoteInputStale.zh
+src/client/strings.ts,262,26,实时镜子 · 去抖300ms串行 · session校验 · 组词中延迟,C1,已在STR,-,export const STR :: STR.remoteInputMeta.zh
+src/client/strings.ts,263,27,{n}字,C1,已在STR,-,export const STR :: STR.remoteInputChars.zh
+src/client/strings.ts,264,25,模型切换（休眠中）,C1,已在STR,-,export const STR :: STR.remoteModelKey.zh
+src/client/strings.ts,265,27,▤ 模型切换,C1,已在STR,-,export const STR :: STR.remoteModelTitle.zh
+src/client/strings.ts,266,27,宿主暂无模型面（首次出现会提示一次）,C1,已在STR,-,export const STR :: STR.remoteModelEmpty.zh
+src/client/template-library.ts,46,31,自定义,C2,不动(身份值),-,export const LABEL_FALLBACK :: LABEL_FALLBACK
+src/client/template-library.ts,576,54,（副本）,C2,不动(写入用户数据),141,export function copyPresetToCustom :: copyPresetToCustom
+src/client/templates.ts,13,22,思考框架,C3,不动(内容资产),-,-
+src/client/templates.ts,13,31,学习,C3,不动(内容资产),-,-
+src/client/templates.ts,13,38,工程,C3,不动(内容资产),-,-
+src/client/templates.ts,13,45,执行,C3,不动(内容资产),-,-
+src/client/templates.ts,14,21,执行前,C3,不动(内容资产),-,-
+src/client/templates.ts,14,29,执行中,C3,不动(内容资产),-,-
+src/client/templates.ts,14,37,执行后,C3,不动(内容资产),-,-
+src/client/templates.ts,38,21,第一性原理拆解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].name
+src/client/templates.ts,38,68,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].domain
+src/client/templates.ts,38,83,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].stage
+src/client/templates.ts,38,99,拆解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].action[0]
+src/client/templates.ts,38,115,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].labels[0]
+src/client/templates.ts,38,123,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].labels[1]
+src/client/templates.ts,38,130,拆解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[0].labels[2]
+src/client/templates.ts,39,5,请用第一性原理分析以下主题，按编号结构化输出，结论先行：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,40,5,1. 这个问题的基本组成单元是什么？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,41,5,2. 哪些是真正不可改变的真理（而非假设）？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,42,5,3. 如果去掉所有既有假设，问题本身还剩下什么？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,43,5,4. 有哪些被大多数人默认为常识、但其实可以颠覆的？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,44,5,5. 基于以上推演给出你的原创见解，并说明它与主流看法的差异。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,45,5,主题：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,47,27,苏格拉底式追问,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].name
+src/client/templates.ts,47,78,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].domain
+src/client/templates.ts,47,93,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].stage
+src/client/templates.ts,47,109,检验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].action[0]
+src/client/templates.ts,47,125,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].labels[0]
+src/client/templates.ts,47,133,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].labels[1]
+src/client/templates.ts,47,140,检验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[1].labels[2]
+src/client/templates.ts,48,5,请用苏格拉底式追问帮助我思考，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,49,5,1. 先复述我当前的观点或核心假设；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,50,5,2. 提出 3 个最有力的质疑；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,51,5,3. 找出一个我尚未考虑到的视角；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,52,5,4. 如果你是深思熟虑的对话者，你会问我哪几个我没想到的问题？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,53,5,5. 追问结束后，把整个过程浓缩成一个更精准的问题。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,54,5,主题：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,56,23,深度多维分析,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].name
+src/client/templates.ts,56,66,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].domain
+src/client/templates.ts,56,81,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].stage
+src/client/templates.ts,56,97,归因,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].action[0]
+src/client/templates.ts,56,113,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].labels[0]
+src/client/templates.ts,56,121,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].labels[1]
+src/client/templates.ts,56,128,归因,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[2].labels[2]
+src/client/templates.ts,57,5,请从多个维度深度分析以下主题，按编号结构化输出，结论先行：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,58,5,1. 本质是什么？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,59,5,2. 有哪些常见的误解？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,60,5,3. 支持和反对的证据分别是什么？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,61,5,4. 这个问题的边界在哪里（什么情况下它不再成立）？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,62,5,5. 如果你必须做出一个判断，会是什么？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,63,5,6. 你最强的那个结论，弱点在哪里？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,64,5,主题：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [7]
+src/client/templates.ts,66,30,对抗式审查,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].name
+src/client/templates.ts,66,77,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].domain
+src/client/templates.ts,66,92,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].stage
+src/client/templates.ts,66,108,检验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].action[0]
+src/client/templates.ts,66,124,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].labels[0]
+src/client/templates.ts,66,132,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].labels[1]
+src/client/templates.ts,66,139,检验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[3].labels[2]
+src/client/templates.ts,67,5,请对以下方案/结论做对抗式审查（红队角色），先给一段结论摘要，再按编号展开：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,68,5,1. 找出其中最强的 5 个假设，逐一论证它们可能如何失效；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,69,5,2. 构造最可能推翻它的 3 个反例或失败场景；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,70,5,3. 指出其中隐藏的认知偏差与利益相关方视角的盲区；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,71,5,4. 给出「如果这个方案失败，最可能的原因是什么」的排序清单；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,72,5,5. 最后给出：在何种条件下你才会认为它是错的——以及何种证据能让你改变立场。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,73,5,方案 / 结论：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,75,27,决策博弈分析,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].name
+src/client/templates.ts,75,74,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].domain
+src/client/templates.ts,75,89,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].stage
+src/client/templates.ts,75,105,决策,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].action[0]
+src/client/templates.ts,75,121,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].labels[0]
+src/client/templates.ts,75,129,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].labels[1]
+src/client/templates.ts,75,136,决策,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[4].labels[2]
+src/client/templates.ts,76,5,你是一位冷静的决策分析师。请分析我的处境，按编号结构化输出（你的选择仅作参考，重点是分析过程）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,77,5,1. 列出每个选项最坏的结果是什么；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,78,5,2. 每个选项最好的结果是什么；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,79,5,3. 最可能的结果是什么；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,80,5,4. 如果 10 年后回头看，我可能会后悔什么；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,81,5,5. 有没有哪条路是「没有回头路」的；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,82,5,6. 给出你本人的选择并说明理由；再指出我可能忽略的第三个选项。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,83,5,我的处境（选项与背景）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [7]
+src/client/templates.ts,85,28,事前验尸,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].name
+src/client/templates.ts,85,66,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].domain
+src/client/templates.ts,85,81,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].stage
+src/client/templates.ts,85,97,决策,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].action[0]
+src/client/templates.ts,85,113,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].labels[0]
+src/client/templates.ts,85,121,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].labels[1]
+src/client/templates.ts,85,128,决策,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[5].labels[2]
+src/client/templates.ts,86,5,假设以下方案/项目已经在一年后彻底失败。请以「事后回溯」的方式写失败分析，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,87,5,1. 按可能性从高到低列出 8 个失败原因；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,88,5,2. 对前 3 个原因，给出现在就能做的预防措施；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,89,5,3. 指出哪些早期信号现在就该监控；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,90,5,4. 最后说明：这个方案是否从一开始就有致命缺陷。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,91,5,方案描述：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,93,26,费曼技巧,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].name
+src/client/templates.ts,93,71,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].domain
+src/client/templates.ts,93,86,执行后,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].stage
+src/client/templates.ts,93,102,理解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].action[0]
+src/client/templates.ts,93,118,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].labels[0]
+src/client/templates.ts,93,126,执行后,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].labels[1]
+src/client/templates.ts,93,133,理解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[6].labels[2]
+src/client/templates.ts,94,5,请用费曼技巧确认我是否真正理解了以下概念，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,95,5,1. 用最简单的语言、面向完全不懂的人解释这个概念（禁止术语）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,96,5,2. 给出 2 个生动类比和 2 个反例；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,97,5,3. 指出我理解中的错误或不准确之处；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,98,5,4. 设计 3 个判断题检验我是否真的懂了。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,99,5,概念：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,100,5,我的理解（可选）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,102,27,五个为什么,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].name
+src/client/templates.ts,102,65,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].domain
+src/client/templates.ts,102,80,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].stage
+src/client/templates.ts,102,96,归因,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].action[0]
+src/client/templates.ts,102,112,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].labels[0]
+src/client/templates.ts,102,120,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].labels[1]
+src/client/templates.ts,102,127,归因,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[7].labels[2]
+src/client/templates.ts,103,5,针对以下问题，请连续追问五个「为什么」，每层基于上一层的事实回答，最后区分根本原因与表层触发因素并给出解决方向：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,104,5,问题描述：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,106,23,MECE 拆解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].name
+src/client/templates.ts,106,72,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].domain
+src/client/templates.ts,106,87,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].stage
+src/client/templates.ts,106,103,拆解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].action[0]
+src/client/templates.ts,106,119,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].labels[0]
+src/client/templates.ts,106,127,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].labels[1]
+src/client/templates.ts,106,134,拆解,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[8].labels[2]
+src/client/templates.ts,107,5,请用 MECE 原则拆解以下问题，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,108,5,1. 给出 3~6 个相互独立（Mutually Exclusive）的分类维度；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,109,5,2. 每个维度下列出所有子项，确保完全穷尽（Collectively Exhaustive）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,110,5,3. 指出拆解中可能的遗漏与重叠；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,111,5,4. 给出按重要性排序后的关键子问题清单。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,112,5,问题：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,114,23,认知偏差检查,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].name
+src/client/templates.ts,114,73,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].domain
+src/client/templates.ts,114,88,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].stage
+src/client/templates.ts,114,104,检验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].action[0]
+src/client/templates.ts,114,120,思考框架,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].labels[0]
+src/client/templates.ts,114,128,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].labels[1]
+src/client/templates.ts,114,135,检验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[9].labels[2]
+src/client/templates.ts,115,5,请审查以下推理/计划/结论中的认知偏差，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,116,5,1. 列出可能影响它的偏差（确认偏误、沉没成本、可得性、锚定、乐观/悲观偏差、群体思维等），并指出具体证据；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,117,5,2. 对每条偏差，给出「如何检验是否真的受影响」的方法；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,118,5,3. 给出一个反事实检验：如果结论被证明是错的，最可能因为哪条偏差？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,119,5,推理 / 计划 / 结论：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,121,28,学习路线设计,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].name
+src/client/templates.ts,121,71,学习,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].domain
+src/client/templates.ts,121,84,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].stage
+src/client/templates.ts,121,100,路线,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].action[0]
+src/client/templates.ts,121,116,学习,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].labels[0]
+src/client/templates.ts,121,122,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].labels[1]
+src/client/templates.ts,121,129,路线,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[10].labels[2]
+src/client/templates.ts,122,5,请为以下领域/技能设计一条从零到可实战的学习路线，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,123,5,1. 按阶段拆分（入门→进阶→实战），每个阶段给出学习目标；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,124,5,2. 每个阶段推荐 2~3 个核心主题和练习方式；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,125,5,3. 指出常见的「伪学习陷阱」（只收藏不练习等）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,126,5,4. 给出一个 30 天内可完成的最小闭环，以及检验掌握程度的基准。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,127,5,领域 / 技能：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,128,5,当前水平（可选）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,129,5,目标（可选）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [7]
+src/client/templates.ts,131,26,概念澄清,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].name
+src/client/templates.ts,131,75,学习,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].domain
+src/client/templates.ts,131,88,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].stage
+src/client/templates.ts,131,104,概念,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].action[0]
+src/client/templates.ts,131,120,学习,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].labels[0]
+src/client/templates.ts,131,126,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].labels[1]
+src/client/templates.ts,131,133,概念,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[11].labels[2]
+src/client/templates.ts,132,5,请帮我彻底理解以下概念，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,133,5,1. 一句话定义 + 一个最小例子；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,134,5,2. 它与常见相近概念的本质区别（各给一个对比场景）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,135,5,3. 这个概念在什么情况下不适用（边界）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,136,5,4. 给出 3 个由浅入深的练习场景让我检验理解。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,137,5,概念：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,138,5,相近概念（可选，不知道可留空，AI 自行选常见相近概念对比）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,140,23,AI 反向考验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].name
+src/client/templates.ts,140,61,学习,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].domain
+src/client/templates.ts,140,74,执行后,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].stage
+src/client/templates.ts,140,90,考验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].action[0]
+src/client/templates.ts,140,106,学习,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].labels[0]
+src/client/templates.ts,140,112,执行后,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].labels[1]
+src/client/templates.ts,140,119,考验,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[12].labels[2]
+src/client/templates.ts,141,5,请通过出题检验我是否真正理解了以下主题/交付内容：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,142,5,1. 设计选择题/判断题/简答题/案例题（由浅入深）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,143,5,2. 我作答后指出错误与盲区；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,144,5,3. 直到回答正确、知识点无盲区后再确认交付。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,145,5,主题 / 交付内容：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,147,29,代码审查,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].name
+src/client/templates.ts,147,68,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].domain
+src/client/templates.ts,147,81,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].stage
+src/client/templates.ts,147,97,审查,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].action[0]
+src/client/templates.ts,147,113,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].labels[0]
+src/client/templates.ts,147,119,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].labels[1]
+src/client/templates.ts,147,126,审查,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[13].labels[2]
+src/client/templates.ts,148,5,请审查以下代码，先给总体结论，再按严重程度排序输出，每个问题附具体修改建议（含示例代码）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,149,5,1. 正确性：潜在 bug、边界条件、并发/异步问题；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,150,5,2. 安全：注入、鉴权、敏感信息、依赖风险；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,151,5,3. 可维护性：命名、结构、重复、可读性；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,152,5,4. 性能：明显的低效点。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,153,5,代码过长时可分段审查，但最终汇总为一页结论。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,154,5,代码 / 文件 / 技术栈：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,156,29,测试用例设计,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].name
+src/client/templates.ts,156,70,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].domain
+src/client/templates.ts,156,83,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].stage
+src/client/templates.ts,156,99,测试,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].action[0]
+src/client/templates.ts,156,115,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].labels[0]
+src/client/templates.ts,156,121,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].labels[1]
+src/client/templates.ts,156,128,测试,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[14].labels[2]
+src/client/templates.ts,157,5,请为以下功能设计测试用例，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,158,5,1. 正常路径用例（含输入/预期输出）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,159,5,2. 边界与极端值用例；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,160,5,3. 异常与错误处理用例；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,161,5,4. 并发/重复/幂等场景（如适用）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,162,5,5. 指出哪些用例最容易漏、以及对应的风险。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,163,5,功能描述：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,165,27,重构方案,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].name
+src/client/templates.ts,165,71,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].domain
+src/client/templates.ts,165,84,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].stage
+src/client/templates.ts,165,100,重构,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].action[0]
+src/client/templates.ts,165,116,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].labels[0]
+src/client/templates.ts,165,122,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].labels[1]
+src/client/templates.ts,165,129,重构,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[15].labels[2]
+src/client/templates.ts,166,5,请为以下代码提出重构方案，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,167,5,1. 指出当前结构的主要问题（职责、耦合、可测试性）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,168,5,2. 给出目标结构（抽象与拆分建议，含示例）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,169,5,3. 按「小步重构」顺序列出步骤，每一步可独立提交且行为不变；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,170,5,4. 指出哪些重构有风险、需要测试保护。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,171,5,代码 / 模块：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,173,26,解释代码,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].name
+src/client/templates.ts,173,66,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].domain
+src/client/templates.ts,173,79,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].stage
+src/client/templates.ts,173,95,解读,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].action[0]
+src/client/templates.ts,173,111,工程,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].labels[0]
+src/client/templates.ts,173,117,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].labels[1]
+src/client/templates.ts,173,124,解读,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[16].labels[2]
+src/client/templates.ts,174,5,请解释以下代码，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,175,5,1. 这段代码做什么（一句话）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,176,5,2. 逐段讲解执行流程与关键数据结构；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,177,5,3. 指出其中「为什么这样写」的设计取舍；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,178,5,4. 指出潜在问题与改进点；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,179,5,5. 用一句话概括它在我更大的系统里扮演的角色。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,180,5,代码：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,182,28,盲区检查,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].name
+src/client/templates.ts,182,71,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].domain
+src/client/templates.ts,182,84,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].stage
+src/client/templates.ts,182,100,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].action[0]
+src/client/templates.ts,182,116,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].labels[0]
+src/client/templates.ts,182,122,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].labels[1]
+src/client/templates.ts,182,129,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[17].labels[2]
+src/client/templates.ts,183,5,在我开始以下任务之前，请帮我做一次盲区检查，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,184,5,1. 我可能遗漏的关键变量有哪些？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,185,5,2. 潜在的风险与最容易忽略的影响因素？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,186,5,3. 哪些点需要提前决策、哪些可以后置？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,187,5,4. 给我一个 3 分钟内可完成的快速检查清单。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,188,5,我的计划（目标 / 约束）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,190,27,零丢失快照,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].name
+src/client/templates.ts,190,74,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].domain
+src/client/templates.ts,190,87,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].stage
+src/client/templates.ts,190,103,固化,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].action[0]
+src/client/templates.ts,190,119,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].labels[0]
+src/client/templates.ts,190,125,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].labels[1]
+src/client/templates.ts,190,132,固化,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[18].labels[2]
+src/client/templates.ts,191,5,请执行一次「零丢失快照」：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,192,5,1. 把我们从会话开始至今的关键信息，按「目的地 / 约束与偏好 / 已确认的决定 / 待决问题 / 雾区（隐约可见但还不清晰）」五类逐条列出——不压缩、不合并，宁可啰嗦不可省略；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,193,5,2. 每条标注出处（引用我原话）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,194,5,3. 单独列一节「可疑遗漏」：凡是我提过但你觉得与主线无关、太模糊或像执行细节而没纳入的，全部摆出并写明理由；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,195,5,4. 列完后停下等我逐条核对，确认后再落盘。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,197,26,任务启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].name
+src/client/templates.ts,197,66,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].domain
+src/client/templates.ts,197,79,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].stage
+src/client/templates.ts,197,95,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].action[0]
+src/client/templates.ts,197,111,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].labels[0]
+src/client/templates.ts,197,117,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].labels[1]
+src/client/templates.ts,197,124,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[19].labels[2]
+src/client/templates.ts,198,5,在开始以下任务之前，请先确认起点并澄清细节，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,199,5,1. 最终目标（要做什么）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,200,5,2. 当前进度（目前想到哪一步）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,201,5,3. 经验水平（新手 / 有经验 / 专家）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,202,5,4. 不熟悉的地方；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,203,5,5. 成功的标准；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,204,5,6. 通过提问澄清细节（成功标准之外还有哪些约束、有哪些风险现在就该知道）。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,205,5,最终目标：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [7]
+src/client/templates.ts,206,5,当前进度（可选）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [8]
+src/client/templates.ts,207,5,经验水平（新手 / 有经验 / 专家）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [9]
+src/client/templates.ts,208,5,不熟悉的地方（可选）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [10]
+src/client/templates.ts,210,28,原型验证,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].name
+src/client/templates.ts,210,74,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].domain
+src/client/templates.ts,210,87,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].stage
+src/client/templates.ts,210,103,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].action[0]
+src/client/templates.ts,210,119,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].labels[0]
+src/client/templates.ts,210,125,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].labels[1]
+src/client/templates.ts,210,132,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[20].labels[2]
+src/client/templates.ts,211,5,请为以下主题/想法做原型验证，每轮输出保持克制（方向概要即可，不要太长）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,212,5,1. 给出 2~4 个方向差距很大的候选方案；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,213,5,2. 每个方向给出最小的验证方式（怎么快速试错）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,214,5,3. 由我选择和反馈，几轮后逐步收敛到满意的方向；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,215,5,4. 收敛后给出下一步的执行计划要点。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,216,5,主题 / 想法：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,218,23,执行计划,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].name
+src/client/templates.ts,218,65,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].domain
+src/client/templates.ts,218,78,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].stage
+src/client/templates.ts,218,94,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].action[0]
+src/client/templates.ts,218,110,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].labels[0]
+src/client/templates.ts,218,116,执行前,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].labels[1]
+src/client/templates.ts,218,123,启动,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[21].labels[2]
+src/client/templates.ts,219,5,请为以下目标制定执行计划，按编号结构化输出（时间安排是可调整的草案）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,220,5,1. 明确步骤（含顺序与依赖）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,221,5,2. 时间安排（每步预计时长/里程碑）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,222,5,3. 所需资源和工具；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,223,5,4. 交付物和验收标准；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,224,5,5. 风险和应对方案。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,225,5,目标：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/templates.ts,226,5,约束（可选）：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [7]
+src/client/templates.ts,228,28,记录偏离,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].name
+src/client/templates.ts,228,69,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].domain
+src/client/templates.ts,228,82,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].stage
+src/client/templates.ts,228,98,记录,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].action[0]
+src/client/templates.ts,228,114,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].labels[0]
+src/client/templates.ts,228,120,执行中,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].labels[1]
+src/client/templates.ts,228,127,记录,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[22].labels[2]
+src/client/templates.ts,229,5,请担任我的过程记录员（多轮持续角色）：从现在起，在每次交互后更新一份简洁的偏离记录，按编号结构化：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,230,5,1. 遇到了什么新的情况？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,231,5,2. 为什么改变了方案？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,232,5,3. 做了哪些关键决定？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,233,5,4. 对结果有什么影响？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,234,5,每次只输出「新增/变更」条目，不要重复已记录内容。,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,236,24,过程复盘,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].name
+src/client/templates.ts,236,65,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].domain
+src/client/templates.ts,236,78,执行后,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].stage
+src/client/templates.ts,236,94,复盘,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].action[0]
+src/client/templates.ts,236,110,执行,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].labels[0]
+src/client/templates.ts,236,116,执行后,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].labels[1]
+src/client/templates.ts,236,123,复盘,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: PRESET_TEMPLATES[23].labels[2]
+src/client/templates.ts,237,5,请帮我复盘刚刚完成的以下任务/项目，按编号结构化输出：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [0]
+src/client/templates.ts,238,5,1. 整体步骤回顾（实际 vs 计划的差异）；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [1]
+src/client/templates.ts,239,5,2. 使用的资料和工具；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [2]
+src/client/templates.ts,240,5,3. 遇到的困难；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [3]
+src/client/templates.ts,241,5,4. 解决思路与可复用经验；,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [4]
+src/client/templates.ts,242,5,5. 如果重来一次，哪些地方会做得不同？,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [5]
+src/client/templates.ts,243,5,任务 / 项目：,C3,不动(内容资产),-,export const PRESET_TEMPLATES :: [6]
+src/client/workspace-contract.ts,293,96,未归属,C1,保持(调用方已本地化),-,export function groupWorkspaceSessions :: groupWorkspaceSessions
+src/client/workspace-contract.ts,369,36,刚刚,C1,保持(函数内双语),-,export function relativeWorkspaceTime :: relativeWorkspaceTime
+src/client/workspace-contract.ts,371,36,刚刚,C1,保持(函数内双语),-,export function relativeWorkspaceTime :: relativeWorkspaceTime
+src/client/workspace-contract.ts,372,43,分,C1,保持(函数内双语),-,export function relativeWorkspaceTime :: relativeWorkspaceTime
+src/client/workspace-contract.ts,374,43,时,C1,保持(函数内双语),-,export function relativeWorkspaceTime :: relativeWorkspaceTime
+src/client/workspace-contract.ts,375,65,天,C1,保持(函数内双语),-,export function relativeWorkspaceTime :: relativeWorkspaceTime

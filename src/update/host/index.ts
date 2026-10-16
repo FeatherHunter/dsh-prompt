@@ -1,11 +1,15 @@
 /**
+ * 装配器（非 barrel，不扩转口）（#171 N6：可 import 者 —— 无（构建入口，不被源码进口））。
+ * 跑 node host 线（无 DOM）；禁被 src/client 进口（DO-NOT-IMPORT），禁 DOM/宿主调用。
+ */
+/**
  * dsh-prompt — 更新能力的宿主半（#39）：把更新包的电话挂到既有 HTTP 桥上
  *
  * 更新包 `dsh-plugin-update` 对通道完全无感：`createHostUpdate()` 只回一张「电话名 → 普通异步函数」
  * 的表，注册到哪里由调用方定。本插件不另开 RPC 通道、不迁 `ctx.remote`，就挂现有这条
  * `/_dsh/dsh-prompt/*` 桥（同源防护与既有端点同生共死，见 lib/index.js 的 isAllowed）。
  *
- * 三条路由的路径取 `./paths.js`（#127 从已删 bridge.ts 搬家），本文件不写字面量。
+ * 三条路由的路径取 `./routes.js`（#127 从已删 bridge.ts 搬家），本文件不写字面量。
  *
  * 本票只做接线与构建准备：不自动检查、不做面板（#40 / #41）。`createUpdateCapability()`
  * 建起来只注册处理器；状态快照要等客户端点「检查更新」（#40）才会被读。
@@ -18,7 +22,7 @@
  *
  * 这个目录原来是一个 500 多行的 `index.ts`，跨过了 400 行告警线。四轮整改往它里面加了
  * 三件**互不相干**的事（值域安全网 / 失败落盘节流的账本 / 事件转交），于是按这三件事拆开：
- * - `hash.ts`：8 位指纹。两条链都要用，单独一处是唯一来源。
+ * - `error-fingerprint.ts`：8 位指纹。两条链都要用，单独一处是唯一来源。
  * - `safe-values.ts`：**值**能不能落盘（K1 的语义白名单）。
  * - `bridge-log.ts`：更新包报的事件怎么转交 + 失败落盘节流（H2/K3 的账本）。
  * 本文件只剩「装配」：读配置、建能力、把三条路由分派到电话。
@@ -61,9 +65,9 @@ import {
   UPDATE_CHECK_PATH,
   UPDATE_INSTALL_PATH,
   UPDATE_STATUS_PATH,
-} from './paths.js'
+} from './routes.js'
 import { createBridgeLog, type LogCapability } from './bridge-log.js'
-import { hash8 } from './hash.js'
+import { hash8 } from './error-fingerprint.js'
 
 /** 宿主半在日志能力面前的身份（与 lib/index.js 的 PLUGIN_ID、cordis.patch.yml 的 id 同值）。 */
 export const PLUGIN_ID = 'dsh-prompt'

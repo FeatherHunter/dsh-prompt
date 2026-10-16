@@ -8,7 +8,7 @@
  * 它凭什么算证据（而不是手抄的示意）：
  *   1. 每个格子里的名字节点与内联样式，取自**真组件**在 react-test-renderer 下的渲染结果
  *      （悬浮列表 / 设置页列表 / 远程大列表 / 智能卡 各挂真组件，远程面沿 data-dsh-prompt-remote-card 翻页定位）；
- *   2. 描边来自**真实** `INK_TINT_CSS`（src/client/panel.ts 的八向 1px text-shadow，色 var(--dsw-alias-label-primary)）；
+ *   2. 描边来自**真实** `INK_TINT_CSS`（src/client/template-browser.ts 的八向 1px text-shadow，色 var(--dsw-alias-label-primary)）；
  *   3. 背景与令牌子用**宿主真值**（浅 #ffffff / 深 #151517；正文令牌子 #0f1115 / #f9fafb）。
  * 边界：它是渲染证据表，**不是真机截图**；真机深浅两主题四面验收由「真机验收与发版（下一个补丁版本）」承接。
  *
@@ -63,13 +63,13 @@ function installDom(lang) {
   globalThis.MutationObserver = class { constructor() {} observe() {} disconnect() {} takeRecords() { return []; } };
 }
 installDom('zh-CN');
-buildFlat(TMP_DIR, [SRC('keys.ts'), SRC('i18n.ts'), SRC('store.ts'), SRC('panel.ts'), SRC('smart.ts'), SRC('remote.ts'), SRC('smartstore.ts')]);
+buildFlat(TMP_DIR, [SRC('label-identity.ts'), SRC('strings.ts'), SRC('template-library.ts'), SRC('template-browser.ts'), SRC('smart-card.ts'), SRC('remote-mode.ts'), SRC('smart-draft.ts')]);
 const req = (n) => require(path.join(TMP_DIR, n + '.cjs'));
-const panel = req('panel');
-const store = req('store');
-const smartMod = req('smart');
-const smartstore = req('smartstore');
-const remoteMod = req('remote');
+const panel = req('template-browser');
+const store = req('template-library');
+const smartMod = req('smart-card');
+const smartstore = req('smart-draft');
+const remoteMod = req('remote-mode');
 globalThis.fetch = async (url) => ({
   ok: true, status: 200,
   json: async () => (/\/store$/.test(String(url))

@@ -134,58 +134,58 @@ function scan() {
 // 字段：file 精确匹配；path 为 container 子串；text 为字面量精确匹配；三者都可省略（省略=通配）。
 // 顺序敏感：先命中者胜。改动 src 后若出现未命中行，脚本会 exit 1 逼你补规则。
 const RULES = [
-  // —— i18n.ts：字典本身（唯一 seam），zh 值即 C1 目的地；en 值必须零 CJK ——
-  // #141 收口：铬字面量已全数迁入本字典（panel/settings/smart/remoteInputSheet 的散落串清零），
+  // —— strings.ts（当时名 i18n.ts）：字典本身（唯一 seam），zh 值即 C1 目的地；en 值必须零 CJK ——
+  // #141 收口：铬字面量已全数迁入本字典（template-browser/settings-page/smart-card/remote-sheet 的散落串清零，当时名 panel/settings/smart/remoteInputSheet），
   // 字典里那条唯一含 CJK 的 en 值（labelReserved）已随「砍保留词拒绝」删除。
-  { file: 'src/client/i18n.ts', pathEnd: '.zh', cls: 'C1', action: '已在STR', consumer: '-' },
+  { file: 'src/client/strings.ts', pathEnd: '.zh', cls: 'C1', action: '已在STR', consumer: '-' },
 
   // —— 内容资产（本图 Out of scope） ——
   { file: 'src/client/templates.ts', cls: 'C3', action: '不动(内容资产)', consumer: '-' },
-  { file: 'src/client/words.ts', cls: 'C3', action: '不动(内容资产)', consumer: '-' },
+  { file: 'src/client/smart-words.ts', cls: 'C3', action: '不动(内容资产)', consumer: '-' },
   // #145：预制词英译表的**键**就是预制标签词（内容资产原文；身份与过滤继续用中文原文，只有显示位走英译）。
   // 归类按内容资产记，动作注明"显示映射"——免得后人以为这些词也被搬进了铬字典。
-  { file: 'src/client/keys.ts', path: 'PRESET_WORD_EN', cls: 'C3', action: '显示映射(en 词表)', consumer: '145' },
+  { file: 'src/client/label-identity.ts', path: 'PRESET_WORD_EN', cls: 'C3', action: '显示映射(en 词表)', consumer: '145' },
 
   // —— 身份 / 存储值（C2：身份与显示分离，用户数据永不改写） ——
-  // #141 收口：去留表与范围别名单点移到 keys.ts（panel 的 CLOUD_EXCLUDE、remoteView 的重复表与
-  // 返回显示串的 remoteTagOptions 死码已删）；store 的 LABEL_RESERVED 拒绝分支已砍。
-  { file: 'src/client/keys.ts', path: 'SCOPE_ALIASES', cls: 'C2', action: '不动(身份别名)', consumer: '-' },
-  { file: 'src/client/keys.ts', path: 'EXCLUDED_LABEL_WORDS', cls: 'C2', action: '不动(存量拼写/身份值)', consumer: '-' },
-  { file: 'src/client/store.ts', path: 'LABEL_FALLBACK', cls: 'C2', action: '不动(身份值)', consumer: '-' },
-  { file: 'src/client/store.ts', text: '（副本）', cls: 'C2', action: '不动(写入用户数据)', consumer: '141' },
+  // #141 收口：去留表与范围别名单点移到 label-identity.ts（当时名 keys.ts；template-browser 的 CLOUD_EXCLUDE、remote-grid 的重复表与
+  // 返回显示串的 remoteTagOptions 死码已删）；template-library 的 LABEL_RESERVED 拒绝分支已砍。
+  { file: 'src/client/label-identity.ts', path: 'SCOPE_ALIASES', cls: 'C2', action: '不动(身份别名)', consumer: '-' },
+  { file: 'src/client/label-identity.ts', path: 'EXCLUDED_LABEL_WORDS', cls: 'C2', action: '不动(存量拼写/身份值)', consumer: '-' },
+  { file: 'src/client/template-library.ts', path: 'LABEL_FALLBACK', cls: 'C2', action: '不动(身份值)', consumer: '-' },
+  { file: 'src/client/template-library.ts', text: '（副本）', cls: 'C2', action: '不动(写入用户数据)', consumer: '141' },
 
-  // —— 铬（C1）：必须随 UI 语言切换 —— #141 已把下列面板侧字面量全数迁进 i18n.ts，
+  // —— 铬（C1）：必须随 UI 语言切换 —— #141 已把下列面板侧字面量全数迁进 strings.ts（当时名 i18n.ts），
   //    规则留作「同字面量若再出现，仍按铬对待」的哨兵（不是放行条）。
-  { file: 'src/client/panel.ts', text: '上一页', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
-  { file: 'src/client/panel.ts', text: '下一页', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
-  { file: 'src/client/panel.ts', text: '已使用 ', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
-  { file: 'src/client/panel.ts', text: ' 次', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
-  { file: 'src/client/panel.ts', text: ' · 点击展开/收起简介', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
-  { file: 'src/client/panel.ts', text: '「', cls: 'C1', action: '迁STR(P2标点)', consumer: '141' },
-  { file: 'src/client/panel.ts', text: '」', cls: 'C1', action: '迁STR(P2标点)', consumer: '141' },
-  { file: 'src/client/panel.ts', text: '＋ ', cls: 'C1', action: '迁STR(P2符号)', consumer: '141' },
-  { file: 'src/client/panel.ts', text: '＋', cls: 'C1', action: '迁STR(P2符号)', consumer: '141' },
-  { file: 'src/client/settings.ts', text: '档·', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
-  { file: 'src/client/settings.ts', text: '（', cls: 'C1', action: '迁STR(P2标点)', consumer: '141' },
-  { file: 'src/client/settings.ts', text: '）', cls: 'C1', action: '迁STR(P2标点)', consumer: '141' },
-  { file: 'src/client/smart.ts', text: '·常用', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
-  { file: 'src/client/smart.ts', text: '·分', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
-  { file: 'src/client/remoteInputSheet.ts', text: '字', cls: 'C1', action: '迁STR(P2)', consumer: '141' },
-  { file: 'src/client/workspace.ts', text: '未归属', cls: 'C1', action: '保持(调用方已本地化)', consumer: '-' },
-  { file: 'src/client/workspace.ts', text: '刚刚', cls: 'C1', action: '保持(函数内双语)', consumer: '-' },
-  { file: 'src/client/workspace.ts', text: '分', cls: 'C1', action: '保持(函数内双语)', consumer: '-' },
-  { file: 'src/client/workspace.ts', text: '时', cls: 'C1', action: '保持(函数内双语)', consumer: '-' },
-  { file: 'src/client/workspace.ts', text: '天', cls: 'C1', action: '保持(函数内双语)', consumer: '-' },
+  { file: 'src/client/template-browser.ts', text: '上一页', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
+  { file: 'src/client/template-browser.ts', text: '下一页', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
+  { file: 'src/client/template-browser.ts', text: '已使用 ', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
+  { file: 'src/client/template-browser.ts', text: ' 次', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
+  { file: 'src/client/template-browser.ts', text: ' · 点击展开/收起简介', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
+  { file: 'src/client/template-browser.ts', text: '「', cls: 'C1', action: '迁STR(P2标点)', consumer: '141' },
+  { file: 'src/client/template-browser.ts', text: '」', cls: 'C1', action: '迁STR(P2标点)', consumer: '141' },
+  { file: 'src/client/template-browser.ts', text: '＋ ', cls: 'C1', action: '迁STR(P2符号)', consumer: '141' },
+  { file: 'src/client/template-browser.ts', text: '＋', cls: 'C1', action: '迁STR(P2符号)', consumer: '141' },
+  { file: 'src/client/settings-page.ts', text: '档·', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
+  { file: 'src/client/settings-page.ts', text: '（', cls: 'C1', action: '迁STR(P2标点)', consumer: '141' },
+  { file: 'src/client/settings-page.ts', text: '）', cls: 'C1', action: '迁STR(P2标点)', consumer: '141' },
+  { file: 'src/client/smart-card.ts', text: '·常用', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
+  { file: 'src/client/smart-card.ts', text: '·分', cls: 'C1', action: '迁STR(P1)', consumer: '141' },
+  { file: 'src/client/remote-sheet.ts', text: '字', cls: 'C1', action: '迁STR(P2)', consumer: '141' },
+  { file: 'src/client/workspace-contract.ts', text: '未归属', cls: 'C1', action: '保持(调用方已本地化)', consumer: '-' },
+  { file: 'src/client/workspace-contract.ts', text: '刚刚', cls: 'C1', action: '保持(函数内双语)', consumer: '-' },
+  { file: 'src/client/workspace-contract.ts', text: '分', cls: 'C1', action: '保持(函数内双语)', consumer: '-' },
+  { file: 'src/client/workspace-contract.ts', text: '时', cls: 'C1', action: '保持(函数内双语)', consumer: '-' },
+  { file: 'src/client/workspace-contract.ts', text: '天', cls: 'C1', action: '保持(函数内双语)', consumer: '-' },
 
   // —— 非界面（C4）：诊断行 / 内部匹配字符 ——
-  { file: 'src/client/smart.ts', text: '输入框DOM', cls: 'C4', action: '不动(诊断)', consumer: '-' },
-  { file: 'src/client/smart.ts', text: '输入桥', cls: 'C4', action: '不动(诊断)', consumer: '-' },
-  { file: 'src/client/smart.ts', text: '读不到', cls: 'C4', action: '不动(诊断)', consumer: '-' },
-  { file: 'src/client/smart.ts', text: '诊断(临时) 草稿=', cls: 'C4', action: '不动(诊断)', consumer: '-' },
-  { file: 'src/client/smart.ts', text: ' 来源=', cls: 'C4', action: '不动(诊断)', consumer: '-' },
-  { file: 'src/client/smart.ts', text: ' 自定义=', cls: 'C4', action: '不动(诊断)', consumer: '-' },
-  { file: 'src/client/smart.ts', text: '条 候选=', cls: 'C4', action: '不动(诊断)', consumer: '-' },
-  { file: 'src/client/match.ts', text: '：', cls: 'C4', action: '不动(内部匹配字符)', consumer: '-' },
+  { file: 'src/client/smart-card.ts', text: '输入框DOM', cls: 'C4', action: '不动(诊断)', consumer: '-' },
+  { file: 'src/client/smart-card.ts', text: '输入桥', cls: 'C4', action: '不动(诊断)', consumer: '-' },
+  { file: 'src/client/smart-card.ts', text: '读不到', cls: 'C4', action: '不动(诊断)', consumer: '-' },
+  { file: 'src/client/smart-card.ts', text: '诊断(临时) 草稿=', cls: 'C4', action: '不动(诊断)', consumer: '-' },
+  { file: 'src/client/smart-card.ts', text: ' 来源=', cls: 'C4', action: '不动(诊断)', consumer: '-' },
+  { file: 'src/client/smart-card.ts', text: ' 自定义=', cls: 'C4', action: '不动(诊断)', consumer: '-' },
+  { file: 'src/client/smart-card.ts', text: '条 候选=', cls: 'C4', action: '不动(诊断)', consumer: '-' },
+  { file: 'src/client/smart-score.ts', text: '：', cls: 'C4', action: '不动(内部匹配字符)', consumer: '-' },
 ]
 
 function classify(row) {

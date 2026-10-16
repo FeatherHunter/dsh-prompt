@@ -1,4 +1,8 @@
 /**
+ * 语言解析 + 订阅单例（Locale 唯一来源）（#171 N6：可 import 者 —— entry-button、index、prompt-trigger、remote-sheet、settings-page、smart-card、strings、template-browser、workspace-picker）。
+ * 跑浏览器 bundle 线；禁被 src/update/host 进口（DO-NOT-IMPORT），禁跨运行时进口。
+ */
+/**
  * dsh-prompt — 语言解析与订阅（#137 基建，见 docs/adr/0006-locale-identity-and-subscription.md）
  *
  * 三件事，各只留一份实现：

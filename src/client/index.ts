@@ -1,21 +1,25 @@
 /**
+ * 装配器（非 barrel，不扩转口）（#171 N6：可 import 者 —— 无（构建入口，不被源码进口））。
+ * 跑浏览器 bundle 线；禁被 src/update/host 进口（DO-NOT-IMPORT），禁跨运行时进口。
+ */
+/**
  * dsh-prompt — client 入口（v1 常规模式 + v1.1 智能模式）
  * 装配：input.left 入口按钮 / input.overlay 面板浮层 / settings.section 配置页（直属设置面板）/ inputTriggers /prompt 触发源（#9）/ shell.overlay 智能悬浮卡（#10）
  */
-import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler, armInputFocusTrack, INK_TINT_CSS, INK_UI_CSS, BAR_UI_CSS } from './panel'
-import { EntryButton } from './button'
-import { SettingsPage } from './settings'
-import { buildPromptSource } from './trigger'
-import { SmartCardHost } from './smart'
-import { setSmartInput } from './smartstore'
-import { ensureLoaded } from './store'
-import { ensureRemoteLoaded, subscribeRemote, getRemotePrefs, warmEnvOrientation } from './remote'
-import { getSystemOrientation } from './systemOrientation'
-import { syncHostFont, syncRemoteRows, syncAssistantZoom, clearHostBridges } from './hostfont'
-import { applyOwnedStyle, styleDocument } from './styleOwnership'
-import { getLang, tr, STR } from './i18n'
+import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler, armInputFocusTrack, INK_TINT_CSS, INK_UI_CSS, BAR_UI_CSS } from './template-browser'
+import { EntryButton } from './entry-button'
+import { SettingsPage } from './settings-page'
+import { buildPromptSource } from './prompt-trigger'
+import { SmartCardHost } from './smart-card'
+import { setSmartInput } from './smart-draft'
+import { ensureLoaded } from './template-library'
+import { ensureRemoteLoaded, subscribeRemote, getRemotePrefs, warmEnvOrientation } from './remote-mode'
+import { getSystemOrientation } from './system-orientation'
+import { syncHostFont, syncRemoteRows, syncAssistantZoom, clearHostBridges } from './host-content-font'
+import { applyOwnedStyle, styleDocument } from './style-ownership'
+import { getLang, tr, STR } from './strings'
 import { installLocaleService } from './locale'
-import { isPanelOpen, onPanelOpen } from './state'
+import { isPanelOpen, onPanelOpen } from './panel-visibility'
 import { startLog, getLog } from './log'
 
 /** 记一条调试级事件（先问开关再组装字段：关着开关时连字符串都不拼，包内兜底拦不住调用前的求值）。 */
@@ -83,7 +87,7 @@ function PanelHost(props: any): any {
       if (u && typeof u.subscribe === 'function') unsub = u.subscribe(push)
     } catch (e) { /* ignore */ }
     // 轮询兜底：宿主未提供 subscribe（或 subscribe 不覆盖草稿变更）时，桥也必须保持新鲜——
-    // 悬浮卡在 DOM 读不到草稿时正是靠这份桥草稿出卡（见 smart.ts currentDraftInfo）。
+    // 悬浮卡在 DOM 读不到草稿时正是靠这份桥草稿出卡（见 smart-card.ts currentDraftInfo）。
     // setSmartInput 对同值载荷去重，轮询不会引发额外重渲染。
     const timer = setInterval(push, 300)
     return () => {
@@ -103,14 +107,14 @@ function PanelHost(props: any): any {
 
 // ── #158 名字染色描边（地图 #151）：八向 1px text-shadow + 宿主正文令牌 ──────────────
 /**
- * 注入染色描边样式段（CSS 本体在 `panel.ts` 的 `INK_TINT_CSS`，与钩子属性同一处；这里只做注入机制）。
+ * 注入染色描边样式段（CSS 本体在 `template-browser.ts` 的 `INK_TINT_CSS`，与钩子属性同一处；这里只做注入机制）。
  * 三条「不这么写」的原因：① 内联 textShadow 优先级高于注入规则，会把方案焊死；② `@media
  * (prefers-color-scheme)` 在纯浏览器里反映的是 OS 而不是手动选的主题（桌面端被 nativeTheme 同步、
  * 浏览器端不会）⇒ 一律用令牌；③ 不用 `-webkit-text-stroke`：外露环只有半像素、DPR 1.25 时实心环
  * 掉 77%，且不带 `paint-order` 会把字心填色吃光（研究 152 §1/§3/§4）。
- * 为什么注入点在这里而不是 panel.ts：`panel.ts:47-52` 记着「往该文件加 import 边会让既有回归脚本
- * 全部找不到模块」的代价（`./styleOwnership` 是 10+ 张手抄表的共同依赖）；index.ts 没有回归脚本把它
- * 当手抄根，这条边零外溢。归属走 styleOwnership 的共用注入缝（`data-plugin='dsh-prompt'` + 私有标记，
+ * 为什么注入点在这里而不是 template-browser.ts：`template-browser.ts:47-52` 记着「往该文件加 import 边会让既有回归脚本
+ * 全部找不到模块」的代价（`./style-ownership` 是 10+ 张手抄表的共同依赖）；index.ts 没有回归脚本把它
+ * 当手抄根，这条边零外溢。归属走 style-ownership 的共用注入缝（`data-plugin='dsh-prompt'` + 私有标记，
  * 幂等、同值不重写）；页面级只注一次，回收交给宿主样式账本，不随会话拆装。
  */
 const INK_STYLE_MARKER = 'ink-tint'
@@ -122,7 +126,7 @@ function applyInkTintStyle(): void {
   } catch (e) { /* fail-soft：样式注入永不影响装配 */ }
 }
 /**
- * 取色浮层的交互反馈样式段（CSS 本体在 `panel.ts` 的 `INK_UI_CSS`）：可点控件的 hover / active /
+ * 取色浮层的交互反馈样式段（CSS 本体在 `template-browser.ts` 的 `INK_UI_CSS`）：可点控件的 hover / active /
  * focus 反馈，同样走归属缝注入（另一条私有标记，互不覆盖），页面级只注一次。
  */
 const INK_UI_STYLE_MARKER = 'ink-ui'
@@ -134,7 +138,7 @@ function applyInkUiStyle(): void {
   } catch (e) { /* fail-soft：样式注入永不影响装配 */ }
 }
 /**
- * 小列表的交互反馈样式段（CSS 本体在 `panel.ts` 的 `BAR_UI_CSS`，#165 需求 1/3）：
+ * 小列表的交互反馈样式段（CSS 本体在 `template-browser.ts` 的 `BAR_UI_CSS`，#165 需求 1/3）：
  * 底栏/云/搜索/行内动作/图钉/屏蔽钮/关闭的 hover / active / focus 反馈，
  * 同样走归属缝注入（第三条私有标记，互不覆盖），页面级只注一次。
  */
@@ -208,7 +212,7 @@ export function apply(ctx: ClientContext): void {
     let off: undefined | (() => void)
     try { off = subscribeRemote(sync) } catch (e) { off = undefined }
     // 清场（#148 审查补）：先退订再摘自家覆盖段——!important 段不能只靠宿主账本兜底，
-    // 归属一旦失配就没有第二条摘除路径（见 hostfont.ts clearHostBridges）。
+    // 归属一旦失配就没有第二条摘除路径（见 host-content-font.ts clearHostBridges）。
     return () => {
       try { if (typeof off === 'function') off() } catch (e) { /* ignore */ }
       clearHostBridges()
@@ -427,7 +431,7 @@ export function apply(ctx: ClientContext): void {
 
 }
 
-/** 记一条日志事件（槽机制与 panel.ts/remote.ts 同构：#149 起「设置→模板管理」失败不再静默）。 */
+/** 记一条日志事件（槽机制与 template-browser.ts/remote-mode.ts 同构：#149 起「设置→模板管理」失败不再静默）。 */
 function logEvent(event: string, fields?: Record<string, unknown>): void {
   try {
     const log = (globalThis as any).__dshPromptLog

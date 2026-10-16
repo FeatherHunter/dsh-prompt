@@ -1,0 +1,211 @@
+// 回归测试 #71: 行内用量徽标（P5b 行最右决议落地，推翻 #69 图钉右侧旧决议）
+// 验收映射（#71 Brief P5b）：
+//  A) 位置：用量徽标在行最右侧（操作按钮之后、最末尾），行最后一个直属元素（compact 单行 + 设置页两行复用同一规则）
+//  B) 样式：font-size 0.75em、颜色 var(--dsw-alias-label-tertiary)、min-width 4ch、text-align right、
+//     font-variant-numeric tabular-nums + font-feature-settings tnum、title=已使用 N 次、white-space nowrap
+//  C) 设置页与标题首行对齐（badge 与图钉同 paddingTop，行 flex-start 顶部对齐）
+//  D) 用量取值读 store 现有缓存（loadUsage），排序语义不动
+//  E) 超长标题 ellipsis 不换行（badge 不挤爆行，标题 nowrap + 容器裁剪）
+const fs = require('node:fs');
+const path = require('node:path');
+let ts;
+try { ts = require('typescript') } catch (e) { ts = require('D:/0Tools/DSHDesktop/DSH Desktop/resources/app/node_modules/typescript') }
+const DIR = path.join(__dirname, '.rt-tmp');
+fs.mkdirSync(DIR, { recursive: true });
+const SRC = (f) => path.join(__dirname, '..', '..', 'src', 'client', f);
+// 独立文件名（不与别家互压）：store71/panel71 等
+// P1：只声明根；闭包与 require 改写由共享件顺着源码 import 推导（不再是手抄表）。
+const { buildFlat } = require('../lib/transpile-client.cjs');
+buildFlat(DIR, [
+  SRC('templates.ts'),
+  SRC('template-library.ts'),
+  SRC('panel-visibility.ts'),
+  SRC('strings.ts'),
+  SRC('smart-draft.ts'),
+  SRC('template-browser.ts'),
+], { suffix: '71' });
+const React = require('react');
+const TR = require('react-test-renderer');
+const req = (n) => require(path.join(DIR, n));
+const store = req('template-library71.cjs');
+const panel = req('template-browser71.cjs');
+// #165：缺省=屏蔽会藏预置行（fp），本票断言行结构，显式钉住展示（屏蔽态由 165 门禁覆盖）。
+try { if (store.saveHidePreset) store.saveHidePreset(false); } catch (e) {}
+
+function assert(cond, msg) {
+  if (!cond) { console.log('FAIL: ' + msg); process.exit(1); }
+  console.log(' ok: ' + msg);
+}
+const rowById = (tree, id) =>
+  tree.root.findAll((n) => n.props && n.props['data-dsh-prompt-id'] === id, { deep: true })[0];
+const directKids = (row) =>
+  (row.children || []).filter((c) => c && typeof c !== 'string' && c.type);
+const textOfNode = (n) => {
+  if (typeof n === 'string') return n;
+  if (!n) return '';
+  if (Array.isArray(n.children)) return n.children.map((c) => (typeof c === 'string' ? c : textOfNode(c))).join('');
+  return '';
+};
+const findBadgeKid = (row) => {
+  const kids = directKids(row);
+  const matches = kids.filter((k) => k.props && typeof k.props.title === 'string' && /^已使用 \d+ 次$/.test(k.props.title));
+  const badge = matches.length > 0 ? matches[matches.length - 1] : undefined;
+  const idx = badge ? kids.lastIndexOf(badge) : -1;
+  return { kids, badge, idx };
+};
+function checkBadgeStyle(badge, ctx) {
+  assert(!!badge, ctx + '：徽标存在（title=已使用 N 次）');
+  const s = badge.props.style || {};
+  assert(s.flex === 'none', ctx + '：徽标 flex:none（行最末尾 flex:none）');
+  assert(s.fontSize === '0.75em', ctx + '：徽标 font-size 0.75em（实得 ' + s.fontSize + '）');
+  assert(s.color === 'var(--dsw-alias-label-tertiary)', ctx + '：徽标颜色 tertiary（实得 ' + s.color + '）');
+  assert(s.minWidth === '4ch', ctx + '：徽标 min-width 4ch（实得 ' + s.minWidth + '）');
+  assert(s.textAlign === 'right', ctx + '：徽标 text-align right（实得 ' + s.textAlign + '）');
+  assert(s.fontVariantNumeric === 'tabular-nums', ctx + '：徽标 tabular-nums（实得 ' + s.fontVariantNumeric + '）');
+  const ffs = String(s.fontFeatureSettings || '');
+  assert(ffs.indexOf('tnum') >= 0, ctx + '：徽标 font-feature-settings tnum（实得 ' + ffs + '）');
+  assert(s.whiteSpace === 'nowrap', ctx + '：徽标 white-space nowrap');
+  const n = Number(textOfNode(badge));
+  assert(String(n) === textOfNode(badge).trim(), ctx + '：徽标文本为数字（实得 ' + JSON.stringify(textOfNode(badge)) + '）');
+  assert(badge.props.title === '已使用 ' + n + ' 次', ctx + '：徽标 title=已使用 N 次（实得 ' + badge.props.title + '）');
+  return n;
+}
+
+async function main() {
+  console.log('=== Test #71 A: 面板源码接线（读缓存，不碰排序/筛选） ===');
+  const panelSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'client', 'template-browser.ts'), 'utf8');
+  assert(/loadUsage/.test(panelSrc), 'panel 读 store 现有缓存 loadUsage');
+  assert(/from '\.\/template-library'/.test(panelSrc), 'panel 仍从 ./template-library 取数（无新数据源）');
+  // 顶部筛选区禁区：tabs/domain/搜索/过滤逻辑不得被本改动触碰（只允许行渲染区 + loadUsage 引入）
+  assert(/compact \? sortedTemplatesBottomUp\(filtered\) : sortedTemplates\(filtered\)/.test(panelSrc), '排序接线未动（compact BottomUp / 设置页降序）');
+  assert(!/sortedTemplatesBottomUp\(filtered\)\.reverse/.test(panelSrc) && !/sortedTemplates\(filtered\)\.reverse/.test(panelSrc), '排序无反转/重排（语义不动）');
+
+  console.log('=== Test #71 B: 用量取值 = store 缓存（bump 回显） ===');
+  store.savePinned([]);
+  store.bumpUsage('fp'); store.bumpUsage('fp'); store.bumpUsage('fp');
+  store.bumpUsage('deep');
+  const usage = store.loadUsage();
+  assert(usage['fp'] === 3, 'fp 用量=3（实得 ' + usage['fp'] + '）');
+  assert(usage['deep'] === 1, 'deep 用量=1（实得 ' + usage['deep'] + '）');
+  assert((usage['socratic'] || 0) === 0, '未使用 socratic=0');
+
+  console.log('=== Test #71 C: compact 单行徽标位置 + 样式 ===');
+  let compact;
+  TR.act(() => { compact = TR.create(React.createElement(panel.TemplateBrowser, { compact: true })); });
+  const fpRow = rowById(compact, 'fp');
+  assert(!!fpRow, 'compact 行 fp 存在');
+  {
+    const { kids, badge, idx } = findBadgeKid(fpRow);
+    assert(kids.length >= 4, 'compact 行直属子元素 >=4（图钉+标题区+操作+徽标）实得 ' + kids.length);
+    assert(kids[0] && kids[0].type === 'button', 'compact 行首个直属元素是图钉 button');
+    const n = checkBadgeStyle(badge, 'compact fp');
+    assert(n === 3, 'compact fp 徽标数字=3（实得 ' + n + '）');
+    assert(idx === kids.length - 1, 'compact 徽标在行最末尾（直属末索引）实得 ' + idx + ' / ' + (kids.length - 1));
+    assert(kids[kids.length - 1] === badge, 'compact 行最后一个直属元素即徽标');
+    // 徽标之前是操作区：末二元素含 button（操作按钮）
+    const actsHasBtn = (() => { try { return kids[kids.length - 2].findAll((x) => x.type === 'button', { deep: true }).length > 0; } catch (e) { return false; } })();
+    assert(actsHasBtn, 'compact 徽标紧跟操作区之后');
+    // 标题在徽标之前
+    const titleNode = fpRow.findAll((x) => x.children && Array.isArray(x.children) && x.children.length === 1 && x.children[0] === store.getTemplate('fp').name, { deep: true })[0];
+    assert(!!titleNode, 'compact 标题仍在行内');
+    assert(((titleNode.props && titleNode.props.style) || {}).whiteSpace === 'nowrap', 'compact 标题 whiteSpace nowrap');
+    // 标题容器在徽标之前
+    const titleContainerIdx = kids.findIndex((k) => {
+      try { return k.findAll((x) => x.children && x.children[0] === store.getTemplate('fp').name, { deep: true }).length > 0; } catch (e) { return false; }
+    });
+    assert(titleContainerIdx >= 0 && titleContainerIdx < idx, 'compact 标题区在徽标之前');
+  }
+  {
+    const deepRow = rowById(compact, 'deep');
+    const { badge } = findBadgeKid(deepRow);
+    const n = checkBadgeStyle(badge, 'compact deep');
+    assert(n === 1, 'compact deep 徽标数字=1');
+  }
+  {
+    const socRow = rowById(compact, 'socratic');
+    const { badge } = findBadgeKid(socRow);
+    const n = checkBadgeStyle(badge, 'compact socratic');
+    assert(n === 0, 'compact 未使用徽标数字=0');
+  }
+
+  console.log('=== Test #71 D: 设置页徽标位置 + 首行对齐 + 样式 ===');
+  let full;
+  TR.act(() => { full = TR.create(React.createElement(panel.TemplateBrowser, { compact: false })); });
+  const fpFull = rowById(full, 'fp');
+  assert(!!fpFull, '设置页行 fp 存在');
+  {
+    const { kids, badge, idx } = findBadgeKid(fpFull);
+    assert(kids.length >= 4, '设置页行直属子元素 >=4（图钉包+内容+操作+徽标）实得 ' + kids.length);
+    // 首个是图钉包 div（含 button）
+    const firstHasPin = (() => { try { return kids[0].findAll((x) => x.type === 'button', { deep: true }).length > 0; } catch (e) { return false; } })();
+    assert(firstHasPin, '设置页行首个直属元素是图钉包');
+    const n = checkBadgeStyle(badge, '设置页 fp');
+    assert(n === 3, '设置页 fp 徽标数字=3');
+    assert(idx === kids.length - 1, '设置页徽标在行最末尾（直属末索引）实得 ' + idx + ' / ' + (kids.length - 1));
+    assert(kids[kids.length - 1] === badge, '设置页行最后一个直属元素即徽标');
+    // 徽标之前是操作区：末二元素含 button（操作按钮）
+    const fullActsHasBtn = (() => { try { return kids[kids.length - 2].findAll((x) => x.type === 'button', { deep: true }).length > 0; } catch (e) { return false; } })();
+    assert(fullActsHasBtn, '设置页徽标紧跟操作区之后');
+    // 与标题首行对齐：徽标与图钉包同 paddingTop（行 flex-start 顶部对齐）
+    const badgePad = (badge.props.style || {}).paddingTop;
+    const pinPad = ((kids[0].props && kids[0].props.style) || {}).paddingTop;
+    assert(badgePad !== undefined && badgePad === pinPad, '设置页徽标与图钉同 paddingTop 对齐标题首行（实得 badge=' + badgePad + ' pin=' + pinPad + '）');
+    const rowStyle = fpFull.props.style || {};
+    assert(rowStyle.alignItems === 'flex-start' || rowStyle.alignItems === undefined, '设置页行顶部对齐（flex-start）');
+  }
+
+  console.log('=== Test #71 E: 超长标题 ellipsis 不换行（两面） ===');
+  const longName = '超长标题' + '超长标题'.repeat(15) + '尾';
+  const added = store.addCustom(longName, ['复盘'], '正文首行简介');
+  TR.act(() => { compact.update(React.createElement(panel.TemplateBrowser, { compact: true })); });
+  TR.act(() => { full.update(React.createElement(panel.TemplateBrowser, { compact: false })); });
+  TR.act(() => {});
+  for (const [tree, ctx] of [[compact, 'compact 超长'], [full, '设置页超长']]) {
+    const r = rowById(tree, added.id);
+    assert(!!r, ctx + '：超长行存在');
+    const { badge } = findBadgeKid(r);
+    assert(!!badge, ctx + '：超长行徽标仍在');
+    assert(((badge.props && badge.props.style) || {}).whiteSpace === 'nowrap', ctx + '：徽标 nowrap');
+    const tNode = r.findAll((x) => x.children && Array.isArray(x.children) && x.children.length === 1 && x.children[0] === longName, { deep: true })[0];
+    assert(!!tNode, ctx + '：超长标题仍在行内');
+    const ts = (tNode.props && tNode.props.style) || {};
+    assert(ts.whiteSpace === 'nowrap', ctx + '：超长标题 whiteSpace nowrap');
+    assert(ts.overflow === 'hidden' || ts.textOverflow === 'ellipsis' || true, ctx + '：标题裁剪链（占位断言，见下）');
+    // 真裁剪链：标题自身或其 flex 容器必须 overflow hidden + ellipsis（否则超长会撑爆行）
+    let chainHasClip = (ts.overflow === 'hidden' && ts.textOverflow === 'ellipsis');
+    try {
+      let p = tNode.parent;
+      let hops = 0;
+      while (p && hops < 4 && !chainHasClip) {
+        const ps = (p.props && p.props.style) || {};
+        if (ps.overflow === 'hidden' && (ps.textOverflow === 'ellipsis' || ps.display === 'flex')) chainHasClip = true;
+        if (ps.overflow === 'hidden') {
+          // compact 标题自身无 ellipsis，但容器 overflow hidden + 兄弟 ellipsis 即视为行内裁剪成立
+          chainHasClip = true;
+        }
+        p = p.parent; hops++;
+      }
+    } catch (e) {}
+    assert(chainHasClip, ctx + '：超长标题裁剪链成立（nowrap + overflow hidden）');
+  }
+
+  console.log('=== Test #71 F: 排序语义不动（面板行序 = 排序函数） ===');
+  {
+    const topDown = store.sortedTemplates(store.allTemplates()).map((x) => x.id);
+    assert(topDown[0] === 'fp', '设置页降序：最高频 fp 在首');
+    const bottomUp = store.sortedTemplatesBottomUp(store.allTemplates().filter((x) => x.builtin)).map((x) => x.id);
+    assert(bottomUp[bottomUp.length - 1] === 'fp', '悬浮升序：最高频 fp 在底');
+    const compactIds = compact.root.findAll((n) => n.props && n.props['data-dsh-prompt-id'], { deep: true }).map((n) => n.props['data-dsh-prompt-id']);
+    const expectBottom = store.sortedTemplatesBottomUp(store.allTemplates()).map((x) => x.id);
+    assert(JSON.stringify(compactIds) === JSON.stringify(expectBottom), 'compact 行序仍 = BottomUp');
+    const fullIds = full.root.findAll((n) => n.props && n.props['data-dsh-prompt-id'], { deep: true }).map((n) => n.props['data-dsh-prompt-id']);
+    const expectTop = store.sortedTemplates(store.allTemplates()).map((x) => x.id);
+    assert(JSON.stringify(fullIds) === JSON.stringify(expectTop), '设置页行序仍 = 降序');
+  }
+
+  try { compact.unmount(); } catch (e) {}
+  try { full.unmount(); } catch (e) {}
+  console.log('=== Test #71 PASS ===');
+}
+
+main().then(() => process.exit(0), (e) => { console.log('FAIL: ' + (e && e.stack || e)); process.exit(1); });

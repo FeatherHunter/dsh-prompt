@@ -37,6 +37,8 @@ const LANG = (typeof i18nMod.getLang === 'function' ? i18nMod.getLang() : 'zh');
 const T = (k) => i18nMod.tr(LANG, i18nMod.STR[k]);
 try { if (storeMod.__resetStoreForTests) storeMod.__resetStoreForTests(); } catch (e) { /* 无复位钩子则继续 */ }
 try { if (remoteMod.__resetRemoteForTests) remoteMod.__resetRemoteForTests(); } catch (e) { /* 同上 */ }
+// #165：缺省=屏蔽（预制全藏→空态），本票断言展示态几何，显式钉住展示（屏蔽态由 165 门禁覆盖）。
+try { if (storeMod.saveHidePreset) storeMod.saveHidePreset(false); } catch (e) { /* 内存钉不住则后面的行数断言会如实失败 */ }
 
 const panelSrc = fs.readFileSync(SRC('panel.ts'), 'utf8');
 const panelCode = stripComments(panelSrc);
@@ -120,10 +122,11 @@ if (tree) {
         const chrome = c.props['data-dsh-prompt-chrome'];
         if (chrome === 'plusGlyph') return 'add';
         if (chrome === 'goSettings') return 'go';
+        if (c.props['data-dsh-prompt-hide'] === '1') return 'hide'; // #165：＋新增 与 设置入口 之间
         if (c.props.title === T('close')) return 'close';
         return '?';
       };
-      eq(direct.map(kindOf).join(','), 'search,counts,add,go,close', '合并行从左到右应为 搜索 → 条数 → ＋新增 → 设置入口 → ×');
+      eq(direct.map(kindOf).join(','), 'search,counts,add,hide,go,close', '合并行从左到右应为 搜索 → 条数 → ＋新增 → 屏蔽预制 → 设置入口 → ×');
       const ss = direct[0] && direct[0].props && direct[0].props.style;
       eq(ss && ss.flex, '1 1 auto', '搜索框应吃掉弹性宽度（flex:1 1 auto）');
       eq(ss && ss.minWidth, 0, '搜索框须可收缩（minWidth:0），否则撑破单行');

@@ -45,6 +45,8 @@ const button = require(path.join(DIR, 'button.cjs'));
 const store = require(path.join(DIR, 'store.cjs'));
 const { tr, STR } = require(path.join(DIR, 'i18n.cjs'));
 const zh = (k) => tr('zh', STR[k]);
+// #165：缺省=屏蔽会藏预置行，本票断言行渲染，显式钉住展示（屏蔽态由 165 门禁覆盖）。
+try { if (store.saveHidePreset) store.saveHidePreset(false); } catch (e) {}
 
 const React = require('react');
 const TR = require('react-test-renderer');

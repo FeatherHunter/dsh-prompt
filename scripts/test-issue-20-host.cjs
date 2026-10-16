@@ -36,7 +36,7 @@ function eq(a, b, msg) {
   eq(spec.name, 'dsh_prompt', 'domain 名');
   eq(spec.version, 0, 'domain 版本');
   eq(Object.keys(spec.tables).sort(), ['customs', 'pinned', 'usage'], '三表');
-  eq(spec.global.initial, { lastUsed: null, remoteEnabled: false, remoteSize: 5, remoteFont: 'large', remoteControl: 'large', remoteOrientation: 'auto', remoteDensity: 'a' }, 'global 初值（含 #82 起远程面板的 6 个持久化键）');
+  eq(spec.global.initial, { lastUsed: null, remoteEnabled: false, remoteSize: 5, remoteFont: 'large', remoteControl: 'large', remoteOrientation: 'auto', remoteDensity: 'a', hidePreset: true }, 'global 初值（含 #82 起远程面板的 6 个持久化键 + #165 屏蔽预置缺省 true）');
   ok('domain spec（dsh_prompt v0 + 三表 + lastUsed）');
 
   // ── fake DSH host ──
@@ -99,7 +99,7 @@ function eq(a, b, msg) {
   // 空快照（直接切换：旧数据不在此处）
   let out = await call('GET', '/_dsh/dsh-prompt/store');
   eq(out.status, 200, 'GET store 状态码');
-  eq(out.json.value, { customs: [], usage: {}, pinned: [], lastUsed: null, remote: { enabled: false, size: 5, orientation: 'auto', density: 'a' } }, '空快照（含 #82 起远程面板的 remote 块）');
+  eq(out.json.value, { customs: [], usage: {}, pinned: [], lastUsed: null, remote: { enabled: false, size: 5, orientation: 'auto', density: 'a' }, hidePreset: true }, '空快照（含 #82 起远程面板的 remote 块 + #165 hidePreset 缺省 true）');
   ok('GET store 空快照');
 
   // put 有效模板

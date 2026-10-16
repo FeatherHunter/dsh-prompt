@@ -34,7 +34,7 @@ const MODULES = [
   ['systemOrientation.cjs', path.join(ROOT, 'src', 'client', 'systemOrientation.ts'), []],
   ['keys.cjs', path.join(ROOT, 'src', 'client', 'keys.ts'), ['./store', './i18n']], // #142 起 keys 引 ./store(展示映射)+./i18n(词表)，手抄表跟上
   ['panel.cjs', path.join(ROOT, 'src', 'client', 'panel.ts'), ['./templates', './store', './state', './i18n', './smartstore', './remote', './remoteView', './locale', './keys']],
-  ['settings.cjs', path.join(ROOT, 'src', 'client', 'settings.ts'), ['./panel', './about', './update', './update-http', './smartstore', './remote', './remoteView', './systemOrientation', './i18n', './locale']],
+  ['settings.cjs', path.join(ROOT, 'src', 'client', 'settings.ts'), ['./panel', './about', './update', './update-http', './smartstore', './remote', './remoteView', './systemOrientation', './i18n', './locale', './store']], // #165 起 settings 引 ./store（屏蔽预置开关），手抄表跟上
 ];
 fs.writeFileSync(path.join(DIR, 'about.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;');
 fs.writeFileSync(path.join(DIR, 'update.cjs'), 'module.exports.UpdateEntry=()=>null;');
@@ -55,6 +55,8 @@ const view = req('remoteView.cjs');
 const remote2 = req('remote2.cjs');
 const settingsMod = req('settings.cjs');
 const panelMod = req('panel.cjs');
+// #165：缺省=屏蔽会藏预置行，本票断言设置页行渲染，显式钉住展示（屏蔽态由 165 门禁覆盖）。
+try { const sm = req('store.cjs'); if (sm.saveHidePreset) sm.saveHidePreset(false); } catch (e) {}
 
 // 非 compact 浏览器根：设置页内唯一 padding 6px 8px + gap 6 的 div（模板卡内层根）
 const browserRootOf = (root) => root.findAll((n) => n.type === 'div' && n.props && n.props.style && n.props.style.padding === '6px 8px' && n.props.style.gap === 6)[0];

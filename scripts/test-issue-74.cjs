@@ -29,6 +29,8 @@ const TR = require('react-test-renderer');
 const req = (n) => require(path.join(DIR, n));
 const store = req('store74.cjs');
 const panel = req('panel74.cjs');
+// #165：缺省=屏蔽会藏预置行（fp/deep），本票断言设置页行折叠，显式钉住展示（屏蔽态由 165 门禁覆盖）。
+try { if (store.saveHidePreset) store.saveHidePreset(false); } catch (e) {}
 
 function assert(cond, msg) {
   if (!cond) { console.log('FAIL: ' + msg); process.exit(1); }

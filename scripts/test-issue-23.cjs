@@ -37,6 +37,8 @@ const match = req('match');
 const panel = req('panel');
 const { tr, STR } = req('i18n');
 const zh = (k) => tr('zh', STR[k]);
+// #165：缺省=屏蔽会藏预置云词/行，本票断言标签语义（全量池），显式钉住展示（屏蔽态由 165 门禁覆盖）。
+try { if (store.saveHidePreset) store.saveHidePreset(false); } catch (e) {}
 
 function assert(cond, msg) {
   if (!cond) { console.log('FAIL: ' + msg); process.exit(1); }

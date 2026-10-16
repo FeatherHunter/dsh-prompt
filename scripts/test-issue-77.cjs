@@ -36,6 +36,8 @@ const panel = req('panel77.cjs');
 const settings = req('settings77.cjs');
 const store = req('store77.cjs');
 const { tr, STR } = req('i18n77.cjs');
+// #165：缺省=屏蔽会改摘要计数（预制 24→0），本票断言折叠摘要，显式钉住展示（屏蔽态由 165 门禁覆盖）。
+try { if (store.saveHidePreset) store.saveHidePreset(false); } catch (e) {}
 
 let failures = 0;
 function ok(cond, msg) {

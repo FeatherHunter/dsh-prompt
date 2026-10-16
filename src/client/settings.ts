@@ -24,6 +24,7 @@ import { remoteSizeScale, resolveEffectiveOrientation, deriveRemoteOrientation, 
 import { setSystemOrientation, getSystemOrientation, isSystemOrientation } from './systemOrientation'
 import { tr, STR } from './i18n'
 import { resolveLocale, subscribeLocale } from './locale'
+import { loadHidePreset, saveHidePreset, subscribeStore } from './store'
 
 /** 取日志能力（装在槽里的那个实例）；能力缺席时返回 null，界面据此走「不可用」分支，不静默。 */
 function logCap(): any {
@@ -206,6 +207,9 @@ export function SettingsPage(props: any): any {
   const langState = react.useState(resolveLocale())
   const lang = langState[0]
   const t = (k: keyof typeof STR) => tr(lang, STR[k])
+  // #165 屏蔽预制开关（与底栏按钮同一全局位；面板侧翻转后经订阅刷回本面）。
+  const hideState = react.useState(loadHidePreset())
+  const hideOn = hideState[0]
 
   const reasonText = (code?: string): string => {
     const key = code === 'host-unavailable' || code === 'host-unreachable' ? 'logReasonHost'
@@ -218,6 +222,10 @@ export function SettingsPage(props: any): any {
 
   // 语言跟随：共享单例订阅器（#137；观察者与去重都在 locale.ts 一处，本面只重渲染）
   react.useEffect(() => subscribeLocale((l) => { langState[1](l) }), [])
+  // #165：屏蔽位经 store 订阅刷新（含面板底栏/大列表翻转后的回写）。
+  react.useEffect(() => subscribeStore(() => {
+    try { hideState[1](loadHidePreset()) } catch (e) { /* ignore */ }
+  }), [])
   // 开关状态变化（启动对账、写入成功、跨标签页广播）时刷新界面。
   react.useEffect(() => {
     const cap = logCap()
@@ -663,6 +671,22 @@ export function SettingsPage(props: any): any {
     // #77：模板区是一张**与下面几张卡同款的卡片**（此前它是一条裸行，没有壳）。折叠态只露出卡片头行，点开才是完整列表。
     // pad 取 4px 6px 8px：内嵌浏览器自带 8px 内边距，6 + 8 = 14px，与其它卡的内容左轨对齐。
     h(SettingGroup, { key: 'list', pad: '4px 6px 8px' }, [
+      // #165 需求 4：屏蔽预置开关（与底栏按钮同一全局位，开=屏蔽；缺省开）。
+      h(SettingRow, {
+        key: 'hide-preset',
+        label: t('hidePresetToggle'),
+        description: t('hidePresetHint'),
+        control: h(Check, {
+          checked: hideOn,
+          'data-dsh-prompt-hide-toggle': '1',
+          onChange: (e: any) => {
+            const on = !!e.target.checked
+            saveHidePreset(on)
+            hideState[1](loadHidePreset())
+          },
+        }),
+      }),
+      hairline('sep-hide-browser'),
       h(TemplateBrowser, { key: 'browser', compact: false, collapsible: true }),
     ]),
     // 智能推荐配置区暂不放开：整组不渲染（逻辑 smart.ts、i18n 键、persist 全保留，接回即恢复）。

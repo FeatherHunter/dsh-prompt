@@ -57,17 +57,20 @@ const PUT_URL = '/_dsh/dsh-prompt/customs/put'
 const DELETE_URL = '/_dsh/dsh-prompt/customs/delete'
 const BUMP_URL = '/_dsh/dsh-prompt/usage/bump'
 const PINNED_URL = '/_dsh/dsh-prompt/pinned/set'
+// #165 屏蔽预制：全局开关落 host global 区（storages/dsh_prompt.json），缺省=屏蔽
+const HIDE_URL = '/_dsh/dsh-prompt/hide/set'
 
 interface StoreSnapshot {
   customs: CustomTemplate[]
   usage: Record<string, number>
   pinned: string[]
   lastUsed: string | null
+  hidePreset: boolean
 }
 
 /* ── 内存缓存（唯一真相来源；初始空 = 直接切换语义） ── */
 
-const cache: StoreSnapshot = { customs: [], usage: {}, pinned: [], lastUsed: null }
+const cache: StoreSnapshot = { customs: [], usage: {}, pinned: [], lastUsed: null, hidePreset: true }
 let storeLoaded = false
 let loadPromise: Promise<void> | null = null
 // #91 启动竞态兜底旗（与 remote.ts loadRetried 同构）：快照失败只补一次延迟重拉。
@@ -105,6 +108,7 @@ const ROUTE_NAMES: Record<string, string> = {
   [DELETE_URL]: 'customs.delete',
   [BUMP_URL]: 'usage.bump',
   [PINNED_URL]: 'pinned.set',
+  [HIDE_URL]: 'hide.set',
 }
 
 /** 拉取 host 快照并装入缓存（失败 → 保持内存默认 + 记事件，不读旧 localStorage；#91 起失败补一次 2500ms 延迟重拉，与 remote 同构）。 */
@@ -120,6 +124,7 @@ export function ensureLoaded(): Promise<void> {
       if (v.usage && typeof v.usage === 'object') cache.usage = v.usage as Record<string, number>
       if (Array.isArray(v.pinned)) cache.pinned = (v.pinned as unknown[]).filter((x): x is string => typeof x === 'string')
       cache.lastUsed = typeof v.lastUsed === 'string' ? v.lastUsed : null
+      cache.hidePreset = normalizeHidePreset((v as { hidePreset?: unknown }).hidePreset)
       logEvent('store.snapshot.ok', { customs: cache.customs.length, pinned: cache.pinned.length, latencyMs: Date.now() - startedAt })
     } else {
       logEvent('store.snapshot.fail', {
@@ -215,6 +220,31 @@ export function savePinned(ids: string[]): void {
   cache.pinned = [...ids]
   notifyStore()
   persist(PINNED_URL, { ids })
+}
+
+/* ── 屏蔽预制（#165：全局开关，缺省=屏蔽；落 host global 区） ── */
+
+/** 读侧归一：只有显式 false 是展示，其余一律屏蔽（缺键/非法值/存量脏数据全部回落 true）。 */
+export function normalizeHidePreset(v: unknown): boolean {
+  return v === false ? false : true
+}
+
+/** 当前是否屏蔽预制（读走内存缓存，与 loadPinned 同构）。 */
+export function loadHidePreset(): boolean {
+  return cache.hidePreset
+}
+
+/** 翻转/设置屏蔽（内存先行 + notifyStore 刷 UI，再 fire-and-forget 落 host）。 */
+export function saveHidePreset(hide: boolean): void {
+  cache.hidePreset = hide === false ? false : true
+  notifyStore()
+  persist(HIDE_URL, { hide: cache.hidePreset })
+}
+
+/** 屏蔽过滤（纯函数）：hide=true 去掉 builtin（无 builtin 键视为自定义），不改原数组。 */
+export function applyHidePreset(list: PromptTemplate[], hide: boolean): PromptTemplate[] {
+  if (!hide) return [...list]
+  return list.filter((x) => !x.builtin)
 }
 
 /** 全部模板（预制 + 自定义） */

@@ -2,7 +2,7 @@
  * dsh-prompt — client 入口（v1 常规模式 + v1.1 智能模式）
  * 装配：input.left 入口按钮 / input.overlay 面板浮层 / settings.section 配置页（直属设置面板）/ inputTriggers /prompt 触发源（#9）/ shell.overlay 智能悬浮卡（#10）
  */
-import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler, armInputFocusTrack, INK_TINT_CSS, INK_UI_CSS } from './panel'
+import { getReact, TemplateBrowser, PanelPortal, setGoSettingsHandler, armInputFocusTrack, INK_TINT_CSS, INK_UI_CSS, BAR_UI_CSS } from './panel'
 import { EntryButton } from './button'
 import { SettingsPage } from './settings'
 import { buildPromptSource } from './trigger'
@@ -133,6 +133,19 @@ function applyInkUiStyle(): void {
     applyOwnedStyle(doc, INK_UI_STYLE_MARKER, INK_UI_CSS)
   } catch (e) { /* fail-soft：样式注入永不影响装配 */ }
 }
+/**
+ * 小列表的交互反馈样式段（CSS 本体在 `panel.ts` 的 `BAR_UI_CSS`，#165 需求 1/3）：
+ * 底栏/云/搜索/行内动作/图钉/屏蔽钮/关闭的 hover / active / focus 反馈，
+ * 同样走归属缝注入（第三条私有标记，互不覆盖），页面级只注一次。
+ */
+const BAR_UI_STYLE_MARKER = 'bar-ui'
+function applyBarUiStyle(): void {
+  try {
+    const doc = styleDocument()
+    if (!doc) return
+    applyOwnedStyle(doc, BAR_UI_STYLE_MARKER, BAR_UI_CSS)
+  } catch (e) { /* fail-soft：样式注入永不影响装配 */ }
+}
 
 export function apply(ctx: ClientContext): void {
   // 日志能力（#49）：先建日志器（本地开关秒显），再向宿主对账（以宿主为准），最后才写第一条事件。
@@ -211,6 +224,8 @@ export function apply(ctx: ClientContext): void {
   applyInkTintStyle()
   // 取色浮层的交互反馈样式段（同归属缝、另一条标记；同样页面级一次）。
   applyInkUiStyle()
+  // 小列表的交互反馈样式段（#165；同归属缝、第三条标记；同样页面级一次）。
+  applyBarUiStyle()
   // 入口按钮（input.left；开合状态跟随面板）
   ctx.effect(() => ctx.slots.inject('conversation.input.left', () =>
     ctx.slots.register({ name: 'conversation.input.left', id: 'dsh-prompt-entry', order: 10, label: () => 'dsh-prompt' },

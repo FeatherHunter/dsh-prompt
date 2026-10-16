@@ -88,11 +88,13 @@ const smartstore = req('smartstore');
 const sheetMod = req('remoteInputSheet');
 const pickerMod = req('picker');
 const STR = i18n.STR;
+// #165：宿主快照桩的 hidePreset 位（门禁显式置位；与 lib/index.js snapshot 同口径，缺键归一 true）。
+let stubHide = false;
 function installFetch() {
   globalThis.fetch = async (url) => ({
     ok: true, status: 200,
     json: async () => (/\/store$/.test(String(url))
-      ? { ok: true, value: { remote: Object.assign({}, remoteMod.getRemotePrefs()) } }
+      ? { ok: true, value: { remote: Object.assign({}, remoteMod.getRemotePrefs()), hidePreset: stubHide } }
       : { ok: true }),
   });
 }
@@ -170,6 +172,10 @@ async function renderFaces() {
   remoteMod.__resetRemoteForTests();
   remoteMod.setRemoteEnabled(false);
   installFetch();
+  // #165：P1 全量面在展示态下渲染（缺省=屏蔽，预制钮会消失；屏蔽态另起断言，见 groupB 末）。
+  // 快照桩同步置 false，免得启动 ensureLoaded 把内存位覆盖回 true。
+  store.saveHidePreset(false);
+  stubHide = false;
   await add('panel-compact', React.createElement(panel.TemplateBrowser, { compact: true }));
   await add('panel-settings', React.createElement(panel.TemplateBrowser, { compact: false }));
   await add('settings-page', React.createElement(settingsMod.SettingsPage, {}));
@@ -274,6 +280,25 @@ async function groupB() {
     eq(scopes.map((n) => n.props['data-dsh-prompt-scope']).join('/'), 'all/preset/custom', 'B) 三钮 scope 身份序');
     eq(scopes.map((n) => (n.children || []).filter((c) => typeof c === 'string').join('')).join('/'), 'All/Preset/Custom', 'B) en 三钮文本走词表');
     eq(scopes.map((n) => n.props['data-dsh-prompt-chrome']).join('/'), 'tabAll/scopePreset/tabCustom', 'B) 三钮 chrome 钩子键');
+  }
+  // #165 屏蔽态（缺省）：预制钮不出云，屏蔽钮文案为动作式（en 下"Show presets"）。
+  // compact 小列表面：先关远程（开着会走 REMOTE-BIG 分支，那里没有云行）。
+  {
+    remoteMod.setRemoteEnabled(false);
+    stubHide = true;
+    store.saveHidePreset(true);
+    let hideTree;
+    await TR.act(async () => { hideTree = TR.create(React.createElement(panel.TemplateBrowser, { compact: true })); });
+    await TR.act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    const scopes = hideTree.root.findAll((n) => n.type === 'button' && n.props && n.props['data-dsh-prompt-scope']);
+    eq(scopes.map((n) => n.props['data-dsh-prompt-scope']).join('/'), 'all/custom', 'B) 屏蔽态三钮只剩 all/custom（预制钮不出云）');
+    const hideBtns = hideTree.root.findAll((n) => n.type === 'button' && n.props && n.props['data-dsh-prompt-hide'] !== undefined);
+    eq(hideBtns.length >= 1, true, 'B) 屏蔽态底栏有屏蔽钮');
+    eq((hideBtns[0].children || []).filter((c) => typeof c === 'string').join('').trim(), 'Show presets', 'B) en 屏蔽中按钮文案=Show presets（动作式）');
+    try { hideTree.unmount(); } catch (e) {}
+    remoteMod.setRemoteEnabled(true);
+    stubHide = false;
+    store.saveHidePreset(false);
   }
   // 挑选器（无 chrome 钩子是设计：picker.ts 零散落字面量，全走 STR）：断言 en 文案确实切过去了
   {

@@ -62,6 +62,8 @@ const templates = req('templates');
 const panelMod = req('panel');
 const React = require('react');
 const TR = require('react-test-renderer');
+// #165：缺省=屏蔽会藏预制派生词（Decompose/拆解），本票断言英译渲染，显式钉住展示（屏蔽态由 165 门禁覆盖）。
+try { if (store.saveHidePreset) store.saveHidePreset(false); } catch (e) {}
 
 // ═══ A) displayWord 纯函数 ═══
 eq(keys.displayWord('拆解', 'en'), 'Decompose', '预制词 en → 英译');

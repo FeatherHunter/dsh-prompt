@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>#165 小列表原型 v3 — 源码级转写 + 屏蔽预制</title>
+<!--
+  v3 说明（回应“必须用项目代码渲染”）：
+  - 宿主主题 CSS 直接链的是仓内真实抽取文件（与 prototype/ink-color/compare.html 同法）：
+      ../.dsh-extract/theme-css/base_css_default.css
+      ../.dsh-extract/theme-css/scrollbar_css_default.css
+      ../.dsh-extract/theme-css/gradient_shadow_text_css_default.css
+  - 面板每一行内联样式都是 src/client/panel.ts 对应对象的逐字转写（转写对照见下， h() 的数字→px 与 React 同规则）；
+    行 DOM 嵌套 = 紧凑分支 :2034-2052 的原样复刻（含图钉 SVG、用量徽标、data 钩子、title 文案）。
+  - 行数据：9 条自定义照用户截图还原（名/简介/用量/染色）；4 条预置取自 src/client/templates.ts 真实首行
+    （fp:socratic:mece:deep，见 templates.ts:34/43/52/102）。
+  - 与真机有意的 3 处 DELTA（需求本身，其余一字不动）+ 2 处简化（见文末 NOTE 面板）。
+
+  转写对照（左=本文件 JS 中的构造位置，右=源码唯一真相）：
+    panelBox      ← panel.ts:1483-1500 panelStyle(compact)（fixed/left/bottom/visibility/maxHeight 省略：预览页静态摆放）
+    cloudRow      ← panel.ts:1511 cloudRowStyle
+    cloudPill(on) ← panel.ts:1513-1516 cloudBtn(on)
+    searchInput   ← panel.ts:1517-1520 searchStyle+searchStyleCompact
+    listBox       ← panel.ts:1526-1527 listStyle(compact)（预览加 max-height 320px 以便演示内滚；真机上限在 panel maxHeight）
+    rowBox        ← panel.ts:1529 itemStyle + :2005-2009 itemBg/itemOutline + :2034 行属性/title
+    pinBtn/pinSvg ← panel.ts:1533 pinStyle + :2035-2040 图钉 SVG
+    nameSpan      ← panel.ts:2045（ink 见 :1992-1996 inkColorOf；上色补偿 paddingBlock/marginBlock 见 :2042-2043）
+    labelSpan     ← panel.ts:2046（displayLabelString + LABEL_FALLBACK 钩子）
+    introSpan     ← panel.ts:2047（body 首行，见 :2010-2011）
+    actBox/actBtn ← panel.ts:1538 actStyle + :1539 actBtn(danger) + :1997-2004（自定义=编辑/删除，预置=复制）
+    usageSpan     ← panel.ts:2012-2016（loadUsage 只读 + usageTitle 词表）
+    barBox        ← panel.ts:2117-2120 barNode（flex:none 垫底 + borderTop）
+    barRow        ← panel.ts:2122 bar-row（gap 6 / padding 6px 8px 4px / nowrap）
+    countsSpan    ← panel.ts:2124-2127（文本 = rows.length；title 预制n·自定义m 见 :2116）
+    addBtn        ← panel.ts:1508 addBtn + :2128-2133 覆盖（宽自适应/0.93em 边距/0.54em 圆角/0.92em 字）；文案 = ＋+新增（plusGlyph+addShort，i18n.ts:31/118）
+    settingsLink  ← panel.ts:1541 footLink + :2134-2149（短形“模板管理” goSettingsShort，i18n.ts:55；全称进 title/aria）
+    closeBtn      ← panel.ts:1509（见 DELTA-1）
+    TINT_CSS      ← panel.ts:636-641 INK_TINT_CSS 逐字计算结果（描边只命中带钩子的名字）
+    交互          ← panel.ts:2023-2032 rowInteract（双轨 pressed + hover/focus 三态 :2005-2008）；
+                    tab 单选互斥见 :1961-1972（点已选项回 null）；bottom-up 自动滚到底见 :1453-1460。
+-->
+<link rel="stylesheet" href="../.dsh-extract/theme-css/base_css_default.css">
+<link rel="stylesheet" href="../.dsh-extract/theme-css/scrollbar_css_default.css">
+<link rel="stylesheet" href="../.dsh-extract/theme-css/gradient_shadow_text_css_default.css">
+<style>
+  /* 离线预览兜底：真机上这些令牌由宿主深色主题提供；取值与 compare.html 同源 */
+  :root{
+    --dsw-alias-label-primary:#f9fafb; --dsw-alias-label-secondary:#adb2b8; --dsw-alias-label-tertiary:#868c93;
+    --dsw-alias-bg-layer-1:#151517; --dsw-alias-bg-layer-2:rgba(255,255,255,.06); --dsw-alias-bg-layer-3:#2c2c2e;
+    --dsw-alias-border-l1:rgba(255,255,255,.12); --dsw-alias-border-l2:rgba(255,255,255,.18); --dsw-alias-border-inverted:#3a3b3d;
+    --dsw-alias-interactive-bg-hover:#262729; --dsw-alias-interactive-bg-active:#333436;
+    --dsw-specific-accent:#f0a45c; --dsw-specific-danger:#e06c75;
+    --dsw-shadow-lv3:0 8px 28px rgba(0,0,0,.5);
+  }
+  /* ← panel.ts:636-641 INK_TINT_CSS（八向 1px text-shadow，颜色取正文令牌） */
+  [data-dsh-prompt-tint]{text-shadow:1px 0 0 var(--dsw-alias-label-primary),-1px 0 0 var(--dsw-alias-label-primary),0 1px 0 var(--dsw-alias-label-primary),0 -1px 0 var(--dsw-alias-label-primary),1px 1px 0 var(--dsw-alias-label-primary),-1px 1px 0 var(--dsw-alias-label-primary),1px -1px 0 var(--dsw-alias-label-primary),-1px -1px 0 var(--dsw-alias-label-primary);}
+  html,body{margin:0;padding:0;background:#0c0c0e;}
+  body{font-family:var(--dsw-font-family);color:var(--dsw-alias-label-primary);display:flex;gap:28px;justify-content:center;padding:28px;flex-wrap:wrap;}
+  .note{max-width:360px;font-size:12.5px;line-height:1.75;color:var(--dsw-alias-label-secondary);}
+  .note h3{color:var(--dsw-alias-label-primary);font-size:14px;margin:0 0 6px;}
+  .note code{background:#22242a;padding:0 6px;border-radius:6px;color:var(--dsw-specific-accent);font-size:11.5px;}
+  .note b{color:var(--dsw-alias-label-primary);}
+  .delta{border:1px dashed var(--dsw-alias-border-l2);border-radius:8px;padding:8px 10px;margin:8px 0;}
+  /* DELTA-3 动效通道：只用 filter/box-shadow/transform（panel.ts:643-648 定死的规矩：底色边框是内联的，动它们会被内联吃掉） */
+  [data-dsh-prompt-bar] button{transition:filter .12s ease,box-shadow .12s ease,transform .06s ease,background-color .12s ease,color .12s ease;}
+  [data-dsh-prompt-bar] button:hover{filter:brightness(1.15);}
+  [data-dsh-prompt-bar] button:active{transform:translateY(1px) scale(.97);}
+  [data-dsh-prompt-bar] button:focus-visible{outline:2px solid var(--dsw-specific-accent,#f0a45c);outline-offset:2px;}
+  /* 行焦点：内嵌橙环（不占布局，hover 灰底 + 焦点橙环可叠加辨认） */
+  [data-dsh-prompt-list] [data-dsh-prompt-id]:focus-visible{outline:2px solid var(--dsw-specific-accent,#f0a45c);outline-offset:-2px;}
+  [data-dsh-prompt-list] button:focus-visible{outline:2px solid var(--dsw-specific-accent,#f0a45c);outline-offset:1px;}
+  [data-dsh-prompt-cloud] button:hover{box-shadow:0 0 0 2px var(--dsw-alias-border-l2);}
+  [data-dsh-prompt-search]:hover{box-shadow:0 0 0 2px var(--dsw-alias-border-l2);}
+  [data-dsh-prompt-search]:focus{border-color:var(--dsw-specific-accent);box-shadow:0 0 0 2px var(--dsw-specific-accent);}
+  [data-dsh-prompt-go]:hover{text-decoration:underline;}
+  [data-dsh-prompt-list] button{transition:filter .12s ease,box-shadow .12s ease,transform .06s ease;}
+  [data-dsh-prompt-list] button:hover{filter:brightness(1.25);box-shadow:0 0 0 2px var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);}
+  [data-dsh-prompt-list] button:active{transform:scale(.94);}
+  /* DELTA-1 关闭显眼化：基线 :1509 无边框透明底；只加一圈 line 边框 + hover 危险色反馈，几何一字不动 */
+  [data-dsh-prompt-close]{border:1px solid var(--dsw-alias-border-l1) !important;}
+  [data-dsh-prompt-close]:hover{background:rgba(224,108,117,.16) !important;color:var(--dsw-specific-danger) !important;box-shadow:0 0 0 2px rgba(224,108,117,.35);}
+  [data-dsh-prompt-close]:focus-visible{outline:2px solid var(--dsw-specific-danger) !important;}
+  /* DELTA-2 屏蔽切换：幽灵胶囊 + 眼睛开合 SVG（hideIcon），永不整块发黄（铁律） */
+  [data-dsh-prompt-hide]{border:1px dashed var(--dsw-alias-border-l2) !important;background:transparent !important;color:var(--dsw-alias-label-secondary) !important;display:inline-flex;align-items:center;gap:7px;flex:none;white-space:nowrap;border-radius:999px !important;padding:3px 11px !important;font-family:var(--dsw-font-family);font-size:.85em;cursor:pointer;}
+  [data-dsh-prompt-hide]:hover{border-style:solid !important;color:var(--dsw-alias-label-primary) !important;box-shadow:0 0 0 2px var(--dsw-alias-border-l2);}
+  [data-dsh-prompt-hide] .hicon{display:inline-flex;flex:none;}
+  [data-dsh-prompt-hide] .hicon svg{display:block;}
+  .labtitle{font-size:12.5px;color:var(--dsw-alias-label-primary);margin:14px 0 0;font-weight:600;}
+  #lab{display:flex;gap:12px;margin-top:10px;flex-wrap:wrap;}
+  .labcard{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-inverted);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;box-shadow:var(--dsw-shadow-lv3);}
+  .labname{font-size:12px;color:var(--dsw-alias-label-primary);}
+  .labdim{font-size:11px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;}
+  /* 三方案：只动边框/圆角/垫衬，其余（字号/颜色/图标/hover 通道）走主规则 */
+  [data-dsh-prompt-hide].var-a{border:0 !important;border-radius:8px !important;padding:4px 8px !important;}
+  [data-dsh-prompt-hide].var-a:hover{background:var(--dsw-alias-bg-layer-2) !important;box-shadow:none !important;}
+  [data-dsh-prompt-hide].var-c{border-style:solid !important;border-color:var(--dsw-alias-border-l1) !important;border-radius:8px !important;padding:4px 12px !important;}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#22242a;border:1px solid var(--dsw-alias-border-l2);padding:8px 14px;border-radius:8px;font-size:12px;display:none;color:var(--dsw-alias-label-primary);}
+  .cap{font-size:12px;color:var(--dsw-alias-label-tertiary);margin:8px 0 0;text-align:center;}
+</style>
+</head>
+<body>
+<div class="note">
+  <h3>怎么看 v3（转写版）</h3>
+  <p>下面这块面板<strong>不是手画的</strong>：主题 CSS 链的是仓内 <code>.dsh-extract/theme-css/</code> 真实抽取文件；行 DOM/内联样式Grouping 是 <code>panel.ts</code> 紧凑分支的逐字转写（对照表在文件头注释）；9 条自定义照你的截图还原，4 条预置取 <code>templates.ts</code> 真实首行。默认即<strong>屏蔽态</strong>（和你截图一样只剩自定义）。可交互：搜索过滤、tab 单选、屏蔽切换、行 hover/按下、滚到底。</p>
+  <div class="delta"><b>DELTA-1 关闭显眼化</b>（需求 1）：几何与 :1509 一字不动（26×26），只加一圈描边 + hover 变红。看 × 是否够明显又不吵。</div>
+  <div class="delta"><b>DELTA-2 屏蔽切换</b>（需求 2 + 铁律）：<code>＋新增</code> 与 <code>模板管理</code> 之间；缺省屏蔽；文案动作式（屏蔽中→<code>展示预制模板</code>）；图标是眼睛开合（睁眼=点它展示，闭眼斜线=点它藏起），无整块发黄。<b>已定稿 C 方案</b>（实线边框 + 8px 圆角 + 4px 12px 垫衬，跟新增同族）。</div>
+  <div class="delta"><b>DELTA-3 全控件 hover</b>（需求 3）：tab/搜索/新增/切换/模板管理/关闭全部有悬浮反馈，走仓内三通道（filter/box-shadow/transform）；行 hover/pressed 本来就有（:2005），一字没动。</div>
+  <p>简化（非真机行为，已注明）：①字号取 14px（真机 <code>scaledBaseFontSize</code> 跟随宿主档）；②预置演示只放 4 条（真机 24 条全量，云词会更长）；③条数 title 里预制/自定义分解按当前视图计算。</p>
+</div>
+
+<div>
+  <div id="stage"></div>
+  <p class="cap">↑ 上：屏蔽态（默认）　↓ 下：点「展示预制模板」后（预置出现 + 预制钮/独占词回云）——同一面板，实时切换</p>
+  <h4 class="labtitle">设计台：屏蔽钮三方案（用户已选定 C；都可点，与主钮状态联动；底部为浏览器实测尺寸）</h4>
+  <div id="lab"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ---------- h()：与源码同构的 hyperscript（数字→px，React 同规则） ---------- */
+var PX = {width:1,height:1,minWidth:1,maxWidth:1,minHeight:1,maxHeight:1,padding:1,paddingTop:1,paddingRight:1,paddingBottom:1,paddingLeft:1,paddingBlock:1,paddingInline:1,margin:1,marginTop:1,marginRight:1,marginBottom:1,marginLeft:1,marginBlock:1,marginInline:1,borderRadius:1,borderWidth:1,gap:1,top:1,right:1,bottom:1,left:1,fontSize:1,border:0,outline:0};
+function h(tag, props, kids){
+  var el = (tag === 'svg' || tag === 'path' || tag === 'polygon' || tag === 'line' || tag === 'circle' || tag === 'ellipse')
+    ? document.createElementNS('http://www.w3.org/2000/svg', tag) : document.createElement(tag);
+  props = props || {};
+  if (kids === undefined || kids === null || kids === false) kids = [];
+  else if (!Array.isArray(kids)) kids = [kids];
+  Object.keys(props).forEach(function(k){
+    var v = props[k];
+    if (v === undefined || v === null || v === false) return;
+    if (k === 'style' && v && typeof v === 'object'){
+      for (var p in v){
+        var sv = v[p];
+        if (sv === undefined || sv === null) continue;
+        if (typeof sv === 'number' && PX[p]) sv = sv + 'px';
+        try { el.style[p] = sv; } catch (e) {}
+      }
+    } else if (k === 'onClick') el.addEventListener('click', v);
+    else if (k === 'onMouseEnter') el.addEventListener('mouseenter', v);
+    else if (k === 'onMouseLeave') el.addEventListener('mouseleave', v);
+    else if (k === 'onMouseDown') el.addEventListener('mousedown', v);
+    else if (k === 'onMouseUp') el.addEventListener('mouseup', v);
+    else if (k === 'onPointerDown') el.addEventListener('pointerdown', v);
+    else if (k === 'onPointerUp') el.addEventListener('pointerup', v);
+    else if (k === 'onPointerCancel') el.addEventListener('pointercancel', v);
+    else if (k === 'onFocus') el.addEventListener('focus', v);
+    else if (k === 'onBlur') el.addEventListener('blur', v);
+    else if (k === 'onChange') el.addEventListener('input', function(ev){ v({target:ev.target}); });
+    else if (k === 'onCompositionStart' || k === 'onCompositionEnd' || k === 'onCompositionUpdate') {}
+    else if (k === 'ref') {}
+    else if (k === 'key') {}
+    else el.setAttribute(k, v === true ? '' : String(v));
+  });
+  kids.forEach(function(c){
+    if (c === undefined || c === null || c === false) return;
+    el.appendChild(typeof c === 'string' || typeof c === 'number' ? document.createTextNode(String(c)) : c);
+  });
+  return el;
+}
+
+/* ---------- 令牌与样式对象（← panel.ts:1476-1541 逐字转写） ---------- */
+var base = 'var(--dsw-alias-label-primary)';
+var muted = 'var(--dsw-alias-label-secondary)';
+var dim = 'var(--dsw-alias-label-tertiary)';
+var line = '1px solid var(--dsw-alias-border-l1)';
+var ROW_HOVER_BG = 'var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-layer-2, rgba(255,255,255,.06)))';   // :1531
+var ROW_PRESSED_BG = 'var(--dsw-alias-interactive-bg-active, var(--dsw-alias-bg-layer-3))';                    // :1532
+var panelStyle = { display:'flex', flexDirection:'column', width:560, background:'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))', backgroundColor:'var(--dsw-alias-bg-layer-1, var(--dsw-specific-menu))', border:'1px solid var(--dsw-alias-border-inverted)', borderRadius:12, boxShadow:'var(--dsw-shadow-lv3)', overflow:'hidden', fontFamily:'var(--dsw-font-family)', fontSize:14, color:base }; // :1483-1500（定位相关省略）
+var cloudRowStyle = { display:'flex', gap:4, padding:'3px 8px 0', flexWrap:'wrap' };                            // :1511
+function cloudBtn(on){ return { padding:'2px 8px', borderRadius:999, border:line, background:on?'var(--dsw-alias-bg-layer-3)':'transparent', color:on?base:muted, cursor:'pointer', fontFamily:'var(--dsw-font-family)', fontSize:'0.85em' }; } // :1513-1516
+var searchStyleCompact = { margin:0, flex:'1 1 auto', minWidth:0, padding:'5px 9px', borderRadius:8, border:line, background:'var(--dsw-alias-bg-layer-3)', color:base, fontFamily:'var(--dsw-font-family)', fontSize:'0.96em', outline:'none' }; // :1517-1520
+var listStyle = { flex:'0 1 auto', minHeight:0, overflow:'auto', padding:'2px 2px 4px', display:'flex', flexDirection:'column', maxHeight:320 }; // :1526-1527（+预览 maxHeight）
+var itemStyle = { display:'flex', gap:6, borderRadius:8, cursor:'pointer', alignItems:'center', padding:'3px 6px', transition:'background-color .12s ease' }; // :1529
+var pinStyle = { flex:'none', width:20, height:20, display:'inline-flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:0, background:'transparent', borderRadius:6 }; // :1533
+var actStyle = { display:'flex', gap:4, flex:'none' };                                                         // :1538
+function actBtn(danger){ return { border:line, background:'transparent', color:danger?'var(--dsw-specific-danger,#e06c75)':dim, cursor:'pointer', fontSize:'0.85em', padding:'1px 8px', borderRadius:999, fontFamily:'var(--dsw-font-family)', whiteSpace:'nowrap' }; } // :1539
+var footLink = { color:'var(--dsw-specific-accent,#f0a45c)', cursor:'pointer', textDecoration:'none', background:'transparent', border:0, fontFamily:'var(--dsw-font-family)', fontSize:'0.85em' }; // :1541
+var addBtn = { width:26, height:26, borderRadius:7, border:line, background:'var(--dsw-alias-bg-layer-3)', color:'var(--dsw-specific-accent,#f0a45c)', fontSize:'1.2em', lineHeight:1, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0 }; // :1508
+var closeBtn = { width:26, height:26, borderRadius:7, border:0, background:'transparent', color:dim, fontSize:'1.2em', lineHeight:1, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0 }; // :1509（边框见 DELTA-1 CSS）
+var usageStyle = { flex:'none', fontSize:'0.75em', color:'var(--dsw-alias-label-tertiary)', minWidth:'4ch', textAlign:'right', fontVariantNumeric:'tabular-nums', fontFeatureSettings:'"tnum"', whiteSpace:'nowrap' }; // :2016
+
+/* ---------- 数据（自定义照截图；预置取 templates.ts 真实条目） ---------- */
+var customs = [
+  { id:'c1', name:'全面升级 dsh-Log 充分阅读其 readme', labels:['自定义'], body:'充分阅读其 readme，调查其使用方法的变化…', usage:1,  ink:'#b388ff' },
+  { id:'c2', name:'升级dsh-plugin-update', labels:['自定义'], body:'升级dsh-plugin-update 为最新版本并回归验证…', usage:6,  ink:'#7fd08a' },
+  { id:'c3', name:'版本发布', labels:['自定义'], body:'版本发布：打 tag、写 changelog、发包验证…', usage:6,  ink:'#e06c75' },
+  { id:'c4', name:'commit push', labels:['自定义'], body:'commit 并且 push，不要做任何有损害文件的操作…', usage:7,  ink:'#6cb8e0' },
+  { id:'c5', name:'我会永久关闭当前session', labels:['自定义'], body:'我会永久关闭当前 session，所有状态落盘…', usage:12, ink:'#7fd08a' },
+  { id:'c6', name:'TS项目需求', labels:['自定义'], body:'推进问题时要求你按照如下规则做决策和开发：…', usage:15, ink:'#6cb8e0' },
+  { id:'c7', name:'需要收敛、可以发散但不过度发散。', labels:['自定义'], body:'需要收敛，可以发散但不过度发散…', usage:19, ink:'#b388ff' },
+  { id:'c8', name:'对抗式审查', labels:['自定义'], body:'对抗式审查：只挑毛病，不许夸，先给总体结论…', usage:27, ink:'#e06c75' },
+  { id:'c9', name:'从第一性原理出发', labels:['自定义'], body:'从第一性原理出发，先拆到不可再分的单元…', usage:40, ink:'#6cb8e0' }
+];
+var presets = [
+  { id:'fp', name:'第一性原理拆解', labels:['思考框架','执行前','拆解'], body:'请用第一性原理分析以下主题，按编号结构化输出，结论先行：', usage:3, builtin:true },
+  { id:'socratic', name:'苏格拉底式追问', labels:['思考框架','执行前','检验'], body:'请用苏格拉底式追问帮助我思考，按编号结构化输出：', usage:2, builtin:true },
+  { id:'mece', name:'MECE 拆解', labels:['思考框架','执行前','拆解'], body:'请用 MECE 原则拆解以下问题，按编号结构化输出：', usage:5, builtin:true },
+  { id:'deep', name:'深度多维分析', labels:['思考框架','执行前','归因'], body:'请从多个维度深度分析以下主题，按编号结构化输出，结论先行：', usage:4, builtin:true }
+];
+function labelStr(x){ return (x.labels || []).join('/'); }
+
+/* ---------- 状态（铁律：缺省=屏蔽；文案动作式） ---------- */
+var hide = true;
+try { var _h = localStorage.getItem('d165-hide-v3'); hide = _h === null ? true : _h !== '0'; } catch (e) { hide = true; }
+function saveHide(){ try { localStorage.setItem('d165-hide-v3', hide ? '1' : '0'); } catch (e) {} }
+var sel = null;      // null | {k:'scope',v:'all'|'preset'|'custom'} | {k:'word',v:string}
+var q = '';
+var searchFocused = false;
+var hoverId = null, pressedId = null;
+
+function toast(t){ var e = document.getElementById('toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(e._t); e._t = setTimeout(function(){ e.style.display = 'none'; }, 1600); }
+function makeHideBtn(cls){
+  var b = h('button', { 'data-dsh-prompt-hide':'1', 'class':cls, title:hide ? '当前屏蔽中，点则展示预制' : '当前展示中，点则屏蔽预制', 'aria-pressed':hide ? 'true' : 'false',
+    onClick:function(){ hide = !hide; saveHide(); render(); toast(hide ? '已屏蔽预制' : '已展示预制'); } }, []);
+  var ic = document.createElement('span'); ic.className = 'hicon'; ic.appendChild(hideIcon(hide));
+  var tx = document.createElement('span'); tx.textContent = hide ? '展示预制模板' : '屏蔽预制模板';
+  b.appendChild(ic); b.appendChild(tx);
+  return b;
+}
+function visiblePool(){ var all = presets.concat(customs); return hide ? all.filter(function(x){ return !x.builtin; }) : all; }
+function scopeOf(x){ return x.builtin ? 'preset' : 'custom'; }
+function filtered(){
+  var pool = visiblePool();
+  if (sel && sel.k === 'scope' && sel.v !== 'all') pool = pool.filter(function(x){ return scopeOf(x) === sel.v; });
+  if (sel && sel.k === 'word') pool = pool.filter(function(x){ return (x.labels || []).indexOf(sel.v) >= 0; });
+  var s = q.trim().toLowerCase();
+  if (s) pool = pool.filter(function(x){ return (x.name + ' ' + labelStr(x) + ' ' + (x.body || '')).toLowerCase().indexOf(s) >= 0; });
+  // bottom-up 简化：用量升序（最常用沉底；置顶簇省略，真机排序见 :1408-1412）
+  return pool.slice().sort(function(a, b){ return (a.usage || 0) - (b.usage || 0); });
+}
+function cloudWords(){
+  // 云 = 范围三钮 + 行动词并集（真机 actionCloudLabels；此处取 labels 末词；屏蔽后预置独占词自动消失）
+  var seen = {}, order = [];
+  visiblePool().forEach(function(x){ (x.labels || []).slice(2).forEach(function(w){ if (!seen[w]){ seen[w] = 1; order.push(w); } }); });
+  return order;
+}
+function isScopeOn(v){ return (sel === null && v === 'all') || (sel && sel.k === 'scope' && sel.v === v); }
+function isWordOn(w){ return sel && sel.k === 'word' && sel.v === w; }
+function toggleScope(v){
+  if ((sel === null && v === 'all') || (sel && sel.k === 'scope' && sel.v === v)) sel = null;
+  else sel = { k:'scope', v:v };
+  render();
+}
+function toggleWord(w){
+  if (isWordOn(w)) sel = null; else sel = { k:'word', v:w };
+  render();
+}
+
+/* ---------- 行（← :2034-2052 紧凑分支原样复刻） ---------- */
+function pinSvg(){
+  return h('svg', { width:14, height:14, viewBox:'0 0 24 24', fill:'none', stroke:dim, strokeWidth:1.8, strokeLinecap:'round', strokeLinejoin:'round', style:{ display:'block' } }, [
+    h('path', { d:'M12 17v5' }),
+    h('path', { d:'M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z' })
+  ]);
+}
+/* 屏蔽开关图标（Feather eye / eye-off 几何；双色：睁眼=accent 橙“可点开”，闭眼=dim 灰“已睁开”；文字恒为次级色） */
+function hideIcon(open){
+  var color = open ? 'var(--dsw-specific-accent,#f0a45c)' : dim;
+  var kids = open
+    ? [h('path', { d:'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' }),
+       h('circle', { cx:'12', cy:'12', r:'3' })]
+    : [h('path', { d:'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94' }),
+       h('path', { d:'M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19' }),
+       h('path', { d:'M14.12 14.12a3 3 0 1 1-4.24-4.24' }),
+       h('line', { x1:'1', y1:'1', x2:'23', y2:'23' })];
+  return h('svg', { width:14, height:14, viewBox:'0 0 24 24', fill:'none', stroke:color, strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', style:{ display:'block' } }, kids);
+}
+function rowNode(x){
+  var custom = !x.builtin;
+  var ink = x.ink;                       // ← :1994 inkColorOf（色调走用户取色；tint 描边本批演示全关，与截图一致）
+  var acts = custom
+    ? h('span', { style:actStyle }, [
+        h('button', { style:actBtn(false), onClick:function(e){ e.stopPropagation(); toast('编辑：' + x.name); } }, '编辑'),
+        h('button', { style:actBtn(true), onClick:function(e){ e.stopPropagation(); toast('删除确认：' + x.name); } }, '删除')
+      ])
+    : h('span', { style:actStyle }, [
+        h('button', { style:actBtn(false), onClick:function(e){ e.stopPropagation(); toast('复制为自定义：' + x.name); } }, '复制')
+      ]);
+  var bg = pressedId === x.id ? ROW_PRESSED_BG : (hoverId === x.id ? ROW_HOVER_BG : undefined);   // :2005-2008
+  var outline = pressedId === x.id ? '1px solid var(--dsw-alias-border-l1)' : undefined;          // :2009
+  var intro = (x.body || '').split('\n')[0].trim();                                              // :2010-2011
+  var row = h('div', {
+    style:Object.assign({}, itemStyle, { background:bg, outline:outline, minWidth:0 }),
+    'data-dsh-prompt-id':x.id, 'data-dsh-prompt-chrome':'insertHint', 'data-dsh-prompt-chrome-kind':'title',
+    title:labelStr(x) + ' · 点击即插入',
+    onMouseEnter:function(){ hoverId = x.id; paintRows(); },
+    onMouseLeave:function(){ if (hoverId === x.id) hoverId = null; if (pressedId === x.id) pressedId = null; paintRows(); },
+    onMouseDown:function(e){ e.preventDefault(); pressedId = x.id; paintRows(); },
+    onMouseUp:function(){ pressedId = null; paintRows(); },
+    onPointerDown:function(){ pressedId = x.id; paintRows(); },
+    onPointerUp:function(){ pressedId = null; paintRows(); },
+    onPointerCancel:function(){ pressedId = null; paintRows(); },
+    onFocus:function(){ hoverId = x.id; paintRows(); },
+    onBlur:function(){ if (hoverId === x.id) hoverId = null; paintRows(); },
+    onClick:function(){ toast('插入：' + x.name); }
+  }, [
+    h('button', { style:pinStyle, title:'置顶/取消置顶', onClick:function(e){ e.stopPropagation(); toast('置顶：' + x.name); } }, [pinSvg()]),
+    h('span', { style:{ flex:1, minWidth:0, display:'flex', alignItems:'baseline', gap:6, overflow:'hidden', ...(ink ? { paddingBlock:2, marginBlock:-2 } : {}) } }, [   // :2044（含 :2042-2043 上色补偿）
+      h('span', { style:{ flex:'none', fontSize:'0.95em', color:ink || base, fontWeight:600, whiteSpace:'nowrap' } }, x.name),                          // :2045
+      h('span', { style:{ flex:'0 1 auto', minWidth:0, fontSize:'0.8em', color:muted, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' } }, labelStr(x)), // :2046
+      h('span', { style:{ flex:'1 1 auto', minWidth:0, fontSize:'0.85em', color:dim, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' } }, intro)        // :2047
+    ]),
+    acts,
+    h('span', { style:usageStyle, 'data-dsh-prompt-chrome':'usageTitle', 'data-dsh-prompt-chrome-kind':'title', title:'已使用 ' + x.usage + ' 次' }, String(x.usage))   // :2051
+  ]);
+  row.tabIndex = 0;
+  row._x = x;
+  return row;
+}
+function paintRows(){
+  var list = document.querySelector('[data-dsh-prompt-list]');
+  if (!list) return;
+  var rows = filtered();
+  var nodes = list.childNodes;
+  for (var i = 0; i < nodes.length; i++){
+    var n = nodes[i], x = n._x;
+    if (!x) continue;
+    var bg = pressedId === x.id ? ROW_PRESSED_BG : (hoverId === x.id ? ROW_HOVER_BG : undefined);
+    n.style.background = bg || '';
+    n.style.outline = pressedId === x.id ? '1px solid var(--dsw-alias-border-l1)' : '';
+  }
+}
+
+/* ---------- 组装（← :1967-1988 云 + :2083-2152 列表/底栏） ---------- */
+function render(){
+  var stage = document.getElementById('stage');
+  stage.innerHTML = '';
+  var rows = filtered();
+
+  var cloudKids = [
+    h('button', { style:cloudBtn(isScopeOn('all')), 'data-dsh-prompt-scope':'all', 'data-dsh-prompt-chrome':'tabAll', onClick:function(){ toggleScope('all'); } }, '全部')
+  ];
+  if (!hide) cloudKids.push(h('button', { style:cloudBtn(isScopeOn('preset')), 'data-dsh-prompt-scope':'preset', 'data-dsh-prompt-chrome':'scopePreset', onClick:function(){ toggleScope('preset'); } }, '预制'));
+  else if (sel && sel.k === 'scope' && sel.v === 'preset') sel = null;
+  cloudKids.push(h('button', { style:cloudBtn(isScopeOn('custom')), 'data-dsh-prompt-scope':'custom', 'data-dsh-prompt-chrome':'tabCustom', onClick:function(){ toggleScope('custom'); } }, '自定义'));
+  cloudWords().forEach(function(w){
+    if (sel && sel.k === 'word' && sel.v === w && visiblePool().every(function(x){ return (x.labels || []).indexOf(w) < 0; })) sel = null;
+    cloudKids.push(h('button', { style:cloudBtn(isWordOn(w)), onClick:(function(word){ return function(){ toggleWord(word); }; })(w) }, w));
+  });
+  var cloudNodes = h('div', { style:cloudRowStyle, 'data-dsh-prompt-cloud':'1' }, cloudKids);
+
+  var listNode = rows.length
+    ? h('div', { 'data-dsh-prompt-list':'1', style:listStyle }, rows.map(rowNode))
+    : h('div', { 'data-dsh-prompt-list':'1', style:{ display:'flex', alignItems:'center', justifyContent:'center', color:dim, fontSize:'0.92em', padding:'2px 2px 8px' } }, '无匹配模板'); // :2086-2092 空态
+
+  var pc = visiblePool().filter(function(x){ return x.builtin; }).length;
+  var cc = visiblePool().filter(function(x){ return !x.builtin; }).length;
+  var countsText = '预制 ' + pc + ' · 自定义 ' + cc;   // :2116
+  var search = h('input', { style:searchStyleCompact, 'data-dsh-prompt-search':'1', placeholder:'搜索模板…', value:q,
+    onChange:function(e){ q = e.target.value; render(); },
+    onFocus:function(){ searchFocused = true; }, onBlur:function(){ searchFocused = false; } });
+  var barRow = h('div', { 'data-dsh-prompt-row':'1', style:{ display:'flex', alignItems:'center', gap:6, padding:'6px 8px 4px', flexWrap:'nowrap' } }, [  // :2122
+    search,
+    h('span', { 'data-dsh-prompt-counts':'1', title:countsText, 'aria-label':countsText, style:{ fontSize:'0.85em', color:dim, whiteSpace:'nowrap', flex:'none' } }, String(rows.length)), // :2124-2127
+    h('button', { style:Object.assign({}, addBtn, { width:'auto', padding:'0 0.93em', borderRadius:'0.54em', fontSize:'0.92em', whiteSpace:'nowrap', flex:'none' }), 'data-dsh-prompt-chrome':'plusGlyph', title:'新增自定义模板', onClick:function(){ toast('开新增弹窗（保持面板打开）'); } }, '＋ 新增'), // :2128-2133
+    // DELTA-2：屏蔽切换（新增节点；位置在＋新增与模板管理之间；用户 10-16 定稿 C 方案）
+    makeHideBtn('var-c'),
+    h('button', { style:Object.assign({}, footLink, { whiteSpace:'nowrap', textAlign:'right', flex:'none' }), 'data-dsh-prompt-chrome':'goSettings', 'data-dsh-prompt-go':'1', title:'设置 → 模板管理', 'aria-label':'设置 → 模板管理', onClick:function(){ toast('跳设置 → 提示词模板'); } }, '模板管理'), // :2134-2149
+    h('button', { style:Object.assign({}, closeBtn, { flex:'none' }), 'data-dsh-prompt-close':'1', title:'关闭', onClick:function(){ toast('关闭面板'); } }, '×')  // :2150（边框/hover 见 DELTA-1）
+  ]);
+  var barNode = h('div', { 'data-dsh-prompt-bar':'1', style:{ flex:'none', display:'flex', flexDirection:'column', borderTop:line } }, [cloudNodes, barRow]); // :2117-2120
+  stage.appendChild(h('div', { style:panelStyle }, [listNode, barNode]));
+
+  // ← :1453-1460 bottom-up：打开/过滤变化后自动滚到底部，首屏即见最常用
+  var list = stage.querySelector('[data-dsh-prompt-list]');
+  if (list){ try { list.scrollTop = list.scrollHeight; } catch (e) {} }
+  var si = stage.querySelector('[data-dsh-prompt-search]');
+  if (si && searchFocused){ try { si.focus(); si.setSelectionRange(si.value.length, si.value.length); } catch (e) { try { si.focus(); } catch (_e) {} } }
+
+  // 设计台：三方案并排，状态联动 + 实测尺寸
+  var lab = document.getElementById('lab');
+  if (lab){
+    lab.innerHTML = '';
+    [['var-a', 'A · 无框文本（融入模板管理）'], ['var-b', 'B · 虚线胶囊（现状主钮）'], ['var-c', 'C · 实线小圆角（跟新增同族）']].forEach(function(v){
+      var card = document.createElement('div'); card.className = 'labcard';
+      var btn = makeHideBtn(v[0]);
+      var nm = document.createElement('div'); nm.className = 'labname'; nm.textContent = v[1];
+      var dm = document.createElement('div'); dm.className = 'labdim';
+      card.appendChild(btn); card.appendChild(nm); card.appendChild(dm); lab.appendChild(card);
+      dm.textContent = '实测 ' + btn.offsetWidth + '×' + btn.offsetHeight + 'px（含边框）';
+    });
+  }
+}
+render();
+</script>
+</body>
+</html>

@@ -41,6 +41,14 @@ export const STR = {
   // 也不复用 store.LABEL_FALLBACK（那是写进用户数据的身份值，不是显示串）。术语统一：铬一律「预制」。
   // 改 en 文案时与 presetCount 同步改；门禁 P1_KEYS 卡住单键缺失但卡不住语义分叉。
   scopePreset: { zh: '预制', en: 'Preset' },
+  // #165 屏蔽预制：按钮文案是**动作式**（说点它会发生什么，不是当前状态）——
+  // 铁律：缺省=屏蔽；屏蔽中按钮写「展示预制模板」，展示中写「屏蔽预制模板」。
+  // 同 #141 scopePreset/presetCount 先例：新位新键，不复用条数摘要（钩子要能分开定位）。
+  showPreset: { zh: '展示预制模板', en: 'Show presets' },
+  hidePreset: { zh: '屏蔽预制模板', en: 'Hide presets' },
+  // #165 需求 4：设置页开关行（与屏蔽钮同词"屏蔽预制模板"，开关语义：开=屏蔽）。
+  hidePresetToggle: { zh: '屏蔽预制模板', en: 'Hide preset templates' },
+  hidePresetHint: { zh: '打开后列表与标签云不再展示预制模板', en: 'When on, preset templates are hidden from the list and label cloud' },
   customCount: { zh: '自定义', en: 'Custom' },
   // #142：空标签回落词显示映射 —— en 与 tabCustom/customCount 同字（Custom）但**不同键、不复用**
   // （那两个是范围钮/条数摘要的铬，钩子要能分开定位；见 #141 presetCount/scopePreset 先例）。

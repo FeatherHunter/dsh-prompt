@@ -56,11 +56,13 @@ installDom('zh-CN');
 
 // 宿主写桥一律成功（同 #137 口径）：不桩则 ensureRemoteLoaded 走相对 URL 失败，远程面不渲染。
 /** host 写桥桩：store 快照跟随**当前**远程偏好（否则快照把总闸翻回开，compact 面永远走大列表） */
+// #165：快照桩带 hidePreset 位（本票断言全量池语义，门禁显式置展示态；缺省屏蔽由 165/134 门禁覆盖）。
+let stubHide141 = false;
 function installFetch() {
   globalThis.fetch = async (url) => ({
     ok: true, status: 200,
     json: async () => (/\/store$/.test(String(url))
-      ? { ok: true, value: { remote: Object.assign({}, remoteMod.getRemotePrefs()) } }
+      ? { ok: true, value: { remote: Object.assign({}, remoteMod.getRemotePrefs()), hidePreset: stubHide141 } }
       : { ok: true }),
   });
 }
@@ -81,6 +83,9 @@ const STR = i18n.STR;
 const adapter = keys.LegacyChineseStorageAdapter;
 const React = require('react');
 const TR = require('react-test-renderer');
+// #165：本票断言全量池语义（范围/标签身份），渲染一律显式置展示态（缺省屏蔽会藏预制）。
+store.saveHidePreset(false);
+stubHide141 = false;
 
 // ═══ A) normalizeKey：别名 / 空白 / 垃圾 / 用户词 ═══
 {

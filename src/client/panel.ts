@@ -21,7 +21,7 @@ import {
   allKnownLabels, normalizeLabels, validateLabels, isPinned, togglePin, canPinMore, LABEL_FALLBACK,
   addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, loadUsage, templateHaystack, MAX_BODY,
   inkColorOf, inkOutlineOf, relativeLuminance, INK_PICK_L_MIN, INK_PICK_L_MAX,
-  ensureLoaded, subscribeStore,
+  ensureLoaded, subscribeStore, loadHidePreset, saveHidePreset, applyHidePreset,
 } from './store'
 import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './state'
 import { getRemotePrefs, getEnvOrientation, subscribeRemote, ensureRemoteLoaded } from './remote'
@@ -673,6 +673,43 @@ export const INK_UI_CSS = (function (): string {
     // 键盘 Tab 照常走上一条 :focus-visible，无障碍不受影响。
     btn + ':focus:not(:focus-visible){outline:none;box-shadow:none;}',
     '[data-dsh-prompt-ink-outline]{accent-color:var(--dsw-alias-label-primary);cursor:pointer;}',
+  ].join('')
+})()
+
+/**
+ * 小列表的交互反馈 CSS（#165 需求 1/3：关闭显眼 hover + 全控件悬浮反馈）。
+ * 与 INK_UI_CSS 同理：`:hover/:active/:focus` 内联表达不了，走注入；只用 filter / box-shadow /
+ * transform 三通道（底色与边框多半内联写死，内联优先级高于任何选择器）。
+ * 语义（用户 10-16 拍板，原型 v3 定稿）：悬浮=中性环（border-l2）+ 提亮；焦点=accent 橙环；
+ * 关闭 hover=危险底；按钮永不整块发黄（屏蔽钮幽灵态，状态只走眼睛图标开合+双色）。
+ * 注入点在 index.ts（与染色/取色同一套归属缝，另一条私有标记，互不覆盖）。
+ */
+export const BAR_UI_CSS = (function (): string {
+  const barBtn = '[data-dsh-prompt-bar] button'
+  const cloudBtn = '[data-dsh-prompt-cloud] button'
+  const act = '[data-dsh-prompt-act] button'
+  const pin = '[data-dsh-prompt-pin]'
+  const hide = '[data-dsh-prompt-hide]'
+  const search = '[data-dsh-prompt-search]'
+  const rBtn = '[data-dsh-prompt-remote-add],[data-dsh-prompt-remote-search],[data-dsh-prompt-remote-prev],[data-dsh-prompt-remote-next],[data-dsh-prompt-remote-close]'
+  const focusRing = '2px solid var(--dsw-specific-accent)'
+  const hoverRing = '0 0 0 2px var(--dsw-alias-border-l2)'
+  return [
+    barBtn + ',' + cloudBtn + ',' + act + ',' + pin + ',' + hide + ',' + rBtn + '{transition:filter .12s ease,box-shadow .12s ease,transform .06s ease;}',
+    barBtn + ':hover,' + cloudBtn + ':hover,' + act + ':hover,' + pin + ':hover,' + hide + ':hover,' + rBtn + ':hover{filter:brightness(1.25);box-shadow:' + hoverRing + ';}',
+    barBtn + ':active,' + cloudBtn + ':active,' + act + ':active,' + hide + ':active,' + rBtn + ':active{transform:translateY(1px);}',
+    pin + ':active{transform:scale(.9);}',
+    // 焦点环挂在真能聚焦的东西上（全是原生 button/input），悬浮灰、焦点橙，双通道可分。
+    barBtn + ':focus-visible,' + cloudBtn + ':focus-visible,' + act + ':focus-visible,' + pin + ':focus-visible,' + hide + ':focus-visible,' + rBtn + ':focus-visible{outline:' + focusRing + ';outline-offset:2px;}',
+    // 关闭：平时描边框（内联 border，比原来无框显眼但几何不动）；
+    // hover 走原型 v3 DELTA-1（浅红 tint 底 + 危险字 + 2px tint 环，!important 盖过内联透明底/次级字）。
+    '[data-dsh-prompt-close]:hover,[data-dsh-prompt-remote-close]:hover{background:rgba(224,108,117,.16)!important;color:var(--dsw-specific-danger)!important;box-shadow:0 0 0 2px rgba(224,108,117,.35);}',
+    '[data-dsh-prompt-close]:focus-visible,[data-dsh-prompt-remote-close]:focus-visible{outline:2px solid var(--dsw-specific-danger);outline-offset:2px;}',
+    // 搜索框内联写了 outline:none，聚焦环走 box-shadow（抄 INK 十六进制框先例）。
+    search + ':hover{box-shadow:0 0 0 1px var(--dsw-alias-border-l2);}',
+    search + ':focus{box-shadow:0 0 0 2px var(--dsw-specific-accent);}',
+    '[data-dsh-prompt-remote-search-input]:hover{box-shadow:0 0 0 1px var(--dsw-alias-border-l2);}',
+    '[data-dsh-prompt-remote-search-input]:focus{box-shadow:0 0 0 2px var(--dsw-specific-accent);}',
   ].join('')
 })()
 
@@ -1395,12 +1432,24 @@ export function TemplateBrowser(props: BrowserProps): any {
   // 行动词按统一标签包含（matchLabel 单选，跨内置自建）；旧阶段页签（执行前/中/后）无等价 UI，走搜索可达。
   // #141：分支按 Selection 的 kind 收敛 —— 用户词走原文比对，绝不经过别名归一（见 selected 分支与云行注释）。
   // 搜索框保留全文检索（haystack）兼容。排序（#68）：悬浮置顶簇聚底，设置页忽略置顶只留用量降序。
-  const customs = allTemplates().filter((x) => !x.builtin)
-  const list = allTemplates().filter((x) => {
+  // #165 屏蔽预制：hide=true 时可见池去掉内置（缺省=屏蔽，loadHidePreset 读侧已归一）；
+  // 预制钮与预置独占词一并消失（见 cloudNodes）；卡在预制范围/预置独占词上的旧 selected
+  // 一律回落为不过滤（云里已点不到它们；不清会剩一个看不见的过滤器，把列表抽空）。
+  const hide = loadHidePreset()
+  const pool = applyHidePreset(allTemplates(), hide)
+  const customs = pool.filter((x) => !x.builtin)
+  const customWordSet: Set<string> | null = hide
+    ? new Set(customs.reduce((acc: string[], x) => acc.concat(templateLabels(x)), [] as string[]))
+    : null
+  const effSelected: Selection | null = (hide && selected !== null && (
+    (selected.kind === 'scope' && selected.key === SCOPE_PRESET) ||
+    (selected.kind === 'word' && !!customWordSet && !customWordSet.has(selected.word))
+  )) ? null : selected
+  const list = pool.filter((x) => {
     // #70 P6a 单选互斥：selected 唯一分支（#141 起按身份 kind 分支）；
     // 云只是面板本地 useState 过滤，/prompt（trigger.ts）与智能卡（smart.ts）走 store 独立检索，不受影响，无需同步。
-    if (isNoFilter(selected)) return true
-    const sel = selected as Selection
+    if (isNoFilter(effSelected)) return true
+    const sel = effSelected as Selection
     if (sel.kind === 'word') return matchLabel(x, sel.word)
     return sel.key === SCOPE_PRESET ? x.builtin : !x.builtin
   })
@@ -1414,10 +1463,11 @@ export function TemplateBrowser(props: BrowserProps): any {
 
   // #83 远程大列表数据（纯视图模型输入输出；排序与匹配复用既有收敛点，不另起第二套）。
   // 标签域收敛为全部加在用动态词单选（预制与自定义平权，走 matchLabel 单选包含）。
+  // #165：远程与悬浮/设置吃同一个可见池（屏蔽中预制不进大列表，按钮只管翻全局开关）。
   const remotePrefs = getRemotePrefs()
   const isRemoteBig = compact && !!remotePrefs.enabled
   // #132 标签区移除：远程不再按标签收敛，全量直通搜索（搜标签词仍经 haystack 可达）
-  const remoteListBase = allTemplates()
+  const remoteListBase = pool
   const remoteQl = remoteQ.trim().toLowerCase()
   const remoteFiltered = remoteQl
     ? remoteListBase.filter((x) => templateHaystack(x).indexOf(remoteQl) >= 0)
@@ -1466,7 +1516,8 @@ export function TemplateBrowser(props: BrowserProps): any {
     return () => { try { if (raf1) cancelAnimationFrame(raf1); if (raf2) cancelAnimationFrame(raf2); clearTimeout(tid) } catch (e) { /* ignore */ } }
   }, [compact, selected, q, filtered.length, sorted.length])
 
-  const presetCount = PRESET_TEMPLATES.length
+  // #165：条数分解按**可见池**算（屏蔽中预制计 0，与 tab/列表所见一致，不撒谎）。
+  const presetCount = hide ? 0 : PRESET_TEMPLATES.length
   const customCount = customs.length
 
   // 大小跟随开关（2026-09-29 用户拍板；#160 改锚后倍数只由 #92 字桥写进宿主内容字变量，
@@ -1506,7 +1557,45 @@ export function TemplateBrowser(props: BrowserProps): any {
   const headStyle: any = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderBottom: line }
   const titleStyle: any = { fontWeight: 700, fontSize: '1em' }
   const addBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-specific-accent,#f0a45c)', fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
-  const closeBtn: any = { width: 26, height: 26, borderRadius: 7, border: 0, background: 'transparent', color: dim, fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
+  // #165 需求 1：关闭显眼化 —— 描边框常驻（26×26 几何不动，只加框；hover 整颗变红走 BAR_UI_CSS）。
+  const closeBtn: any = { width: 26, height: 26, borderRadius: 7, border: line, background: 'transparent', color: dim, fontSize: '1.2em', lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
+  // #165 屏蔽钮（C 方案定稿：实线边框 + 8px 圆角 + 4px 12px 垫衬，跟＋新增同族；
+  // 幽灵态永不整块发黄，状态只走眼睛图标开合 + 双色：睁眼=accent 橙"点它展示"，闭眼斜线=dim 灰"点它藏起"；
+  // 文案动作式：屏蔽中"展示预制模板"，展示中"屏蔽预制模板"）。
+  // 定义在样式区（远程分支之前）：小列表底栏与大列表底栏共用同一枚，大列表先渲染。
+  const hideBtnStyle: any = {
+    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 12px', borderRadius: 8,
+    border: line, background: 'transparent', color: dim, cursor: 'pointer',
+    fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em', whiteSpace: 'nowrap', flex: 'none',
+  }
+  const hideEyeSvg = (open: boolean): any => {
+    const color = open ? 'var(--dsw-specific-accent,#f0a45c)' : dim
+    const kids = open
+      ? [
+        h('path', { key: 'o', d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' }),
+        h('circle', { key: 'p', cx: 12, cy: 12, r: 3 }),
+      ]
+      : [
+        h('path', { key: 'o1', d: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94' }),
+        h('path', { key: 'o2', d: 'M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19' }),
+        h('path', { key: 'o3', d: 'M14.12 14.12a3 3 0 1 1-4.24-4.24' }),
+        h('line', { key: 'o4', x1: 1, y1: 1, x2: 23, y2: 23 }),
+      ]
+    return h('svg', {
+      key: 'eye', width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: color,
+      strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
+      'aria-hidden': 'true', style: { flex: 'none', display: 'block' },
+    }, kids)
+  }
+  const hideToggleNode = (hookKey: string): any => h('button', {
+    key: hookKey, style: hideBtnStyle,
+    'data-dsh-prompt-hide': '1',
+    'aria-pressed': hide ? 'true' : 'false',
+    title: t(hide ? 'showPreset' : 'hidePreset'),
+    'aria-label': t(hide ? 'showPreset' : 'hidePreset'),
+    onMouseDown: keepComposerFocus,
+    onClick: () => { saveHidePreset(!hide); refresh() },
+  }, hideEyeSvg(hide), ' ' + t(hide ? 'showPreset' : 'hidePreset'))
   // #70 P6a 云行布局（顶部唯一行；flexWrap 承接自定义词增多时的换行）。
   const cloudRowStyle: any = { display: 'flex', gap: 4, padding: '3px 8px 0', flexWrap: 'wrap' }
   // #70 P6a 云按钮（全部/范围钮与行动词共用同一手感；首行 tabBtn 已随页签删除）。
@@ -1909,6 +1998,8 @@ export function TemplateBrowser(props: BrowserProps): any {
             h('circle', { key: 'c', cx: 11, cy: 11, r: 6 }),
             h('line', { key: 'l', x1: 15.5, y1: 15.5, x2: 20, y2: 20 }),
           ])),
+          // #165 需求 5：大列表底栏也有屏蔽钮（同一全局开关、同一幽灵态；钩子与小列表那枚相同）。
+          hideToggleNode('remote-hide'),
           // 翻页一对相邻（2026-09-29 用户拍板：上一页紧贴下一页左侧），纯图标键、单行不换行。
           h('button', {
             key: 'remote-prev', style: remoteBtnStyle(remoteView.bottomBar.hasPrev),
@@ -1964,13 +2055,16 @@ export function TemplateBrowser(props: BrowserProps): any {
   // 行动词为**用户词原文**（沿用 #70 维度纯净约定）——它不经过任何别名归一，'全部'/'预制' 这类词
   // 点了就是 matchLabel('全部')，不会变成「不过滤/仅内置」（#141 硬约束：过滤语义逐字不动）。
 // 选中态存原文、比对区分大小写；normalizeKey 仅用于范围/去留/存量键。
-  const cloudNodes = h('div', { style: cloudRowStyle }, [
+  // #165：屏蔽中 ① 预制钮不渲染 ② 预置独占词（只在内置里出现过的词）不出云；
+  // 自定义词不受影响（跨内置自建的词只要自定义里有就保留）。customWordSet 见上（回落判据共用同一份）。
+  const cloudWords = actionCloudLabels().filter((c) => !customWordSet || customWordSet.has(c))
+  const cloudNodes = h('div', { style: cloudRowStyle, 'data-dsh-prompt-cloud': '1' }, [
     h('button', {
-      key: 'scope-all', style: cloudBtn(isNoFilter(selected)),
+      key: 'scope-all', style: cloudBtn(isNoFilter(effSelected)),
       'data-dsh-prompt-scope': SCOPE_ALL, 'data-dsh-prompt-chrome': 'tabAll',
       onClick: () => { selectedState[1](toggleScope(selected, SCOPE_ALL)); refresh() },
     }, t('tabAll')),
-    h('button', {
+    hide ? null : h('button', {
       key: 'scope-preset', style: cloudBtn(selectionActive(selected, SCOPE_PRESET)),
       'data-dsh-prompt-scope': SCOPE_PRESET, 'data-dsh-prompt-chrome': 'scopePreset',
       onClick: () => { selectedState[1](toggleScope(selected, SCOPE_PRESET)); refresh() },
@@ -1980,10 +2074,10 @@ export function TemplateBrowser(props: BrowserProps): any {
       'data-dsh-prompt-scope': SCOPE_CUSTOM, 'data-dsh-prompt-chrome': 'tabCustom',
       onClick: () => { selectedState[1](toggleScope(selected, SCOPE_CUSTOM)); refresh() },
     }, t('tabCustom')),
-    ...actionCloudLabels().map((c) =>
+    ...cloudWords.map((c) =>
       // #145：云行动词显示预制词英译（en 下 Decompose/Verify/…），**身份仍是原文 c** —— 点选即 matchLabel(c)，
       // 过滤语义与 zh 逐字不动；用户词不在词表内，原样显示。
-      h('button', { key: c, style: cloudBtn(wordActive(selected, c)), onClick: () => { selectedState[1](toggleWord(selected, c)); refresh() } }, displayWord(c, lang)),
+      h('button', { key: c, style: cloudBtn(wordActive(effSelected, c)), onClick: () => { selectedState[1](toggleWord(selected, c)); refresh() } }, displayWord(c, lang)),
     ),
   ])
   const rows = sorted.map((x) => {
@@ -1995,11 +2089,11 @@ export function TemplateBrowser(props: BrowserProps): any {
     // #162 描边：颜色之上再问一句「要不要描边」（缺键＝开；未选颜色时恒不加钩子）
     const tint = ink !== undefined && inkOutlineOf(x)
     const acts = custom
-      ? h('span', { style: actStyle }, [
+      ? h('span', { style: actStyle, 'data-dsh-prompt-act': '1' }, [
           h('button', { style: actBtn(), onClick: (e: any) => handleEdit(e, x) }, t('edit')),
           h('button', { style: actBtn(true), onClick: (e: any) => handleDel(e, x) }, t('del')),
         ])
-      : h('span', { style: actStyle }, [
+      : h('span', { style: actStyle, 'data-dsh-prompt-act': '1' }, [
           h('button', { style: actBtn(), onClick: (e: any) => handleCopy(e, x.id) }, t('copy')),
         ])
     // #88 三态优先级：pressed（按下/长按统一）> hover（含键盘进焦）> 复制高亮；常态 transparent。
@@ -2032,7 +2126,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         onBlur: () => hoverState[1](null),
       }
       return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, outline: itemOutline, minWidth: 0 }, 'data-dsh-prompt-id': x.id, 'data-dsh-prompt-chrome': 'insertHint', 'data-dsh-prompt-chrome-kind': 'title', ...rowInteract, onClick: () => handlePick(x), title: displayLabelString(x, lang) + ' · ' + t('insertHint') }, [
-        h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
+        h('button', { style: pinStyle(pinned), title: t('pin'), 'data-dsh-prompt-pin': '1', onClick: (e: any) => handlePin(e, x) }, [
           h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : 'none', stroke: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : dim, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, [
             h('path', { d: 'M12 17v5' }),
             h('path', { d: 'M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z' }),
@@ -2058,7 +2152,7 @@ export function TemplateBrowser(props: BrowserProps): any {
     // #141：折叠提示走词表；' · ' 分隔符留在调用方（数据词在前、铬在后，title 是二者拼接的属性位）
     return h('div', { key: x.id, style: { ...itemStyle, cursor: 'pointer', background: itemBg }, 'data-dsh-prompt-id': x.id, 'data-dsh-prompt-chrome': 'rowExpandHint', 'data-dsh-prompt-chrome-kind': 'title', title: displayLabelString(x, lang) + ' · ' + t('rowExpandHint'), 'aria-expanded': expanded.has(x.id) ? 'true' : 'false', onClick: () => toggleExpanded(x.id) }, [
       h('div', { style: { flex: 'none', paddingTop: 2 } }, [
-        h('button', { style: pinStyle(pinned), title: t('pin'), onClick: (e: any) => handlePin(e, x) }, [
+        h('button', { style: pinStyle(pinned), title: t('pin'), 'data-dsh-prompt-pin': '1', onClick: (e: any) => handlePin(e, x) }, [
           // 图钉（置顶语义）：置顶=橙色实心，未置顶=描边
           h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : 'none', stroke: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : dim, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, [
             h('path', { d: 'M12 17v5' }),
@@ -2097,6 +2191,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   // #34 IME 语义一字不动：聚焦/组词期抑制 hover 关窗（含取消已挂起的 150ms 计时，见 setHoverCloseSuppressed）。
   const searchNode = showList ? h('input', {
     style: compact ? searchStyleCompact : searchStyle, placeholder: t('searchPh'), value: q, onChange: (e: any) => qState[1](e.target.value),
+    'data-dsh-prompt-search': '1',
     onFocus: () => { focusState[1](true); if (compact) setHoverCloseSuppressed(true) },
     onBlur: () => { focusState[1](false); if (compact && !composing && !modal) setHoverCloseSuppressed(false); maybeCloseAfterSuppress(!!modal || composing || remoteSearchFocused || remoteComposing) },
     onCompositionStart: () => { compState[1](true); if (compact) setHoverCloseSuppressed(true) },
@@ -2131,6 +2226,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         style: { ...addBtn, width: 'auto', padding: '0 0.93em', borderRadius: '0.54em', fontSize: '0.92em', whiteSpace: 'nowrap', flex: 'none' },
         onClick: () => modalState[1]({ kind: 'add' }),
       }, t('plusGlyph') + ' ' + t('addShort')),
+      hideToggleNode('hide'),
       h('button', {
         key: 'go-settings',
         style: { ...footLink, whiteSpace: 'nowrap', textAlign: 'right', flex: 'none' }, 'data-dsh-prompt-chrome': 'goSettings',
@@ -2147,7 +2243,7 @@ export function TemplateBrowser(props: BrowserProps): any {
           })
         },
       }, goHint ? t('goSettingsFail') : t('goSettingsShort')),
-      h('button', { key: 'close', style: { ...closeBtn, flex: 'none' }, title: t('close'), onClick: () => setPanelOpen(false) }, '×'),
+      h('button', { key: 'close', style: { ...closeBtn, flex: 'none' }, title: t('close'), 'aria-label': t('close'), 'data-dsh-prompt-close': '1', onMouseDown: keepComposerFocus, onClick: () => setPanelOpen(false) }, '×'),
     ]),
   ])
   const compactBar = compact ? barNode : null

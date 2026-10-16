@@ -64,10 +64,15 @@ ok('#90 host initial/snapshot 密度默认 a（与 orientation 同构）');
 if (!/density:\s*hasDensity \? o\.density : cur\.remoteDensity/.test(hostSrc)) fail('setRemote 应按 hasDensity 取值并落盘 remoteDensity');
 ok('#90 host setRemote 密度部分更新 + 落盘（与 orientation 同构）');
 
-// 快照返回含 remote
-if (!/return\s*\{\s*customs,\s*usage,\s*pinned,\s*lastUsed,\s*remote\s*\}/.test(hostSrc))
-  fail('snapshot 应返回 {customs,usage,pinned,lastUsed,remote}');
-ok('快照含 remote');
+// 快照返回含 remote（#165 起含 hidePreset：屏蔽位跟快照走，缺席即缺省屏蔽 true）
+if (!/return\s*\{\s*customs,\s*usage,\s*pinned,\s*lastUsed,\s*remote,\s*hidePreset[^}]*\}/.test(hostSrc))
+  fail('snapshot 应返回 {customs,usage,pinned,lastUsed,remote,hidePreset}');
+ok('快照含 remote + hidePreset');
+if (!/hidePreset:\s*z\.boolean\(\)\.optional\(\)/.test(hostSrc))
+  fail('GlobalSchema.hidePreset 应为 boolean + optional（旧数据缺键不拒读，缺席即缺省屏蔽）');
+ok('#165 host GlobalSchema.hidePreset 可选（旧数据缺键不拒读）');
+if (!/hidePreset:\s*true/.test(hostSrc)) fail('host initial 应含 hidePreset:true（缺省屏蔽）');
+ok('#165 host initial 屏蔽缺省 true');
 
 // #91 根因回归：线上真实 global 缺 lastUsed（只有 remote* 键），必填会使 domain open
 // 报 invalid-record → GET /store 恒 503 → 客户端锁空。lastUsed 必须可选（缺席即 null）。

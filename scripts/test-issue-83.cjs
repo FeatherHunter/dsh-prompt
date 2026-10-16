@@ -440,6 +440,8 @@ const TR = require('react-test-renderer');
 const panelMod = require(path.join(DIR, 'panel.cjs'));
 const remote2 = require(path.join(DIR, 'remote2.cjs'));
 const keysMod = require(path.join(DIR, 'keys.cjs'));
+// #165：缺省=屏蔽会藏预制卡，本票断言大列表槽位/卡渲染（全量池），显式钉住展示（屏蔽态由 165 门禁覆盖）。
+try { const sm83 = require(path.join(DIR, 'store.cjs')); if (sm83.saveHidePreset) sm83.saveHidePreset(false); } catch (e) {}
 
 // 标签域：去留表（#141 起单点在 keys.ts；remoteView 里那份重复表与返回显示串的 remoteTagOptions
 // 都是 #132 之后的死码，已删）。悬停云与远程标签域同一份，不另起维度。

@@ -318,9 +318,9 @@ MIT © FeatherHunter
 
 感谢每一位提交 Issue、PR 与点星的朋友，是你们让这个工具箱一点点变好。
 
-[@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) 指出 5 处运行时注入的 `<style>` 缺 `data-plugin` 归属（已修）、[#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) 报出依赖声明把 DSH 运行时包装进 profile、CLI 0.2.1 线插件 pending，[#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) 揪出关闭远程档位会把整机字号打回 14px（已修）
+[@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) 运行时样式缺归属（已修）、[#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) 依赖声明拖累插件 pending、[#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) 关远程档整机字号被打回 14px（已修）
 
-[@jheroy](https://github.com/jheroy)🌹 — [#165](https://github.com/FeatherHunter/dsh-prompt/issues/165) 提出屏蔽预制模板的需求（小列表、大列表、设置页三处开关，默认屏蔽），并参与原型评审拍板了按钮方案与交互细节
+[@jheroy](https://github.com/jheroy)🌹 — [#165](https://github.com/FeatherHunter/dsh-prompt/issues/165) 屏蔽预制模板需求，并拍板按钮方案与交互细节
 
 提交 Issue、PR 或分享自定义模板，你的名字就会出现在这里。
 

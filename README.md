@@ -177,7 +177,8 @@ dsh.desktop = 2.0.9
 
 随包 24 条预制模板，覆盖四大领域与三个阶段。<br>
 只读，删不掉改不坏，放心点。<br>
-想改哪条，复制为自定义再改。
+想改哪条，复制为自定义再改。<br>
+预制默认是屏蔽的（只看自己的）：点底栏眼睛按钮或设置页开关即可展示。
 
 **👇 24 条全貌在设置页一次看完。**
 
@@ -318,6 +319,8 @@ MIT © FeatherHunter
 感谢每一位提交 Issue、PR 与点星的朋友，是你们让这个工具箱一点点变好。
 
 [@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) 指出 5 处运行时注入的 `<style>` 缺 `data-plugin` 归属（已修）、[#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) 报出依赖声明把 DSH 运行时包装进 profile、CLI 0.2.1 线插件 pending，[#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) 揪出关闭远程档位会把整机字号打回 14px（已修）
+
+[@jheroy](https://github.com/jheroy)🌹 — [#165](https://github.com/FeatherHunter/dsh-prompt/issues/165) 提出屏蔽预制模板的需求（小列表、大列表、设置页三处开关，默认屏蔽），并参与原型评审拍板了按钮方案与交互细节
 
 提交 Issue、PR 或分享自定义模板，你的名字就会出现在这里。
 

@@ -175,7 +175,8 @@ On by default, one toggle to silence; local word table only, no network.
 
 24 built-ins across four domains and three phases.<br>
 Read-only: unbreakable.<br>
-Clone to custom to tweak.
+Clone to custom to tweak.<br>
+Presets are hidden by default (yours only): hit the eye button in the bar or the settings toggle to show them.
 
 **👇 All 24 on one settings page.**
 
@@ -307,6 +308,8 @@ MIT © FeatherHunter
 Thanks to everyone who filed issues, sent PRs, or starred the repo — you make this toolbox better, bit by bit.
 
 [@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) flagged five runtime-injected `<style>` blocks missing their `data-plugin` attribution (fixed), [#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) reported the dependency declaration pulling a DSH runtime package into the profile and leaving plugins pending on the CLI 0.2.1 line, and [#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) caught the remote tier resetting the whole UI to 14px when turned off (fixed)
+
+[@jheroy](https://github.com/jheroy)🌹 — [#165](https://github.com/FeatherHunter/dsh-prompt/issues/165) proposed hiding preset templates (switches in the mini list, the big list, and settings, hidden by default) and helped finalize the button design and interaction details during prototype review
 
 File an issue, send a PR, or share your custom templates — your name lands here.
 

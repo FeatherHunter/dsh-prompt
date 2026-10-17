@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>row-fit report</title>
+<style>
+  html,body{margin:0;background:#1b1d21;color:#e6e6e6;font-family:system-ui,"Segoe UI",sans-serif}
+  .wrap{padding:12px}
+  table{border-collapse:collapse;font-size:14px;margin:6px 0 14px}
+  th,td{border:1px solid #3a3f46;padding:4px 10px;text-align:right;white-space:nowrap}
+  th{background:#24272c}
+  td.n,th.n{text-align:left}
+  .ok{color:#4ade80}.no{color:#f87171}
+  h3{margin:8px 0 0;font-size:15px;color:#cbd5e1}
+  #stage{position:absolute;left:-10000px;top:0;width:1200px}
+  .card{display:flex;flex-direction:column;gap:.7em;border:1px solid #4b5563;border-radius:12px}
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .row.nowrap{flex-wrap:nowrap}
+  .ctl{height:2.6em;box-sizing:border-box;display:inline-flex;align-items:center;gap:6px;padding:0 .7em;
+       border-radius:6px;border:1px solid #6b7280;background:transparent;color:#e6e6e6;font-size:.9em;
+       line-height:1;font-family:inherit;cursor:pointer;flex:none}
+  .hex{display:inline-block;cursor:text;width:auto;flex:1 1 8em;min-width:6em;background:#2b2f36;outline:none}
+</style></head><body><div class="wrap"><div id="out"></div></div>
+<div id="stage"></div>
+<script>
+const FONTS=[14,21,31.5,56,126];
+const NAMES=['1 档 14px','2 档 21px','3 档 31.5px','5 档 56px','10 档 126px'];
+const out=document.getElementById('out'),stage=document.getElementById('stage');
+const h=(t,c,kids)=>{const e=document.createElement(t);if(c)e.className=c;(kids||[]).forEach(k=>e.appendChild(k));return e};
+
+function measure(font, cardRule, label){
+  const card=document.createElement('div');card.className='card';
+  card.style.fontSize=font+'px';card.style.padding='0.9em';
+  card.style.width=cardRule==='A'?'min(470px, 92vw)':('min(max(470px, 34em), 92vw)');
+  const row=document.createElement('div');row.className='row';
+  row.appendChild(h('button','ctl',[document.createTextNode(label)]));
+  const inp=document.createElement('input');inp.className='ctl hex';inp.placeholder='或输入十六进制色值（#rrggbb）';inp.value='#1380ec';
+  row.appendChild(inp);
+  const lab=h('label','ctl',[]);const cb=document.createElement('input');cb.type='checkbox';cb.checked=true;
+  cb.style.cssText='margin:0;width:1em;height:1em';lab.appendChild(cb);lab.appendChild(h('span','',[document.createTextNode('文字描边')]));
+  row.appendChild(lab);
+  card.appendChild(row);stage.appendChild(card);
+  const rowW=Math.round(row.clientWidth);
+  const tops=[...row.children].map(c=>Math.round(c.getBoundingClientRect().top));
+  const sameLine=tops.every(t=>Math.abs(t-tops[0])<=1);
+  const widths=[...row.children].map(c=>Math.round(c.getBoundingClientRect().width));
+  row.classList.add('nowrap');const natural=Math.round(row.scrollWidth);row.classList.remove('nowrap');
+  return {rowW,natural,sameLine,widths};
+}
+
+function table(title,cardRule,label){
+  const t=document.createElement('table');
+  t.innerHTML='<tr><th class="n">'+title+'</th><th>行可用宽</th><th>单行需要</th><th>三控件同一行?</th><th>超出</th><th class="n">三控件宽度</th></tr>'+
+    FONTS.map((f,i)=>{const m=measure(f,cardRule,label);
+      return `<tr><td class="n">${NAMES[i]}</td><td>${m.rowW}</td><td>${m.natural}</td>`+
+        `<td class="${m.sameLine?'ok':'no'}">${m.sameLine?'是':'否'}</td>`+
+        `<td class="${m.natural<=m.rowW?'ok':'no'}">${m.natural-m.rowW}</td>`+
+        `<td class="n">${m.widths.join(' / ')}</td></tr>`}).join('');
+  out.appendChild(h('h3','',[document.createTextNode(title)]));out.appendChild(t);
+}
+table('A) 现状：卡 min(470px, 92vw) ＋ 标签「默认」（本次改动后）','A','默认');
+table('A′) 对照：卡 min(470px, 92vw) ＋ 旧标签「默认（跟随主题）」','A','默认（跟随主题）');
+table('B) 候选：卡 min(max(470px, 34em), 92vw) ＋ 标签「默认」（视口 1200 ⇒ 92vw=1104）','B','默认');
+</script></body></html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>#163 方案对比：height:32 / minHeight:32 / height:2.6em</title>
+<style>
+  body { background:#17181c; color:#e8e8ea; font-family:system-ui,sans-serif; margin:0; padding:12px; }
+  #out { white-space:pre; font-family:ui-monospace,Consolas,monospace; font-size:12.5px; line-height:1.55; color:#9fe8b0; }
+  .card { width:min(470px,92vw); background:#1e1f24; border:1px solid #33353c; border-radius:12px; padding:0.9em; margin:8px 0; }
+  .row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .base { box-sizing:border-box; display:inline-flex; align-items:center; gap:6px; padding:0 0.7em;
+          border-radius:6px; border:1px solid #3a3d45; background:transparent; color:#e8e8ea;
+          font-size:0.9em; line-height:1; cursor:pointer; }
+  /* 三种候选高度口径 */
+  .vA { height:32px; }
+  .vB { min-height:32px; }
+  .vC { height:2.6em; }
+  .inp { display:inline-block; cursor:text; width:auto; flex:1 1 8em; min-width:6em;
+         background:#26272d; outline:none; }
+  .cb  { margin:0; width:1em; height:1em; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="out">测量中…</div>
+<div id="stage"></div>
+<script>
+var CASES = [[14,'1档'],[31.5,'2档'],[56,'3档'],[126,'5档']];
+var VARS = [['A height:32','vA'],['B minHeight:32','vB'],['C height:2.6em','vC']];
+var log = [];
+CASES.forEach(function (c) {
+  var fs = c[0], name = c[1];
+  VARS.forEach(function (v) {
+    var cls = v[1];
+    var card = document.createElement('div'); card.className = 'card'; card.style.fontSize = fs + 'px';
+    var row = document.createElement('div'); row.className = 'row';
+    var btn = document.createElement('button'); btn.className = 'base ' + cls; btn.textContent = '默认（跟随主题）';
+    var inp = document.createElement('input'); inp.className = 'base inp ' + cls; inp.value = '#1380ec';
+    var lab = document.createElement('label'); lab.className = 'base ' + cls;
+    var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; cb.className = 'cb';
+    var sp = document.createElement('span'); sp.textContent = '文字描边';
+    lab.appendChild(cb); lab.appendChild(sp);
+    row.appendChild(btn); row.appendChild(inp); row.appendChild(lab); card.appendChild(row);
+    document.getElementById('stage').appendChild(card);
+    var els = [btn, inp, lab], H = [], T = [], OV = [], MINW = [];
+    els.forEach(function (e) {
+      H.push(e.offsetHeight); T.push(e.offsetTop);
+      OV.push(e.scrollHeight > e.clientHeight + 1 ? '溢出' : 'ok');
+      MINW.push(Math.round(e.getBoundingClientRect().width));
+    });
+    log.push(name + ' ' + v[0].padEnd(15) + ' 高=[' + H.join(',') + ']'
+      + ' 等高=' + ((H[0] === H[1] && H[1] === H[2]) ? '是' : '否')
+      + ' 宽=[' + MINW.join(',') + ']'
+      + ' 同一行=' + (new Set(T).size === 1 ? '是' : '否')
+      + ' 文字=' + OV.join('/'));
+  });
+});
+document.getElementById('out').textContent = log.join('\n');
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+
+===== A. 旧实现（#148 之前：documentElement + body 行内双写） =====
+  A0 宿主 14px、插件未写
+    基线  own=42px  mdBase=14px  bodyVar=14px
+  A1 插件双写 42px（此刻直到宿主下一次重放）
+    旧实现写入后  own=126px  mdBase=42px  bodyVar=42px
+  A2 宿主重放 14px 之后（「自限」发生点）
+    宿主重放后  own=42px  mdBase=14px  bodyVar=14px
+  A3 宿主再重放 22px
+    再次重放后  own=66px  mdBase=22px  bodyVar=22px
+  A4 旧实现关闭（removeProperty 两边）
+    关闭后  own=42px  mdBase=14px  bodyVar=
+
+===== B. 新实现（#148：body{var:42px !important} 声明式覆盖） =====
+  B0 宿主 14px、插件未写
+    基线  own=42px  mdBase=14px  bodyVar=14px
+  B1 插件覆盖 42px !important
+    覆盖后  own=126px  mdBase=42px  bodyVar=42px
+  B2 宿主重放 14px（旧实现在此被打回，新实现应压住）
+    重放后  own=126px  mdBase=42px  bodyVar=42px
+  B3 宿主再重放 22px
+    再次重放后  own=126px  mdBase=42px  bodyVar=42px
+  B4 摘掉自家段（关远程）
+    摘段后  own=66px  mdBase=22px  bodyVar=22px
+  宿主行内（B4） = 22px  ← 全程未被插件改过
+

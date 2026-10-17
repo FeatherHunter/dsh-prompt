@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>#163 实测：档位放大后「同一行 / 同高」到底成立吗</title>
+<style>
+  body { background:#17181c; color:#e8e8ea; font-family:system-ui,sans-serif; margin:0; padding:12px; }
+  #out { white-space:pre; font-family:ui-monospace,Consolas,monospace; font-size:13px; line-height:1.5; color:#9fe8b0; }
+  .card { width:min(470px,92vw); background:#1e1f24; border:1px solid #33353c; border-radius:12px; padding:0.9em; margin:8px 0; }
+  .row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  /* 以下三条＝插件里的内联样式逐字复刻（panel.ts inkRowCtlStyle / 十六进制框 / 描边行） */
+  .ctl { height:32px; box-sizing:border-box; display:inline-flex; align-items:center; gap:6px;
+         padding:0 0.7em; border-radius:6px; border:1px solid #3a3d45; background:transparent;
+         color:#e8e8ea; font-size:0.9em; line-height:1; cursor:pointer; }
+  .inp { display:inline-block; cursor:text; width:auto; flex:1 1 8em; min-width:6em;
+         height:32px; box-sizing:border-box; padding:0 0.7em; border-radius:6px;
+         border:1px solid #3a3d45; background:#26272d; outline:none; color:#e8e8ea;
+         font-size:0.9em; line-height:1; }
+  .cb  { margin:0; width:1em; height:1em; cursor:pointer; }
+  .wall { display:flex; gap:5px; margin-top:6px; }
+  .cell { width:1.5em; height:1.15em; border-radius:5px; box-sizing:border-box; background:#3b82f6; flex:none; }
+  .lbl { font-size:13px; color:#c9ccd4; }
+</style>
+</head>
+<body>
+<div id="out">测量中…</div>
+<div id="stage"></div>
+<script>
+// 插件自家面基准字号 = hostContentFontPx(档) × 档位倍数（#160 实测：1 档 14 / 2 档 31.5 / 3 档 56 / 5 档 126）
+var CASES = [[14,'1档'],[31.5,'2档'],[56,'3档'],[126,'5档']];
+var log = [];
+CASES.forEach(function (c) {
+  var fs = c[0], name = c[1];
+  var card = document.createElement('div'); card.className = 'card'; card.style.fontSize = fs + 'px';
+  var row = document.createElement('div'); row.className = 'row';
+  var btn = document.createElement('button'); btn.className = 'ctl'; btn.textContent = '默认（跟随主题）';
+  var inp = document.createElement('input'); inp.className = 'inp'; inp.value = '#1380ec';
+  var lab = document.createElement('label'); lab.className = 'ctl';
+  var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; cb.className = 'cb';
+  var sp = document.createElement('span'); sp.textContent = '文字描边';
+  lab.appendChild(cb); lab.appendChild(sp);
+  row.appendChild(btn); row.appendChild(inp); row.appendChild(lab);
+  var wall = document.createElement('div'); wall.className = 'wall';
+  for (var i = 0; i < 12; i++) { var d = document.createElement('div'); d.className = 'cell'; wall.appendChild(d); }
+  card.appendChild(row); card.appendChild(wall);
+  document.getElementById('stage').appendChild(card);
+  var els = [btn, inp, lab], H = [], T = [], OV = [];
+  els.forEach(function (e) {
+    H.push(e.offsetHeight); T.push(e.offsetTop);
+    OV.push(e.scrollHeight > e.clientHeight ? '溢出' : '装得下');
+  });
+  log.push('【' + name + ' 基准 ' + fs + 'px】卡宽=' + Math.round(card.clientWidth)
+    + '  行宽=' + Math.round(row.clientWidth)
+    + '  三控件高=[' + H.join(',') + ']  同一行=' + (new Set(T).size === 1 ? '是' : '否')
+    + '  文字=' + OV.join('/')
+    + '  色块墙=' + (wall.scrollWidth > card.clientWidth ? '横向溢出(' + wall.scrollWidth + '>' + card.clientWidth + ')' : '装得下'));
+});
+document.getElementById('out').textContent = log.join('\n');
+</script>
+</body>
+</html>

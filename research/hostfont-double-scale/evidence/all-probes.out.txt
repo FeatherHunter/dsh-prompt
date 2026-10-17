@@ -1,0 +1,165 @@
+# issue #160 复核 · 探针实跑记录
+# browser: C:\Program Files\Google\Chrome\Application\chrome.exe
+# profile: scripts\.rt-tmp-160
+
+===== probe-double-scale（research\hostfont-double-scale\probe-double-scale.html） =====
+
+
+== S0 关闭远程档位（宿主用户设定 14px，无自家覆盖段） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 14px
+  body computed --dsh-content-font-size           = 14px
+  body computed --dsw-font-markdown-base-font-size = 14px
+  hostContent(宿主内容字, #92)                     = 14px
+  mdBase(派生链中点)                               = 14px
+  own.settingsRoot  settings.ts:649                 = 14px
+  own.panelRoot     panel.ts:1359                  = 14px
+  own.smartCard     smart.ts:350                   = 14px
+  own.gearCard      button.ts:403                  = 14px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 12px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 14px
+  [推导] 档位倍数 x 宿主用户设定 = 1 x 14 = 14px
+  [推导] 档位倍数^2 x 基线14     = 14px
+
+== S1 远程 1 档（覆盖 14px !important） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 14px
+  body computed --dsh-content-font-size           = 14px
+  body computed --dsw-font-markdown-base-font-size = 14px
+  hostContent(宿主内容字, #92)                     = 14px
+  mdBase(派生链中点)                               = 14px
+  own.settingsRoot  settings.ts:649                 = 14px
+  own.panelRoot     panel.ts:1359                  = 14px
+  own.smartCard     smart.ts:350                   = 14px
+  own.gearCard      button.ts:403                  = 14px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 12px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 14px
+  [推导] 档位倍数 x 宿主用户设定 = 1 x 14 = 14px
+  [推导] 档位倍数^2 x 基线14     = 14px
+
+== S2 远程 5 档（覆盖 42px !important） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 14px
+  body computed --dsh-content-font-size           = 42px
+  body computed --dsw-font-markdown-base-font-size = 42px
+  hostContent(宿主内容字, #92)                     = 42px
+  mdBase(派生链中点)                               = 42px
+  own.settingsRoot  settings.ts:649                 = 126px
+  own.panelRoot     panel.ts:1359                  = 126px
+  own.smartCard     smart.ts:350                   = 126px
+  own.gearCard      button.ts:403                  = 126px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 36px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 42px
+  [推导] 档位倍数 x 宿主用户设定 = 3 x 14 = 42px
+  [推导] 档位倍数^2 x 基线14     = 126px
+
+== S3 远程 5 档 + 宿主用户设定 22px（覆盖 42px 仍赢） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 22px
+  body computed --dsh-content-font-size           = 42px
+  body computed --dsw-font-markdown-base-font-size = 42px
+  hostContent(宿主内容字, #92)                     = 42px
+  mdBase(派生链中点)                               = 42px
+  own.settingsRoot  settings.ts:649                 = 126px
+  own.panelRoot     panel.ts:1359                  = 126px
+  own.smartCard     smart.ts:350                   = 126px
+  own.gearCard      button.ts:403                  = 126px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 36px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 66px
+  [推导] 档位倍数 x 宿主用户设定 = 3 x 22 = 66px
+  [推导] 档位倍数^2 x 基线14     = 126px
+
+== S4 远程 10 档（覆盖 77px !important） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 14px
+  body computed --dsh-content-font-size           = 77px
+  body computed --dsw-font-markdown-base-font-size = 77px
+  hostContent(宿主内容字, #92)                     = 77px
+  mdBase(派生链中点)                               = 77px
+  own.settingsRoot  settings.ts:649                 = 423.5px
+  own.panelRoot     panel.ts:1359                  = 423.5px
+  own.smartCard     smart.ts:350                   = 423.5px
+  own.gearCard      button.ts:403                  = 423.5px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 66px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 77px
+  [推导] 档位倍数 x 宿主用户设定 = 5.5 x 14 = 77px
+  [推导] 档位倍数^2 x 基线14     = 423.5px
+
+== S5 关闭远程 + 宿主用户设定 22px（自家面回宿主用户值） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 22px
+  body computed --dsh-content-font-size           = 22px
+  body computed --dsw-font-markdown-base-font-size = 22px
+  hostContent(宿主内容字, #92)                     = 22px
+  mdBase(派生链中点)                               = 22px
+  own.settingsRoot  settings.ts:649                 = 22px
+  own.panelRoot     panel.ts:1359                  = 22px
+  own.smartCard     smart.ts:350                   = 22px
+  own.gearCard      button.ts:403                  = 22px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 12px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 22px
+  [推导] 档位倍数 x 宿主用户设定 = 1 x 22 = 22px
+  [推导] 档位倍数^2 x 基线14     = 14px
+
+== S6 远程 2 档（覆盖 21px !important） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 14px
+  body computed --dsh-content-font-size           = 21px
+  body computed --dsw-font-markdown-base-font-size = 21px
+  hostContent(宿主内容字, #92)                     = 21px
+  mdBase(派生链中点)                               = 21px
+  own.settingsRoot  settings.ts:649                 = 31.5px
+  own.panelRoot     panel.ts:1359                  = 31.5px
+  own.smartCard     smart.ts:350                   = 31.5px
+  own.gearCard      button.ts:403                  = 31.5px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 18px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 21px
+  [推导] 档位倍数 x 宿主用户设定 = 1.5 x 14 = 21px
+  [推导] 档位倍数^2 x 基线14     = 31.5px
+
+== 附：关闭态宿主状态自证 ==
+  自家覆盖段仍存在？ false
+  宿主行内原样？     14px
+
+===== probe-148-persistence（research\hostfont-double-scale\probe-148-persistence.html） =====
+
+===== A. 旧实现（#148 之前：documentElement + body 行内双写） =====
+  A0 宿主 14px、插件未写
+    基线  own=42px  mdBase=14px  bodyVar=14px
+  A1 插件双写 42px（此刻直到宿主下一次重放）
+    旧实现写入后  own=126px  mdBase=42px  bodyVar=42px
+  A2 宿主重放 14px 之后（「自限」发生点）
+    宿主重放后  own=42px  mdBase=14px  bodyVar=14px
+  A3 宿主再重放 22px
+    再次重放后  own=66px  mdBase=22px  bodyVar=22px
+  A4 旧实现关闭（removeProperty 两边）
+    关闭后  own=42px  mdBase=14px  bodyVar=
+
+===== B. 新实现（#148：body{var:42px !important} 声明式覆盖） =====
+  B0 宿主 14px、插件未写
+    基线  own=42px  mdBase=14px  bodyVar=14px
+  B1 插件覆盖 42px !important
+    覆盖后  own=126px  mdBase=42px  bodyVar=42px
+  B2 宿主重放 14px（旧实现在此被打回，新实现应压住）
+    重放后  own=126px  mdBase=42px  bodyVar=42px
+  B3 宿主再重放 22px
+    再次重放后  own=126px  mdBase=42px  bodyVar=42px
+  B4 摘掉自家段（关远程）
+    摘段后  own=66px  mdBase=22px  bodyVar=22px
+  宿主行内（B4） = 22px  ← 全程未被插件改过
+
+===== probe-hostfont-cascade（research\probe-hostfont-cascade.html） =====
+
+#148 probe: ALL PASS
+PASS P0 宿主基线（无覆盖）  got="17px" want="17px"
+PASS P1a 覆盖生效  got="42px" want="42px"
+PASS P1b 计算结果  got="42px" want="42px"
+PASS P1c 宿主行内原样保留  got="17px" want="17px"
+PASS P1d style 属性里还是宿主的值  got=true want=true
+PASS P2a 重放后仍覆盖  got="42px" want="42px"
+PASS P2b 宿主行内已是新值  got="16px" want="16px"
+PASS P3a delta 跟随  got="42px" want="42px"
+PASS P3b secondary 跟随  got="40px" want="40px"
+PASS P3c markdown 基准跟随  got="42px" want="42px"
+PASS P4 局部声明优先  got="9px" want="9px"
+PASS P5a 摘段即还原  got="16px" want="16px"
+PASS P5b 宿主行内未被插件改过  got="16px" want="16px"
+PASS P6a :root 规则够不着 body 行内  got="16px" want="16px"
+PASS P6b 消费方仍是宿主值  got="16px" want="16px"
+PASS P7 无宿主值时覆盖生效  got="55px" want="55px"
+PASS P8 行内 important 时宿主赢（优雅降级）  got="17px" want="17px"
+NOTE P9 自家面复乘（5 档：42px × 3）  got="126px"
+

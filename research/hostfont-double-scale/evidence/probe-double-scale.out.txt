@@ -1,0 +1,111 @@
+
+
+== S0 关闭远程档位（宿主用户设定 14px，无自家覆盖段） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 14px
+  body computed --dsh-content-font-size           = 14px
+  body computed --dsw-font-markdown-base-font-size = 14px
+  hostContent(宿主内容字, #92)                     = 14px
+  mdBase(派生链中点)                               = 14px
+  own.settingsRoot  settings.ts:649                 = 14px
+  own.panelRoot     panel.ts:1359                  = 14px
+  own.smartCard     smart.ts:350                   = 14px
+  own.gearCard      button.ts:403                  = 14px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 12px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 14px
+  [推导] 档位倍数 x 宿主用户设定 = 1 x 14 = 14px
+  [推导] 档位倍数^2 x 基线14     = 14px
+
+== S1 远程 1 档（覆盖 14px !important） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 14px
+  body computed --dsh-content-font-size           = 14px
+  body computed --dsw-font-markdown-base-font-size = 14px
+  hostContent(宿主内容字, #92)                     = 14px
+  mdBase(派生链中点)                               = 14px
+  own.settingsRoot  settings.ts:649                 = 14px
+  own.panelRoot     panel.ts:1359                  = 14px
+  own.smartCard     smart.ts:350                   = 14px
+  own.gearCard      button.ts:403                  = 14px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 12px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 14px
+  [推导] 档位倍数 x 宿主用户设定 = 1 x 14 = 14px
+  [推导] 档位倍数^2 x 基线14     = 14px
+
+== S2 远程 5 档（覆盖 42px !important） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 14px
+  body computed --dsh-content-font-size           = 42px
+  body computed --dsw-font-markdown-base-font-size = 42px
+  hostContent(宿主内容字, #92)                     = 42px
+  mdBase(派生链中点)                               = 42px
+  own.settingsRoot  settings.ts:649                 = 126px
+  own.panelRoot     panel.ts:1359                  = 126px
+  own.smartCard     smart.ts:350                   = 126px
+  own.gearCard      button.ts:403                  = 126px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 36px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 42px
+  [推导] 档位倍数 x 宿主用户设定 = 3 x 14 = 42px
+  [推导] 档位倍数^2 x 基线14     = 126px
+
+== S3 远程 5 档 + 宿主用户设定 22px（覆盖 42px 仍赢） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 22px
+  body computed --dsh-content-font-size           = 42px
+  body computed --dsw-font-markdown-base-font-size = 42px
+  hostContent(宿主内容字, #92)                     = 42px
+  mdBase(派生链中点)                               = 42px
+  own.settingsRoot  settings.ts:649                 = 126px
+  own.panelRoot     panel.ts:1359                  = 126px
+  own.smartCard     smart.ts:350                   = 126px
+  own.gearCard      button.ts:403                  = 126px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 36px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 66px
+  [推导] 档位倍数 x 宿主用户设定 = 3 x 22 = 66px
+  [推导] 档位倍数^2 x 基线14     = 126px
+
+== S4 远程 10 档（覆盖 77px !important） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 14px
+  body computed --dsh-content-font-size           = 77px
+  body computed --dsw-font-markdown-base-font-size = 77px
+  hostContent(宿主内容字, #92)                     = 77px
+  mdBase(派生链中点)                               = 77px
+  own.settingsRoot  settings.ts:649                 = 423.5px
+  own.panelRoot     panel.ts:1359                  = 423.5px
+  own.smartCard     smart.ts:350                   = 423.5px
+  own.gearCard      button.ts:403                  = 423.5px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 66px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 77px
+  [推导] 档位倍数 x 宿主用户设定 = 5.5 x 14 = 77px
+  [推导] 档位倍数^2 x 基线14     = 423.5px
+
+== S5 关闭远程 + 宿主用户设定 22px（自家面回宿主用户值） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 22px
+  body computed --dsh-content-font-size           = 22px
+  body computed --dsw-font-markdown-base-font-size = 22px
+  hostContent(宿主内容字, #92)                     = 22px
+  mdBase(派生链中点)                               = 22px
+  own.settingsRoot  settings.ts:649                 = 22px
+  own.panelRoot     panel.ts:1359                  = 22px
+  own.smartCard     smart.ts:350                   = 22px
+  own.gearCard      button.ts:403                  = 22px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 12px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 22px
+  [推导] 档位倍数 x 宿主用户设定 = 1 x 22 = 22px
+  [推导] 档位倍数^2 x 基线14     = 14px
+
+== S6 远程 2 档（覆盖 21px !important） ==
+  hostInline(--dsh-content-font-size, 宿主用户设定) = 14px
+  body computed --dsh-content-font-size           = 21px
+  body computed --dsw-font-markdown-base-font-size = 21px
+  hostContent(宿主内容字, #92)                     = 21px
+  mdBase(派生链中点)                               = 21px
+  own.settingsRoot  settings.ts:649                 = 31.5px
+  own.panelRoot     panel.ts:1359                  = 31.5px
+  own.smartCard     smart.ts:350                   = 31.5px
+  own.gearCard      button.ts:403                  = 31.5px
+  own.entryBar      button.ts:440（绝对 px，应只一遍） = 18px
+  [修法演示] 自家面锚宿主行内用户值 x 单遍档位     = 21px
+  [推导] 档位倍数 x 宿主用户设定 = 1.5 x 14 = 21px
+  [推导] 档位倍数^2 x 基线14     = 31.5px
+
+== 附：关闭态宿主状态自证 ==
+  自家覆盖段仍存在？ false
+  宿主行内原样？     14px
+

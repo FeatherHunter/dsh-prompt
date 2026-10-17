@@ -1,0 +1,21 @@
+
+#148 probe: ALL PASS
+PASS P0 宿主基线（无覆盖）  got="17px" want="17px"
+PASS P1a 覆盖生效  got="42px" want="42px"
+PASS P1b 计算结果  got="42px" want="42px"
+PASS P1c 宿主行内原样保留  got="17px" want="17px"
+PASS P1d style 属性里还是宿主的值  got=true want=true
+PASS P2a 重放后仍覆盖  got="42px" want="42px"
+PASS P2b 宿主行内已是新值  got="16px" want="16px"
+PASS P3a delta 跟随  got="42px" want="42px"
+PASS P3b secondary 跟随  got="40px" want="40px"
+PASS P3c markdown 基准跟随  got="42px" want="42px"
+PASS P4 局部声明优先  got="9px" want="9px"
+PASS P5a 摘段即还原  got="16px" want="16px"
+PASS P5b 宿主行内未被插件改过  got="16px" want="16px"
+PASS P6a :root 规则够不着 body 行内  got="16px" want="16px"
+PASS P6b 消费方仍是宿主值  got="16px" want="16px"
+PASS P7 无宿主值时覆盖生效  got="55px" want="55px"
+PASS P8 行内 important 时宿主赢（优雅降级）  got="17px" want="17px"
+NOTE P9 自家面复乘（5 档：42px × 3）  got="126px"
+

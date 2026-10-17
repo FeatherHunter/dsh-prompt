@@ -1,0 +1,126 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>#163 取色浮层三项改动对照</title><style>
+:root{
+  --dsw-alias-bg-layer-3:#2b3038;--dsw-alias-bg-layer-2:#22262c;--dsw-alias-border-l1:#3b424c;--dsw-alias-border-l2:#4b535f;
+  --dsw-alias-label-primary:#e9ebee;--dsw-alias-label-secondary:#a9b0ba;--dsw-alias-label-tertiary:#7f8791;
+  --dsw-alias-interactive-bg-hover:#343b45;
+  --dsw-font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:18px 22px 26px;background:#15181d;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family);font-size:14px}
+h1{font-size:16px;margin:0 0 4px;font-weight:600}
+h2{font-size:13px;margin:0 0 8px;font-weight:600;color:var(--dsw-alias-label-secondary)}
+.sub{font-size:12px;color:var(--dsw-alias-label-tertiary);margin:0 0 14px}
+.grid{display:flex;gap:22px;align-items:flex-start}
+.col-wrap{display:flex;flex-direction:column;gap:6px}
+.tag{font-size:11px;color:var(--dsw-alias-label-tertiary)}
+.pop{width:412px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:12px;padding:12px 14px 14px}
+.pop-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.pop-title{font-size:0.95em;font-weight:600}
+.grow{flex:1}
+.mbtn{height:26px;padding:0 10px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1);background:transparent;color:var(--dsw-alias-label-primary);font-family:inherit;font-size:0.85em;cursor:pointer}
+.mbtn.primary{background:var(--dsw-alias-bg-layer-3)}
+.prev{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;background:var(--dsw-alias-bg-layer-3);margin-bottom:10px}
+.prev-k{font-size:0.8em;color:var(--dsw-alias-label-tertiary)}
+.prev-name{font-size:1em}
+.wall{display:flex;gap:5px;justify-content:space-between;margin-bottom:12px}
+.col{display:flex;flex-direction:column;gap:4px}
+.cell{width:1.5em;height:1.15em;padding:0;border-radius:5px;border:1px solid var(--dsw-alias-border-l1);cursor:pointer}
+.cell.on{border:2px solid var(--dsw-alias-label-primary)}
+.ink-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ctl{height:32px;display:inline-flex;align-items:center;gap:6px;padding:0 0.7em;border-radius:6px;border:1px solid var(--dsw-alias-border-l1);background:transparent;color:var(--dsw-alias-label-primary);font-family:inherit;font-size:0.9em;line-height:1;cursor:pointer}
+.ctl.hex{display:inline-block;flex:1 1 8em;min-width:6em;background:var(--dsw-alias-bg-layer-3);cursor:text}
+.ctl.on{border-color:var(--dsw-alias-label-primary);box-shadow:inset 0 0 0 1px var(--dsw-alias-label-primary)}
+input[type=checkbox]{accent-color:var(--dsw-alias-label-primary);width:1em;height:1em;cursor:pointer}
+.row-old{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ctl-old{font-family:inherit;cursor:pointer;height:auto;box-sizing:content-box}
+.hex-old{font-family:inherit}
+.ol-old{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:0.9em;cursor:pointer}
+.ruler{position:relative;height:0}
+/* 交互反馈（③）：下面这几条就是 INK_UI_CSS 的 :hover/:active/:focus 声明，换成类名复刻 —— 截图不能真悬停 */
+.demo-hover-cell{filter:brightness(1.18);box-shadow:0 0 0 2px var(--dsw-alias-label-primary)}
+.demo-active-cell{transform:scale(.9)}
+.demo-focus-cell{outline:2px solid var(--dsw-alias-label-primary);outline-offset:2px}
+.demo-hover-btn{filter:brightness(1.15)}
+.demo-active-btn{transform:translateY(1px)}
+.demo-hover-row{box-shadow:0 0 0 2px var(--dsw-alias-interactive-bg-hover)}
+.demo-hover-field{box-shadow:0 0 0 1px var(--dsw-alias-border-l2)}
+.demo-focus-field{box-shadow:0 0 0 2px var(--dsw-alias-label-primary)}
+.demo-focus-btn{outline:2px solid var(--dsw-alias-label-primary);outline-offset:2px}
+.states{display:flex;gap:26px;margin-top:8px}
+.state{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.state>span{font-size:11px;color:var(--dsw-alias-label-tertiary)}
+[data-dsh-prompt-ink-cell],[data-dsh-prompt-ink-default],[data-dsh-prompt-ink-field-btn],[data-dsh-prompt-ink-done],[data-dsh-prompt-ink-close],[data-dsh-prompt-ink-hex],[data-dsh-prompt-ink-outline-row]{transition:filter .12s ease,box-shadow .12s ease,transform .06s ease;}[data-dsh-prompt-ink-cell]:hover{filter:brightness(1.18);box-shadow:0 0 0 2px var(--dsw-alias-label-primary);}[data-dsh-prompt-ink-cell]:active{transform:scale(.9);}[data-dsh-prompt-ink-default],[data-dsh-prompt-ink-field-btn],[data-dsh-prompt-ink-done],[data-dsh-prompt-ink-close]:hover{filter:brightness(1.15);}[data-dsh-prompt-ink-default],[data-dsh-prompt-ink-field-btn],[data-dsh-prompt-ink-done],[data-dsh-prompt-ink-close]:active{transform:translateY(1px);}[data-dsh-prompt-ink-outline-row]:hover{box-shadow:0 0 0 2px var(--dsw-alias-interactive-bg-hover);}[data-dsh-prompt-ink-hex]:hover{box-shadow:0 0 0 1px var(--dsw-alias-border-l2);}[data-dsh-prompt-ink-hex]:focus{box-shadow:0 0 0 2px var(--dsw-alias-label-primary);}[data-dsh-prompt-ink-cell]:focus-visible,[data-dsh-prompt-ink-default],[data-dsh-prompt-ink-field-btn],[data-dsh-prompt-ink-done],[data-dsh-prompt-ink-close]:focus-visible,[data-dsh-prompt-ink-outline-row]:focus-visible{outline:2px solid var(--dsw-alias-label-primary);outline-offset:2px;}[data-dsh-prompt-ink-outline]{accent-color:var(--dsw-alias-label-primary);cursor:pointer;}
+</style></head><body>
+<h1>#163 取色浮层三项改动 · 对照预览</h1>
+<p class="sub">颜色墙与描边色按 <code>panel.ts</code> 的真取样逻辑现算；交互反馈段直接内联构建产物里的 <code>panel.INK_UI_CSS</code> 原文（截图不能真悬停，③ 的态另用同名类复刻展示）。</p>
+<div class="grid">
+  <div class="col-wrap"><span class="tag">改前（0.4.20 装机版）</span>
+<div class="pop">
+  <div class="pop-head"><span class="pop-title">文字颜色</span><span class="grow"></span>
+    <button class="mbtn primary" data-dsh-prompt-ink-done>完成</button><button class="mbtn" data-dsh-prompt-ink-close>×</button></div>
+  <div class="prev"><span class="prev-k">预览</span><span class="prev-name" style="color:#1380ec;text-shadow:-1px -1px 0 var(--dsw-alias-label-primary),-1px 0 0 var(--dsw-alias-label-primary),-1px 1px 0 var(--dsw-alias-label-primary),0 -1px 0 var(--dsw-alias-label-primary),0 1px 0 var(--dsw-alias-label-primary),1px -1px 0 var(--dsw-alias-label-primary),1px 0 0 var(--dsw-alias-label-primary),1px 1px 0 var(--dsw-alias-label-primary);">模板名字长这样</span></div>
+  <div class="wall"><div class="col"><button class="cell" style="background:#ed2121" title="#ed2121"></button><button class="cell" style="background:#ff0000" title="#ff0000"></button><button class="cell" style="background:#ff1f1f" title="#ff1f1f"></button><button class="cell" style="background:#ff3d3d" title="#ff3d3d"></button><button class="cell" style="background:#e46767" title="#e46767"></button></div><div class="col"><button class="cell" style="background:#9d7043" title="#9d7043"></button><button class="cell" style="background:#ae7032" title="#ae7032"></button><button class="cell" style="background:#d16900" title="#d16900"></button><button class="cell" style="background:#b3804d" title="#b3804d"></button><button class="cell" style="background:#c68039" title="#c68039"></button></div><div class="col"><button class="cell" style="background:#7d7d36" title="#7d7d36"></button><button class="cell" style="background:#7e7e25" title="#7e7e25"></button><button class="cell" style="background:#89890b" title="#89890b"></button><button class="cell" style="background:#8b8b18" title="#8b8b18"></button><button class="cell" style="background:#949400" title="#949400"></button></div><div class="col"><button class="cell" style="background:#4a890b" title="#4a890b"></button><button class="cell" style="background:#598a28" title="#598a28"></button><button class="cell" style="background:#4a9400" title="#4a9400"></button><button class="cell" style="background:#52970c" title="#52970c"></button><button class="cell" style="background:#59981b" title="#59981b"></button></div><div class="col"><button class="cell" style="background:#009400" title="#009400"></button><button class="cell" style="background:#0c970c" title="#0c970c"></button><button class="cell" style="background:#439d43" title="#439d43"></button><button class="cell" style="background:#2fa22f" title="#2fa22f"></button><button class="cell" style="background:#1da51d" title="#1da51d"></button></div><div class="col"><button class="cell" style="background:#188b52" title="#188b52"></button><button class="cell" style="background:#00944a" title="#00944a"></button><button class="cell" style="background:#2c9661" title="#2c9661"></button><button class="cell" style="background:#439d70" title="#439d70"></button><button class="cell" style="background:#0da559" title="#0da559"></button></div><div class="col"><button class="cell" style="background:#0b8989" title="#0b8989"></button><button class="cell" style="background:#288a8a" title="#288a8a"></button><button class="cell" style="background:#3f9292" title="#3f9292"></button><button class="cell" style="background:#2c9696" title="#2c9696"></button><button class="cell" style="background:#439d9d" title="#439d9d"></button></div><div class="col"><button class="cell" style="background:#0078f0" title="#0078f0"></button><button class="cell on" style="background:#1380ec" title="#1380ec"></button><button class="cell" style="background:#3387db" title="#3387db"></button><button class="cell" style="background:#518fcd" title="#518fcd"></button><button class="cell" style="background:#1f8fff" title="#1f8fff"></button></div><div class="col"><button class="cell" style="background:#6868f3" title="#6868f3"></button><button class="cell" style="background:#7777c5" title="#7777c5"></button><button class="cell" style="background:#7676f4" title="#7676f4"></button><button class="cell" style="background:#7a7aff" title="#7a7aff"></button><button class="cell" style="background:#8181e9" title="#8181e9"></button></div><div class="col"><button class="cell" style="background:#9e5ae2" title="#9e5ae2"></button><button class="cell" style="background:#a65af2" title="#a65af2"></button><button class="cell" style="background:#ad5cff" title="#ad5cff"></button><button class="cell" style="background:#ad68f3" title="#ad68f3"></button><button class="cell" style="background:#b56bff" title="#b56bff"></button></div><div class="col"><button class="cell" style="background:#b757b7" title="#b757b7"></button><button class="cell" style="background:#de12de" title="#de12de"></button><button class="cell" style="background:#dd40dd" title="#dd40dd"></button><button class="cell" style="background:#ed21ed" title="#ed21ed"></button><button class="cell" style="background:#e04de0" title="#e04de0"></button></div><div class="col"><button class="cell" style="background:#db3387" title="#db3387"></button><button class="cell" style="background:#dd408f" title="#dd408f"></button><button class="cell" style="background:#e04d96" title="#e04d96"></button><button class="cell" style="background:#ff2e96" title="#ff2e96"></button><button class="cell" style="background:#c5779e" title="#c5779e"></button></div></div>
+  <div class="row-old">
+    <button class="ctl-old" style="flex:none;padding:0.45em 0.6em;border-radius:6px;font-size:0.85em;color:var(--dsw-alias-label-primary);background:transparent;border:1px solid var(--dsw-alias-border-l1)">默认（跟随主题）</button>
+    <input class="hex-old" value="#1380ec" style="width:auto;flex:0 1 11em;background:var(--dsw-alias-bg-layer-3);border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-primary);font-size:0.96em;padding:8px 10px;border-radius:8px;box-sizing:border-box;outline:none">
+  </div>
+  <label class="ol-old"><input type="checkbox" checked style="margin:0;cursor:pointer"><span>文字描边</span></label>
+</div></div>
+  <div class="col-wrap"><span class="tag">改后（本次）</span>
+<div class="pop">
+  <div class="pop-head"><span class="pop-title">文字颜色</span><span class="grow"></span>
+    <button class="mbtn primary" data-dsh-prompt-ink-done>完成</button><button class="mbtn" data-dsh-prompt-ink-close>×</button></div>
+  <div class="prev"><span class="prev-k">预览</span><span class="prev-name" style="color:#1380ec;text-shadow:-1px -1px 0 var(--dsw-alias-label-primary),-1px 0 0 var(--dsw-alias-label-primary),-1px 1px 0 var(--dsw-alias-label-primary),0 -1px 0 var(--dsw-alias-label-primary),0 1px 0 var(--dsw-alias-label-primary),1px -1px 0 var(--dsw-alias-label-primary),1px 0 0 var(--dsw-alias-label-primary),1px 1px 0 var(--dsw-alias-label-primary);">模板名字长这样</span></div>
+  <div class="wall"><div class="col"><button class="cell" style="background:#ed2121" title="#ed2121"></button><button class="cell" style="background:#ff0000" title="#ff0000"></button><button class="cell" style="background:#ff1f1f" title="#ff1f1f"></button><button class="cell" style="background:#ff3d3d" title="#ff3d3d"></button><button class="cell" style="background:#e46767" title="#e46767"></button></div><div class="col"><button class="cell" style="background:#9d7043" title="#9d7043"></button><button class="cell" style="background:#ae7032" title="#ae7032"></button><button class="cell" style="background:#d16900" title="#d16900"></button><button class="cell" style="background:#b3804d" title="#b3804d"></button><button class="cell" style="background:#c68039" title="#c68039"></button></div><div class="col"><button class="cell" style="background:#7d7d36" title="#7d7d36"></button><button class="cell" style="background:#7e7e25" title="#7e7e25"></button><button class="cell" style="background:#89890b" title="#89890b"></button><button class="cell" style="background:#8b8b18" title="#8b8b18"></button><button class="cell" style="background:#949400" title="#949400"></button></div><div class="col"><button class="cell" style="background:#4a890b" title="#4a890b"></button><button class="cell" style="background:#598a28" title="#598a28"></button><button class="cell" style="background:#4a9400" title="#4a9400"></button><button class="cell" style="background:#52970c" title="#52970c"></button><button class="cell" style="background:#59981b" title="#59981b"></button></div><div class="col"><button class="cell" style="background:#009400" title="#009400"></button><button class="cell" style="background:#0c970c" title="#0c970c"></button><button class="cell" style="background:#439d43" title="#439d43"></button><button class="cell" style="background:#2fa22f" title="#2fa22f"></button><button class="cell" style="background:#1da51d" title="#1da51d"></button></div><div class="col"><button class="cell" style="background:#188b52" title="#188b52"></button><button class="cell" style="background:#00944a" title="#00944a"></button><button class="cell" style="background:#2c9661" title="#2c9661"></button><button class="cell" style="background:#439d70" title="#439d70"></button><button class="cell" style="background:#0da559" title="#0da559"></button></div><div class="col"><button class="cell" style="background:#0b8989" title="#0b8989"></button><button class="cell" style="background:#288a8a" title="#288a8a"></button><button class="cell" style="background:#3f9292" title="#3f9292"></button><button class="cell" style="background:#2c9696" title="#2c9696"></button><button class="cell" style="background:#439d9d" title="#439d9d"></button></div><div class="col"><button class="cell" style="background:#0078f0" title="#0078f0"></button><button class="cell on" style="background:#1380ec" title="#1380ec"></button><button class="cell" style="background:#3387db" title="#3387db"></button><button class="cell" style="background:#518fcd" title="#518fcd"></button><button class="cell" style="background:#1f8fff" title="#1f8fff"></button></div><div class="col"><button class="cell" style="background:#6868f3" title="#6868f3"></button><button class="cell" style="background:#7777c5" title="#7777c5"></button><button class="cell" style="background:#7676f4" title="#7676f4"></button><button class="cell" style="background:#7a7aff" title="#7a7aff"></button><button class="cell" style="background:#8181e9" title="#8181e9"></button></div><div class="col"><button class="cell" style="background:#9e5ae2" title="#9e5ae2"></button><button class="cell" style="background:#a65af2" title="#a65af2"></button><button class="cell" style="background:#ad5cff" title="#ad5cff"></button><button class="cell" style="background:#ad68f3" title="#ad68f3"></button><button class="cell" style="background:#b56bff" title="#b56bff"></button></div><div class="col"><button class="cell" style="background:#b757b7" title="#b757b7"></button><button class="cell" style="background:#de12de" title="#de12de"></button><button class="cell" style="background:#dd40dd" title="#dd40dd"></button><button class="cell" style="background:#ed21ed" title="#ed21ed"></button><button class="cell" style="background:#e04de0" title="#e04de0"></button></div><div class="col"><button class="cell" style="background:#db3387" title="#db3387"></button><button class="cell" style="background:#dd408f" title="#dd408f"></button><button class="cell" style="background:#e04d96" title="#e04d96"></button><button class="cell" style="background:#ff2e96" title="#ff2e96"></button><button class="cell" style="background:#c5779e" title="#c5779e"></button></div></div>
+  <div class="ink-row" data-dsh-prompt-ink-row>
+    <button class="ctl" data-dsh-prompt-ink-default>默认（跟随主题）</button>
+    <input class="ctl hex" data-dsh-prompt-ink-hex value="#1380ec">
+    <label class="ctl" data-dsh-prompt-ink-outline-row><input type="checkbox" checked data-dsh-prompt-ink-outline><span>文字描边</span></label>
+  </div>
+</div></div>
+</div>
+<h2 style="margin-top:20px">③ 可点控件的交互反馈</h2>
+<div class="states">
+  <div class="state"><span>色块：常态 / hover / 按下 / 聚焦</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="cell" style="background:#3387db"></button>
+      <button class="cell demo-hover-cell" style="background:#3387db"></button>
+      <button class="cell demo-active-cell" style="background:#3387db"></button>
+      <button class="cell demo-focus-cell" style="background:#3387db"></button>
+    </div>
+  </div>
+  <div class="state"><span>「默认」键：常态 / hover / 按下 / 聚焦 / 选中</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="ctl">默认（跟随主题）</button>
+      <button class="ctl demo-hover-btn">默认（跟随主题）</button>
+      <button class="ctl demo-active-btn">默认（跟随主题）</button>
+      <button class="ctl demo-focus-btn">默认（跟随主题）</button>
+      <button class="ctl on">默认（跟随主题）</button>
+    </div>
+  </div>
+</div>
+<div class="states" style="margin-top:14px">
+  <div class="state"><span>十六进制框：常态 / hover / 聚焦</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input class="ctl hex" style="width:150px;flex:none" value="#1380ec">
+      <input class="ctl hex demo-hover-field" style="width:150px;flex:none" value="#1380ec">
+      <input class="ctl hex demo-focus-field" style="width:150px;flex:none" value="#1380ec">
+    </div>
+  </div>
+  <div class="state"><span>「文字描边」行：常态 / hover（整行）</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <label class="ctl"><input type="checkbox" checked><span>文字描边</span></label>
+      <label class="ctl demo-hover-row"><input type="checkbox" checked><span>文字描边</span></label>
+    </div>
+  </div>
+  <div class="state"><span>浮层「完成 / ×」：常态 / hover / 按下</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="mbtn primary">完成</button>
+      <button class="mbtn demo-hover-btn">完成</button>
+      <button class="mbtn demo-active-btn">完成</button>
+      <button class="mbtn">×</button>
+      <button class="mbtn demo-hover-btn">×</button>
+    </div>
+  </div>
+</div>
+</body></html>

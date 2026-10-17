@@ -4,8 +4,8 @@
 
 [中文](../README.md) · **English**
 
-**Stop copy-pasting — one click, template in chat.**
-24 deep templates, `/prompt` and smart suggestions as backup.<br>
+**Turn every repeated prompt into a template.**
+24 deep templates — one click drops the body into the chat box.<br>
 Works out of the box, fully customizable.
 
 Your ⭐ means the world to me.
@@ -13,17 +13,6 @@ Your ⭐ means the world to me.
 [![Version](https://img.shields.io/npm/v/dsh-prompt?color=2563EB)](https://www.npmjs.com/package/dsh-prompt) [![Downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.npmjs.org%2Fdownloads%2Fpoint%2Flast-month%2Fdsh-prompt&query=%24.downloads&label=downloads&suffix=%2Fmonth&color=059669)](https://www.npmjs.com/package/dsh-prompt) [![Last commit](https://img.shields.io/github/last-commit/FeatherHunter/dsh-prompt?color=7C3AED)](https://github.com/FeatherHunter/dsh-prompt/commits/main) [![Commits](https://img.shields.io/github/commit-activity/m/FeatherHunter/dsh-prompt?color=DB2777)](https://github.com/FeatherHunter/dsh-prompt/graphs/commit-activity) [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-EA580C.svg)](https://github.com/FeatherHunter/dsh-prompt/issues)
 
 </div>
-
-<!-- Read by three surfaces: the GitHub repo page, the npm package page, and the awesome plugin
-     market's detail page. The market's body drops every bit of raw HTML (markdown only), so
-     headings are always `##` (an <h2> simply vanishes there). Screenshots follow
-     dsh-mattpocock-skills-deck: `<img src="…" width="640|720|560">` — GitHub and npm honour
-     `width`, so shots render at that width and still open full size on click; the market's web
-     detail page drops the tag and keeps text only (skills-deck's page shows 0 images too), so the
-     root `screenshots.json` shot field carries them for storefronts. Every own screenshot in this
-     README must be listed there — `npm run test:marketplace` checks exactly that. One more
-     declaration lives outside this file: `package.json`'s `repository` (links the npm package to
-     this repo: download counts, "installable from npm"). -->
 
 <div align="center">
 
@@ -33,9 +22,7 @@ Your ⭐ means the world to me.
 
 <div align="center">
 
-Requires [DSH](https://www.npmjs.com/package/@deepseek-ai/dsh) (DeepSeek Harness).<br>
-You give the orders, AI does the work.<br>
-dsh-prompt turns favorite prompts into clickable templates.
+Requires [DSH](https://www.npmjs.com/package/@deepseek-ai/dsh) (DeepSeek Harness).
 
 </div>
 
@@ -50,36 +37,32 @@ dsh plugin --profile web add dsh-prompt       # self-hosted web service (dsh web
 dsh plugin --profile desktop add dsh-prompt   # DSH Desktop app
 # Pin a version for stability (current 0.2.0):
 dsh plugin --profile web add dsh-prompt@0.2.0 --registry https://registry.npmjs.org
+#     or
+dsh plugin --profile desktop add dsh-prompt@0.2.0 --registry https://registry.npmjs.org
 ```
 
 <div align="center">
 
-Restart the matching entry once.<br>
-Desktop: fully quit and reopen. Web: restart and refresh.<br>
-Zero config: install and go, remove and it's gone.
+Restart DSH once after installing.
 
-**👇 A new button left of the input box means success.**
+**👇 Restart after installing; a new button left of the input box means success.**
 
 <img src="../assets/readme/01-install-ready.png" width="720" alt="Prompt button left of the input box after install" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
-### Advanced: no global install, stale updates, let AI do it
+### Advanced install
 
-<details>
-<summary>Show commands</summary>
+#### Update silently ignored?
 
-Examples use the web profile — **DSH Desktop users, replace every `--profile web` with `--profile desktop`**.
+Examples below use the web profile — **DSH Desktop users, replace every `--profile web` with `--profile desktop`**.
 
 ```bash
-# Without a global install
-npx --yes @deepseek-ai/dsh plugin --profile web add dsh-prompt
-
 # When an update is silently skipped, pin the official registry
 dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs.org
 ```
 
-Paste this to your AI and let it confirm the profile, check the environment and install as needed:
+#### Paste this to your AI and let it install dsh-prompt for you
 
 ```text
 Please install the DeepSeek Harness plugin dsh-prompt. Read the repo README first: https://github.com/FeatherHunter/dsh-prompt
@@ -87,49 +70,29 @@ First confirm which profile my DSH entry uses (DSH Desktop app → desktop; self
 then check the environment and install as needed (skip what's present), and report back briefly.
 ```
 
-</details>
-
-Upgrade · uninstall (desktop users: swap `--profile web` for `--profile desktop`):
+**Upgrade**
 
 ```bash
 dsh plugin --profile web update dsh-prompt   # upgrade
+```
+
+**Uninstall**
+
+```bash
 dsh plugin --profile web remove dsh-prompt   # uninstall
 ```
 
 <div align="center">
 
-## Supported DSH versions <sub>SUPPORTED DSH</sub>
-
-</div>
-
-Developed and verified against **DSH CLI `0.2.0-rc.2`** and **DSH Desktop `2.0.9`**.<br>
-Lower DSH versions are not verified — they install fine, but running correctly is not guaranteed; issues are welcome.
-
-The block below is the single version declaration, and it must match `dsh.engines.dsh` in `package.json` character for character (`npm run test:issue-42` compares the two, so editing one and forgetting the other turns red). It is documentation only: installation never blocks on a version.
-
-```text
-dsh.engines.dsh = >=0.2.0-rc.2
-dsh.cli = 0.2.0-rc.2
-dsh.desktop = 2.0.9
-```
-
-The plugin never lists host runtime packages (the `@deepseek-ai/dsh-*` packages the DSH host itself provides) in `dependencies`; it declares them as optional `peerDependencies` only. Your profile gets no private copy, so the "copy disagrees with the host version → the compatibility gate disables the host row → the plugin stays pending" failure cannot happen ([#147](https://github.com/FeatherHunter/dsh-prompt/issues/147)). The 0.2.1-alpha line is not verified — this fix only changes the dependency declaration, not the supported version surface.
-
-<div align="center">
-
-## Way 1 · Prompt button <sub>PROMPT BUTTON</sub>
+## Way 1<br>Prompt button
 
 </div>
 
 <div align="center">
 
-Hover the ⚡Prompt button and the panel opens (click works too).<br>
-Phase tabs + domain filter + search — click a row, body lands in the box.<br>
-Inserted at the cursor: existing text and trailing blank lines stay put — nothing overwritten, nothing glued.<br>
-Moves away, panel goes away: after finishing a dialog inside, it follows and closes when the pointer is already outside — never stuck.<br>
-Most-used sinks to the bottom, closest to the button.
+Move the mouse onto the "⚡Prompt button" and the list opens by itself.
 
-**👇 The panel looks like this.**
+**👇 One click on the button and the panel looks like this.**
 
 <img src="../assets/readme/02-panel-button.png" width="640" alt="Prompt button hover panel with phase filters and template list" style="border:1px solid #30363d;border-radius:6px">
 
@@ -137,18 +100,16 @@ Most-used sinks to the bottom, closest to the button.
 
 <div align="center">
 
-## Way 2 · /prompt trigger <sub>TRIGGER</sub>
+## Way 2<br>/prompt trigger
 
 </div>
 
 <div align="center">
 
-For keyboard people: type `/prompt`, candidates filter live.<br>
-Each row: "name + tags·phase — first 42 characters".<br>
-Half a name works too: `/prompt retro`.<br>
-(Screenshots are Chinese in v1; layout is identical.)
+Type `/prompt` in the box to get a pick list.<br>
+`/prompt retro` narrows it down.
 
-**👇 Type half, candidates narrow down.**
+**👇 `/prompt` shows every template.**
 
 <img src="../assets/readme/03-trigger-prompt.png" width="640" alt="`/prompt` trigger: filtered candidate list" style="border:1px solid #30363d;border-radius:6px">
 
@@ -156,31 +117,13 @@ Half a name works too: `/prompt retro`.<br>
 
 <div align="center">
 
-## Way 3 · Smart suggestion card <sub>SMART CARD</sub>
+## Settings<br>SETTINGS
 
 </div>
 
 <div align="center">
 
-No need to hunt templates — describe your task, cards pop up on hits.<br>
-On by default, one toggle to silence; local word table only, no network.
-
-</div>
-
-<div align="center">
-
-## Gallery <sub>TEMPLATES</sub>
-
-</div>
-
-<div align="center">
-
-24 built-ins across four domains and three phases.<br>
-Read-only: unbreakable.<br>
-Clone to custom to tweak.<br>
-Presets are hidden by default (yours only): hit the eye button in the bar or the settings toggle to show them.
-
-**👇 All 24 on one settings page.**
+**👇 The settings panel packs the whole feature set.**
 
 <img src="../assets/readme/05-templates-gallery.png" width="640" alt="Gallery: 24 preset templates on the settings page" style="border:1px solid #30363d;border-radius:6px">
 
@@ -188,17 +131,13 @@ Presets are hidden by default (yours only): hit the eye button in the bar or the
 
 <div align="center">
 
-## Customize & manage <sub>CUSTOM</sub>
+## Customize & manage<br>CUSTOM
 
 </div>
 
 <div align="center">
 
-Save your wording as templates: one click, title + body, done.<br>
-Pin up to 5, delete with one confirm.<br>
-Separate storage — upgrades never eat yours.
-
-**👇 The new-template dialog.**
+**👇 Add a custom prompt template.**
 
 <img src="../assets/readme/06-custom-manage.png" width="560" alt="Custom management: new custom template dialog" style="border:1px solid #30363d;border-radius:6px">
 
@@ -206,96 +145,23 @@ Separate storage — upgrades never eat yours.
 
 <div align="center">
 
-## Privacy <sub>PRIVACY</sub>
-
-</div>
-
-<div align="center">
-
-Templates and counts stay local. Zero network reports.<br>
-Removing the plugin removes the data.
-
-</div>
-
-**Local diagnostic log (off by default, written to your own machine only)**
-
-When you are troubleshooting, the plugin can write a structured log to `<DSH home>/logs/dsh-prompt/YYYY-MM-DD.log` (on Windows: `C:\Users\<you>\.dsh\logs\dsh-prompt\`). The switch lives in **Settings → Plugins → Prompt Templates** and is off by default: with it off only errors, warnings and key traces (resident events such as startup and panel-open) are recorded; turning it on adds the rest of info and debug. The host is authoritative, so refreshing the page does not change the value.
-
-- **Template names and prompt bodies are never recorded.** A line carries the event name, its level, counts, booleans, durations and short irreversible hashes only; a template is identified by an 8-character hash. The field whitelist lives in `event-list.dsh-prompt.json`, and both the client and the host drop anything outside it before it can reach the file.
-- **Nothing is ever reported automatically.** Logs stay on your disk; they leave the plugin only when you click "导出日志" (downloads a file) or "复制正文" (copies to the clipboard).
-- **Automatic rotation and retention**: one file per day; once today's file passes 5 MB it is atomically sealed as `YYYY-MM-DD.N.log` and a fresh one is started, and files older than the last 14 days are deleted automatically. Both are the upstream dsh-log defaults — this plugin adds no knobs of its own.
-- **The "清空日志" button (two-step confirmation) deletes the log files from before today.** Today's writable file is protected by the engine and is never removed; the note reports how many files were deleted.
-- **Want a look yourself?** `npx dsh-log tail <that directory>` reads it right in the terminal (`--level warn`, `--since 1h`, `-f`, `--json`), and `npx dsh-log export <directory>` prints a directory digest (file list, level and event counts, startup header). Both are read-only and write nothing.
-- A failing log pipeline never breaks the plugin: an unwritable directory degrades to the system temp directory, and a second failure stops writing entirely with a single warning on stderr.
-
-<div align="center">
-
-## FAQ <sub>FAQ</sub>
-
-</div>
-
-### Still the old version after updating?
-
-<details>
-<summary>Show answer</summary>
-
-Install once from the official registry (desktop users: swap `--profile web` for `--profile desktop`):
-
-```bash
-dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs.org
-```
-
-Then restart your entry.<br>
-Desktop: fully quit and reopen.<br>
-Web: restart and hard-refresh (Ctrl+F5).
-
-</details>
-
-### No Prompt button after install?
-
-<details>
-<summary>Show answer</summary>
-
-Check the plugin went into your entry's profile (wrong profile = silent no-op).<br>
-Desktop app → `--profile desktop`; web service → `--profile web`.<br>
-Then restart that entry once.
-
-</details>
-
-### Where are custom templates stored? Uploaded anywhere?
-
-<details>
-<summary>Show answer</summary>
-
-Local browser storage, never uploaded.<br>
-Switching browsers or wiping data loses them — back up favorites.
-
-</details>
-
-<div align="center">
-
 ## More from the author <sub>MORE</sub>
 
 </div>
 
-<div align="center">
-
 If you like this one, these may help too:
-
-**[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** — 34 classic opencode themes for DSH, one click to reskin
-
-**[dsh-plugin-ui-debug](https://github.com/FeatherHunter/dsh-plugin-ui-debug)** — closed-loop UI debugging for DSH plugins with a real headless Chrome
 
 **[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** — 25 engineering skill packs, callable right from the panel
 
-**[dsh-chinese-skill-patch](https://github.com/FeatherHunter/dsh-chinese-skill-patch)** — use Chinese skill names in DSH directly, no English renames
+**[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** — 34 classic opencode themes for DSH, one click to reskin, survives restarts
 
----
+**[ilife](https://github.com/FeatherHunter/ilife)** — love life: a home-life kit for DSH, seven independently installable plugins in one repo
 
-Questions, ideas? [Open an ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues) — usage chat, template ideas, requests and bugs all welcome
+**[dsh-im-companion](https://github.com/FeatherHunter/dsh-im-companion)** — enhances dsh-im with the notions of assistants and homes: see at a glance which workspace has an assistant on duty and whether it is online; moving is one drag
 
-A personal project, not affiliated with DeepSeek Harness.
-MIT © FeatherHunter
+<div align="center">
+
+Questions, ideas, IDEs, inspiration, or just a chat: [open an ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)🌹
 
 </div>
 
@@ -307,12 +173,10 @@ MIT © FeatherHunter
 
 <div align="left">
 
-Thanks to everyone who filed issues, sent PRs, or starred the repo — you make this toolbox better, bit by bit.
+Thanks to everyone who filed issues, sent PRs, or starred the repo — you make this toolbox better, bit by bit. Thank you so much! 🎉🎉🎉🎉🎉🎉🎉🎉🎉
 
 [@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) runtime styles missing attribution (fixed), [#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) dependency declaration stalling plugins as pending, [#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) remote tier resetting the whole UI to 14px when turned off (fixed)
 
 [@jheroy](https://github.com/jheroy)🌹 — [#165](https://github.com/FeatherHunter/dsh-prompt/issues/165) hiding preset templates, plus finalizing the button design and interaction details
-
-File an issue, send a PR, or share your custom templates — your name lands here.
 
 </div>

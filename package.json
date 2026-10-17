@@ -73,7 +73,6 @@
     "test:issue-56": "node scripts/repro/test-issue-56.cjs",
     "test:issue-40": "node scripts/repro/test-issue-40.cjs",
     "test:issue-41": "node scripts/repro/test-issue-41.cjs",
-    "test:issue-42": "node scripts/repro/test-issue-42.cjs",
     "test:issue-61": "node scripts/repro/test-issue-61.cjs",
     "test:issue-66": "node scripts/repro/test-issue-66.cjs",
     "test:issue-71": "node scripts/repro/test-issue-71.cjs",

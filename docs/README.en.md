@@ -151,9 +151,9 @@ Type `/prompt` in the box to get a pick list.<br>
 
 If you like this one, these may help too:
 
-**[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** — 25 engineering skill packs, callable right from the panel
+**[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** — 27 engineering skill packs, callable right from the panel
 
-**[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** — 34 classic opencode themes for DSH, one click to reskin, survives restarts
+**[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** — 38 classic opencode themes for DSH, one click to reskin, survives restarts
 
 **[ilife](https://github.com/FeatherHunter/ilife)** — love life: a home-life kit for DSH, seven independently installable plugins in one repo
 

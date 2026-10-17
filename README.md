@@ -153,9 +153,9 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 喜欢这个插件的话，这些可能你也用得上：
 
-**[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** —— 25 个工程技能包，面板上直接调用，无需手动装技能
+**[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** —— 27 个工程技能包，面板上直接调用，无需手动装技能
 
-**[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** —— 34 款 opencode 经典配色一键换装 DSH，即点即换，重启不丢
+**[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** —— 38 款 opencode 经典配色一键换装 DSH，即点即换，重启不丢
 
 **[ilife](https://github.com/FeatherHunter/ilife)** —— 爱生活：DSH 里的居家生活套件，一个仓库七个可独立安装的插件
 

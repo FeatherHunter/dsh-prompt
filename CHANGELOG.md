@@ -2,6 +2,19 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
+## [0.4.30] - 2026-10-17
+
+### Fixed
+
+- **插件在 profile 里一直 pending**（#147，@wqzhellohhwy 报障）：宿主运行时包 `@deepseek-ai/dsh-storage-domain` 原写在本插件 dependencies 里，用户 profile 会因此多出一份 0.2.0-rc.2 副本；profile 是加载器根，宿主自己那行会解析到这份副本，DSH 0.2.1 线 app-boot 的兼容门按副本的 peer 精确版本比对运行版本，对不上就禁用该行 → storageDomain 服务缺失 → dsh-prompt 永远 pending（桌面端靠 profile 里的 pnpm overrides 侥幸躲开，宿主不会替用户写这条）。现改为 peerDependencies（`>=0.2.0-rc.2`）+ optional，本地开发/测试的解析交给 devDependencies：全新 profile 装包不再出现副本，带旧副本的 profile 升级后由 pnpm 清掉，两条路径都实测干净启动。新增 ADR-0009 与门禁 `check:host-deps`（别名 `test:issue-147`，7 个变异全拦）。
+
+### Changed
+
+- 更新通道依赖 dsh-plugin-update 跟到上游最新 0.18.7（构建门禁自动跟进）。
+- README 中英同步精简：删去折叠块、隐私与诊断日志、FAQ 等冗余章节，两版逐节对齐；安装命令里的锁定版本号更新到 0.4.30。
+- 致谢区按全部 Issue / PR 重新核对（中英同步）。
+- 仓库内部整理（对使用无影响）：客户端 25 个文件按 ADR-0008 改名与拆包（`panel.ts` 2393 行拆成 remote-grid / remote-mode / remote-draft / panel-visibility / prompt-trigger 等），根目录归位（spec-109 规格进 docs/、删掉 publish.cmd），退役 `test:issue-42` 门禁。
+
 ## [0.4.29] - 2026-10-16
 
 ### Fixed

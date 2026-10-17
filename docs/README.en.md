@@ -113,6 +113,8 @@ dsh.cli = 0.2.0-rc.2
 dsh.desktop = 2.0.9
 ```
 
+The plugin never lists host runtime packages (the `@deepseek-ai/dsh-*` packages the DSH host itself provides) in `dependencies`; it declares them as optional `peerDependencies` only. Your profile gets no private copy, so the "copy disagrees with the host version → the compatibility gate disables the host row → the plugin stays pending" failure cannot happen ([#147](https://github.com/FeatherHunter/dsh-prompt/issues/147)). The 0.2.1-alpha line is not verified — this fix only changes the dependency declaration, not the supported version surface.
+
 <div align="center">
 
 ## Way 1 · Prompt button <sub>PROMPT BUTTON</sub>

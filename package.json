@@ -101,6 +101,7 @@
     "test:issue-134-gate": "node scripts/check-bilingual-134.mjs",
     "test:issue-142": "node scripts/repro/test-issue-142.cjs",
     "test:issue-146": "node scripts/repro/test-issue-146.cjs",
+    "test:issue-147": "node scripts/check-host-deps.mjs",
     "test:issue-148": "node scripts/repro/test-issue-148.cjs",
     "test:issue-149": "node scripts/repro/test-issue-149.cjs",
     "test:issue-156": "node scripts/check-color-scale-156.mjs",
@@ -125,6 +126,7 @@
     }
   },
   "devDependencies": {
+    "@deepseek-ai/dsh-storage-domain": "^0.2.0-rc.2",
     "@types/node": "^26.5.0",
     "dsh-plugin-update": "0.18.7",
     "esbuild": "^0.28.2",
@@ -141,8 +143,15 @@
     "url": "git+https://github.com/FeatherHunter/dsh-prompt.git"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-storage-domain": "^0.2.0-rc.2",
     "dsh-log": "^0.3.4",
     "zod": "^4.5.4"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-storage-domain": ">=0.2.0-rc.2"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-storage-domain": {
+      "optional": true
+    }
   }
 }

@@ -115,6 +115,8 @@ dsh.cli = 0.2.0-rc.2
 dsh.desktop = 2.0.9
 ```
 
+插件不把宿主运行时包（DSH 宿主自己提供的 `@deepseek-ai/dsh-*`）写进 `dependencies`，只声明可选的 `peerDependencies`：profile 里不会再装出一份副本，也就不会出现「副本与宿主版本对不上 → 兼容门禁用宿主那一行 → 插件 pending」的故障（[#147](https://github.com/FeatherHunter/dsh-prompt/issues/147)）。0.2.1-alpha 线未验证——这次修的只是依赖声明，不是版本支持面。
+
 <div align="center">
 
 ## 入口一 · Prompt 按钮 <sub>PROMPT BUTTON</sub>

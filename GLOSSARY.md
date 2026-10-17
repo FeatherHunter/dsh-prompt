@@ -106,6 +106,12 @@ _Avoid_: responsive layout, auto layout, 自适应 (as a bare word)
 The user-configurable rule deciding whether the large list follows the system orientation or locks to landscape or portrait.
 _Avoid_: orientation (as a bare word), rotation, 方向 (as a bare word)
 
+### Packaging and dependencies
+
+**Host Runtime Package**:
+A package the DSH host itself provides at runtime (the @deepseek-ai/dsh* family and the Cordis framework). The plugin may consume one, but never ships its own copy into a profile: it declares the package as an optional peer and keeps only a local development copy.
+_Avoid_: DSH package (as a loose synonym), host dependency, bundled dependency
+
 ### Language and identity
 
 **Locale**:

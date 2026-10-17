@@ -6,6 +6,10 @@
 
 本仓库构建的、可发布到 npm 并随 `dsh plugin add` 安装进 DSH profile 的扩展包。装配机制（bundle：`cordis.patch.yml` + 构建产物）与发布管线（npm + GitHub Release 双通道）参照 `dsh-opencode-palette` 的写法，但两者是相互独立的插件。
 
+## 宿主运行时包 (host runtime package)
+
+DSH 宿主自己提供的运行时包（`@deepseek-ai/dsh-*` 一族与 `@deepseek-ai/cordis`）。插件可以消费它，但绝不能把副本装进 profile：只允许声明为可选的 peerDependencies，本地开发 / 测试用的副本放 devDependencies。写进 dependencies 会让 profile 里多出一份副本、遮住宿主那一行；与宿主版本线错开时被兼容门禁用，插件因 storageDomain 服务缺席而 pending（见 `docs/adr/0009-host-runtime-packages-optional-peer.md`）。
+
 ## prompt 工具箱 (prompt toolbox)
 
 本插件的产品形态：一个按钮展开的预制 / 自定义 prompt 清单，点击即插入当前对话输入框。与「主题调色板」（dsh-opencode-palette，配色切换）无关。

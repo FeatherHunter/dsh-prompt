@@ -37,10 +37,10 @@ npm install -g @deepseek-ai/dsh
 dsh plugin --profile web add dsh-prompt     # 用自启 web 服务（dsh web）
 #     或者
 dsh plugin --profile desktop add dsh-prompt   # 用 DSH Desktop 桌面应用
-# 锁定最新版更稳（当前 0.2.0）：
-dsh plugin --profile web add dsh-prompt@0.2.0 --registry https://registry.npmjs.org
+# 锁定最新版更稳（当前 0.4.30）：
+dsh plugin --profile web add dsh-prompt@0.4.30 --registry https://registry.npmjs.org
 #     或者
-dsh plugin --profile desktop add dsh-prompt@0.2.0 --registry https://registry.npmjs.org
+dsh plugin --profile desktop add dsh-prompt@0.4.30 --registry https://registry.npmjs.org
 ```
 
 <div align="center">
@@ -177,7 +177,9 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 感谢每一位提交 Issue、PR 与Star的朋友，是你们让这个工具箱一点点变好。万分感谢！🎉🎉🎉🎉🎉🎉🎉🎉🎉
 
-[@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) 运行时样式缺归属（已修）、[#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) 依赖声明拖累插件 pending、[#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) 关远程档整机字号被打回 14px（已修）
+[@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) 运行时样式缺归属（已修）、[#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) 依赖声明拖累插件 pending（已修）、[#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) 关远程档整机字号被打回 14px（已修）
+
+[@dagangwo](https://github.com/dagangwo)🌹 — [#175](https://github.com/FeatherHunter/dsh-prompt/issues/175) 悬浮列表最上边一项选不到、窗口自动关闭（待复现）
 
 [@jheroy](https://github.com/jheroy)🌹 — [#165](https://github.com/FeatherHunter/dsh-prompt/issues/165) 屏蔽预制模板需求，并拍板按钮方案与交互细节
 

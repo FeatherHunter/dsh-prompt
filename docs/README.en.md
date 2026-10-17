@@ -35,10 +35,10 @@ npm install -g @deepseek-ai/dsh
 dsh plugin --profile web add dsh-prompt       # self-hosted web service (dsh web)
 #     or
 dsh plugin --profile desktop add dsh-prompt   # DSH Desktop app
-# Pin a version for stability (current 0.2.0):
-dsh plugin --profile web add dsh-prompt@0.2.0 --registry https://registry.npmjs.org
+# Pin a version for stability (current 0.4.30):
+dsh plugin --profile web add dsh-prompt@0.4.30 --registry https://registry.npmjs.org
 #     or
-dsh plugin --profile desktop add dsh-prompt@0.2.0 --registry https://registry.npmjs.org
+dsh plugin --profile desktop add dsh-prompt@0.4.30 --registry https://registry.npmjs.org
 ```
 
 <div align="center">
@@ -175,7 +175,9 @@ Questions, ideas, IDEs, inspiration, or just a chat: [open an ISSUE](https://git
 
 Thanks to everyone who filed issues, sent PRs, or starred the repo — you make this toolbox better, bit by bit. Thank you so much! 🎉🎉🎉🎉🎉🎉🎉🎉🎉
 
-[@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) runtime styles missing attribution (fixed), [#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) dependency declaration stalling plugins as pending, [#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) remote tier resetting the whole UI to 14px when turned off (fixed)
+[@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) runtime styles missing attribution (fixed), [#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) dependency declaration stalling plugins as pending (fixed), [#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) remote tier resetting the whole UI to 14px when turned off (fixed)
+
+[@dagangwo](https://github.com/dagangwo)🌹 — [#175](https://github.com/FeatherHunter/dsh-prompt/issues/175) hover list: the topmost entry cannot be selected and the window closes on its own (awaiting repro)
 
 [@jheroy](https://github.com/jheroy)🌹 — [#165](https://github.com/FeatherHunter/dsh-prompt/issues/165) hiding preset templates, plus finalizing the button design and interaction details
 

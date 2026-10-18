@@ -2,6 +2,12 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写（更新面板按此渲染“更新说明”），`Unreleased` 面板忽略。
 
+## [0.4.34] - 2026-10-18
+
+### Changed
+
+- 版本号推进，无功能变化：供升级通道测试使用。README 安装命令锁定版本号更新到 0.4.34（中英同步）；致谢区按全部 Issue / PR 重核：无新增贡献者（除维护者外仍是 @wqzhellohhwy 三朵🌹、@dagangwo 与 @jheroy 各一朵🌹），排序不变。
+
 ## [0.4.33] - 2026-10-18
 
 ### Changed

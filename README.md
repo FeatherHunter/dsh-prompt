@@ -4,9 +4,8 @@
 
 **中文** · [English](docs/README.en.md)
 
-**将所有重复的Prompt变成模板。**
-24 条深度模板，点击一下即可注入到对话框中。<br>
-装好即用，可自定义。
+**将所有重复的Prompt变成模板。**<br>
+点击一下即可注入到对话框中。
 
 你的 ⭐ 是我夜空中最亮的星。
 
@@ -182,5 +181,21 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 [@dagangwo](https://github.com/dagangwo)🌹 — [#175](https://github.com/FeatherHunter/dsh-prompt/issues/175) 悬浮列表最上边一项选不到、窗口自动关闭（待复现）
 
 [@jheroy](https://github.com/jheroy)🌹 — [#165](https://github.com/FeatherHunter/dsh-prompt/issues/165) 屏蔽预制模板需求，并拍板按钮方案与交互细节
+
+</div>
+
+<div align="center">
+
+## DSH 插件交流群 <sub>GROUP</sub>
+
+</div>
+
+<div align="center">
+
+扫码加入话题群——二维码永久有效。日常闲聊与快速答疑走群里，Bug 与需求请直接提 [ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)，更高效可追溯。
+
+**👇 飞书扫码，加入 DSH 插件交流群。**
+
+<img src="assets/readme/09-feishu-group.png" width="280" alt="DSH插件交流群飞书二维码" style="border:1px solid #30363d;border-radius:6px">
 
 </div>

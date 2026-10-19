@@ -26,6 +26,20 @@ function eq(a, b, msg) {
   else ok(msg);
 }
 function readSrc(rel) { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); }
+/**
+ * 探上游包的**内部**模块（候选路径依次试）。
+ * 上游 0.18.33 做过一次「只动内部布局」的目录拆分（dist/config.js → dist/shared/config.js 等），
+ * 公开导出子路径与导出名一字未动；本门禁要的是内部那两个函数（buildPhoneNames / http 助手），
+ * 内部搬家不该变成「门禁红但看不出为什么」——探不到就报人话，探到了就继续。
+ */
+async function importUpstream(candidates, what) {
+  for (const rel of candidates) {
+    const abs = path.join(ROOT, 'node_modules', 'dsh-plugin-update', rel);
+    if (!fs.existsSync(abs)) continue;
+    return await import(pathToFileURL(abs).href);
+  }
+  fail('上游包里找不到 ' + what + '（试过：' + candidates.join(' / ') + '）——上游内部布局又变了，按新位置补候选路径');
+}
 function quotedAfter(src, needle, where) {
   const i = src.indexOf(needle);
   if (i < 0) fail('找不到 ' + needle + '（' + where + '）');
@@ -102,7 +116,7 @@ const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 
   if (!updateHttpSrc.includes("UPDATE_PLUGIN_ID = 'dsh-prompt'")) fail('update-client.ts PLUGIN_ID 应为 dsh-prompt');
   if (!updateHttpSrc.includes("UPDATE_PREFIX = 'prompt'")) fail('update-client.ts PREFIX 应为 prompt');
   if (!updateHttpSrc.includes("UPDATE_BASE_URL = '/_dsh/dsh-prompt/update'")) fail('update-client.ts BASE_URL 不对');
-  const { resolveHttpPath, shapeHttpReply } = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'http.js')).href);
+  const { resolveHttpPath, shapeHttpReply } = await importUpstream(['dist/http.js', 'dist/host/http.js'], 'http 助手（resolveHttpPath / shapeHttpReply）');
   const httpOpts = { prefix: 'prompt', baseUrl: '/_dsh/dsh-prompt/update', routes: { updateStatus: 'status', updateCheck: 'check', updateInstall: 'install', updateChangelog: 'changelog' } };
   eq(resolveHttpPath(httpOpts, 'prompt.updateStatus'), ROUTES.status, 'http status 落点');
   eq(resolveHttpPath(httpOpts, 'prompt.updateCheck'), ROUTES.check, 'http check 落点');
@@ -111,7 +125,7 @@ const SNAPSHOT_FIELDS = ['runningVersion', 'installedVersion', 'latestVersion', 
   ok('update-http 三要素经 resolveHttpPath 与宿主四条路由逐字一致');
 
   /* ── 3) 电话名与配置三要素 ── */
-  const { buildPhoneNames } = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'dsh-plugin-update', 'dist', 'config.js')).href);
+  const { buildPhoneNames } = await importUpstream(['dist/shared/config.js', 'dist/config.js'], 'buildPhoneNames（电话名构造）');
   eq(buildPhoneNames('prompt'), { updateStatus: 'prompt.updateStatus', updateCheck: 'prompt.updateCheck', updateInstall: 'prompt.updateInstall', updateChangelog: 'prompt.updateChangelog', updateCheckFallback: 'prompt.updateCheckFallback', logAppend: 'prompt.logAppend' }, 'buildPhoneNames(prompt) 口径（0.18.6 六电话：新增 updateCheckFallback 兜底电话 + 日志电话 logAppend）');
   const hostSrc = readSrc('src/update/host/index.ts');
   if (quotedAfter(hostSrc, 'PHONE_PREFIX =', 'host') !== 'prompt') fail('宿主 PHONE_PREFIX 应为 prompt');

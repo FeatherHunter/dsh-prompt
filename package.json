@@ -127,7 +127,7 @@
   "devDependencies": {
     "@deepseek-ai/dsh-storage-domain": "^0.2.0-rc.2",
     "@types/node": "^26.5.0",
-    "dsh-plugin-update": "0.18.25",
+    "dsh-plugin-update": "0.18.32",
     "esbuild": "^0.28.2",
     "marked": "^18.0.9",
     "react": "^18.3.1",

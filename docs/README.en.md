@@ -35,10 +35,10 @@ npm install -g @deepseek-ai/dsh
 dsh plugin --profile web add dsh-prompt       # self-hosted web service (dsh web)
 #     or
 dsh plugin --profile desktop add dsh-prompt   # DSH Desktop app
-# Pin a version for stability (current 0.4.35):
-dsh plugin --profile web add dsh-prompt@0.4.35 --registry https://registry.npmjs.org
+# Pin a version for stability (current 0.4.36):
+dsh plugin --profile web add dsh-prompt@0.4.36 --registry https://registry.npmjs.org
 #     or
-dsh plugin --profile desktop add dsh-prompt@0.4.35 --registry https://registry.npmjs.org
+dsh plugin --profile desktop add dsh-prompt@0.4.36 --registry https://registry.npmjs.org
 ```
 
 <div align="center">

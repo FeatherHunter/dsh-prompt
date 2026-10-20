@@ -106,7 +106,8 @@
     "test:issue-156": "node scripts/check-color-scale-156.mjs",
     "test:issue-158": "node scripts/repro/test-issue-158.cjs",
     "test:issue-165": "node scripts/repro/test-issue-165.cjs",
-    "test:issue-167": "node scripts/check-remote-zoom-167.mjs"
+    "test:issue-167": "node scripts/check-remote-zoom-167.mjs",
+    "test:issue-176": "node scripts/repro/test-issue-176.cjs"
   },
   "dsh": {
     "bundle": {

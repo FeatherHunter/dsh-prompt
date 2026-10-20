@@ -906,7 +906,7 @@ function InkPicker(props: any): any {
             h('span', { key: 'l', style: { fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)', flex: 'none' } }, t('colorPreview')),
             h('span', {
               key: 'n',
-              style: { fontSize: '1em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(value ? { color: value, paddingBlock: 2, marginBlock: -2 } : {}) },
+              style: { fontSize: '1em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(value ? { color: value, paddingBlock: 2, marginBlock: -2, paddingInline: 1, marginInline: -1 } : {}) },
               ...(value && outlineOn ? { [INK_TINT_ATTR]: '' } : {}),
             }, sample),
           ]),
@@ -1925,7 +1925,9 @@ export function TemplateBrowser(props: BrowserProps): any {
         h('span', { style: remoteCardMeta }, [
           // #158：remoteCardTitle 自己就是裁切盒（overflow:hidden）⇒ 上色时给 2px 纵向余量 + 同量负 margin；
           // 外层卡片有 0.5rem 内边距，1px 环落在里面，卡片不动。
-          h('span', { style: { ...remoteCardTitle, flex: 'none', minWidth: 0, ...(ink ? { color: ink, paddingBlock: 2, marginBlock: -2 } : {}) }, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, tpl.name),
+          // #158/#176：remoteCardTitle 自带 overflow:hidden ⇒ 名字自身就是裁切盒，纵向 2px + 横向 1px 余量都补在自己身上
+      // （横向同配方：内边距 +1px、同量负 margin ⇒ 文字不位移、盒的外框尺寸不变）。
+      h('span', { style: { ...remoteCardTitle, flex: 'none', minWidth: 0, ...(ink ? { color: ink, paddingBlock: 2, marginBlock: -2, paddingInline: 1, marginInline: -1 } : {}) }, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, tpl.name),
           h('span', { style: remoteCardIntro }, intro),
         ]),
         h('span', { style: remoteCardFoot }, [
@@ -2142,7 +2144,10 @@ export function TemplateBrowser(props: BrowserProps): any {
         // #71 用量徽标：行最右（操作按钮之后、最末尾），样式不变
         // #158：1px 外环在裁切盒（本行内层，overflow:hidden）的 padding box 上会被切平 ⇒ 上色时给 2px 纵向余量、
         // 同量负 margin 抵消（margin 盒不变，多出的 1px 环落在行根自己的 3px padding 里）。未上色的行一字不动。
-        h('span', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden', ...(ink ? { paddingBlock: 2, marginBlock: -2 } : {}) } }, [
+        // #176：同一个环的**左缘**也压在裁切线上 —— 名字是本裁切盒的第一个子节点，字形左边界离文字原点不到 1px 时
+        // 环的左半圈被削掉（每行第一个字看着「少了几个像素点」）⇒ 横向照纵向的配方补 1px 内边距 + 同量负 margin：
+        // 文字不位移、盒的外框尺寸不变（margin 盒抵消），环的左半圈回到裁切矩形内。理由见 research/ink-stroke-rendering.md §2.2。
+        h('span', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden', ...(ink ? { paddingBlock: 2, marginBlock: -2, paddingInline: 1, marginInline: -1 } : {}) } }, [
           h('span', { style: { flex: 'none', fontSize: '0.95em', color: ink || base, fontWeight: 600, whiteSpace: 'nowrap' }, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, x.name),
           h('span', { style: { flex: '0 1 auto', minWidth: 0, fontSize: '0.8em', color: muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }, ...(templateLabels(x).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, displayLabelString(x, lang)),
           h('span', { style: { flex: '1 1 auto', minWidth: 0, fontSize: '0.85em', color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, intro),
@@ -2169,9 +2174,10 @@ export function TemplateBrowser(props: BrowserProps): any {
       ]),
       h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden' } }, [
         // #158：nmStyle 自身与这一行都是裁切盒 ⇒ 上色时两处各给 2px 纵向余量（负 margin 抵消，行高预算不动）。
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', ...(ink ? { paddingBlock: 2, marginBlock: -2 } : {}) } }, [
+        // #176：横向同理，两处裁切盒都要补 1px 横向余量（内边距 + 同量负 margin ⇒ 文字不位移、外框不变）。
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', ...(ink ? { paddingBlock: 2, marginBlock: -2, paddingInline: 1, marginInline: -1 } : {}) } }, [
           h('span', { style: { flex: 'none', fontSize: '0.75em', color: dim, width: '1.2em', textAlign: 'center', lineHeight: 1 }, 'aria-hidden': 'true' }, expanded.has(x.id) ? '▾' : '▸'),
-          h('span', { style: ink ? { ...nmStyle, color: ink, paddingBlock: 2, marginBlock: -2 } : nmStyle, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, x.name),
+          h('span', { style: ink ? { ...nmStyle, color: ink, paddingBlock: 2, marginBlock: -2, paddingInline: 1, marginInline: -1 } : nmStyle, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, x.name),
           h('span', { style: tagStyle, ...(templateLabels(x).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, displayLabelString(x, lang)),
         ]),
         expanded.has(x.id) ? h('span', { style: subStyle }, (x.body || '').slice(0, 44) + '…') : null,

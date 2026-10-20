@@ -386,8 +386,9 @@ export function SmartCardHost(props: any): any {
       h('span', { style: rowNum }, String(rows.length - i)),
       // #158：rowName 自己是裁切盒（overflow:hidden）⇒ 上色时给 2px 纵向余量 + 同量负 margin；
       // 行容器本来就有 3px 纵向内边距（> 1px 环），不必动。
-      // #176：横向同理 —— 名字自身的裁切盒补 1px 横向余量（+ 同量负 margin），环的左缘不再被削平。
-      h('span', { style: ink ? { ...rowName, color: ink, paddingBlock: 2, marginBlock: -2, paddingInline: 1, marginInline: -1 } : rowName, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, c.tpl.name),
+      // #176：横向同理 —— 名字自身的裁切盒补 2px 横向余量（+ 同量负 margin），环的左缘不再被削平。
+      // 补 2px 而不是 1px：环宽 1px，1px 恰好等于环宽时环的外缘正压裁切线，子像素栅格化下 AA 外溢会被削掉一截。
+      h('span', { style: ink ? { ...rowName, color: ink, paddingBlock: 2, marginBlock: -2, paddingInline: 2, marginInline: -2 } : rowName, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, c.tpl.name),
       // #142：标签段走显示映射（后缀已翻不动；混合串数据段由门禁 dataWords 剔除覆盖，不拆节点）
       h('span', { style: rowTag, ...(templateLabels(c.tpl).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, [
         displayLabelString(c.tpl, lang), ' ',

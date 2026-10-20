@@ -132,6 +132,7 @@
    - 落到本仓：`src/client/panel.ts:1628`、`src/client/panel.ts:1654`、`src/client/smart.ts:355-359` 这 3 个"裁切宿主"各加 `paddingBlock: 2, marginBlock: -2`（名字 span 不动，或只补横向 `marginInline:-1`）。`remoteCardTitle`（`src/client/panel.ts:1281-1284`）与 `nmStyle`/`rowName` 自身也 `overflow:hidden`，它们**自己**也各加一份。
 2. **行高预算**：padding 只把 border box 撑大（实测 `selfRowP` 行盒 17→19），配等量负 margin 后**外边距盒不变**⇒ 行根（`src/client/panel.ts:1620`，`padding:3px 6px`，不裁）的布局高度不变，多出来的 1–2px 环正好落在行根自己的 3px padding 里，不会压到相邻行。**不加负 margin** 则每行 +4px（深色面 23px 行高 +17%），这就是唯一需要盯的预算项。
 3. 横向（截断那头）：`text-overflow:ellipsis` 的 `…` 与被截断文本同属一个文本 run，`text-shadow`/`-webkit-text-stroke` 一起作用在 `…` 上；`…` 右缘的 1px 外环同样会被裁平。横向补偿同上（`paddingInline:1px; marginInline:-1px` 给裁切宿主），代价是行内兄弟文本少 2px 宽度（`flex:1 1 auto` 的简介会吸收）。实测横向损失全是 AA 边像素（左侧带 0 个实心像素 / 11 个 AA 像素），**视觉上可忽略**。
+   > **更正（2026-10-20，issue #176）**：本条的「视觉上可忽略」在真机上**不成立** —— 合成 harness 测的是 1/1.25/1.5 三档 device scale factor，真机 175% 下每行**第一个字左缘**的 1px 环被裁切盒削掉一半（保留 52%），100% 档下整列被削（保留 0%），肉眼可见「第一个字左边少了几个像素点」。是否被削取决于首字字形左边界离文字原点多远（宽体 CJK 字与拉丁字母会，窄字不会）。**横向补偿的量也改了**：本条写的 1px 不够（环宽 1px 时环外缘正压裁切线，AA 外溢被削；拉丁首名 @150% 只保住 50%）⇒ 落到本仓的是 `paddingInline:2, marginInline:-2`。实测矩阵与修法见 `research/ink-ring-horizontal-clip/findings.md`，契约门禁 `scripts/repro/test-issue-176.cjs`（`npm run check:issue-176`）。
 4. 若只想要"绝不越界"的稳妥解：用八向 1px shadow（`over_bottom` −1.5，盒内还有 1.5px 余量），CJK 名零补偿即可；`st2po` 那条 1px 外环必须靠 §2.2 第 1 条喂余量。
 
 ![裁切对照](assets/ink-stroke/fig3_clip.png)

@@ -189,11 +189,7 @@ Thanks to everyone who filed issues, sent PRs, or starred the repo — you make 
 
 </div>
 
-<div align="center">
-
-## DSH plugin group <sub>GROUP</sub>
-
-</div>
+---
 
 <div align="center">
 
@@ -203,11 +199,7 @@ Thanks to everyone who filed issues, sent PRs, or starred the repo — you make 
 
 </div>
 
-<div align="center">
-
-## Stars over time <sub>STAR HISTORY</sub>
-
-</div>
+---
 
 <div align="center">
 

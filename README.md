@@ -190,11 +190,7 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 </div>
 
-<div align="center">
-
-## DSH 插件交流群 <sub>GROUP</sub>
-
-</div>
+---
 
 <div align="center">
 
@@ -204,11 +200,7 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 </div>
 
-<div align="center">
-
-## 星标增长 <sub>STAR HISTORY</sub>
-
-</div>
+---
 
 <div align="center">
 

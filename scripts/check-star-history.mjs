@@ -8,7 +8,7 @@
 //   2. 盘上的 SVG 与盘上的 JSON 必须是同一份数据画的（改了数据忘了重画就红）；
 //   3. B3 的双轴视觉契约 + 曲线圆滑契约（两轴各用系列色、横排轴名、无竖排文字、
 //      曲线全是三次段、不造假峰、峰值数字来自数据）；
-//   4. 两页 README 都在 GROUP 之后引用这张图，且带 ?v= 缓存戳（图片代理按 URL 缓存）。
+//   4. 两页 README 都在交流群二维码之后引用这张图，且带 ?v= 缓存戳（图片代理按 URL 缓存）。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -176,13 +176,12 @@ test('docs/star-history.json：日期升序，total 是 daily 的累积和', () 
   }
 })
 
-test('两页 README 都在 GROUP 之后引用星标图，且带 ?v= 缓存戳', () => {
+test('两页 README 都在交流群二维码之后引用星标图，且带 ?v= 缓存戳', () => {
   for (const [name, doc] of [['中文页', ZH], ['英文页', EN]]) {
-    const connect = doc.indexOf('<sub>GROUP</sub>')
+    const qr = doc.indexOf('09-feishu-group.png')
     const at = doc.indexOf(CHART_URL)
-    assert.ok(connect > -1, `${name} 应有 GROUP 段`)
-    assert.ok(at > connect, `${name} 的星标图应落在 GROUP 段之后`)
-    assert.ok(doc.includes('<sub>STAR HISTORY</sub>'), `${name} 应有 STAR HISTORY 段`)
+    assert.ok(qr > -1, `${name} 应有交流群二维码`)
+    assert.ok(at > qr, `${name} 的星标图应落在交流群二维码之后`)
     assert.ok(/star-history\.svg\?v=[0-9]{8}/.test(doc), `${name} 的星标图 URL 应带 ?v= 缓存戳`)
   }
 })

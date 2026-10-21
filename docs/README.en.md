@@ -147,7 +147,7 @@ Each row reads "template name + labels — opening words of the body", so you ca
 
 Up to 3 labels (1–10 characters each, pick from existing words or coin new ones); body up to 10,000 characters.
 
-**👇 Tune the text color one swatch at a time, and outline the template name if you like.**
+**👇 The text color can be changed, and text outline is supported.**
 
 <img src="../assets/readme/07-custom-manage-color.png" width="560" alt="Text color popover: 60 swatches, follow-theme default, text outline toggle" style="border:1px solid #30363d;border-radius:6px">
 

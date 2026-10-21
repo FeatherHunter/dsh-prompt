@@ -39,8 +39,9 @@ const PHONE_PREFIX = 'prompt'
 /**
  * 四条更新路由共同的路径前缀（`/_dsh/dsh-prompt/update`）。从 `./routes.js` 的常量派生，
  * 不写路径字面量 —— 宿主半的路径只有 bridge 一处来源（回归脚本会拦字面量）。
- * 用途仅一个：日志里标「这条失败属于更新路由这一族」（见 index.ts 里那条 capability-degraded
- * 自报；#177 起桥不再用它 —— 桥不再把未镜像事件报成 update.route.fail）。
+ * 现存的落点都在 `lib/index.js`：:614 单条电话失败、:1081 capability 不可用（capability-degraded /
+ * dep-load-fail），用它标「这条失败属于更新路由这一族」；#177 起桥不再用它（桥不再把未镜像事件
+ * 报成 update.route.fail，见 `./bridge-log.js`）。
  */
 export const UPDATE_ROUTE_FAMILY = UPDATE_STATUS_PATH.slice(0, UPDATE_STATUS_PATH.lastIndexOf('/'))
 

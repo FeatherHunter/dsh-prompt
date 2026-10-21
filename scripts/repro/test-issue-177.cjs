@@ -57,7 +57,7 @@ function hash8(value) {
 }
 
 /** 造一个「假更新包 + 记录型日志能力」的宿主能力；返回能力与两个观测口。 */
-async function buildHarness(updateMod, { relogFloorMs } = {}) {
+async function buildHarness(updateMod, { relogFloorMs, now } = {}) {
   const calls = [];
   const logCap = { log(event, fields) { calls.push({ event, fields: fields || {} }); return undefined; } };
   let logCtx = null;
@@ -80,6 +80,7 @@ async function buildHarness(updateMod, { relogFloorMs } = {}) {
     hostUpdate: fakeHostUpdate,
     logReady: Promise.resolve(logCap),
     ...(relogFloorMs === undefined ? {} : { relogFloorMs }),
+    ...(now === undefined ? {} : { now }),
   });
   // bridge 的能力槽经 Promise.then 落地：放一个宏任务，确保 logReady 已生效。
   await new Promise((r) => setImmediate(r));
@@ -214,6 +215,21 @@ async function groupB() {
   h3.fire('warn', 'host.call.fail', { method: 'prompt.updateInstall', kind: 'install-failed', errorHash: 'boom3', pluginId: 'dsh-prompt' });
   eq(emitted(h3.calls, 'host.call.fail').length, 2, 'B) 新状态（新 method/kind）照旧落一条');
 
+  // B6) 补落（R2）：间隔内到达的新成因进队列；之后同一状态再失败时，等够间隔补落**队首成因**的值，
+  // 而不是当前请求的值（#39 复审 R2 的「记账与落盘一致」）。
+  let clock = 0;
+  const h4 = await buildHarness(updateMod, { relogFloorMs: 60000, now: () => clock });
+  h4.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'cause-a', pluginId: 'dsh-prompt' });
+  eq(emitted(h4.calls, 'host.call.fail').length, 1, 'B) 补落：首条必落');
+  clock = 100;
+  h4.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'cause-b', pluginId: 'dsh-prompt' });
+  eq(emitted(h4.calls, 'host.call.fail').length, 1, 'B) 补落：间隔内新成因进队列（本次不刷行）');
+  clock = 61000;
+  h4.fire('warn', 'host.call.fail', { method: 'prompt.updateStatus', kind: 'update-status', errorHash: 'cause-a', pluginId: 'dsh-prompt' });
+  const fails4 = emitted(h4.calls, 'host.call.fail');
+  eq(fails4.length, 2, 'B) 补落：等够间隔后队首成因补落一条');
+  if (fails4[1]) eq(fails4[1].fields.errorHash, hash8('cause-b'), 'B) 补落落的是队首成因的值（不是当前请求的值）');
+
   // B5) 构建产物已把目录快照内联进去（否则运行期已知集为空、修复无从谈起）。
   // 断言目录快照自身的生成标记（gen-event-catalog.mjs），而不是任何更新包里也出现的字符串 ——
   // update.status.changed 这类事件名在包代码里本来就有，用它当「快照被内联」的证据会恒绿。
@@ -225,6 +241,9 @@ async function groupB() {
 
 // ═══ C) 构建期门禁自测（must be able to go red）═══
 async function groupC() {
+  // 本组只写 scripts/repro/.tmp-177（.gitignore 已忽略）：开始前清一次、结束再清一次，
+  // 防止上一次中断留下的半成品让「离线可跑」变成假绿。
+  fs.rmSync(TMP, { recursive: true, force: true });
   const gate = await import(pathToFileURL(GATE_PATH).href);
   const pin = readJson('package.json').devDependencies['dsh-plugin-update'];
   const catalog = JSON.parse(fs.readFileSync(CATALOG_PATH, 'utf8'));
@@ -265,18 +284,28 @@ async function groupC() {
   assert(bad2.status !== 0, 'C) CLI 模拟「提取不到镜像名」非 0 退出（实际 ' + bad2.status + '）');
   assert(String(bad2.stdout + bad2.stderr).trim().length > 0, 'C) CLI 失败时给出人话成因（不静默）');
 
-  // 快照生成脚本离线可用：构建起点（ensure-latest）靠它刷新；输出点名快照路径与事件条数。
-  const genRun = spawnSync(process.execPath, [path.join(ROOT, 'scripts/update/gen-event-catalog.mjs')], {
+  // 快照生成脚本离线可用：构建起点（ensure-latest）靠它刷新；用 --out 写临时路径证明
+  // 「check 链里的回归不改工作树」，并断言生成结果与检入快照逐字节一致（可复现，不是静默修快照）。
+  const repoCatalogRaw = fs.readFileSync(CATALOG_PATH, 'utf8');
+  const genOut = path.join(TMP, 'update-event-catalog.json');
+  const genRun = spawnSync(process.execPath, [path.join(ROOT, 'scripts/update/gen-event-catalog.mjs'), '--out=' + genOut], {
     cwd: ROOT, encoding: 'utf8', timeout: 60000,
   });
   eq(genRun.status, 0, 'C) 快照生成脚本离线可跑（exit 0）');
   assert(String(genRun.stdout).includes('update-event-catalog.json'), 'C) 生成脚本输出点名快照路径');
   assert(String(genRun.stdout).includes('事件'), 'C) 生成脚本输出事件条数');
+  assert(fs.existsSync(genOut), 'C) --out 写到指定临时路径（不依赖仓库相对路径）');
+  if (fs.existsSync(genOut)) {
+    eq(JSON.parse(fs.readFileSync(genOut, 'utf8')), catalog, 'C) 生成结果与检入快照内容一致（可复现）');
+  }
+  assert(fs.readFileSync(CATALOG_PATH, 'utf8') === repoCatalogRaw, 'C) 生成脚本写 --out 时不碰检入快照（check 链不改工作树）');
 
   // 门禁提取/派生本身：镜像事件名从 switch case 标签派生，目录从 events 表派生。
   eq(gate.extractMirrorEvents(bridgeSource), ['host.call', 'host.call.fail', 'update.install.exec'], 'C) 镜像事件名从桥的 switch case 标签提取');
   eq(gate.deriveKnownEvents(manifest), Object.keys(manifest.events).sort(), 'C) 已知事件集从包目录的 events 表派生');
   eq(gate.extractMirrorEvents('// 没有 case\n'), [], 'C) 提取不到时返回空数组（调用方据此 fail-closed）');
+
+  fs.rmSync(TMP, { recursive: true, force: true });
 }
 
 (async () => {

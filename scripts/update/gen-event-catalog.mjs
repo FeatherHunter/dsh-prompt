@@ -14,11 +14,13 @@
  *   所以自动跟最新（ADR-0003 修订 / #98）不需要任何额外人工步骤；快照与 `lib/` 一样检入、
  *   由 `check-lib-sync` 保证「提交的快照 == 用当前输入重建的结果」。
  *   手跑：npm run gen:update-catalog（排查 / 离线时用）。
+ * `--out=路径`：写到指定文件（门禁自测用临时路径，**不重写检入快照**；check 链要能证明
+ *   「生成脚本离线可用且不碰工作树」）。
  * 前置：node_modules 里的 dsh-plugin-update 版本必须 == package.json 的钉版（先 npm ci /
  *   npm run ensure:update-pkg）；对不上就 exit 1，不猜。
  */
-import { writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   CATALOG_REL,
@@ -33,6 +35,19 @@ const EXACT_RE = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/
 function die(message) {
   console.error('gen-event-catalog: ' + message)
   process.exit(1)
+}
+
+/** 默认写检入快照；`--out=` 给门禁自测写临时文件（不碰工作树）。 */
+let outArg = null
+for (const arg of process.argv.slice(2)) {
+  const m = /^--out=(.*)$/.exec(arg)
+  if (m) { outArg = m[1]; continue }
+  if (arg === '--help' || arg === '-h') {
+    console.log('用法：node scripts/update/gen-event-catalog.mjs [--out=路径]')
+    console.log('  --out=路径  写到指定文件（缺省 ' + CATALOG_REL + '，检入快照）')
+    process.exit(0)
+  }
+  die('不认识的参数 ' + JSON.stringify(arg))
 }
 
 const pkg = readJsonOrNull(join(ROOT, 'package.json'))
@@ -64,8 +79,10 @@ const catalog = {
   updateVersion: pin,
   events,
 }
-const outPath = join(ROOT, CATALOG_REL)
+const outPath = outArg ? resolve(outArg) : join(ROOT, CATALOG_REL)
+const outShown = outArg ? outPath : CATALOG_REL
 const previous = readJsonOrNull(outPath)
+mkdirSync(dirname(outPath), { recursive: true })
 writeFileSync(outPath, JSON.stringify(catalog, null, 2) + '\n', 'utf8')
 
 const before = previous && Array.isArray(previous.events) ? previous.events : []
@@ -74,7 +91,7 @@ const removed = before.filter((name) => !events.includes(name))
 const versionNote = previous && previous.updateVersion !== pin
   ? '，版本 ' + JSON.stringify(previous.updateVersion) + ' → ' + JSON.stringify(pin)
   : ''
-console.log('ok: 已写 ' + CATALOG_REL + '（更新包 ' + pin + '，事件 ' + events.length + ' 条' + versionNote + '）')
+console.log('ok: 已写 ' + outShown + '（更新包 ' + pin + '，事件 ' + events.length + ' 条' + versionNote + '）')
 if (added.length > 0) console.log('  新增事件：' + added.join(', '))
 if (removed.length > 0) console.log('  移除事件：' + removed.join(', '))
 if (added.length === 0 && removed.length === 0 && versionNote === '') {

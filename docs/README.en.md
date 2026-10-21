@@ -159,13 +159,17 @@ Type `/prompt` or `/p` in the box.<br>
 
 </div>
 
-**[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** — 27 engineering skill packs, callable right from the panel
+<div align="left">
 
-**[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** — 38 classic opencode themes for DSH, one click to reskin, survives restarts
+**[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** — the whole mattpocock/skills set (nearly 300k stars) pre-installed: 27 skill packs, ready out of the box
 
-**[ilife](https://github.com/FeatherHunter/ilife)** — love life: a home-life kit for DSH, seven independently installable plugins in one repo
+**[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** — 38 classic opencode themes + 20+ custom themes, one click to reskin DSH
 
-**[dsh-im-companion](https://github.com/FeatherHunter/dsh-im-companion)** — enhances dsh-im with the notions of assistants and homes: see at a glance which workspace has an assistant on duty and whether it is online; moving is one drag
+**[dsh-im-companion](https://github.com/FeatherHunter/dsh-im-companion)** — adds the notions of "assistants" and "homes" to dsh-im
+
+**[ilife](https://github.com/FeatherHunter/ilife)** — ⚠️under construction⚠️ love life: a home-life suite covering accounting, exercise, diet, weight, recipes, item management, routine planning, memos, and more
+
+</div>
 
 <div align="center">
 

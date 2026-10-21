@@ -90,17 +90,13 @@ dsh plugin --profile web remove dsh-prompt   # uninstall
 
 <div align="center">
 
-Move the mouse onto the "Prompt" button left of the input box and the list opens by itself — preset templates are hidden by default, so you first see the ones you made.
+Move the mouse onto the "Prompt" button left of the input box and the list opens by itself — the official 24 preset templates plus the ones you made, with scope, labels, search and usage counts on one screen.
 
 **👇 One click on the button and the panel looks like this.**
 
-<img src="../assets/readme/02-panel-button-only-custom.png" width="640" alt="Prompt button hover panel with preset templates hidden: custom templates only" style="border:1px solid #30363d;border-radius:6px">
-
-Hit "Show presets" in the bottom bar and the official 24 preset templates all unfold; "Hide presets" tucks them away again.
-
-**👇 The panel with presets expanded: scope, labels, search and usage counts on one screen.**
-
 <img src="../assets/readme/02-panel-button.png" width="640" alt="Prompt button hover panel with scope and label filters, template list, and a one-click hide-presets button" style="border:1px solid #30363d;border-radius:6px">
+
+Hit "Hide presets" in the bottom bar and the official presets tuck away, leaving only the ones you made; "Show presets" unfolds them again.
 
 </div>
 
@@ -154,6 +150,10 @@ Up to 3 labels (1–10 characters each, pick from existing words or coin new one
 **👇 Tune the text color one swatch at a time, and outline the template name if you like.**
 
 <img src="../assets/readme/07-custom-manage-color.png" width="560" alt="Text color popover: 60 swatches, follow-theme default, text outline toggle" style="border:1px solid #30363d;border-radius:6px">
+
+**👇 After you add your own prompts and pick text colors, the panel shows just your templates — one glance each.**
+
+<img src="../assets/readme/02-panel-button-only-custom.png" width="640" alt="Prompt button hover panel with preset templates hidden: custom templates only" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 

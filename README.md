@@ -91,17 +91,13 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-鼠标移到输入框左侧的「Prompt」按钮，列表自动展开——预制模板默认收起，先列自己攒的模板。
+鼠标移到输入框左侧的「Prompt」按钮，列表自动展开——官方 24 条预制模板和自己攒的模板都在这里，范围、标签、搜索、用量一屏全在。
 
 **👇 按钮一点，面板长这样。**
 
-<img src="assets/readme/02-panel-button-only-custom.png" width="640" alt="Prompt 按钮悬浮面板：预制模板已收起，只显示自定义模板" style="border:1px solid #30363d;border-radius:6px">
-
-点底栏「展示预制模板」，官方 24 条预制模板就全铺开了；再点「屏蔽预制模板」又收回去。
-
-**👇 展开预制模板后的面板：范围、标签、搜索、用量一屏全在。**
-
 <img src="assets/readme/02-panel-button.png" width="640" alt="Prompt 按钮悬浮面板：范围与标签筛选、模板列表、底栏一键屏蔽预制模板" style="border:1px solid #30363d;border-radius:6px">
+
+点底栏「屏蔽预制模板」，官方预制就收起来，只留自己攒的；再点「展示预制模板」又全铺开。
 
 </div>
 
@@ -155,6 +151,10 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 **👇 文字颜色逐个调，还能给模板名加一圈描边。**
 
 <img src="assets/readme/07-custom-manage-color.png" width="560" alt="文字颜色浮层：60 色可选、默认跟随主题、文字描边开关" style="border:1px solid #30363d;border-radius:6px">
+
+**👇 自定义提示词、配好文字颜色之后，面板里就只剩自己攒的模板，一眼一个。**
+
+<img src="assets/readme/02-panel-button-only-custom.png" width="640" alt="Prompt 按钮悬浮面板：预制模板已收起，只显示自定义模板" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 

@@ -12,6 +12,11 @@
  *   一致 = 绿（构建是确定性的，磁盘上不会有净变化）。
  *   不一致 = 红，逐个点名差在哪个产物的第几行，并给出修法（重新构建并提交产物）。
  *
+ * 除 lib/ 构建产物外，还核对 #177 的**构建期派生快照**
+ * `src/update/host/update-event-catalog.json`：它由构建起点（ensure-latest → gen-event-catalog）
+ * 从实装更新包的事件目录重新生成，与 `lib/update.js` 一样必须「提交的 == 用当前输入重建的」，
+ * 否则运行期的已知事件集可能与内联版本不一致。
+ *
  * 跑法：npm run test:lib-sync
  */
 import { spawnSync } from 'node:child_process'
@@ -23,7 +28,13 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const SNAP = join(ROOT, 'scripts', '.rt-tmp-libsync')
 
 /** 构建产物（lib/index.js 是检入的源码、不构建，见 scripts/build.mjs 的头注）。 */
-const ARTIFACTS = ['lib/client.js', 'lib/update.js']
+const ARTIFACTS = [
+  'lib/client.js',
+  'lib/update.js',
+  // #177：不是 lib/ 产物，但同样由构建起点从构建期输入重新生成 —— 必须一起比对，
+  // 否则「手改快照 / 升了更新包没重建」会静默漂移。
+  'src/update/host/update-event-catalog.json',
+]
 
 /** 行尾归一：本仓 `.gitattributes` 钉了 eol=lf，但工具在 Windows 上可能写出 CRLF，比对时不因此判红。 */
 const norm = (s) => String(s).replace(/\r\n?/g, '\n')
@@ -69,7 +80,7 @@ rmSync(SNAP, { recursive: true, force: true })
 if (bad.length) {
   console.error('\n=== 不合格：检入的 lib/ 与当前 src/ 不同步 ===')
   for (const l of bad) console.error(l)
-  console.error('\n修法：跑 `npm run build`，把重新生成的 lib/ 一起提交。')
+  console.error('\n修法：跑 `npm run build`，把重新生成的 lib/ 与 #177 事件目录快照一起提交。')
   console.error('（否则测试全绿、发出去的却是旧的 bundle —— 这正是本门禁要拦的事。）')
   process.exit(1)
 }

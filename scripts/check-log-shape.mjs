@@ -190,7 +190,7 @@ async function drain(cap, home, expectEvent) {
   const withBogusCounts = dshLogHost.parseEventListManifest({ ...manifest, counts: { resident: 999, ondemand: 0, selfmon: 0 } });
   eq(dshLogHost.computeEventCounts(withBogusCounts), counts, '自报 counts 被忽略：计数一律现算');
   const names = Object.keys(parsed.events);
-  assert(names.length === 47, `事件条数 47 → 实际 ${names.length}`);
+  assert(names.length === 48, `事件条数 48 → 实际 ${names.length}`);
   const actualKinds = { resident: 0, ondemand: 0, selfmon: 0 };
   for (const n of names) actualKinds[parsed.events[n].kind] += 1;
   // #39 整改加了三条更新能力的宿主侧事件：host.call、update.install.exec、update.route.fail（都属 resident）。
@@ -204,7 +204,9 @@ async function drain(cap, home, expectEvent) {
   // 理由是它一直就是常驻的：包内固定常驻表（43 条，DSH 侧单源）里就有同名事件，而写侧判定是
   // 「包内固定 ∪ 清单里 kind === 'resident'」的并集 —— 清单写 ondemand 只是与真实行为不符；
   // 声明成 resident 后，行为不再依赖一次同名撞车（上游哪天从固定表里删掉它，本仓行为也不变）。
-  eq(actualKinds, { resident: 34, ondemand: 8, selfmon: 5 }, '三类 kind 计数');
+  // #177 加一条 update.bridge.unknown-event（info/resident，只带 errorHash）：目录外事件自报取代
+  // 旧的 update.route.fail/unknown-event 折行，总数 47→48、resident 34→35。
+  eq(actualKinds, { resident: 35, ondemand: 8, selfmon: 5 }, '三类 kind 计数');
   eq(counts, actualKinds, 'computeEventCounts 与逐条数出来的一致（清单里不再有会腐烂的自报 counts）');
 
   let fieldBad = 0;
@@ -288,7 +290,7 @@ async function drain(cap, home, expectEvent) {
   const cap2 = await mod.createLogCapability({ env: { DSH_HOME: home2 } });
   // 0.3.x 起开关管不住常驻事件：包内 isEnabled(level, event) 先看级别、再看常驻集合
   // （包内固定 43 条 ∪ 调用方清单里 kind === 'resident' 的事件），最后才问开关。
-  // 本仓 47 条里 34 条 resident —— app.boot 正是常驻 info，关着开关也必须落盘（否则启动轨迹会缺）。
+  // 本仓 48 条里 35 条 resident —— app.boot 正是常驻 info，关着开关也必须落盘（否则启动轨迹会缺）。
   // 反例样本要挑「清单 ondemand + 不在包内固定表」的事件：host.log.batch 满足（panel.open 不满足，
   // 它跟包内固定表同名，照样常驻 —— §1 的计数注释里记了这笔）。
   cap2.log('app.boot', { hasReact: true, lang: 'zh', entryCount: 5 });
@@ -475,7 +477,8 @@ async function drain(cap, home, expectEvent) {
   const PENDING_CALL_SITES = ['settings.smart.toggle'];
   // #39 整改新加的三条更新事件（host.call / update.install.exec / update.route.fail）都住在
   // src/update/host/index.ts 与 lib/index.js 里，调用点用字面量事件名（下面这条扫描能看见）。
-  const CALL_RE = /\b(?:log\w*|\w*Log)(?:\?\.)?\(\s*['"]([a-zA-Z0-9._]+)['"]\s*,\s*\{([^}]*)\}/g;
+  // #177 的 update.bridge.unknown-event 住在 src/update/host/bridge-log.ts，同样是字面量调用。
+  const CALL_RE = /\b(?:log\w*|\w*Log)(?:\?\.)?\(\s*['"]([a-zA-Z0-9._-]+)['"]\s*,\s*\{([^}]*)\}/g;
   const seen = new Map(); // 事件名 → [字段名]
   const scanTargets = [...sourceFiles, path.join(ROOT, 'lib', 'client.js')];
   for (const file of scanTargets) {
@@ -662,6 +665,9 @@ async function drain(cap, home, expectEvent) {
   eq(enumGate.filter('update.route.fail', { route: '/_dsh/dsh-prompt/update/status', reason: 'check-expired', errorHash: 'deadbeef' }).fields,
     { route: '/_dsh/dsh-prompt/update/status', reason: 'check-expired', errorHash: 'deadbeef' },
     'ENUM 正常值逐字通过：update.route.fail（含 30 字符路由）');
+  eq(enumGate.filter('update.bridge.unknown-event', { errorHash: 'deadbeef' }).fields,
+    { errorHash: 'deadbeef' },
+    'ENUM 正常值逐字通过：update.bridge.unknown-event（#177 自报只带指纹）');
   eq(enumGate.filter('panel.open', { mode: 'compact', rows: 3 }).fields,
     { mode: 'compact', rows: 3 },
     'ENUM 正常值逐字通过：panel.open');

@@ -36,11 +36,21 @@
  * `existsSync`，看不出区别。现在打包完立刻校验产物（见 `productProblem`）：内联标记在、
  * 没有对更新包的裸导入、版本标记与 `devDependencies` 对得上；不满足就**拒收**（把构建前的产物放回去）
  * 并 exit 1。测试那条闸门（`test:issue-39`）仍在，但不再是人唯一能撞上的门。
+ *
+ * ## #177：更新包事件目录快照
+ *
+ * 桥要区分「更新包目录内的正常日志事件」与「目录外漂移」，靠构建期冻结的事件目录快照
+ * `src/update/host/update-event-catalog.json`。快照由构建起点自动刷新 —— `ensure-latest.mjs`
+ * 在「同版直通 / 跟到新版」两条成功路径上都先跑 `gen-event-catalog.mjs`，所以自动跟最新（#98）
+ * 依然零人工步骤；本脚本打包前再验「快照 == 本次内联版本 == 实装包目录」「桥镜像事件名 ⊆ 目录」，
+ * 不满足就拒建（fail-closed，上游改名/删除必须人工确认）。快照与 `lib/` 一样检入，
+ * `check-lib-sync` 保证「提交的快照 == 重建结果」，`check:update-catalog` 是这条门禁的只读自查口。
  */
 import { spawnSync } from 'node:child_process'
 import { build } from 'esbuild'
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { catalogProblem, readGateInputs } from './event-catalog-gate.mjs'
 
 // 入口 / 产物 / 工作目录都钉在**本文件所在仓库**上：脚本从哪个 cwd 跑都行，且产物逐字节一致。
 // 上一版写的是 cwd 相对路径（'src/update/host/index.ts' / 'lib/update.js'），在仓根外裸跑直接 exit 1
@@ -105,6 +115,22 @@ function productProblem(bundle) {
       + '，devDependencies 钉的是 ' + JSON.stringify(inlinedVersion) + '（两份不一致，产物会标错版本）'
   }
   return null
+}
+
+// #177 门禁（构建期硬门，fail-closed）：更新包事件目录快照 + 桥镜像事件名必须在打包前对齐。
+// 快照由构建起点刷新（上面的 ensure 步骤会调 gen-event-catalog.mjs）：同版直通与跟到新版都会先
+// 重新生成，所以这里读到的是「本次内联版本」的目录。门禁只负责拦下真异常 —— 快照/镜像名对不上
+// （人工改坏、上游事件改名/删除，或 ensure 被绕过直接跑本脚本），绝不静默通过。
+const gateInputs = readGateInputs(ROOT)
+const catalogGateProblem = catalogProblem({ ...gateInputs, inlinedVersion })
+if (catalogGateProblem !== null) {
+  console.error('build-host: #177 更新包事件目录门禁拒建 —— 不是打包失败，是构建期输入没对齐。')
+  console.error('  成因：' + catalogGateProblem)
+  console.error('  为什么这道门是硬的：桥按目录快照区分「正常事件（静默）」与「目录外漂移（每进程一次 info 自报）」，')
+  console.error('  快照与包目录 / 桥镜像名对不上时，运行期要么误报正常事件（#177），要么把真实的上游改名吞掉。')
+  console.error('  修法：npm run gen:update-catalog 重新生成快照（构建起点会自动跑；这里拒建说明输入没对齐或上游改名），')
+  console.error('  若是上游事件改名/删除，先对照 node_modules/dsh-plugin-update/event-list.update.json 人工确认再改桥。')
+  process.exit(1)
 }
 
 // 构建前的产物留一份：门禁不通过时放回去，免得盘上躺着一份降级产物等人误提交。

@@ -15,6 +15,11 @@
  *   上游不可达（离线）→ **警告后用本地钉版继续**（开发态不断构建）；发版安全由
  *   `npm run check:update-pkg` 把门（exit 2 = 不算通过，必须人工确认，见 #101）。
  *
+ * 【#177 快照刷新】同版直通 / 跟进成功后，都会先跑 `gen-event-catalog.mjs` 把「本次内联版本的
+ * 事件目录快照」（src/update/host/update-event-catalog.json）重新生成再继续 —— 这样自动跟最新
+ * （ADR-0003 修订 / #98）不需要任何额外人工步骤，快照也不会与内联版本脱节（gen 失败 = 不硬建）。
+ * 离线路径同样尝试刷新；失败只警告，交给构建期门禁兜底（输入不一致就拒建，不静默通过）。
+ *
  * 跑法：`npm run ensure:update-pkg`（`build:update-host` 会先调它，不用手跑）。
  */
 import { spawnSync } from 'node:child_process'
@@ -25,6 +30,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const PKG_NAME = 'dsh-plugin-update'
 const EXACT_RE = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/
+const GEN_CATALOG_SCRIPT = join(dirname(fileURLToPath(import.meta.url)), 'gen-event-catalog.mjs')
 
 const readPkg = () => JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
 const readInstalled = () => {
@@ -45,6 +51,26 @@ const cmpTriple = (a, b) => {
   return 0
 }
 
+/**
+ * #177：把事件目录快照对齐到本次内联版本（gen 自己校验 installed == pin，对不上会 exit 1）。
+ * required = true 时失败即不硬建；false 时只警告（离线路径），由构建期门禁兜底。
+ */
+function syncEventCatalogSnapshot({ required }) {
+  console.log('--- 刷新更新包事件目录快照（#177）---')
+  const g = spawnSync(process.execPath, [GEN_CATALOG_SCRIPT], { cwd: ROOT, stdio: 'inherit' })
+  if (g.error || g.status !== 0) {
+    const why = g.error ? g.error.message : '退出码 ' + g.status
+    if (required) {
+      console.error('ensure:update-pkg: 事件目录快照没能按本次内联版本刷新（' + why + '）——不硬建。')
+      process.exit(1)
+    }
+    console.error('⚠ 事件目录快照没能刷新（' + why + '）——继续；构建期门禁会拦下不一致的输入。')
+    return false
+  }
+  console.log('=== 事件目录快照已对齐本次内联版本 ===')
+  return true
+}
+
 const pinned0 = readPkg().devDependencies?.[PKG_NAME]
 if (typeof pinned0 !== 'string' || !EXACT_RE.test(pinned0)) {
   console.error('ensure:update-pkg: devDependencies 里 ' + PKG_NAME + ' 必须是精确版本，实为 ' + JSON.stringify(pinned0))
@@ -60,6 +86,7 @@ if (r.error || r.status !== 0) {
   console.error('')
   console.error('⚠ 查不到上游版本（' + (r.error ? r.error.message : 'npm view 退出码 ' + r.status) + '）——'
     + '用本地钉版 ' + pinned0 + ' 继续构建。本次产物**不保证最新**，发版前必须跑 npm run check:update-pkg。')
+  syncEventCatalogSnapshot({ required: false })
   process.exit(0)
 }
 const latest = String(r.stdout || '').trim().split('\n').pop().trim()
@@ -67,6 +94,7 @@ console.log('  上游 latest: ' + latest)
 
 if (readInstalled() === latest && pinned0 === latest) {
   console.log('=== 同版：直通构建 ===')
+  syncEventCatalogSnapshot({ required: true })
   process.exit(0)
 }
 if (cmpTriple(pinned0, latest) > 0) {
@@ -90,3 +118,4 @@ if (pinned1 !== latest || installed1 !== latest) {
   process.exit(1)
 }
 console.log('=== 已跟到 ' + latest + '，继续构建 ===')
+syncEventCatalogSnapshot({ required: true })

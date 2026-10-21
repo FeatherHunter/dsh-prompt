@@ -15,13 +15,17 @@
  * 不引入第二套级别语义。**字段名也不做第二道白名单**：白名单的权威是日志能力的闸门
  * （`lib/log/gate.js`），这里按名字逐个挑字段等于在闸门前面又立一道白名单 —— 上游字段一改名就在
  * 桥里被无声裁掉，而闸门的 `droppedFields` 恒 0，字段漂移变成零可观测（#39 复审 V3）。桥只判
- * **事件名**：包里那三条走原样转交（字段名一个不动），其余一律走 unknown-event 自报。
- * 清单没声明的事件（包升版新加）不静默丢：落一条 `update.route.fail`（reason = unknown-event）。
+ * **事件名**：包里那三条走原样转交（字段名一个不动）；包里其余**目录内**事件（`update.status.changed`
+ * 等正常轨迹；目录 = 构建期内联版本的 `update-event-catalog.json` 快照）静默不转 —— 它们是正常事件，
+ * 不是漂移（#177 的核心修复）。只有目录**外**的事件（包升版新加、清单没声明）才每进程一次落
+ * `update.bridge.unknown-event`（info/resident，只带事件名指纹）；#177 之前这里把所有未镜像事件
+ * 都报成 `update.route.fail`（reason = unknown-event，warn），正常轮询被误报成路由失败。
  *
  * #39 在这条链上的三层防护（**都在值这一侧，字段名一个不动**）：
  * - **语义白名单**（H1，一票否决项）：见 `safe-values.ts` 的 `SAFE_FIELD_ENUM` / `safeFields`。
  * - **失败落盘节流**（H2/K3，本文件）：见 `noteFail` / `clearFails` / `DEFAULT_RELOG_FLOOR_MS`。
- * - 事件名漂移自报：`unknown-event` 只落一次（事件名漂移是**状态**，不是每次调用都会变的事实）。
+ * - 事件名漂移自报：`update.bridge.unknown-event` 每进程只落一次，且只对**目录外**事件
+ *   （事件名漂移是**状态**，不是每次调用都会变的事实；#177）。
  */
 
 /**
@@ -33,7 +37,16 @@ export interface UpdateLogCtx {
   fire(level: string, event: string, fields?: Record<string, unknown>): void
 }
 import { hash8 } from './error-fingerprint.js'
-import { safeFields, UPDATE_ROUTE_FAMILY } from './safe-values.js'
+import { safeFields } from './safe-values.js'
+import updateEventCatalog from './update-event-catalog.json'
+
+/**
+ * 本次构建内联的更新包**事件目录快照**（#177）：构建期由 `npm run gen:update-catalog` 从
+ * `node_modules/dsh-plugin-update/event-list.update.json` 派生、随产物冻结；构建期门禁
+ * （`scripts/update/event-catalog-gate.mjs`）校验它与包目录 / 镜像事件名的一致性。
+ * 目录内事件 = 正常轨迹（桥不镜像也**不自报**）；目录外事件才走每进程一次的自报出口。
+ */
+const KNOWN_UPDATE_EVENTS: ReadonlySet<string> = new Set(updateEventCatalog.events)
 
 /** 日志能力的形状（本能力只用到 `log`；`lib/index.js` 传进来的那个实例满足它）。 */
 export interface LogCapability {
@@ -102,7 +115,7 @@ export function createBridgeLog(
   const relogFloorMs = typeof clock?.relogFloorMs === 'number' && clock.relogFloorMs >= 0
     ? clock.relogFloorMs
     : DEFAULT_RELOG_FLOOR_MS
-  /** unknown-event 自报只落一次：事件名漂移是**状态**，不是每次调用都会变的事实（同复审 V1 的处置）。 */
+  /** 目录外事件自报（update.bridge.unknown-event）每进程只落一次：事件名漂移是**状态**，不是每次调用都会变的事实（同复审 V1 的处置）。 */
   let unknownReported = false
   /** 已落过盘的电话失败状态（键见 failKeyOf）：持续失败不再每请求刷一行。 */
   const failedStates = new Map<string, FailState>()
@@ -243,14 +256,16 @@ export function createBridgeLog(
             cap.log('update.install.exec', { ...safe })
             return
           }
-          default:
-            // 包升版新加的事件：清单里没有，落盘会被闸门按「未声明事件」丢掉 —— 那就留一条可见的
-            // 自报，别让「包的日志契约变了」这件事无声通过（事件名本身不落盘，只落稳定指纹）。
+          default: {
+            // 更新包**目录内**的已知事件（update.status.changed / update.poll 等正常轨迹）：桥不镜像它们，
+            // 也**不再自报** —— 它们不是漂移，报出去就是 #177 的误报（warn 绕过日志开关，每进程一条）。
+            if (KNOWN_UPDATE_EVENTS.has(String(event ?? ''))) return
+            // 真目录外事件（包升版新加、清单没声明）：落盘会被闸门按「未声明事件」丢掉 —— 那就留一条
+            // 可见的自报，别让「包的日志契约变了」这件事无声通过（事件名本身不落盘，只落稳定指纹）。
             if (unknownReported) return
             unknownReported = true
-            cap.log('update.route.fail', {
-              route: UPDATE_ROUTE_FAMILY, reason: 'unknown-event', errorHash: hash8(String(event ?? '')),
-            })
+            cap.log('update.bridge.unknown-event', { errorHash: hash8(String(event ?? '')) })
+          }
         }
       } catch (e) { /* 记日志失败不许影响安装 */ }
     },

@@ -33,3 +33,15 @@
 `test-issue-39` 第 1 段不再认写死的版本号（只认精确格式 + 三处一致），`check:update-pkg`
 转为发版门。不变的是：内联形态、精确记录、banner 版本标记、三处一致门禁、离线不硬建。
 回溯凭据：产物 banner 的 `INLINED_UPDATE_PKG_VERSION` + `package.json` 精确值 + lock。
+
+## 修订（#177，2026-10-21）：构建期派生的事件目录快照
+
+更新包的日志事件名集合也随内联版本冻结：构建起点由 `scripts/update/gen-event-catalog.mjs`
+把实装版本的 `event-list.update.json` 派生成检入快照 `src/update/host/update-event-catalog.json`，
+随 `lib/update.js` 一起内联冻结。`ensure-latest.mjs` 在「同版直通 / 跟到新版」两条成功路径上都会
+先刷新它，所以#98 的「自动跟最新」仍不需要任何额外人工步骤（离线跟不动时尝试刷新，失败只警告，
+由构建期门禁兜底）。不变式靠三道门：`build-host.mjs` 打包前验「快照 == 本次内联版本 == 实装包目录」
+且「桥镜像事件名 ⊆ 目录」（上游改名/删除 → fail-closed，人工确认）；`check-lib-sync` 把快照纳入
+「重建后逐字节一致」，忘提交快照会红；`check:update-catalog`（挂在 `npm run check` 链上）是同一门禁的
+只读自查口。桥运行时据此区分目录内正常事件（静默）与目录外漂移（每进程一次 info
+`update.bridge.unknown-event`，只落事件名指纹）。

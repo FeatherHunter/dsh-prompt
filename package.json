@@ -34,6 +34,7 @@
     "build": "node scripts/build.mjs",
     "build:client": "tsdown",
     "build:update-host": "node scripts/update/build-host.mjs",
+    "gen:update-catalog": "node scripts/update/gen-event-catalog.mjs",
     "ensure:update-pkg": "node scripts/update/ensure-latest.mjs",
     "prepare": "npm run build",
     "check:update-pkg": "node scripts/check-update-pkg.mjs",
@@ -44,14 +45,16 @@
     "check:bilingual-134": "node scripts/check-bilingual-134.mjs",
     "check:locale-137": "node scripts/check-locale-137.mjs",
     "check:update-inline-39": "node scripts/check-update-inline-39.mjs",
+    "check:update-catalog": "node scripts/update/event-catalog-gate.mjs",
     "check:log-shape": "node scripts/check-log-shape.mjs",
     "check:host-deps": "node scripts/check-host-deps.mjs",
     "check:color-scale-156": "node scripts/check-color-scale-156.mjs",
     "check:issue-176": "node scripts/repro/test-issue-176.cjs",
+    "check:issue-177": "node scripts/repro/test-issue-177.cjs",
     "check:remote-zoom-167": "node scripts/check-remote-zoom-167.mjs",
     "check:marketplace-readme": "node scripts/check-marketplace-readme.mjs",
     "check:target-tree": "node scripts/check-target-tree.mjs --expect=target",
-    "check": "npm run typecheck && npm run check:lib-sync && npm run check:modal && npm run check:issue-14 && npm run check:bottom-up && npm run check:bilingual-134 && npm run check:locale-137 && npm run check:update-inline-39 && npm run check:log-shape && npm run check:host-deps && npm run check:color-scale-156 && npm run check:issue-176 && npm run check:remote-zoom-167 && npm run check:marketplace-readme && npm run check:update-pkg && npm run check:target-tree",
+    "check": "npm run typecheck && npm run check:update-catalog && npm run check:lib-sync && npm run check:modal && npm run check:issue-14 && npm run check:bottom-up && npm run check:bilingual-134 && npm run check:locale-137 && npm run check:update-inline-39 && npm run check:log-shape && npm run check:host-deps && npm run check:color-scale-156 && npm run check:issue-176 && npm run check:issue-177 && npm run check:remote-zoom-167 && npm run check:marketplace-readme && npm run check:update-pkg && npm run check:target-tree",
     "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck:host",
     "typecheck:host": "tsc -p tsconfig.host.json",
     "test:lib-sync": "node scripts/check-lib-sync.mjs",
@@ -108,7 +111,8 @@
     "test:issue-158": "node scripts/repro/test-issue-158.cjs",
     "test:issue-165": "node scripts/repro/test-issue-165.cjs",
     "test:issue-167": "node scripts/check-remote-zoom-167.mjs",
-    "test:issue-176": "node scripts/repro/test-issue-176.cjs"
+    "test:issue-176": "node scripts/repro/test-issue-176.cjs",
+    "test:issue-177": "node scripts/repro/test-issue-177.cjs"
   },
   "dsh": {
     "bundle": {

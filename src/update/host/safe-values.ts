@@ -25,7 +25,7 @@
  * 这类真实取值**逐字不受影响**。
  *
  * 代价（如实记进 resolution）：包升版加新码 / 本仓加新路由时会先变成指纹，需要一条自报兜住
- * —— 形态与既有的 `unknown-event` 自报同一路：先有指纹可查，再把新取值补进表里。
+ * —— 形态与既有的 `update.bridge.unknown-event` 自报同一路：先有指纹可查，再把新取值补进表里。
  */
 
 import { UPDATE_CHANGELOG_PATH, UPDATE_CHECK_PATH, UPDATE_INSTALL_PATH, UPDATE_STATUS_PATH } from './routes.js'
@@ -39,8 +39,8 @@ const PHONE_PREFIX = 'prompt'
 /**
  * 四条更新路由共同的路径前缀（`/_dsh/dsh-prompt/update`）。从 `./routes.js` 的常量派生，
  * 不写路径字面量 —— 宿主半的路径只有 bridge 一处来源（回归脚本会拦字面量）。
- * 用途仅一个：日志里标「这条失败属于更新路由这一族」（见 bridge-log.ts 的 default 分支与
- * index.ts 里那条 capability-degraded 自报）。
+ * 用途仅一个：日志里标「这条失败属于更新路由这一族」（见 index.ts 里那条 capability-degraded
+ * 自报；#177 起桥不再用它 —— 桥不再把未镜像事件报成 update.route.fail）。
  */
 export const UPDATE_ROUTE_FAMILY = UPDATE_STATUS_PATH.slice(0, UPDATE_STATUS_PATH.lastIndexOf('/'))
 
@@ -53,11 +53,15 @@ const SAFE_EXEC_ROUTES: readonly string[] = ['cli-process', 'desktop-service', '
 const SAFE_UPDATE_ROUTES: readonly string[] = [
   UPDATE_STATUS_PATH, UPDATE_CHECK_PATH, UPDATE_INSTALL_PATH, UPDATE_CHANGELOG_PATH, UPDATE_ROUTE_FAMILY,
 ]
-/** 请求级 `update.route.fail` 的 reason：包 `toUpdateErrorPayload` 的已知码 + 本仓的四个自报码。 */
+/**
+ * 请求级 `update.route.fail` 的 reason：包 `toUpdateErrorPayload` 的已知码 + 本仓宿主侧的自报码。
+ * #177 起这里不再有 `unknown-event` —— 那条 reason 属于「桥把未镜像事件报成路由失败」的旧语义；
+ * 现在未镜像的目录内事件静默、目录外事件走 `update.bridge.unknown-event`，route.fail 回归真实失败。
+ */
 const SAFE_REASONS: readonly string[] = [
   'check-failed', 'invalid-release', 'check-expired', 'update-busy', 'install-failed', 'unknown-profile',
   'source-install', 'invalid-installation', 'installation-changed', 'pending-restart', 'incompatible-node',
-  'registry-conflict', 'recovery-required', 'unknown-event', 'unknown-phone', 'phone-failed',
+  'registry-conflict', 'recovery-required', 'unknown-phone', 'phone-failed',
   'dep-load-fail', 'capability-degraded', 'capability-build-fail',
 ]
 
@@ -71,6 +75,8 @@ const SAFE_FIELD_ENUM: Record<string, Readonly<Record<string, readonly string[] 
   'host.call.fail': { method: SAFE_METHODS, kind: SAFE_KINDS, pluginId: [PLUGIN_ID], errorHash: 'hash8' },
   'update.install.exec': { route: SAFE_EXEC_ROUTES, pluginId: [PLUGIN_ID] },
   'update.route.fail': { route: SAFE_UPDATE_ROUTES, reason: SAFE_REASONS, errorHash: 'hash8' },
+  // #177：目录外事件自报只带事件名指纹（值域与 route.fail 的 errorHash 同一判据）。
+  'update.bridge.unknown-event': { errorHash: 'hash8' },
 }
 
 /**

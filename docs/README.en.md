@@ -163,8 +163,6 @@ Up to 3 labels (1–10 characters each, pick from existing words or coin new one
 
 </div>
 
-If you like this one, these may help too:
-
 **[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** — 27 engineering skill packs, callable right from the panel
 
 **[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** — 38 classic opencode themes for DSH, one click to reskin, survives restarts
@@ -175,19 +173,17 @@ If you like this one, these may help too:
 
 <div align="center">
 
-Questions, ideas, IDEs, inspiration, or just a chat: [open an ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)🌹
-
-</div>
-
-<div align="center">
-
 ## Thanks <sub>THANKS</sub>
 
 </div>
 
 <div align="left">
 
+Questions, ideas, IDEs, inspiration, or just a chat: [open an ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)🌹
+
 Thanks to everyone who filed issues, sent PRs, or starred the repo — you make this toolbox better, bit by bit. Thank you so much! 🎉🎉🎉🎉🎉🎉🎉🎉🎉
+
+---
 
 [@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) runtime styles missing attribution (fixed), [#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) dependency declaration stalling plugins as pending (fixed), [#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) remote tier resetting the whole UI to 14px when turned off (fixed)
 

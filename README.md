@@ -164,8 +164,6 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 </div>
 
-喜欢这个插件的话，这些可能你也用得上：
-
 **[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** —— 27 个工程技能包，面板上直接调用，无需手动装技能
 
 **[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** —— 38 款 opencode 经典配色一键换装 DSH，即点即换，重启不丢
@@ -176,19 +174,17 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-有任何问题、建议、想法、IDEA、灵感、随谈：欢迎提交 [ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)🌹
-
-</div>
-
-<div align="center">
-
 ## 致谢 <sub>THANKS</sub>
 
 </div>
 
 <div align="left">
 
+有任何问题、建议、想法、IDEA、灵感、随谈：欢迎提交 [ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)🌹
+
 感谢每一位提交 Issue、PR 与Star的朋友，是你们让这个工具箱一点点变好。万分感谢！🎉🎉🎉🎉🎉🎉🎉🎉🎉
+
+---
 
 [@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) 运行时样式缺归属（已修）、[#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) 依赖声明拖累插件 pending（已修）、[#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) 关远程档整机字号被打回 14px（已修）
 

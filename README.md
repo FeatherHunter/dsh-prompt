@@ -146,8 +146,6 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <img src="assets/readme/06-custom-manage.png" width="560" alt="自定义管理：新增自定义模板弹窗（名称、标签、文字颜色、正文）" style="border:1px solid #30363d;border-radius:6px">
 
-标签最多 3 个（每条 1–10 字，可从已有词里挑，也能新造）；正文最多 10000 字。
-
 **👇 文字颜色可以修改，支持文字描边。**
 
 <img src="assets/readme/07-custom-manage-color.png" width="560" alt="文字颜色浮层：60 色可选、默认跟随主题、文字描边开关" style="border:1px solid #30363d;border-radius:6px">

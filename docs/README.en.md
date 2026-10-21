@@ -201,8 +201,6 @@ Thanks to everyone who filed issues, sent PRs, or starred the repo — you make 
 
 <div align="center">
 
-Scan to join — the QR code never expires. Casual chat and quick Q&A in the group; bugs and feature requests go to [ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues) for traceability.
-
 **👇 Scan with Feishu to join the DSH plugin group.**
 
 <img src="../assets/readme/09-feishu-group.png" width="280" alt="Feishu QR for the DSH plugin group" style="border:1px solid #30363d;border-radius:6px">

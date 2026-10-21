@@ -202,8 +202,6 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-扫码加入话题群——二维码永久有效。日常闲聊与快速答疑走群里，Bug 与需求请直接提 [ISSUE](https://github.com/FeatherHunter/dsh-prompt/issues)，更高效可追溯。
-
 **👇 飞书扫码，加入 DSH 插件交流群。**
 
 <img src="assets/readme/09-feishu-group.png" width="280" alt="DSH插件交流群飞书二维码" style="border:1px solid #30363d;border-radius:6px">

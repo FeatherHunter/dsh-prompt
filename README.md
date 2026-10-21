@@ -152,7 +152,7 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <img src="assets/readme/07-custom-manage-color.png" width="560" alt="文字颜色浮层：60 色可选、默认跟随主题、文字描边开关" style="border:1px solid #30363d;border-radius:6px">
 
-**👇 自定义提示词、配好文字颜色之后，面板里就只剩自己攒的模板，一眼一个。**
+**👇 自定义提示词：可配置文字颜色。**
 
 <img src="assets/readme/02-panel-button-only-custom.png" width="640" alt="Prompt 按钮悬浮面板：预制模板已收起，只显示自定义模板" style="border:1px solid #30363d;border-radius:6px">
 

@@ -151,7 +151,7 @@ Up to 3 labels (1–10 characters each, pick from existing words or coin new one
 
 <img src="../assets/readme/07-custom-manage-color.png" width="560" alt="Text color popover: 60 swatches, follow-theme default, text outline toggle" style="border:1px solid #30363d;border-radius:6px">
 
-**👇 After you add your own prompts and pick text colors, the panel shows just your templates — one glance each.**
+**👇 Custom prompts: text color is configurable.**
 
 <img src="../assets/readme/02-panel-button-only-custom.png" width="640" alt="Prompt button hover panel with preset templates hidden: custom templates only" style="border:1px solid #30363d;border-radius:6px">
 

@@ -91,11 +91,17 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-鼠标移到“⚡Prompt 按钮”，列表自动展开。
+鼠标移到输入框左侧的「Prompt」按钮，列表自动展开——预制模板默认收起，先列自己攒的模板。
 
 **👇 按钮一点，面板长这样。**
 
-<img src="assets/readme/02-panel-button.png" width="640" alt="Prompt 按钮悬浮面板：阶段筛选与模板列表" style="border:1px solid #30363d;border-radius:6px">
+<img src="assets/readme/02-panel-button-only-custom.png" width="640" alt="Prompt 按钮悬浮面板：预制模板已收起，只显示自定义模板" style="border:1px solid #30363d;border-radius:6px">
+
+点底栏「展示预制模板」，官方 24 条预制模板就全铺开了；再点「屏蔽预制模板」又收回去。
+
+**👇 展开预制模板后的面板：范围、标签、搜索、用量一屏全在。**
+
+<img src="assets/readme/02-panel-button.png" width="640" alt="Prompt 按钮悬浮面板：范围与标签筛选、模板列表、底栏一键屏蔽预制模板" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -107,12 +113,14 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-输入框敲 `/prompt`，提供选择。<br>
+输入框敲 `/prompt`（更短的 `/p` 也行），提供选择。<br>
 `/prompt 复盘`可以缩小范围。
+
+每行是「模板名 + 标签串 — 正文开头」，一眼认出要哪条。
 
 **👇 /prompt 看到全部模板。**
 
-<img src="assets/readme/03-trigger-prompt.png" width="640" alt="`/prompt` 触发源：输入过滤后的候选列表" style="border:1px solid #30363d;border-radius:6px">
+<img src="assets/readme/03-trigger-prompt.png" width="640" alt="`/prompt` 触发源：模板名 + 标签 + 正文开头的候选列表" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -138,9 +146,15 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-**👇 新增自定义Prompt提示词模板。**
+**👇 新增自定义Prompt提示词模板：名称、标签、文字颜色、正文一次配齐。**
 
-<img src="assets/readme/06-custom-manage.png" width="560" alt="自定义管理：新增自定义模板弹窗" style="border:1px solid #30363d;border-radius:6px">
+<img src="assets/readme/06-custom-manage.png" width="560" alt="自定义管理：新增自定义模板弹窗（名称、标签、文字颜色、正文）" style="border:1px solid #30363d;border-radius:6px">
+
+标签最多 3 个（每条 1–10 字，可从已有词里挑，也能新造）；正文最多 10000 字。
+
+**👇 文字颜色逐个调，还能给模板名加一圈描边。**
+
+<img src="assets/readme/07-custom-manage-color.png" width="560" alt="文字颜色浮层：60 色可选、默认跟随主题、文字描边开关" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -197,5 +211,17 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 **👇 飞书扫码，加入 DSH 插件交流群。**
 
 <img src="assets/readme/09-feishu-group.png" width="280" alt="DSH插件交流群飞书二维码" style="border:1px solid #30363d;border-radius:6px">
+
+</div>
+
+<div align="center">
+
+## 星标增长 <sub>STAR HISTORY</sub>
+
+</div>
+
+<div align="center">
+
+![星标增长曲线（双轴）：左轴累计星标，右轴每日新增](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=20261021)
 
 </div>

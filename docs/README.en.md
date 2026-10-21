@@ -90,11 +90,17 @@ dsh plugin --profile web remove dsh-prompt   # uninstall
 
 <div align="center">
 
-Move the mouse onto the "⚡Prompt button" and the list opens by itself.
+Move the mouse onto the "Prompt" button left of the input box and the list opens by itself — preset templates are hidden by default, so you first see the ones you made.
 
 **👇 One click on the button and the panel looks like this.**
 
-<img src="../assets/readme/02-panel-button.png" width="640" alt="Prompt button hover panel with phase filters and template list" style="border:1px solid #30363d;border-radius:6px">
+<img src="../assets/readme/02-panel-button-only-custom.png" width="640" alt="Prompt button hover panel with preset templates hidden: custom templates only" style="border:1px solid #30363d;border-radius:6px">
+
+Hit "Show presets" in the bottom bar and the official 24 preset templates all unfold; "Hide presets" tucks them away again.
+
+**👇 The panel with presets expanded: scope, labels, search and usage counts on one screen.**
+
+<img src="../assets/readme/02-panel-button.png" width="640" alt="Prompt button hover panel with scope and label filters, template list, and a one-click hide-presets button" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -106,12 +112,14 @@ Move the mouse onto the "⚡Prompt button" and the list opens by itself.
 
 <div align="center">
 
-Type `/prompt` in the box to get a pick list.<br>
+Type `/prompt` in the box to get a pick list (the shorter `/p` works too).<br>
 `/prompt retro` narrows it down.
+
+Each row reads "template name + labels — opening words of the body", so you can tell at a glance which one you want.
 
 **👇 `/prompt` shows every template.**
 
-<img src="../assets/readme/03-trigger-prompt.png" width="640" alt="`/prompt` trigger: filtered candidate list" style="border:1px solid #30363d;border-radius:6px">
+<img src="../assets/readme/03-trigger-prompt.png" width="640" alt="`/prompt` trigger: candidates showing template name, labels and the opening of the body" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -137,9 +145,15 @@ Type `/prompt` in the box to get a pick list.<br>
 
 <div align="center">
 
-**👇 Add a custom prompt template.**
+**👇 Add a custom prompt template: name, labels, text color and body in one dialog.**
 
-<img src="../assets/readme/06-custom-manage.png" width="560" alt="Custom management: new custom template dialog" style="border:1px solid #30363d;border-radius:6px">
+<img src="../assets/readme/06-custom-manage.png" width="560" alt="Custom management: new custom template dialog (name, labels, text color, body)" style="border:1px solid #30363d;border-radius:6px">
+
+Up to 3 labels (1–10 characters each, pick from existing words or coin new ones); body up to 10,000 characters.
+
+**👇 Tune the text color one swatch at a time, and outline the template name if you like.**
+
+<img src="../assets/readme/07-custom-manage-color.png" width="560" alt="Text color popover: 60 swatches, follow-theme default, text outline toggle" style="border:1px solid #30363d;border-radius:6px">
 
 </div>
 
@@ -196,5 +210,17 @@ Scan to join — the QR code never expires. Casual chat and quick Q&A in the gro
 **👇 Scan with Feishu to join the DSH plugin group.**
 
 <img src="../assets/readme/09-feishu-group.png" width="280" alt="Feishu QR for the DSH plugin group" style="border:1px solid #30363d;border-radius:6px">
+
+</div>
+
+<div align="center">
+
+## Stars over time <sub>STAR HISTORY</sub>
+
+</div>
+
+<div align="center">
+
+![Star history chart (dual axis): total stars on the left, daily new stars on the right](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=20261021)
 
 </div>

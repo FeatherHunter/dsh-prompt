@@ -108,10 +108,8 @@ Hit "Hide presets" in the bottom bar and the official presets tuck away, leaving
 
 <div align="center">
 
-Type `/prompt` in the box to get a pick list (the shorter `/p` works too).<br>
+Type `/prompt` or `/p` in the box.<br>
 `/prompt retro` narrows it down.
-
-Each row reads "template name + labels — opening words of the body", so you can tell at a glance which one you want.
 
 **👇 `/prompt` shows every template.**
 

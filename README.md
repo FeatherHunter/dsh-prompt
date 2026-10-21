@@ -109,10 +109,8 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-输入框敲 `/prompt`（更短的 `/p` 也行），提供选择。<br>
+输入框敲 `/prompt` 或者 `/p`。<br>
 `/prompt 复盘`可以缩小范围。
-
-每行是「模板名 + 标签串 — 正文开头」，一眼认出要哪条。
 
 **👇 /prompt 看到全部模板。**
 

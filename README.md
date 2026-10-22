@@ -184,13 +184,13 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 感谢每一位提交 Issue、PR 与Star的朋友，是你们让这个工具箱一点点变好。万分感谢！🎉🎉🎉🎉🎉🎉🎉🎉🎉
 
----
-
-[@wqzhellohhwy](https://github.com/wqzhellohhwy)🌹🌹🌹 — [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) 运行时样式缺归属（已修）、[#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) 依赖声明拖累插件 pending（已修）、[#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) 关远程档整机字号被打回 14px（已修）
-
-[@dagangwo](https://github.com/dagangwo)🌹 — [#175](https://github.com/FeatherHunter/dsh-prompt/issues/175) 悬浮列表最上边一项选不到、窗口自动关闭（待复现）
-
-[@jheroy](https://github.com/jheroy)🌹 — [#165](https://github.com/FeatherHunter/dsh-prompt/issues/165) 屏蔽预制模板需求，并拍板按钮方案与交互细节
+<!-- THANKS-TABLE-ZH-START -->
+| 贡献者 | 致敬 | 贡献 |
+| --- | --- | --- |
+| [@wqzhellohhwy](https://github.com/wqzhellohhwy) | 🌹🌹🌹 | [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) [#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) [#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) |
+| [@dagangwo](https://github.com/dagangwo) | 🌹 | [#175](https://github.com/FeatherHunter/dsh-prompt/issues/175) |
+| [@jheroy](https://github.com/jheroy) | 🌹 | [#165](https://github.com/FeatherHunter/dsh-prompt/issues/165) |
+<!-- THANKS-TABLE-ZH-END -->
 
 </div>
 

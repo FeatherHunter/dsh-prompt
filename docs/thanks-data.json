@@ -1,0 +1,53 @@
+{
+  "_说明": "致谢表的数据源（scripts/update-thanks.mts 唯一读写）。authors 的键是 GitHub 登录名；issues/prs/discussions 存 {n, at}（编号与它诞生的时间，时间一律 UTC 的 ISO，渲染时按编号升序）；comments 存 {n, thread, at}，同一人在同一串下只记一次（留言几次都只算一次参与）；lastActive 是此人全部事项里最晚的时间，门禁会重算核对。cursors 是已扫描到的最大编号：issues 含 PR（两处共用一套编号），discussions 单独一套；脚本只看比游标新的，老的不再碰，合并进来后把游标推到实际看到的最大值，绝不回退。手工补漏直接改这份文件，再跑 node scripts/update-thanks.mts --render-only 只重画表格不联网。",
+  "authors": {
+    "dagangwo": {
+      "comments": [],
+      "discussions": [],
+      "issues": [
+        {
+          "at": "2026-10-17T02:42:59Z",
+          "n": 175
+        }
+      ],
+      "lastActive": "2026-10-17T02:42:59Z",
+      "prs": []
+    },
+    "jheroy": {
+      "comments": [],
+      "discussions": [],
+      "issues": [
+        {
+          "at": "2026-10-16T03:18:46Z",
+          "n": 165
+        }
+      ],
+      "lastActive": "2026-10-16T03:18:46Z",
+      "prs": []
+    },
+    "wqzhellohhwy": {
+      "comments": [],
+      "discussions": [],
+      "issues": [
+        {
+          "at": "2026-10-10T16:26:14Z",
+          "n": 146
+        },
+        {
+          "at": "2026-10-11T07:30:28Z",
+          "n": 147
+        },
+        {
+          "at": "2026-10-11T17:49:08Z",
+          "n": 148
+        }
+      ],
+      "lastActive": "2026-10-11T17:49:08Z",
+      "prs": []
+    }
+  },
+  "cursors": {
+    "discussions": 0,
+    "issues": 177
+  }
+}

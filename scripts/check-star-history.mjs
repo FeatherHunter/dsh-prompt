@@ -14,7 +14,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { aggregateByDay, buildSvg, smoothDaily, chaikin } from './star-history.ts'
+import { aggregateByDay, buildSvg, smoothDaily, chaikin, withZeroStart } from './star-history.ts'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const ZH = readFileSync(join(ROOT, 'README.md'), 'utf8')
@@ -174,6 +174,14 @@ test('docs/star-history.json：日期升序，total 是 daily 的累积和', () 
     running += d.daily
     assert.equal(d.total, running, `${d.date} 的 total 应等于 daily 的累积和`)
   }
+})
+
+test('docs/star-history.json：零星日起点，Daily New 从 0,0 开始', () => {
+  assert.deepEqual(withZeroStart([]), [], '空数组保持空')
+  const first = DATA[0]
+  assert.equal(first.total, 0, '首行 total 应为 0：' + JSON.stringify(first))
+  assert.equal(first.daily, 0, '首行 daily 应为 0：' + JSON.stringify(first))
+  assert.deepEqual(withZeroStart(DATA), DATA, '已有零星行必须幂等返回')
 })
 
 test('两页 README 都在交流群二维码之后引用星标图，且带 ?v= 缓存戳', () => {

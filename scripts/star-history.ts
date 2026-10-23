@@ -50,6 +50,16 @@ export function aggregateByDay(starredAtList: string[]): StarDay[] {
   })
 }
 
+// 零星日起点（同上）。
+export function withZeroStart(days: StarDay[]): StarDay[] {
+  if (!Array.isArray(days) || days.length === 0) return []
+  const first = days[0]
+  if (first.total === 0 && first.daily === 0) return days
+  const prev = new Date(first.date + 'T00:00:00Z')
+  prev.setUTCDate(prev.getUTCDate() - 1)
+  return [{ date: prev.toISOString().slice(0, 10), total: 0, daily: 0 }, ...days]
+}
+
 const FONT = '"Comic Sans MS","Comic Sans","Chalkboard SE","Marker Felt","Segoe Print",cursive'
 const W = 840
 const H = 480

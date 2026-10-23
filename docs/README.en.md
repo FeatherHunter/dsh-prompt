@@ -207,7 +207,7 @@ Thanks to everyone who filed issues, sent PRs, or starred the repo — you make 
 
 <div align="center">
 
-![Star history chart (dual axis): total stars on the left, daily new stars on the right](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=20261023)
+![Star history chart (dual axis): total stars on the left, daily new stars on the right](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=202610232036)
 
 </div>
 

@@ -178,7 +178,7 @@ test('docs/star-history.json：日期升序，total 是 daily 的累积和', () 
 
 test('两页 README 都在交流群二维码之后引用星标图，且带 ?v= 缓存戳', () => {
   for (const [name, doc] of [['中文页', ZH], ['英文页', EN]]) {
-    const qr = doc.indexOf('09-feishu-group.png')
+    const qr = doc.indexOf('contact-feishu-permanent.png')
     const at = doc.indexOf(CHART_URL)
     assert.ok(qr > -1, `${name} 应有交流群二维码`)
     assert.ok(at > qr, `${name} 的星标图应落在交流群二维码之后`)

@@ -195,11 +195,21 @@ Thanks to everyone who filed issues, sent PRs, or starred the repo — you make 
 
 ---
 
+<h2 align="center"><sub>CONNECT</sub><br>Feedback and Contact</h2>
+
 <div align="center">
 
-**👇 Scan with Feishu to join the DSH plugin group.**
+👏Welcome PRs and issues. A single spark can start a prairie fire 🔥. Any suggestion, opinion, idea or rant — come join the group and talk.
 
-<img src="../assets/readme/09-feishu-group.png" width="280" alt="Feishu QR for the DSH plugin group" style="border:1px solid #30363d;border-radius:6px">
+Bugs and feature requests go straight to ISSUEs for better traceability; casual chat and quick Q&A live in the groups.
+
+QQ group is permanent, WeChat group is time-limited, Feishu group is permanent — all three are the DSH plugin community group.
+
+<img src="../assets/readme/contact-qq-permanent.jpg" width="260" alt="DSH plugin community group QQ QR code" style="border:1px solid #30363d;border-radius:6px" /> <img src="../assets/readme/contact-wechat-weekly.png" width="260" alt="DSH plugin community group WeChat QR code" style="border:1px solid #30363d;border-radius:6px" /> <img src="../assets/readme/contact-feishu-permanent.png" width="260" alt="DSH plugin community group Feishu QR code" style="border:1px solid #30363d;border-radius:6px" />
+
+QQ group number 1020866453 — search the number to join if scanning fails.
+
+WeChat QR code is valid for 7 days and refreshed weekly; if expired, use QQ or Feishu instead.
 
 </div>
 

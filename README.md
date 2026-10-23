@@ -205,3 +205,10 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 <table align="center"><tr><td align="center"><b>QQ群</b></td><td align="center"><b>微信群</b></td><td align="center"><b>飞书群</b></td></tr><tr><td><img src="assets/readme/contact-qq-permanent.jpg" width="260" alt="DSH 插件交流群 QQ 群二维码" style="border:1px solid #30363d;border-radius:6px" /></td><td><img src="assets/readme/contact-wechat-weekly.png" width="260" alt="DSH 插件交流群微信群二维码" style="border:1px solid #30363d;border-radius:6px" /></td><td><img src="assets/readme/contact-feishu-permanent.png" width="260" alt="DSH 插件交流群飞书群二维码" style="border:1px solid #30363d;border-radius:6px" /></td></tr></table>
 
 </div>
+
+<div align="center">
+
+![星标增长曲线（双轴）：左轴累计星标，右轴每日新增](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=20261023)
+
+</div>
+

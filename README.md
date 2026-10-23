@@ -208,6 +208,6 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-![星标增长曲线（双轴）：左轴累计星标，右轴每日新增](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=20261022)
+![星标增长曲线（双轴）：左轴累计星标，右轴每日新增](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=20261023)
 
 </div>

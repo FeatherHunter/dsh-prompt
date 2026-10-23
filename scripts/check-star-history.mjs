@@ -96,6 +96,8 @@ test('smoothDaily：凸组合平滑，永不越出原始范围，针尖被削平
   const peak = (xs) => Math.max(...xs)
   assert.ok(peak(out) < peak(spike), '针尖应被削平（峰值降低）')
   assert.ok(peak(out) > 1, '削平不是抹平：峰还在，只是矮了一点')
+  assert.deepEqual(smoothDaily([0, 1, 0, 2, 1], 2)[0], 0, '首点钉死在原点：曲线从 0 起笔，不悬空')
+  assert.deepEqual(smoothDaily([0, 1, 0, 2, 1], 2).slice(-1)[0], 1, '末点钉死在原始值')
   assert.deepEqual(smoothDaily([]), [], '空输入安全')
 })
 

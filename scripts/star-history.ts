@@ -149,6 +149,11 @@ export function smoothDaily(values: number[], passes = 2): number[] {
       return (a + 2 * v + b) / 4
     })
   }
+  // 端点钉死：首尾取原始值 —— 平滑只磨中间，曲线从原点起、到最新一天结束，不悬空。
+  if (cur.length > 0) {
+    cur[0] = values[0]
+    cur[cur.length - 1] = values[values.length - 1]
+  }
   return cur
 }
 

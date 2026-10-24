@@ -202,7 +202,7 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 👏欢迎提交PR、ISSUE。星星之火可以燎原🔥有任何建议、意见、想法、吐槽、idea都可以进群交流。
 
-<table align="center"><tr><td align="center"><b>飞书群</b></td><td align="center"><b>QQ群（新）</b></td><td align="center"><b>微信群（新）</b></td></tr><tr><td><img src="assets/readme/contact-feishu-permanent.png" width="260" alt="DSH 插件交流群 飞书群二维码" style="border:1px solid #30363d;border-radius:6px" /></td><td><img src="assets/readme/contact-qq-permanent.jpg" width="260" alt="DSH 插件交流群 QQ 群二维码" style="border:1px solid #30363d;border-radius:6px" /></td><td><img src="assets/readme/contact-wechat-weekly.png" width="260" alt="DSH 插件交流群微信群二维码" style="border:1px solid #30363d;border-radius:6px" /></td></tr></table>
+<table align="center"><tr><td align="center"><b>飞书群（主）</b></td><td align="center"><b>QQ群（新）</b></td><td align="center"><b>微信群（新）</b></td></tr><tr><td><img src="assets/readme/contact-feishu-permanent.png" width="260" alt="DSH 插件交流群 飞书群二维码" style="border:1px solid #30363d;border-radius:6px" /></td><td><img src="assets/readme/contact-qq-permanent.jpg" width="260" alt="DSH 插件交流群 QQ 群二维码" style="border:1px solid #30363d;border-radius:6px" /></td><td><img src="assets/readme/contact-wechat-weekly.png" width="260" alt="DSH 插件交流群微信群二维码" style="border:1px solid #30363d;border-radius:6px" /></td></tr></table>
 
 </div>
 

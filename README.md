@@ -52,37 +52,6 @@ dsh plugin --profile desktop add dsh-prompt@0.4.38 --registry https://registry.n
 
 </div>
 
-### 进阶安装
-
-#### 更新不生效怎么办？
-
-下面命令以 web profile 为例——**DSH Desktop 桌面应用用户请把所有 `--profile web` 换成 `--profile desktop`**。
-
-```bash
-# 更新被静默忽略时，显式指定官方源
-dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs.org
-```
-
-#### 复制下面这段发给你的 AI，在AI帮助下进行安装
-
-```text
-请帮我安装 DeepSeek Harness 插件 dsh-prompt。先读仓库 README：https://github.com/FeatherHunter/dsh-prompt
-先确认我实际使用的 DSH 入口对应哪个 profile（DSH Desktop 桌面应用 → desktop；自启 web 服务 → web），把插件装进正确的 profile；
-然后自行检查环境并按需安装（已装的跳过），完成后简要汇报结果。
-```
-
-**升级**
-
-```bash
-dsh plugin --profile web update dsh-prompt   # 升级
-```
-
-**卸载**
-
-```bash
-dsh plugin --profile web remove dsh-prompt   # 卸载
-```
-
 <div align="center">
 
 ## 入口一<br>Prompt 按钮
@@ -91,13 +60,13 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-鼠标移到输入框左侧的「Prompt」按钮，列表自动展开——官方 24 条预制模板和自己攒的模板都在这里，范围、标签、搜索、用量一屏全在。
+鼠标移到输入框左侧的「Prompt」按钮，列表自动展开——官方预置模板和我们自定义的模板都能看到。
 
 **👇 按钮一点，面板长这样。**
 
 <img src="assets/readme/02-panel-button.png" width="640" alt="Prompt 按钮悬浮面板：范围与标签筛选、模板列表、底栏一键屏蔽预制模板" style="border:1px solid #30363d;border-radius:6px">
 
-点底栏「屏蔽预制模板」，官方预制就收起来，只留自己攒的；再点「展示预制模板」又全铺开。
+点底栏「屏蔽预制模板」，屏蔽官方预置Prompt；再点「展示预制模板」解除屏蔽。
 
 </div>
 
@@ -140,7 +109,7 @@ dsh plugin --profile web remove dsh-prompt   # 卸载
 
 <div align="center">
 
-**👇 新增自定义Prompt提示词模板：名称、标签、文字颜色、正文一次配齐。**
+**👇 新增自定义Prompt提示词模板：名称、标签、文字颜色、正文 全部可以DIY。**
 
 <img src="assets/readme/06-custom-manage.png" width="560" alt="自定义管理：新增自定义模板弹窗（名称、标签、文字颜色、正文）" style="border:1px solid #30363d;border-radius:6px">
 

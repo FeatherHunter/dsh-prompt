@@ -51,37 +51,6 @@ Restart DSH once after installing.
 
 </div>
 
-### Advanced install
-
-#### Update silently ignored?
-
-Examples below use the web profile — **DSH Desktop users, replace every `--profile web` with `--profile desktop`**.
-
-```bash
-# When an update is silently skipped, pin the official registry
-dsh plugin --profile web add dsh-prompt@latest --registry https://registry.npmjs.org
-```
-
-#### Paste this to your AI and let it install dsh-prompt for you
-
-```text
-Please install the DeepSeek Harness plugin dsh-prompt. Read the repo README first: https://github.com/FeatherHunter/dsh-prompt
-First confirm which profile my DSH entry uses (DSH Desktop app → desktop; self-hosted web service → web) and install into the right one;
-then check the environment and install as needed (skip what's present), and report back briefly.
-```
-
-**Upgrade**
-
-```bash
-dsh plugin --profile web update dsh-prompt   # upgrade
-```
-
-**Uninstall**
-
-```bash
-dsh plugin --profile web remove dsh-prompt   # uninstall
-```
-
 <div align="center">
 
 ## Way 1<br>Prompt button
@@ -90,13 +59,13 @@ dsh plugin --profile web remove dsh-prompt   # uninstall
 
 <div align="center">
 
-Move the mouse onto the "Prompt" button left of the input box and the list opens by itself — the official 24 preset templates plus the ones you made, with scope, labels, search and usage counts on one screen.
+Move the mouse onto the "Prompt" button left of the input box and the list opens by itself — both the official preset templates and our custom templates are right there.
 
 **👇 One click on the button and the panel looks like this.**
 
 <img src="../assets/readme/02-panel-button.png" width="640" alt="Prompt button hover panel with scope and label filters, template list, and a one-click hide-presets button" style="border:1px solid #30363d;border-radius:6px">
 
-Hit "Hide presets" in the bottom bar and the official presets tuck away, leaving only the ones you made; "Show presets" unfolds them again.
+Hit "Hide presets" in the bottom bar to hide the official preset prompts; hit "Show presets" to unhide them.
 
 </div>
 
@@ -139,7 +108,7 @@ Type `/prompt` or `/p` in the box.<br>
 
 <div align="center">
 
-**👇 Add a custom prompt template: name, labels, text color and body in one dialog.**
+**👇 Add a custom prompt template: name, labels, text color and body — all DIY.**
 
 <img src="../assets/readme/06-custom-manage.png" width="560" alt="Custom management: new custom template dialog (name, labels, text color, body)" style="border:1px solid #30363d;border-radius:6px">
 

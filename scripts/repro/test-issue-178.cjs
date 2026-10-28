@@ -1,17 +1,21 @@
 #!/usr/bin/env node
 'use strict'
 /**
- * dsh-prompt issue #178「对转义符的支持」回归脚本 —— 契约版本 3（R1 + R2 + #180 失焦焦点次序，ADR-0010 accepted）
+ * dsh-prompt issue #178「对转义符的支持」回归脚本 —— 契约版本 3（R1 + R2 + #180 失焦焦点次序 + #181 撤销分组，ADR-0010 accepted）
  *
  * 覆盖：
  *   [R1 保存] 正文只削开头/结尾的空格(0x20)与 tab，保留所有换行（含首尾空行）；
  *              保存 → 重开 → 再存 幂等；MAX_BODY 校验对象 = 保存后字符串；旧普通正文保存结果与旧 body.trim() 一致。
  *   [R1 展示/检索] firstLineIntro / oneLinePreview / templateHaystack / 搜索 / 评分 / /prompt 候选描述：
  *              正文以换行开头时简介取第一个非空行（不出空首行），任何读取面都不出现 {{cursor}}。
- *   [R2 插入] 无标记 = 单次 setDraft、行为与旧版逐字符一致（不碰 captureInsertion/insertText）；
- *              有 {{cursor}} = setDraft(含标记全文) → captureInsertion() → insertText('', {draftRev,start,end}) 返回 true
- *              ⇒ mode=span，光标落标记位、标记全删；任何一环不可用 ⇒ mode=degraded，最后整框 setDraft(剥标记后正确全文)，
- *              文本永远逐字符正确、无标记残留、不抛用户可见错误。
+ *   [R2 插入 / #181 撤销分组] 宿主公开原语只有两条可用于写草稿：setDraft（整框 seed，history-merge
+ *              并进上一条历史记录）与 insertText（paste 记录，独立成一条 undo）。用户意图写入必须走后者：
+ *              无标记 = 单次 insertText(正文, 折叠光标)，光标落插入文本之后，undo1 回到插入前草稿；
+ *              有 {{cursor}} = insertText(含一个标记的全文) → captureInsertion() 取新 draftRev →
+ *              insertText('', {draftRev,start,end}) 删标记 ⇒ mode=span、光标落标记位，undo 分两步回退；
+ *              任何一环不可用（旧宿主 / 光标非折叠 / 坐标对不上 / 含 chip / false / 抛错）⇒ setDraft 降级，
+ *              mode=degraded（有标记与无标记两条路一致），text 永远逐字符正确、无标记残留、不抛用户可见错误。
+ *              不变量：成功路径（span / plain）不得调用 setDraft。
  *   [R2 其它入口] /prompt onPick 返回剥标记正文且候选描述无标记；smart-card.smartInsert 走 applyInsert（静态 + 行为）。
  *   [集成] insertBody 仍返回插入前草稿长度；pick.insert 日志字段不变。
  *   [#180 失焦] 失焦插入时宿主编辑前必须先把焦点送回同一个作曲家根（两编辑在失焦态不写 DOM 选择，
@@ -464,86 +468,160 @@ function groupEWiring() {
   ok(!!STR.bodyHint && typeof STR.bodyHint.en === 'string' && STR.bodyHint.en.indexOf('{{cursor}}') >= 0, 'E2.19 bodyHint 英文提示提到 {{cursor}}')
 }
 
-/* ── F. applyInsert：无标记（与旧行为逐字符一致） ── */
-
-function plainActions() {
+/* ── #181 宿主 undo 分组的假宿主 ──
+ * 真宿主公开的 InputActions 只有两条可用于写草稿：
+ *   captureInsertion() -> { start, end, draftRev }（当前折叠光标 + 草稿修订号）
+ *   insertText(text, { start, end, draftRev }) -> boolean（替换区间；光标落插入文本之后；rev+1）
+ * 这里按 detect 坐标建模：draft 是整篇文本、caret 是折叠光标、rev 是草稿修订号。
+ * 失败注入：noCapture / noInsertText / captureStart / captureEnd（坐标不一致或非折叠）/
+ *          captureThrows / captureNoRev / insertTextThrows / insertTextFalseAt（第 N 次返回 false）。
+ */
+function undoHost(draft, caret, opts) {
+  const o = opts || {}
   const calls = []
-  const actions = {
-    setDraft(v) { calls.push({ type: 'setDraft', text: v }) },
-    captureInsertion() { calls.push({ type: 'captureInsertion' }); throw new Error('无标记路径不得调用 captureInsertion') },
-    insertText() { calls.push({ type: 'insertText' }); throw new Error('无标记路径不得调用 insertText') },
+  const model = {
+    draft: String(draft == null ? '' : draft),
+    caret: Number(caret) || 0,
+    rev: Number.isFinite(o.rev) ? o.rev : 1,
   }
-  return { actions: actions, calls: calls }
+  const insertCount = () => calls.filter((c) => c.type === 'insertText').length
+  const actions = {}
+  if (o.noSetDraft !== true) {
+    actions.setDraft = (v) => {
+      calls.push({ type: 'setDraft', text: v })
+      model.draft = v
+      model.caret = v.length
+    }
+  }
+  if (o.noCapture !== true) {
+    actions.captureInsertion = () => {
+      calls.push({ type: 'captureInsertion' })
+      if (o.captureThrows) throw new Error('captureInsertion boom')
+      if (o.captureNoRev) return {}
+      const start = o.captureStart !== undefined ? o.captureStart : model.caret
+      const end = o.captureEnd !== undefined ? o.captureEnd : start
+      return { start: start, end: end, draftRev: model.rev }
+    }
+  }
+  if (o.noInsertText !== true) {
+    actions.insertText = (text, range) => {
+      calls.push({ type: 'insertText', text: text, range: range })
+      if (o.insertTextThrows) throw new Error('insertText boom')
+      if (o.insertTextFalseAt !== undefined && insertCount() === o.insertTextFalseAt) return false
+      if (!range || range.draftRev !== model.rev) return false
+      model.draft = model.draft.slice(0, range.start) + text + model.draft.slice(range.end)
+      model.caret = range.start + text.length
+      model.rev = model.rev + 1
+      return true
+    }
+  }
+  return { actions: actions, calls: calls, model: model }
 }
 
+/* ── F. applyInsert：无标记 = 单次 insertText（一次可撤销编辑） ── */
+
 function groupF() {
-  section('F. applyInsert 无标记：单次 setDraft、逐字符 = 前段 + 正文 + 后段')
+  section('F. applyInsert 无标记：单次 insertText、光标落插入文本之后、undo1 回插入前草稿')
   const cases = [
     ['', 0, '模板正文', '空草稿'],
     ['abc', 0, '前', '光标 0'],
     ['abc', 1, '中', '光标 1'],
     ['abc', 3, '后', '光标 3（末尾）'],
     ['a\nb', 2, 'X', '软换行中间'],
-    ['head', 4, '\n开头\n\n尾\n\n', '含内部/尾部空行的正文逐字符保真'],
+    ['head', 4, '\n开头\n\n尾\n\n', '含内部/尾部空行的正文'],
     ['a', 99, 'Z', 'caret 越界 → clamp 到末尾'],
     ['abc', -5, 'Z', 'caret 负数 → clamp 到 0'],
   ]
   for (let i = 0; i < cases.length; i++) {
-    const c = cases[i]
-    const draft = c[0]
-    const rawCaret = c[1]
-    const body = c[2]
+    const draft = cases[i][0]
+    const rawCaret = cases[i][1]
+    const body = cases[i][2]
     const pos = Math.max(0, Math.min(Number.isFinite(rawCaret) ? rawCaret : draft.length, draft.length))
     const want = draft.slice(0, pos) + body + draft.slice(pos)
-    const rec = plainActions()
+    const rec = undoHost(draft, pos)
     let res = null
     let threw = null
     try { res = panel.applyInsert(rec.actions, draft, rawCaret, body) } catch (e) { threw = e }
-    const tag = 'F' + (i + 1) + ' [' + c[3] + '] '
+    const tag = 'F' + (i + 1) + ' [' + cases[i][3] + '] '
     ok(!threw, tag + '不抛错')
     if (threw || !res) continue
     eq(res.text, want, tag + 'text 逐字符等于拼接结果')
     eq(res.draftChars, draft.length, tag + 'draftChars = 插入前草稿长度（pick.insert 契约）')
     eq(res.mode, 'plain', tag + 'mode=plain')
     eq(res.marker, false, tag + 'marker=false')
-    eq(rec.calls.length, 1, tag + '只调用一次宿主方法')
-    eq(rec.calls[0] && rec.calls[0].type, 'setDraft', tag + '唯一一次调用是 setDraft')
-    eq(rec.calls[0] && rec.calls[0].text, want, tag + 'setDraft 收到最终全文')
+    eq(rec.calls.length, 2, tag + '两次宿主交互（captureInsertion + insertText）')
+    eq(rec.calls[0] && rec.calls[0].type, 'captureInsertion', tag + '第 1 步 captureInsertion（取折叠光标与 draftRev）')
+    eq(rec.calls[1] && rec.calls[1].type, 'insertText', tag + '第 2 步 insertText（一次可撤销编辑）')
+    eq(rec.calls[1] && rec.calls[1].text, body, tag + 'insertText 收到正文')
+    eq(rec.calls[1] && rec.calls[1].range, { draftRev: 1, start: pos, end: pos }, tag + 'insertText 区间 = {draftRev:1, start:pos, end:pos}')
+    eq(rec.calls.filter((c) => c.type === 'setDraft').length, 0, tag + '不调用 setDraft（不把 seed 当用户输入）')
+    eq(rec.model.draft, want, tag + '模拟宿主最终草稿逐字符正确')
+    eq(rec.model.caret, pos + body.length, tag + '光标落插入文本之后（#181 显式契约）')
   }
+
+  // 降级：宿主不可用 / 坐标不一致 / 非折叠 / 返回 false / 抛错 ⇒ 整框 setDraft（旧行为）
+  const fallbacks = [
+    ['F10 旧宿主只有 setDraft', 'abc', 1, 'X', { noCapture: true, noInsertText: true }, 0],
+    ['F11 缺 insertText', 'abc', 1, 'X', { noInsertText: true }, 0],
+    ['F12 captureInsertion 坐标与落点不一致', 'abc', 1, 'X', { captureStart: 2, captureEnd: 2 }, 0],
+    ['F13 captureInsertion 非折叠（有选区）', 'abc', 1, 'X', { captureEnd: 2 }, 0],
+    ['F14 insertText 返回 false', 'abc', 1, 'X', { insertTextFalseAt: 1 }, 1],
+    ['F15 insertText 抛错', 'abc', 1, 'X', { insertTextThrows: true }, 1],
+  ]
+  for (let i = 0; i < fallbacks.length; i++) {
+    const label = fallbacks[i][0]
+    const draft = fallbacks[i][1]
+    const caret = fallbacks[i][2]
+    const body = fallbacks[i][3]
+    const opts = fallbacks[i][4]
+    const inserts = fallbacks[i][5]
+    const pos = Math.max(0, Math.min(caret, draft.length))
+    const want = draft.slice(0, pos) + body + draft.slice(pos)
+    const rec = undoHost(draft, caret, opts)
+    let res = null
+    let threw = null
+    try { res = panel.applyInsert(rec.actions, draft, caret, body) } catch (e) { threw = e }
+    ok(!threw, label + '：不抛错')
+    if (threw || !res) continue
+    eq(res.mode, 'degraded', label + '：无标记降级 mode=degraded')
+    eq(res.text, want, label + '：text 逐字符正确')
+    eq(res.draftChars, draft.length, label + '：draftChars = 插入前草稿长度')
+    const drafts = rec.calls.filter((c) => c.type === 'setDraft')
+    eq(drafts.length, 1, label + '：恰好一次 setDraft 兜底')
+    eq(drafts[0] && drafts[0].text, want, label + '：setDraft 收到最终全文')
+    eq(rec.calls.filter((c) => c.type === 'insertText').length, inserts, label + '：insertText 调用次数')
+    eq(rec.model.draft, want, label + '：模拟宿主最终草稿逐字符正确')
+  }
+
+  // 引用 chip 的草稿：坐标读写不可靠，一律整框 setDraft
+  const chipCalls = []
+  const chipRes = panel.applyInsert({
+    setDraft(v) { chipCalls.push({ type: 'setDraft', text: v }) },
+    captureInsertion() { chipCalls.push({ type: 'captureInsertion' }); return { start: 1, end: 1, draftRev: 1 } },
+    insertText() { chipCalls.push({ type: 'insertText' }); return true },
+  }, 'a\uE100b', 1, 'X')
+  eq(chipRes.mode, 'degraded', 'F16 chip 草稿无标记：mode=degraded')
+  eq(chipRes.text, 'aX\uE100b', 'F17 chip 草稿无标记：text 逐字符正确')
+  eq(chipCalls.map((c) => c.type), ['setDraft'], 'F18 chip 草稿不尝试编辑原语，只 setDraft')
 
   const noActions = panel.applyInsert(null, 'abc', 1, 'X')
-  eq(noActions.text, 'aXbc', 'F10 无 actions：text 仍正确')
-  eq(noActions.mode, 'plain', 'F11 无 actions：mode 保持 plain')
-  eq(noActions.marker, false, 'F12 无 actions：marker=false')
+  eq(noActions.text, 'aXbc', 'F19 无 actions：text 仍正确')
+  eq(noActions.mode, 'plain', 'F20 无 actions：mode 保持 plain')
+  eq(noActions.marker, false, 'F21 无 actions：marker=false')
 
   const noSet = panel.applyInsert({}, 'abc', 1, 'X')
-  eq(noSet.text, 'aXbc', 'F13 actions 无 setDraft：text 仍正确')
-  eq(noSet.mode, 'plain', 'F14 actions 无 setDraft：mode 保持 plain')
+  eq(noSet.text, 'aXbc', 'F22 actions 无 setDraft：text 仍正确')
+  eq(noSet.mode, 'plain', 'F23 actions 无 setDraft：mode 保持 plain')
 }
 
-/* ── G. applyInsert：{{cursor}} 两编辑 span 成功路径 ── */
-
-function spanActions() {
-  const calls = []
-  let draftNow = ''
-  const actions = {
-    setDraft(v) { calls.push({ type: 'setDraft', text: v }); draftNow = v },
-    captureInsertion() { calls.push({ type: 'captureInsertion' }); return { draftRev: 7 } },
-    insertText(text, range) {
-      calls.push({ type: 'insertText', text: text, range: range })
-      if (text === '' && range) draftNow = draftNow.slice(0, range.start) + draftNow.slice(range.end)
-      return true
-    },
-  }
-  return { actions: actions, calls: calls, current: () => draftNow }
-}
+/* ── G. applyInsert：{{cursor}} 两笔纯 paste 编辑 ── */
 
 function countMarker(s) {
   return String(s).split(CURSOR_MARKER).length - 1
 }
 
 function groupG() {
-  section('G. applyInsert 有标记：setDraft(含标记) → captureInsertion → insertText 两编辑')
+  section('G. applyInsert 有标记：insertText(含标记全文) → captureInsertion → insertText(删标记) 两笔纯 paste')
   const cases = [
     ['head', 4, '前{{cursor}}后', '标记在正文中'],
     ['', 0, '{{cursor}}首', '标记在正文首、空草稿'],
@@ -561,8 +639,8 @@ function groupG() {
     const pos = Math.max(0, Math.min(caret, draft.length))
     const markerAt = pos + parsedCaret
     const finalText = draft.slice(0, pos) + parsed + draft.slice(pos)
-    const withMarker = draft.slice(0, pos) + parsed.slice(0, parsedCaret) + CURSOR_MARKER + parsed.slice(parsedCaret) + draft.slice(pos)
-    const rec = spanActions()
+    const markerBody = parsed.slice(0, parsedCaret) + CURSOR_MARKER + parsed.slice(parsedCaret)
+    const rec = undoHost(draft, pos)
     let res = null
     let threw = null
     try { res = panel.applyInsert(rec.actions, draft, caret, body) } catch (e) { threw = e }
@@ -575,44 +653,38 @@ function groupG() {
     eq(res.text, finalText, tag + 'text = 剥标记后的整篇草稿')
     ok(res.text.indexOf('{{cursor}}') < 0, tag + 'text 不含标记')
 
-    eq(rec.calls.length, 3, tag + '三次宿主交互')
-    eq(rec.calls[0] && rec.calls[0].type, 'setDraft', tag + '第 1 步 setDraft(含标记全文)')
-    eq(rec.calls[1] && rec.calls[1].type, 'captureInsertion', tag + '第 2 步 captureInsertion()')
-    eq(rec.calls[2] && rec.calls[2].type, 'insertText', tag + '第 3 步 insertText')
-    if (rec.calls[0]) {
-      eq(rec.calls[0].text, withMarker, tag + '第一次 setDraft 文本 = 含且仅含一个标记的全文')
-      eq(countMarker(rec.calls[0].text), 1, tag + '第一次 setDraft 里只有一个标记')
-      eq(rec.calls[0].text.indexOf(CURSOR_MARKER), markerAt, tag + '标记位置 = caret + 剥标记前缀长度')
+    eq(rec.calls.length, 4, tag + '四次宿主交互（两笔编辑 + 两次 captureInsertion）')
+    eq(rec.calls[0] && rec.calls[0].type, 'captureInsertion', tag + '第 1 步 captureInsertion（取折叠光标与 draftRev）')
+    eq(rec.calls[1] && rec.calls[1].type, 'insertText', tag + '第 2 步 insertText(含标记全文)')
+    eq(rec.calls[2] && rec.calls[2].type, 'captureInsertion', tag + '第 3 步 captureInsertion（删标记前取新 rev）')
+    eq(rec.calls[3] && rec.calls[3].type, 'insertText', tag + '第 4 步 insertText(删标记)')
+    if (rec.calls[1]) {
+      eq(rec.calls[1].text, markerBody, tag + '第一笔 insertText 文本 = 正文段 + 一个标记（不含草稿前后缀）')
+      eq(countMarker(rec.calls[1].text), 1, tag + '第一笔 insertText 里只有一个标记')
+      eq(rec.calls[1].text.indexOf(CURSOR_MARKER), parsedCaret, tag + '标记在插入文本中的位置 = 剥标记前缀长度')
+      eq(rec.calls[1].range, { draftRev: 1, start: pos, end: pos }, tag + '第一笔 insertText 区间 = {draftRev:1, start:pos, end:pos}')
     }
-    if (rec.calls[2]) {
-      eq(rec.calls[2].text, '', tag + 'insertText 第一个参数为空串（只删标记）')
-      eq(rec.calls[2].range, { draftRev: 7, start: markerAt, end: markerAt + CURSOR_MARKER.length }, tag + 'insertText 区间 = {draftRev:7, start:markerAt, end:markerAt+10}')
+    if (rec.calls[3]) {
+      eq(rec.calls[3].text, '', tag + '第二笔 insertText 第一个参数为空串（只删标记）')
+      eq(rec.calls[3].range, { draftRev: 2, start: markerAt, end: markerAt + CURSOR_MARKER.length }, tag + '第二笔 insertText 区间 = {draftRev:2, start:markerAt, end:markerAt+10}')
     }
-    eq(rec.current(), finalText, tag + '模拟宿主删标记后草稿 = text（无标记、字符正确）')
-    eq(rec.current().indexOf('{{cursor}}'), -1, tag + '模拟宿主草稿无标记残留')
+    eq(rec.calls.filter((c) => c.type === 'setDraft').length, 0, tag + '不调用 setDraft（两笔都是可撤销编辑）')
+    eq(rec.model.draft, finalText, tag + '模拟宿主最终草稿 = text（无标记、字符正确）')
+    eq(rec.model.caret, markerAt, tag + '模拟宿主最终光标 = 标记位')
   }
 }
 
 /* ── H. 降级阶梯（任何一环不可用 → 文本正确、无标记、不抛） ── */
 
-function degradedCase(label, methods, expectMarkerCalls, draftContainsChip) {
-  const calls = []
-  const actions = {}
-  if (methods.setDraft !== false) actions.setDraft = (v) => { calls.push({ type: 'setDraft', text: v }) }
-  if (methods.captureInsertion === 'ok') actions.captureInsertion = () => { calls.push({ type: 'captureInsertion' }); return { draftRev: 7 } }
-  if (methods.captureInsertion === 'throw') actions.captureInsertion = () => { calls.push({ type: 'captureInsertion' }); throw new Error('captureInsertion boom') }
-  if (methods.captureInsertion === 'noRev') actions.captureInsertion = () => { calls.push({ type: 'captureInsertion' }); return {} }
-  if (methods.insertText === 'true') actions.insertText = () => { calls.push({ type: 'insertText' }); return true }
-  if (methods.insertText === 'false') actions.insertText = () => { calls.push({ type: 'insertText' }); return false }
-  if (methods.insertText === 'throw') actions.insertText = () => { calls.push({ type: 'insertText' }); throw new Error('insertText boom') }
-
+function degradedCase(label, opts, expectMarkerCalls, draftContainsChip) {
   const draft = draftContainsChip ? 'head\uFFFC' : 'head'
   const body = '前{{cursor}}后'
   const pos = draft.length
   const finalText = draft + '前后'
+  const rec = undoHost(draft, pos, opts)
   let res = null
   let threw = null
-  try { res = panel.applyInsert(actions, draft, pos, body) } catch (e) { threw = e }
+  try { res = panel.applyInsert(rec.actions, draft, pos, body) } catch (e) { threw = e }
   ok(!threw, label + '：不抛错')
   if (threw || !res) return
   eq(res.mode, 'degraded', label + '：mode=degraded')
@@ -620,32 +692,37 @@ function degradedCase(label, methods, expectMarkerCalls, draftContainsChip) {
   eq(res.text, finalText, label + '：text 逐字符正确（剥标记全文）')
   ok(res.text.indexOf('{{cursor}}') < 0, label + '：text 无标记')
   ok(Object.prototype.hasOwnProperty.call(res, 'error') === false, label + '：不产生 error 字段（无用户可见错误契约）')
-  const drafts = calls.filter((c) => c.type === 'setDraft')
+  const drafts = rec.calls.filter((c) => c.type === 'setDraft')
   ok(drafts.length >= 1, label + '：至少一次 setDraft')
   if (drafts.length > 0) {
     eq(drafts[drafts.length - 1].text, finalText, label + '：最后一次 setDraft = 剥标记后正确全文')
     ok(drafts[drafts.length - 1].text.indexOf('{{cursor}}') < 0, label + '：最后一次 setDraft 无标记')
+    eq(rec.model.draft, finalText, label + '：模拟宿主最终草稿 = 剥标记全文')
   }
-  eq(calls.filter((c) => c.type === 'captureInsertion').length, expectMarkerCalls.captureInsertion, label + '：captureInsertion 调用次数')
-  eq(calls.filter((c) => c.type === 'insertText').length, expectMarkerCalls.insertText, label + '：insertText 调用次数')
+  eq(rec.calls.filter((c) => c.type === 'captureInsertion').length, expectMarkerCalls.captureInsertion, label + '：captureInsertion 调用次数')
+  eq(rec.calls.filter((c) => c.type === 'insertText').length, expectMarkerCalls.insertText, label + '：insertText 调用次数')
 }
 
 function groupH() {
-  section('H. 降级阶梯矩阵：缺 action / insertText false / 抛错 / 草稿含引用 chip')
-  degradedCase('H1 只有 setDraft（旧宿主缺 captureInsertion+insertText）', { setDraft: true }, { captureInsertion: 0, insertText: 0 }, false)
-  degradedCase('H2 缺 insertText（只有 setDraft+captureInsertion）', { setDraft: true, captureInsertion: 'ok' }, { captureInsertion: 0, insertText: 0 }, false)
-  degradedCase('H3 insertText 返回 false', { setDraft: true, captureInsertion: 'ok', insertText: 'false' }, { captureInsertion: 1, insertText: 1 }, false)
-  degradedCase('H4 insertText 抛错', { setDraft: true, captureInsertion: 'ok', insertText: 'throw' }, { captureInsertion: 1, insertText: 1 }, false)
-  degradedCase('H5 captureInsertion 抛错', { setDraft: true, captureInsertion: 'throw', insertText: 'true' }, { captureInsertion: 1, insertText: 0 }, false)
-  degradedCase('H6 captureInsertion 返回无 draftRev', { setDraft: true, captureInsertion: 'noRev', insertText: 'true' }, { captureInsertion: 1, insertText: 0 }, false)
-  degradedCase('H7 草稿含 U+FFFC 引用 chip（直接降级，不尝试两编辑）', { setDraft: true, captureInsertion: 'ok', insertText: 'true' }, { captureInsertion: 0, insertText: 0 }, true)
+  section('H. 降级阶梯矩阵：缺 action / 坐标不一致 / 非折叠 / false / 抛错 / chip')
+  degradedCase('H1 只有 setDraft（旧宿主缺 captureInsertion+insertText）', { noCapture: true, noInsertText: true }, { captureInsertion: 0, insertText: 0 }, false)
+  degradedCase('H2 缺 insertText（只有 setDraft+captureInsertion）', { noInsertText: true }, { captureInsertion: 0, insertText: 0 }, false)
+  degradedCase('H3 insertText 返回 false', { insertTextFalseAt: 1 }, { captureInsertion: 1, insertText: 1 }, false)
+  degradedCase('H4 insertText 抛错', { insertTextThrows: true }, { captureInsertion: 1, insertText: 1 }, false)
+  degradedCase('H5 captureInsertion 抛错', { captureThrows: true }, { captureInsertion: 1, insertText: 0 }, false)
+  degradedCase('H6 captureInsertion 返回无 draftRev', { captureNoRev: true }, { captureInsertion: 1, insertText: 0 }, false)
+  degradedCase('H7 草稿含 U+FFFC 引用 chip（直接降级，不尝试两编辑）', {}, { captureInsertion: 0, insertText: 0 }, true)
+  degradedCase('H8 captureInsertion 坐标与落点不一致', { captureStart: 5, captureEnd: 5 }, { captureInsertion: 1, insertText: 0 }, false)
+  degradedCase('H9 captureInsertion 非折叠（有选区）', { captureEnd: 5 }, { captureInsertion: 1, insertText: 0 }, false)
+  degradedCase('H10 第一笔成功、第二笔 insertText 返回 false', { insertTextFalseAt: 2 }, { captureInsertion: 2, insertText: 2 }, false)
 
   const chipDraft = 'a\uE100b'
   const calls = []
-  const res = panel.applyInsert({ setDraft: (v) => calls.push(v), captureInsertion: () => ({ draftRev: 1 }), insertText: () => true }, chipDraft, 1, '{{cursor}}')
-  eq(res.mode, 'degraded', 'H8 草稿含 \\uE100（引用 chip）→ degraded')
-  eq(res.text, 'a\uE100b', 'H9 草稿含 chip + 正文只有标记 → text 逐字符保真（标记删除）')
-  eq(calls.length, 1, 'H10 草稿含 chip → 只调用一次 setDraft')
+  const res = panel.applyInsert({ setDraft: (v) => calls.push(v), captureInsertion: () => ({ start: 1, end: 1, draftRev: 1 }), insertText: () => true }, chipDraft, 1, '{{cursor}}')
+  eq(res.mode, 'degraded', 'H11 草稿含 \\uE100（引用 chip）→ degraded')
+  eq(res.text, 'a\uE100b', 'H12 草稿含 chip + 正文只有标记 → text 逐字符保真（标记删除）')
+  eq(calls.length, 1, 'H13 草稿含 chip → 只调用一次 setDraft')
+  eq(calls[0], 'a\uE100b', 'H14 草稿含 chip → setDraft 收到剥标记全文')
 }
 
 /* ── I. 多标记：只认第一个，其余全删 ── */
@@ -665,17 +742,20 @@ function groupI() {
     const parsedCaret = cases[i][3]
     const prefix = cases[i][4]
     const finalText = cases[i][5]
-    const rec = spanActions()
+    const pos = typeof caret === 'number' && caret <= draft.length ? Math.max(0, caret) : draft.length
+    const rec = undoHost(draft, pos)
     const res = panel.applyInsert(rec.actions, draft, caret, body)
     const tag = 'I' + (i + 1) + ' '
     eq(res.mode, 'span', tag + 'mode=span')
     eq(res.text, finalText, tag + 'text 中其余标记全部删除')
     ok(res.text.indexOf('{{cursor}}') < 0, tag + 'text 无标记')
-    const markerAt = (typeof caret === 'number' && caret <= draft.length ? Math.max(0, caret) : draft.length) + parsedCaret
-    eq(rec.calls[0] && rec.calls[0].text.indexOf(CURSOR_MARKER), markerAt, tag + '只保留第一个标记（位置=第一个标记处）')
-    eq(countMarker(rec.calls[0] && rec.calls[0].text), 1, tag + '插入文本里只含一个标记')
-    eq(rec.calls[2] && rec.calls[2].range, { draftRev: 7, start: markerAt, end: markerAt + CURSOR_MARKER.length }, tag + 'insertText 只删第一个标记')
-    eq(rec.current(), finalText, tag + '最终草稿无标记且逐字符正确')
+    const markerAt = pos + parsedCaret
+    eq(rec.calls.length, 4, tag + '两笔编辑 + 两次 captureInsertion')
+    eq(rec.calls[1] && rec.calls[1].text.indexOf(CURSOR_MARKER), parsedCaret, tag + '只保留第一个标记（位置=第一个标记处）')
+    eq(countMarker(rec.calls[1] && rec.calls[1].text), 1, tag + '插入文本里只含一个标记')
+    eq(rec.calls[3] && rec.calls[3].range, { draftRev: 2, start: markerAt, end: markerAt + CURSOR_MARKER.length }, tag + 'insertText 只删第一个标记')
+    eq(rec.model.draft, finalText, tag + '最终草稿无标记且逐字符正确')
+    eq(rec.model.caret, markerAt, tag + '最终光标 = 标记位')
     void prefix
   }
 }
@@ -724,42 +804,34 @@ async function groupK() {
     return original.apply(panel, args)
   }
   try {
-    const calls = []
-    let draftNow = ''
-    const actions = {
-      setDraft(v) { calls.push({ type: 'setDraft', text: v }); draftNow = v },
-      captureInsertion() { calls.push({ type: 'captureInsertion' }); return { draftRev: 9 } },
-      insertText(text, range) {
-        calls.push({ type: 'insertText', text: text, range: range })
-        if (text === '' && range) draftNow = draftNow.slice(0, range.start) + draftNow.slice(range.end)
-        return true
-      },
-    }
-    smartDraft.setSmartInput({ draft: 'head', actions: actions })
+    const host = undoHost('head', 4)
+    smartDraft.setSmartInput({ draft: 'head', actions: host.actions })
     smartCard.smartInsert('前{{cursor}}后', 'x-marker')
     eq(recorded.length, 1, 'K4 标记路径调用一次 applyInsert')
-    ok(recorded[0] && recorded[0][0] === actions, 'K5 applyInsert 收到智能卡输入桥 actions')
+    ok(recorded[0] && recorded[0][0] === host.actions, 'K5 applyInsert 收到智能卡输入桥 actions')
     eq(recorded[0] && recorded[0][1], 'head', 'K6 applyInsert 收到当前草稿')
     eq(recorded[0] && recorded[0][2], 4, 'K7 applyInsert 收到 caret（无 textarea 时 = 草稿末尾）')
     eq(recorded[0] && recorded[0][3], '前{{cursor}}后', 'K8 applyInsert 收到原始正文（标记交给 applyInsert 处理）')
-    eq(calls.length, 3, 'K9 标记路径 = setDraft + captureInsertion + insertText 三次交互')
-    eq(calls[0] && calls[0].type, 'setDraft', 'K10 第 1 步 setDraft(含标记全文)')
-    eq(calls[0] && countMarker(calls[0].text), 1, 'K11 第一次 setDraft 只含一个标记')
-    eq(calls[1] && calls[1].type, 'captureInsertion', 'K12 第 2 步 captureInsertion')
-    eq(calls[2] && calls[2].type, 'insertText', 'K13 第 3 步 insertText')
-    eq(draftNow, 'head前后', 'K14 标记路径最终草稿无标记且逐字符正确')
-    ok(draftNow.indexOf('{{cursor}}') < 0, 'K15 标记路径无标记残留')
+    eq(host.calls.length, 4, 'K9 标记路径 = 两笔 insertText + 两次 captureInsertion')
+    eq(host.calls[0] && host.calls[0].type, 'captureInsertion', 'K10 第 1 步 captureInsertion')
+    eq(host.calls[1] && host.calls[1].type, 'insertText', 'K11 第 2 步 insertText(含标记全文)')
+    eq(host.calls[1] && countMarker(host.calls[1].text), 1, 'K12 第一笔 insertText 只含一个标记')
+    eq(host.calls[2] && host.calls[2].type, 'captureInsertion', 'K13 第 3 步 captureInsertion')
+    eq(host.calls[3] && host.calls[3].type, 'insertText', 'K14 第 4 步 insertText(删标记)')
+    eq(host.model.draft, 'head前后', 'K15 标记路径最终草稿无标记且逐字符正确')
+    ok(host.model.draft.indexOf('{{cursor}}') < 0, 'K16 标记路径无标记残留')
+    eq(host.model.caret, 5, 'K17 标记路径最终光标 = 标记位（pos 4 + 正文「前」1 字符）')
 
     recorded.length = 0
-    const plainCalls = []
-    const actions2 = { setDraft(v) { plainCalls.push(v) } }
-    smartDraft.setSmartInput({ draft: 'abc', actions: actions2 })
+    const host2 = undoHost('abc', 3)
+    smartDraft.setSmartInput({ draft: 'abc', actions: host2.actions })
     smartCard.smartInsert('\n正文\n', 'x-plain')
-    eq(recorded.length, 1, 'K16 无标记路径同样走 applyInsert')
-    eq(plainCalls, ['abc\n正文\n'], 'K17 无标记路径单次 setDraft 且逐字符正确')
+    eq(recorded.length, 1, 'K18 无标记路径同样走 applyInsert')
+    eq(host2.model.draft, 'abc\n正文\n', 'K19 无标记路径单次 insertText 且逐字符正确')
+    eq(host2.calls.filter((c) => c.type === 'setDraft').length, 0, 'K20 无标记成功路径不调用 setDraft')
 
-    // K18–K20（#180）：智能卡失焦插入 —— 焦点收口在 applyInsert（面板与智能卡共用），
-    // 首次宿主写入之前焦点已回到作曲家根，完成后浏览器 caret 落在标记位而不是归零。
+    // K21–K23（#180）：智能卡失焦插入 —— 焦点收口在 applyInsert（面板与智能卡共用），
+    // 首笔宿主写入之前焦点已回到作曲家根，完成后浏览器 caret 落在标记位而不是归零。
     recorded.length = 0
     const savedDocK = globalThis.document
     try {
@@ -768,9 +840,10 @@ async function groupK() {
       installSelectionNode(null, 0)
       smartDraft.setSmartInput({ draft: 'head', actions: hz.actions })
       smartCard.smartInsert('Z{{cursor}}', 'x-blur')
-      eq(hz.calls[0] && hz.calls[0].active, true, 'K18 智能卡失焦插入：首次 setDraft 前焦点已回到作曲家根')
-      eq(hz.model.text, 'headZ', 'K19 智能卡失焦插入：文本无标记残留')
-      eq(hz.model.caret, 5, 'K20 智能卡失焦插入：caret 落标记位 5（修复前 smartInsert 不补焦，caret 归零）')
+      const firstWrite = hz.calls.find((c) => c.type !== 'captureInsertion')
+      eq(firstWrite && firstWrite.active, true, 'K21 智能卡失焦插入：首笔宿主写入前焦点已回到作曲家根')
+      eq(hz.model.text, 'headZ', 'K22 智能卡失焦插入：文本无标记残留')
+      eq(hz.model.caret, 5, 'K23 智能卡失焦插入：caret 落标记位 5（修复前 smartInsert 不补焦，caret 归零）')
     } finally {
       globalThis.document = savedDocK
       try { delete globalThis.getSelection } catch (e) { /* ignore */ }
@@ -968,20 +1041,6 @@ function composerRoot(kids) {
   })
 }
 
-function spanActionsForDom() {
-  const calls = []
-  let draftNow = ''
-  const actions = {
-    setDraft(v) { calls.push({ type: 'setDraft', text: v }); draftNow = v },
-    captureInsertion() { calls.push({ type: 'captureInsertion' }); return { draftRev: 7 } },
-    insertText(text, range) {
-      calls.push({ type: 'insertText', text: text, range: range })
-      if (text === '' && range) draftNow = draftNow.slice(0, range.start) + draftNow.slice(range.end)
-      return true
-    },
-  }
-  return { actions: actions, calls: calls, current: () => draftNow }
-}
 
 async function groupM() {
   section('M. 集成：insertBody 返回值 / pick.insert 日志字段不变（#61/#76 口径）')
@@ -996,15 +1055,17 @@ async function groupM() {
       tapDraft('abcd')
       let got = null
       const calls = []
-      const actions = {
-        setDraft(v) { calls.push(v); got = v },
-        captureInsertion() { throw new Error('无标记路径不得调用 captureInsertion') },
-        insertText() { throw new Error('无标记路径不得调用 insertText') },
-      }
+      const actions = { setDraft(v) { calls.push(v); got = v } }
       const ret = panel.insertBody(NOP_BRIDGE, actions, 'X\nY')
       eq(ret, 4, 'M1 insertBody 返回插入前草稿长度')
       eq(got, 'abX\nYcd', 'M2 无标记插入逐字符 = 前段 + 正文 + 后段（旧行为）')
-      eq(calls.length, 1, 'M3 无标记只调用一次 setDraft')
+      eq(calls.length, 1, 'M3 无标记（旧宿主）只调用一次 setDraft')
+      const recEdit = undoHost('abcd', 2)
+      const ret2 = panel.insertBody(NOP_BRIDGE, recEdit.actions, 'X')
+      eq(ret2, 4, 'M3b 无标记：insertBody 仍返回插入前长度')
+      eq(recEdit.model.draft, 'abXcd', 'M3c 无标记：走 insertText、逐字符正确')
+      eq(recEdit.model.caret, 3, 'M3d 无标记：光标落插入文本之后')
+      eq(recEdit.calls.filter((c) => c.type === 'setDraft').length, 0, 'M3e 无标记成功路径不调用 setDraft')
     }
     {
       globalThis.document = makeComposerDocument([], domBodyEl())
@@ -1030,12 +1091,13 @@ async function groupM() {
       globalThis.document = makeComposerDocument([], domBodyEl())
       installSelectionNode(null, 0)
       tapDraft('')
-      const rec = spanActionsForDom()
+      const rec = undoHost('', 0)
       const ret = panel.insertBody(NOP_BRIDGE, rec.actions, '前{{cursor}}后')
       eq(ret, 0, 'M8 有标记：insertBody 仍返回插入前长度')
-      eq(rec.calls.length, 3, 'M9 有标记：insertBody 走 applyInsert 两编辑（3 次交互）')
-      eq(rec.calls[2] && rec.calls[2].range, { draftRev: 7, start: 1, end: 11 }, 'M10 有标记：insertText 区间正确')
-      eq(rec.current(), '前后', 'M11 有标记：模拟宿主最终草稿无标记且正确')
+      eq(rec.calls.length, 4, 'M9 有标记：insertBody 走 applyInsert 两笔编辑（4 次交互）')
+      eq(rec.calls[3] && rec.calls[3].range, { draftRev: 2, start: 1, end: 11 }, 'M10 有标记：insertText 区间正确')
+      eq(rec.model.draft, '前后', 'M11 有标记：模拟宿主最终草稿无标记且正确')
+      eq(rec.model.caret, 1, 'M11b 有标记：模拟宿主最终光标 = 标记位')
     }
     {
       globalThis.document = makeComposerDocument([], domBodyEl())
@@ -1095,21 +1157,28 @@ function caretHost(initialDraft, startFocused) {
     model.caret = 0 // 失焦根被 focus：浏览器把 caret 放文档开头
     focusEvents.push(model.caret)
   }
+  // #181：captureInsertion 必须带 detect 坐标（插件要校验"落点一致"才敢走编辑原语）；
+  // insertText 按宿主语义替换 [start,end) 区间并把光标放到插入文本之后，每次编辑 rev+1。
+  model.rev = 7
   const actions = {
     setDraft(v) {
       calls.push({ type: 'setDraft', active: active === root })
       model.text = String(v)
       model.caret = model.text.length
+      model.rev = model.rev + 1
       sync()
     },
-    captureInsertion() { calls.push({ type: 'captureInsertion' }); return { draftRev: 7 } },
+    captureInsertion() {
+      calls.push({ type: 'captureInsertion' })
+      return { start: model.caret, end: model.caret, draftRev: model.rev }
+    },
     insertText(text, range) {
       calls.push({ type: 'insertText', active: active === root })
-      if (text === '' && range) {
-        model.text = model.text.slice(0, range.start) + model.text.slice(range.end)
-        model.caret = range.start
-        sync()
-      }
+      if (!range || range.draftRev !== model.rev) return false
+      model.text = model.text.slice(0, range.start) + String(text) + model.text.slice(range.end)
+      model.caret = range.start + String(text).length
+      model.rev = model.rev + 1
+      sync()
       return true
     },
   }
@@ -1150,8 +1219,9 @@ async function groupN() {
       await settle()
       eq(h.model.text, 'abcSMARTEND', 'N1 失焦带标记插入：文本 = abcSMARTEND，无标记残留')
       eq(h.model.caret, 8, 'N2 失焦带标记插入：完成后浏览器 caret = 标记位 8（修复前为 0）')
-      eq(h.calls[0] && h.calls[0].active, true, 'N3 失焦：第一次 setDraft 之前焦点已回到同一个作曲家根')
-      eq(h.calls.filter((c) => c.type === 'insertText').map((c) => c.active), [true], 'N4 失焦：insertText 删标记时焦点仍在作曲家根')
+      const firstWrite = h.calls.find((c) => c.type !== 'captureInsertion')
+      eq(firstWrite && firstWrite.active, true, 'N3 失焦：首笔宿主写入之前焦点已回到同一个作曲家根')
+      eq(h.calls.filter((c) => c.type === 'insertText').map((c) => c.active), [true, true], 'N4 失焦：两笔 insertText 时焦点都在作曲家根')
       firstBlurredCalls = h.calls.map((c) => c.type)
     }
     {
@@ -1186,8 +1256,11 @@ async function groupN() {
       await settle()
       eq(h.model.text, 'abXYc', 'N10 失焦 + 编辑期采样落点：文本插在采样位置（abXYc）')
       eq(h.model.caret, 3, 'N11 失焦 + 采样落点：完成后 caret = 标记位 3（修复前为 0）')
+      // #181 失焦兜底：模型选择丢了（detect 坐标对不上采样落点）⇒ 先做一笔瞬时 paste 编辑把历史边界顶开，
+      // 再走 #178 v1 的整框写入落位 —— 光标仍精确落标记位，且 setDraft 不再并进用户输入那条记录。
+      eq(h.calls.map((c) => c.type), ['captureInsertion', 'captureInsertion', 'insertText', 'setDraft', 'captureInsertion', 'insertText'], 'N13 失焦且选择丢失：瞬时边界 + 整框落位 + 删标记')
     }
-    eq(firstBlurredCalls, ['setDraft', 'captureInsertion', 'insertText'], 'N12 失焦带标记：走两编辑 span 路径（mode=span 的调用序列）')
+    eq(firstBlurredCalls, ['captureInsertion', 'insertText', 'captureInsertion', 'insertText'], 'N12 失焦带标记：模型选择仍在时走两笔 paste 编辑（mode=span 的调用序列）')
   } finally {
     globalThis.document = savedDocument
     globalThis.window = savedWindow

@@ -440,7 +440,8 @@ export function inkOutlineOf(t: { color?: unknown; outline?: unknown }): boolean
 export const CURSOR_MARKER = '{{cursor}}'
 
 /** #178 R2：剥掉正文里所有光标标记，并给出第一个标记在**剥后文本**中的偏移（插入后的光标目标）。
- *  无标记 → caret = null（插入行为与旧版完全一致：单次整框 setDraft，光标由宿主置尾）。
+ *  无标记 → caret = null（插入文本与旧版逐字符一致：#181 起走单笔 insertText，光标落在插入文本之后；
+ *  宿主能力不足时降级为整框 setDraft、光标置尾）。
  *  标记不参与任何展示、检索与评分；标记以外的字（含换行、空格）逐字节原样。 */
 export function stripCursorMarkers(body: string): { text: string; caret: number | null } {
   const src = body == null ? '' : String(body)

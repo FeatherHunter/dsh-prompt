@@ -661,18 +661,24 @@ function resolveDraft(): { text: string; caret: number; caretSrc: string; root: 
  *  被既有调用点与回归当作"插入前草稿长度"用，不能改签名去顺带回传这份诊断。 */
 let lastInsertProbe: { caret: number; caretSrc: string; draftLines: number } = { caret: 0, caretSrc: 'none', draftLines: 0 }
 
-/** #178 R2：一次插入的宿主侧计划 —— 先算出最终整篇文本（永远字符正确），再决定怎么交给宿主。
- *  1) 正文无光标标记：单次 setDraft(最终文本)，行为与旧版完全一致（光标由宿主置尾）。
- *  2) 有 {{cursor}} 且宿主公开 captureInsertion + insertText、草稿里也没有引用 chip：
- *     先 setDraft(含一个标记的全文) → captureInsertion() 取这次整框替换的 draftRev →
- *     insertText('', { draftRev, start: markerAt, end: markerAt + 标记长 }) 删掉标记。
+/** #178 R2 / #181：一次插入的宿主侧计划 —— 先算出最终整篇文本（永远字符正确），再决定怎么交给宿主。
+ *  #181 第一性原理：宿主公开的写草稿原语只有两条，undo 分组语义完全不同 ——
+ *  · setDraft 是「整框 seed」，宿主用 history-merge 标签把它并进上一条历史记录（不是独立可撤销步）；
+ *  · insertText 是 paste 记录，独立成一条 undo。用户意图写入必须走后者，否则「插入」会和插入前的
+ *    输入焊成同一条撤销记录（#181：第二次撤销连插入前的草稿一起吞掉）。所以：
+ *  1) 正文无光标标记：单次 insertText(正文, 折叠光标) —— 一次可撤销编辑，undo 回到插入前草稿，
+ *     光标落在插入文本之后（#181 显式接受的契约变更）。宿主缺 action / 光标非折叠 / 坐标对不上 /
+ *     草稿含引用 chip / insertText 返回 false 或抛错 ⇒ 降级 setDraft(最终文本)、mode=degraded，
+ *     光标置尾（旧行为、文本永远正确）；正常成功路径的 mode 保持 plain（不把正常记成降级）。
+ *  2) 有 {{cursor}}：两笔纯 paste 编辑 —— insertText(含一个标记的全文, 折叠光标) →
+ *     captureInsertion() 取新 draftRev → insertText('', { draftRev, start: markerAt, end: markerAt + 标记长 }) 删标记。
  *     Lexical 删除文本后光标塌缩在删除区间起点 ⇒ 光标精确落在标记位、标记不留痕；
- *     这是一次可撤销的纯文本编辑（undo 第一下会先看到标记回到正文，再 undo 才撤插入）。
- *  3) 任何一环不可用（旧宿主缺 action / insertText 返回 false / 抛错 / 草稿含引用 chip）：
+ *     两笔都是 paste 记录 ⇒ undo 第一下先撤「删标记」（标记回到正文），第二下撤整段插入、回插入前草稿。
+ *  3) 任何一环不可用（旧宿主缺 action / insertText 返回 false / 抛错 / 坐标不一致 / 草稿含引用 chip）：
  *     降级为「剥标记 + 整框 setDraft」，光标置尾；文本永远正确、绝不留标记。
  *  「先算后写」：text 是最终整篇草稿文本，draftChars 仍是插入前的草稿长度（pick.insert 契约不变）。
  *  #180：这里是「宿主写入」的唯一收口（面板 onPick 与智能卡 smartInsert 都从这里过），所以在
- *  第一次 setDraft 之前把焦点送回作曲家根 —— 失焦时宿主的两次编辑只改模型选择、不写 DOM 选择
+ *  第一次宿主编辑之前把焦点送回作曲家根 —— 失焦时宿主的两次编辑只改模型选择、不写 DOM 选择
  *  （skip-dom-selection），而事后再 focus 会让浏览器把 caret 放回文档开头、Lexical 随即同步成 0。
  *  root 由调用方传入「决议草稿时读的那个根」；不传则就地 pickEditable()（智能卡路径没有独立决议）。 */
 export function applyInsert(inputActions: any, draft: string, caret: number, body: string, root?: any): { draftChars: number; mode: 'plain' | 'span' | 'degraded'; marker: boolean; text: string } {
@@ -682,32 +688,76 @@ export function applyInsert(inputActions: any, draft: string, caret: number, bod
   const finalText = src.slice(0, pos) + parsed.text + src.slice(pos)
   const result = { draftChars: src.length, mode: 'plain' as 'plain' | 'span' | 'degraded', marker: parsed.caret !== null, text: finalText }
   if (!inputActions || typeof inputActions.setDraft !== 'function') return result
-  const focusRoot = root || pickEditable()
-  if (focusRoot && !composerFocused(focusRoot)) focusComposerRoot(focusRoot)
-  if (parsed.caret === null) {
-    inputActions.setDraft(finalText)
-    return result
+  // canEdit：宿主是否公开了「一次可撤销编辑」的原语，且当前草稿里没有引用 chip（chip 的坐标读写不可靠）。
+  const canEdit = typeof inputActions.captureInsertion === 'function' && typeof inputActions.insertText === 'function' && !CHIP_RE.test(src)
+  // 落点一致性守卫：captureInsertion 给的折叠光标必须正好是本次决议的落点（detect 坐标）。
+  // 对不上就拒绝编辑原语 —— 宁可光标置尾，也不把正文插到错位置（#180 的教训）。
+  const captureAt = (): number | null => {
+    const cap = inputActions.captureInsertion()
+    if (!cap) return null
+    const rev = typeof cap.draftRev === 'number' ? cap.draftRev : null
+    if (rev === null || cap.start !== pos || cap.end !== pos) return null
+    return rev
   }
-  const markerAt = pos + parsed.caret
-  const canSpan = typeof inputActions.captureInsertion === 'function' && typeof inputActions.insertText === 'function'
-  if (!canSpan || CHIP_RE.test(src)) {
+  // 两个约束同时成立，顺序因此固定：
+  // · #181：第一笔的落点区间必须在写之前读到 —— 失焦时模型选择还在，聚焦后浏览器会把 caret 归零（#180 的现象），
+  //   所以 captureInsertion 先读、且只读；
+  // · #180：首笔宿主编辑之前把焦点送回同一个作曲家根 —— 失焦时编辑只改模型选择、不写 DOM 选择，
+  //   事后再 focus 会让浏览器把 caret 放回文档开头；已聚焦不重复抢焦。
+  let cap1: number | null = null
+  if (canEdit) {
+    try { cap1 = captureAt() } catch (e) { cap1 = null }
+  }
+  const focusRoot = root || pickEditable()
+  const wasFocused = focusRoot ? composerFocused(focusRoot) : false
+  if (focusRoot && !wasFocused) focusComposerRoot(focusRoot)
+  if (parsed.caret === null) {
+    // 无标记：单笔可撤销编辑；undo 一步回到插入前草稿（#181 主修）。
+    if (cap1 !== null) {
+      try {
+        if (inputActions.insertText(parsed.text, { draftRev: cap1, start: pos, end: pos }) === true) return result
+      } catch (e) { /* 降级：文本正确性优先 */ }
+    }
     inputActions.setDraft(finalText)
     result.mode = 'degraded'
     return result
   }
-  const withMarker = src.slice(0, pos) + parsed.text.slice(0, parsed.caret) + CURSOR_MARKER + parsed.text.slice(parsed.caret) + src.slice(pos)
-  try {
-    inputActions.setDraft(withMarker)
-    const cap = inputActions.captureInsertion()
-    const rev = cap && typeof cap.draftRev === 'number' ? cap.draftRev : null
-    if (rev !== null) {
-      const ok = inputActions.insertText('', { draftRev: rev, start: markerAt, end: markerAt + CURSOR_MARKER.length })
-      if (ok === true) {
-        result.mode = 'span'
-        return result
+  // 有标记：两笔可撤销编辑，光标精确落标记位，undo 分两步回退（#178 语义保持）。
+  const markerAt = pos + parsed.caret
+  // 失焦且模型选择已丢（#180 的真机场景：焦点在别处、选择只剩编辑期采样）⇒ captureAt 的 detect 坐标对不上，
+  // 不能拿它定位（#178 的教训：坐标不可信就不插）。这里退回 #178 v1 的「整框写入 + 删标记」落位 ——
+  // 但先做一笔瞬时 paste 编辑把历史边界顶开（#181-B），否则 setDraft 的 history-merge 会把插入并进
+  // 用户输入那条记录，第二次撤销仍会吞掉插入前的草稿。
+  if (cap1 === null && canEdit && focusRoot && !wasFocused) {
+    try {
+      const capF = inputActions.captureInsertion()
+      const revF = capF && typeof capF.draftRev === 'number' ? capF.draftRev : null
+      if (revF !== null && inputActions.insertText('x', { draftRev: revF, start: 0, end: 0 }) === true) {
+        const withMarker = src.slice(0, pos) + parsed.text.slice(0, parsed.caret) + CURSOR_MARKER + parsed.text.slice(parsed.caret) + src.slice(pos)
+        inputActions.setDraft(withMarker)
+        const cap2 = inputActions.captureInsertion()
+        const rev2 = cap2 && typeof cap2.draftRev === 'number' ? cap2.draftRev : null
+        if (rev2 !== null && inputActions.insertText('', { draftRev: rev2, start: markerAt, end: markerAt + CURSOR_MARKER.length }) === true) {
+          result.mode = 'span'
+          return result
+        }
       }
-    }
-  } catch (e) { /* 降级：文本正确性优先 */ }
+    } catch (e) { /* 降级：文本正确性优先 */ }
+  }
+  if (cap1 !== null) {
+    // 第一笔只插「正文 + 标记」这一段（不含草稿前后缀）：insertText 替换的是落点区间，插整篇会重复草稿。
+    const markerBody = parsed.text.slice(0, parsed.caret) + CURSOR_MARKER + parsed.text.slice(parsed.caret)
+    try {
+      if (inputActions.insertText(markerBody, { draftRev: cap1, start: pos, end: pos }) === true) {
+        const cap2 = inputActions.captureInsertion()
+        const rev2 = cap2 && typeof cap2.draftRev === 'number' ? cap2.draftRev : null
+        if (rev2 !== null && inputActions.insertText('', { draftRev: rev2, start: markerAt, end: markerAt + CURSOR_MARKER.length }) === true) {
+          result.mode = 'span'
+          return result
+        }
+      }
+    } catch (e) { /* 降级：文本正确性优先 */ }
+  }
   inputActions.setDraft(finalText)
   result.mode = 'degraded'
   return result

@@ -52,7 +52,12 @@
   - **B. 假 paste 边界 + 保留 `setDraft`（回退项，记为有意负债）**：先用一笔瞬时 `insertText` 把当前 history 顶成新记录，再 `setDraft` 让 `history-merge` 并入这条假记录。能修掉吞草稿，但会多一次可见草稿变更（`draft-changed`/持久化/闪动风险），还要绕过 `setDraft` 的「文本未变即 return」短路。**只有 A 在某类宿主上被证伪时启用**；移除条件：上游补了带 history 选项的 `setDraft` 或带光标参数的 `insertText`，届时回到单编辑路径（见「考虑过的选项」里的上游 API 一条）。
   - **C. 上游加 API**：最干净，但需版本门槛 + 旧宿主降级，记为将来方案，不阻塞本决定。
   - **D. 只写文档**：否决 —— #181 的代价是数据丢失，不是可接受的 UX 妥协；v1 文档只写了 undo1 露标记，没有写 undo2 吞草稿，补写也不改变损失。
-- **Step 0 真机判定（A 是否真机可行）**：待真机验收回填 —— 需确认 (i) `captureInsertion` 的 detect 坐标与 `resolveDraft` 落点一致（否则一律降级、A 退化为文档口径）；(ii) 多行正文经 `insertText` 插入后，渲染/提交/持久化与 `setDraft` 按段切的模型等价（换行逐字符保真）；(iii) 真机 undo1/undo2/undo3/redo 序列与本节描述一致；(iv) 降级支路可达性与文本正确。若 (i) 或 (ii) 不成立，A 对「有标记 + 多行」退化为 B 或降级路径，须在实施记录中标注。
+- **Step 0 真机判定（A 是否真机可行）**：2026-10-29 真机（0.4.38 本地包，隔离 profile + headless Edge + CDP）判定 **A 可行**：
+  - (i) `captureInsertion` 的 detect 坐标与 `resolveDraft` 落点一致 —— 聚焦态（末尾/中间光标、多行草稿各位置）捕获的 start 全等于决议落点；失焦态即使浏览器 selection 已被归一化，宿主模型 report 的坐标也与 `resolveDraft` 的决议落点一致（两者同为该模型选择下的值），主路径未被坐标守卫误拦。落点本身在「失焦且浏览器 selection 已丢」时可能是草稿开头 —— 这是 `resolveDraft` 既有采样语义（#76）的表现，本票前后一致、不是 #181 引入；本票只保证按该落点插入时文本/撤销正确。
+  - (ii) 多行正文经 `insertText` 插入后，渲染文本、提交消息文本与重载后的草稿文本都与 `setDraft` 的按段切结果逐字符等价（一次性单 paste 得到的是带换行的文本节点，重载后宿主自己按段切；提交文本不变）。
+  - (iii) 真机 undo 序列与本节描述一致：有标记插入 undo1 露标记、undo2 回插入前草稿、undo3 更早、redo 逐步重建；失焦（含浏览器 selection 已丢）插入同样如此。
+  - (iv) 降级支路：`insertText` 返回 false / 抛错 / 坐标不一致 / 非折叠 / 草稿含 chip 时整框 `setDraft`、文本逐字符正确、无标记残留、`mode = degraded`；「已聚焦但落点对不上」直接降级不猜位置；失焦且模型选择已丢时走 §3 记录的「瞬时边界 + 整框落位」兜底（真机常规路径下未触发，回归里用假宿主钉住）。
+  - 证据：`research/issue-181-undo-grouping/findings.md` §10–§11、真机结果 JSON（`issue-181-real-v3.json`）与 `scripts/repro/real/issue-181-real.mjs` 的截图/读数。
 
 ### 4. 已知代价写进用户文档，不藏
 

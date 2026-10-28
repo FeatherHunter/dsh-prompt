@@ -680,7 +680,12 @@ let lastInsertProbe: { caret: number; caretSrc: string; draftLines: number } = {
  *  #180：这里是「宿主写入」的唯一收口（面板 onPick 与智能卡 smartInsert 都从这里过），所以在
  *  第一次宿主编辑之前把焦点送回作曲家根 —— 失焦时宿主的两次编辑只改模型选择、不写 DOM 选择
  *  （skip-dom-selection），而事后再 focus 会让浏览器把 caret 放回文档开头、Lexical 随即同步成 0。
- *  root 由调用方传入「决议草稿时读的那个根」；不传则就地 pickEditable()（智能卡路径没有独立决议）。 */
+ *  root 由调用方传入「决议草稿时读的那个根」；不传则就地 pickEditable()（智能卡路径没有独立决议）。
+ *  顺序（#180 × #181 的交叉点，别对调）：canEdit 时**先在失焦态**读一次 captureInsertion（落点一致性
+ *  守卫要用"聚焦前"的模型选择，focus() 会把浏览器 caret 归零、模型选择跟着变 0），然后才 focus，
+ *  再写。若聚焦前就读不到一致落点（失焦太久、模型选择已丢，只剩编辑期采样），有标记路径退回
+ *  #178 v1 的整框落位，但先用一笔瞬时 paste 编辑把历史边界顶开（#181 修法 B）—— 保住 #180 的
+ *  「光标落标记位」，同时 setDraft 不会并进用户输入那条记录，undo 仍能分两步回退。 */
 export function applyInsert(inputActions: any, draft: string, caret: number, body: string, root?: any): { draftChars: number; mode: 'plain' | 'span' | 'degraded'; marker: boolean; text: string } {
   const src = draft == null ? '' : String(draft)
   const pos = Math.max(0, Math.min(Number.isFinite(caret) ? caret : src.length, src.length))
@@ -774,9 +779,9 @@ export function insertBody(useInput: any, inputActions: any, body: string): numb
   const pos = Math.max(0, Math.min(r.caret, draft.length))
   lastInsertProbe = { caret: pos, caretSrc: r.caretSrc, draftLines: draft.length === 0 ? 0 : draft.split('\n').length }
   // #180：失焦插入的根因（宿主未聚焦时编辑只改模型选择、事后再 focus 让浏览器把 caret 放回 0）
-  // 与修法统一收口在 applyInsert —— 那里在首次宿主编辑前把焦点送回 r.root，之后走的就是 #178
-  // 真机验收过的「已聚焦」两编辑路径；智能卡 smartInsert 同样经过 applyInsert，自然一起修好。
-  // 尾部 setTimeout 仍保留作兜底（已聚焦时不重复抢焦）。
+  // 与修法统一收口在 applyInsert —— 那里在首次宿主编辑前把焦点送回 r.root；能先读到一致落点就走
+  // 两笔 paste，读不到（模型选择已丢）就顶开历史边界后整框落位。智能卡 smartInsert 同样经过
+  // applyInsert，自然一起修好。尾部 setTimeout 仍保留作兜底（已聚焦时不重复抢焦）。
   if (inputActions && typeof inputActions.setDraft === 'function') applyInsert(inputActions, draft, pos, body, r.root)
   setTimeout(() => {
     try { focusComposer() } catch (e) { /* ignore */ }

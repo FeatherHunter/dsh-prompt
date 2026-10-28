@@ -417,6 +417,31 @@ export function templateHaystack(t: PromptTemplate): string {
   return (t.name + ' ' + (t.nameEn || '') + ' ' + (t.body || '') + ' ' + (t.domain || '') + ' ' + (t.stage || '') + ' ' + (t.action || []).join(' ') + ' ' + templateLabels(t).join(' ')).toLowerCase()
 }
 
+/**
+ * #178 R1：保存路径的正文清洗 —— 只削「行首/行尾的空格与 tab」，**保留所有换行**（含正文开头/结尾的空行）。
+ * 旧实现用的是 body.trim()：它会把首尾换行一并吃掉，于是「正文顶部的空行」「结尾的空行」存不下来。
+ * 之所以不引入 \n 转义语言：真换行本来就能存能插，存量正文里的 C:\new、/\n/ 等字面文本不能被解码误伤
+ * （ADR-0007 的「用户数据逐字节不变」价值观）。
+ */
+export function trimBodyEdges(body: string): string {
+  return (body == null ? '' : String(body)).replace(/^[ \t]+|[ \t]+$/g, '')
+}
+
+/** #178 R1：展示用首行 —— 取第一个**非空**行（行首尾空白削掉）；正文以空行开头时不产生空简介。 */
+export function firstLineIntro(body: string): string {
+  const lines = body.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (line) return line
+  }
+  return ''
+}
+
+/** #178 R1：展示用单行预览 —— 把空白（含换行）压成单空格并削首尾；远程大卡简介与设置页展开预览用。 */
+export function oneLinePreview(body: string): string {
+  return body.split(/\s+/).filter((x) => !!x).join(' ')
+}
+
 /** 排序（#68 决议 2026-09-15）：设置页与 /prompt 忽略置顶，只按用量计数降序 → 末键。
  *  置顶仅悬浮列表生效（见 sortedTemplatesBottomUp）。用量仅供排序，不显示数字（显示由 #69/#71 落地）。
  *  #22 决议中“设置页置顶绝对优先”一句被本票推翻；降序方向本身维持（管理面与菜单首屏例外，见 #22 Q2/Q6）。 */

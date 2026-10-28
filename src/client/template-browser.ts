@@ -24,6 +24,7 @@ import {
   allTemplates, sortedTemplates, sortedTemplatesBottomUp, templateLabels, matchLabel,
   allKnownLabels, normalizeLabels, validateLabels, isPinned, togglePin, canPinMore, LABEL_FALLBACK,
   addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, loadUsage, templateHaystack, MAX_BODY,
+  trimBodyEdges, firstLineIntro, oneLinePreview,
   inkColorOf, inkOutlineOf, relativeLuminance, INK_PICK_L_MIN, INK_PICK_L_MAX,
   ensureLoaded, subscribeStore, loadHidePreset, saveHidePreset, applyHidePreset,
 } from './template-library'
@@ -1013,7 +1014,8 @@ function TemplateModal(props: any): any {
     setLabelInput('')
   }
   const doOk = () => {
-    const nm = name.trim(), bd = body.trim()
+    // #178 R1：只削首尾空格/tab，保留首尾换行（旧 body.trim() 会把正文顶部的空行吃掉）。
+    const nm = name.trim(), bd = trimBodyEdges(body)
     if (!nm) { setErr('nameRequired'); return }
     if (bd.length > MAX_BODY) { setErr('bodyTooLong'); return }
     // 输入框残留文本一并计入（不静默丢），统一走校验：违规阻断并行内提示
@@ -1881,7 +1883,8 @@ export function TemplateBrowser(props: BrowserProps): any {
       const tpl = remoteById.get(s.id)
       if (!tpl) return h('div', { key: 'empty-' + s.order, style: remoteEmptyStyle, 'data-dsh-prompt-remote-empty': '1', 'aria-hidden': 'true' })
       // 简介取正文全文（空白压成单空格），卡内自然流排、底边硬裁——全面展示，高度不跳。
-      const intro = (tpl.body || '').split(/\s+/).filter((x) => !!x).join(' ')
+      // #178：走单行预览（空白压成单空格），远程大卡与面板列表同一口径。
+      const intro = oneLinePreview(tpl.body)
       const usageN = remoteUsage[tpl.id] || 0
       const pinned = isPinned(tpl.id)
       const custom = !tpl.builtin
@@ -2111,8 +2114,9 @@ export function TemplateBrowser(props: BrowserProps): any {
     const isHover = hoverId === x.id
     const itemBg = isPressed ? ROW_PRESSED_BG : isHover ? ROW_HOVER_BG : highlightId === x.id ? ROW_HOVER_BG : undefined
     const itemOutline = isPressed ? '1px solid var(--dsw-alias-border-l1)' : undefined
-    // 简介 = body 首行（一句话），标题之后跟随 —— 单行显示
-    const intro = (x.body || '').split('\n')[0].trim()
+    // 简介 = body 第一个非空行（一句话），标题之后跟随 —— 单行显示
+    // #178：正文以空行开头时顺延到下一个非空行，不出空简介。
+    const intro = firstLineIntro(x.body)
     // #71 行内用量徽标：读 store 现有缓存（排序语义不动，只读展示）
     const usageN = (loadUsage()[x.id] || 0)
     // #141：用量 title 走词表（{n} 占位；与 remoteEffectiveNow 同法）
@@ -2184,7 +2188,7 @@ export function TemplateBrowser(props: BrowserProps): any {
           h('span', { style: ink ? { ...nmStyle, color: ink, paddingBlock: 2, marginBlock: -2, paddingInline: 2, marginInline: -2 } : nmStyle, ...(tint ? { [INK_TINT_ATTR]: '' } : {}) }, x.name),
           h('span', { style: tagStyle, ...(templateLabels(x).indexOf(LABEL_FALLBACK) >= 0 ? { 'data-dsh-prompt-chrome': 'labelFallback' } : {}) }, displayLabelString(x, lang)),
         ]),
-        expanded.has(x.id) ? h('span', { style: subStyle }, (x.body || '').slice(0, 44) + '…') : null,
+        expanded.has(x.id) ? h('span', { style: subStyle }, oneLinePreview(x.body).slice(0, 44) + '…') : null,
       ]),
       h('div', { style: { flex: 'none', display: 'flex', alignItems: 'center', gap: 4, paddingTop: 2 } }, [acts]),
       // #71 用量徽标（设置页）：行最右（操作按钮之后、最末尾）；paddingTop 与图钉一致，与标题首行对齐，样式不变

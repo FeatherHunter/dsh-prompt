@@ -69,8 +69,8 @@ const findBadgeKid = (row) => {
   const idx = badge ? kids.lastIndexOf(badge) : -1;
   return { kids, badge, idx };
 };
-// 设置页简介串（与 panel 设置页分支同式：body 前 44 字 + …）
-const introOf = (t) => ((t.body || '').slice(0, 44) + '…');
+// 设置页简介串（与 panel 设置页分支同式：#178 起空白压成单空格，再取前 44 字 + …）
+const introOf = (t) => (store.oneLinePreview(t.body).slice(0, 44) + '…');
 
 async function main() {
   console.log('=== Test #74 A: 默认折叠（无简介节点；单行五件套） ===');

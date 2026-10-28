@@ -138,16 +138,26 @@ function Btn(props: any): any {
 /** 复选框：宿主风格的圆角小方框（accent-color 跟随主题），不再是自己画一个控件。
  * 尺寸走 em 吃设置页根 scale（远程开大档一起变大）；flex:none 保命中区不小于框体。
  * 原生 input 不继承 font-size（UA 样式自带字号），em 会锚死在默认字号上跟档无感，
- * 故显式 fontSize:inherit 把父级（已随档缩放的根）字号接进来；关=根回基准，原样。 */
+ * 故显式 fontSize:inherit 把父级（已随档缩放的根）字号接进来；关=根回基准，原样。
+ * #182：与 Btn 一样透传 data-* / aria-*——BAR_UI_CSS 按 data-dsh-prompt-*-toggle 钩子补原生控件没有的
+ * 悬浮/焦点反馈；不透传会被 React 丢掉，钩子永远落不到 DOM 上。 */
 function Check(props: any): any {
   const react = getReact()
   if (!react) return null
+  // #182：透传钩子（与同文件 Btn 的 #110 透传同一口径：只放行 data-* / aria-*，不扩散其它属性）。
+  const extra: any = {}
+  try {
+    for (const k of Object.keys(props || {})) {
+      if (k.indexOf('data-') === 0 || k.indexOf('aria-') === 0) extra[k] = (props as any)[k]
+    }
+  } catch (e) { /* ignore */ }
   return react.createElement('input', {
     type: 'checkbox',
     checked: props.checked,
     disabled: props.disabled,
     style: { width: '1.15em', height: '1.15em', flex: 'none', fontSize: 'inherit', accentColor: TOK.accent, cursor: props.disabled ? 'not-allowed' : 'pointer', margin: 0 },
     onChange: props.onChange,
+    ...extra,
   })
 }
 

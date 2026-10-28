@@ -829,6 +829,8 @@ export const BAR_UI_CSS = (function (): string {
   // #179 触发方式钮（底栏 + 设置页共用）与设置页那枚屏蔽勾选框的悬浮反馈位。
   const trig = '[data-dsh-prompt-trigger]'
   const hideToggle = '[data-dsh-prompt-hide-toggle]'
+  // #182：远程模式总闸勾选框（同一颗 Check，同根因：钩子曾被组件丢掉）。
+  const remoteToggle = '[data-dsh-prompt-remote-toggle]'
   const search = '[data-dsh-prompt-search]'
   const rBtn = '[data-dsh-prompt-remote-add],[data-dsh-prompt-remote-search],[data-dsh-prompt-remote-prev],[data-dsh-prompt-remote-next],[data-dsh-prompt-remote-close]'
   const focusRing = '2px solid var(--dsw-specific-accent)'
@@ -846,6 +848,12 @@ export const BAR_UI_CSS = (function (): string {
     hideToggle + ':hover{box-shadow:0 0 0 3px rgba(240,164,92,.3);filter:brightness(1.12);}',
     hideToggle + ':checked:hover{box-shadow:0 0 0 3px rgba(240,164,92,.55);}',
     hideToggle + ':focus-visible{outline:' + focusRing + ';outline-offset:2px;}',
+    // #182：远程总闸勾选框同根因（Check 曾丢 data-* 钩子），一并补同款反馈；
+    // 规则值与「屏蔽预制模板」那枚保持一致（选择器分开写，便于按票核对）。
+    remoteToggle + '{transition:box-shadow .12s ease,filter .12s ease;border-radius:4px;}',
+    remoteToggle + ':hover{box-shadow:0 0 0 3px rgba(240,164,92,.3);filter:brightness(1.12);}',
+    remoteToggle + ':checked:hover{box-shadow:0 0 0 3px rgba(240,164,92,.55);}',
+    remoteToggle + ':focus-visible{outline:' + focusRing + ';outline-offset:2px;}',
     // 触发方式钮选中态（aria-pressed=true=仅点击触发）悬浮时加一圈 accent 环，选中的状态看得见。
     trig + '[aria-pressed="true"]:hover{box-shadow:0 0 0 2px rgba(240,164,92,.55);}',
     // 关闭：平时描边框（内联 border，比原来无框显眼但几何不动）；

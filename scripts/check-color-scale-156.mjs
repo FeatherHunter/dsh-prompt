@@ -358,8 +358,10 @@ const KNOWN_HEX = {
 // 每格颜色都由 store 的可读带判据即时生成；template-browser.ts 的 #f0a45c 由 14 降到 13（旧控件里那处兜底随旧控件一起删）。
 // #165 登记（2026-10-16）：template-browser.ts 的 #f0a45c 由 13 回到 14 —— 新增屏蔽钮眼睛图标睁眼态 accent 兜底
 // （var(--dsw-specific-accent,#f0a45c)，与既有插件铬同一条路：宿主令牌优先、hex 只做无令牌宿主的回落）。
+// #179 登记（2026-10-29）：template-browser.ts 的 #f0a45c 由 14 到 15 —— 新增触发方式钮的指针图标（仅点击态 accent），
+// 与眼睛图标同一条兜底路子（宿主令牌优先、hex 只在宿主无令牌时回落；色值本身没新增、没改）。
 const FROZEN_HEX = {
-  'template-browser.ts': { '#f0a45c': 14, '#1a1a1e': 2, '#e06c75': 5 },
+  'template-browser.ts': { '#f0a45c': 15, '#1a1a1e': 2, '#e06c75': 5 },
   'smart-card.ts': { '#f0a45c': 1 },
   'index.ts': {},
   'strings.ts': {},

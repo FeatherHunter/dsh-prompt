@@ -52,11 +52,12 @@
     "check:issue-176": "node scripts/repro/test-issue-176.cjs",
     "check:issue-177": "node scripts/repro/test-issue-177.cjs",
     "check:issue-178": "node scripts/repro/test-issue-178.cjs",
+    "check:issue-179": "node scripts/repro/test-issue-179.cjs",
     "check:remote-zoom-167": "node scripts/check-remote-zoom-167.mjs",
     "check:marketplace-readme": "node scripts/check-marketplace-readme.mjs",
     "star:history": "node scripts/update-star-history.ts",
     "thanks:update": "node scripts/update-thanks.mts",    "check:target-tree": "node scripts/check-target-tree.mjs --expect=target",
-    "check": "npm run typecheck && npm run check:update-catalog && npm run check:lib-sync && npm run check:modal && npm run check:issue-14 && npm run check:bottom-up && npm run check:bilingual-134 && npm run check:locale-137 && npm run check:update-inline-39 && npm run check:log-shape && npm run check:host-deps && npm run check:color-scale-156 && npm run check:issue-176 && npm run check:issue-177 && npm run check:issue-178 && npm run check:remote-zoom-167 && npm run check:marketplace-readme && npm run test:star-history && npm run test:thanks && npm run check:update-pkg && npm run check:target-tree",
+    "check": "npm run typecheck && npm run check:update-catalog && npm run check:lib-sync && npm run check:modal && npm run check:issue-14 && npm run check:bottom-up && npm run check:bilingual-134 && npm run check:locale-137 && npm run check:update-inline-39 && npm run check:log-shape && npm run check:host-deps && npm run check:color-scale-156 && npm run check:issue-176 && npm run check:issue-177 && npm run check:issue-178 && npm run check:issue-179 && npm run check:remote-zoom-167 && npm run check:marketplace-readme && npm run test:star-history && npm run test:thanks && npm run check:update-pkg && npm run check:target-tree",
     "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck:host",
     "typecheck:host": "tsc -p tsconfig.host.json",
     "test:lib-sync": "node scripts/check-lib-sync.mjs",
@@ -117,7 +118,8 @@
     "test:issue-167": "node scripts/check-remote-zoom-167.mjs",
     "test:issue-176": "node scripts/repro/test-issue-176.cjs",
     "test:issue-177": "node scripts/repro/test-issue-177.cjs",
-    "test:issue-178": "node scripts/repro/test-issue-178.cjs"
+    "test:issue-178": "node scripts/repro/test-issue-178.cjs",
+    "test:issue-179": "node scripts/repro/test-issue-179.cjs"
   },
   "dsh": {
     "bundle": {

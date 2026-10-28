@@ -26,7 +26,7 @@ import {
   addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, loadUsage, templateHaystack, MAX_BODY,
   trimBodyEdges, firstLineIntro, oneLinePreview, stripCursorMarkers, CURSOR_MARKER,
   inkColorOf, inkOutlineOf, relativeLuminance, INK_PICK_L_MIN, INK_PICK_L_MAX,
-  ensureLoaded, subscribeStore, loadHidePreset, saveHidePreset, applyHidePreset,
+  ensureLoaded, subscribeStore, loadHidePreset, saveHidePreset, applyHidePreset, loadHoverTrigger, saveHoverTrigger,
 } from './template-library'
 import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './panel-visibility'
 import { getRemotePrefs, getEnvOrientation, subscribeRemote, ensureRemoteLoaded } from './remote-mode'
@@ -71,6 +71,93 @@ export function PromptMark(props: { size?: number }): any {
     h('path', { key: 'c', d: 'M10 22h4' }),
     h('path', { key: 'd', d: 'M18.5 2.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z' }),
   ])
+}
+
+/**
+ * #165 屏蔽图标（眼睛）：底栏「展示/屏蔽预制模板」与设置页行首图标共用这一份几何（#179 追加设置行用法）。
+ * 睁眼=accent 橙（当前屏蔽中，点它展示）、闭眼斜线=dim 灰（当前展示中，点它藏起）。
+ */
+export function PresetEyeIcon(props: { open: boolean; size?: number }): any {
+  const react = getReact()
+  if (!react) return null
+  const h = react.createElement
+  const s = (props && props.size) || 14
+  const color = props && props.open ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-label-tertiary)'
+  const kids = (props && props.open)
+    ? [
+      h('path', { key: 'o', d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' }),
+      h('circle', { key: 'p', cx: 12, cy: 12, r: 3 }),
+    ]
+    : [
+      h('path', { key: 'o1', d: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94' }),
+      h('path', { key: 'o2', d: 'M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19' }),
+      h('path', { key: 'o3', d: 'M14.12 14.12a3 3 0 1 1-4.24-4.24' }),
+      h('line', { key: 'o4', x1: 1, y1: 1, x2: 23, y2: 23 }),
+    ]
+  return h('svg', {
+    width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: color,
+    strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
+    'aria-hidden': 'true', style: { flex: 'none', display: 'block' },
+  }, kids)
+}
+
+/**
+ * #179 触发方式图标（鼠标指针）：底栏「点击触发/悬浮触发」钮与设置页「触发方式」行首共用这一份几何。
+ * 仅点击触发（click 模式）时走 accent 橙（状态可见），悬浮触发时为 dim 灰。
+ */
+export function TriggerPointerIcon(props: { clickOnly: boolean; size?: number }): any {
+  const react = getReact()
+  if (!react) return null
+  const h = react.createElement
+  const s = (props && props.size) || 14
+  const color = props && props.clickOnly ? 'var(--dsw-specific-accent,#f0a45c)' : 'var(--dsw-alias-label-tertiary)'
+  return h('svg', {
+    width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: color,
+    strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
+    'aria-hidden': 'true', style: { flex: 'none', display: 'block' },
+  }, [
+    h('path', { key: 'p', d: 'M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z' }),
+    h('path', { key: 'q', d: 'M13 13l6 6' }),
+  ])
+}
+
+/**
+ * 底栏动作式幽灵胶囊（#165 屏蔽钮 / #179 触发方式钮同款外形）：按钮永不整块发黄，状态只走图标双色；
+ * hover/active/focus 反馈由 `BAR_UI_CSS` 统一注入（内联表达不了伪类）。
+ */
+const GHOST_PILL_STYLE: any = {
+  display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 12px', borderRadius: 8,
+  border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent',
+  color: 'var(--dsw-alias-label-tertiary)', cursor: 'pointer',
+  fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em', whiteSpace: 'nowrap', flex: 'none',
+}
+
+/**
+ * #179 触发方式动作按钮（底栏与设置页共用）：幽灵胶囊 + 指针图标 + 动作式文案。
+ * - aria-pressed=true 表示「当前=仅点击触发」（读屏与静态/渲染门禁都认这一位）；
+ * - 点它 = 切到另一种触发方式（内存先行 + notifyStore 自动回刷底栏/设置页两处）；
+ * - data-dsh-prompt-trigger 供门禁/测试定位；data-dsh-prompt-chrome 让设置入口的排己逻辑继续生效。
+ * 注意：文案由调用方传入的 lang 决定（与父面同一份 lang 状态），本组件不自己订阅语言。
+ */
+export function TriggerModeButton(props: { hover: boolean; lang: Lang }): any {
+  const react = getReact()
+  if (!react) return null
+  const h = react.createElement
+  const hover = props.hover !== false
+  // chrome 钩子值必须是 STR key（#141 口径：钩子值 = 该节点的文案键）——这里随状态二选一。
+  const labelKey = hover ? 'switchToClick' : 'switchToHover'
+  const label = tr(props.lang, STR[labelKey])
+  return h('button', {
+    type: 'button',
+    style: { ...GHOST_PILL_STYLE },
+    'data-dsh-prompt-trigger': '1',
+    'data-dsh-prompt-chrome': labelKey,
+    'aria-pressed': hover ? 'false' : 'true',
+    title: label,
+    'aria-label': label,
+    onMouseDown: keepComposerFocus,
+    onClick: () => { try { saveHoverTrigger(!hover) } catch (e) { /* ignore */ } },
+  }, TriggerPointerIcon({ clickOnly: !hover }), ' ' + label)
 }
 
 // #70 P6a（2026-09-15）：云整行单选互斥（推翻 P5a 双维 AND；STAGE_TABS/tabs/tabNodes/tabState/CUSTOM_TAG/scope/cloud 双态全清，无死代码）。
@@ -739,17 +826,28 @@ export const BAR_UI_CSS = (function (): string {
   const act = '[data-dsh-prompt-act] button'
   const pin = '[data-dsh-prompt-pin]'
   const hide = '[data-dsh-prompt-hide]'
+  // #179 触发方式钮（底栏 + 设置页共用）与设置页那枚屏蔽勾选框的悬浮反馈位。
+  const trig = '[data-dsh-prompt-trigger]'
+  const hideToggle = '[data-dsh-prompt-hide-toggle]'
   const search = '[data-dsh-prompt-search]'
   const rBtn = '[data-dsh-prompt-remote-add],[data-dsh-prompt-remote-search],[data-dsh-prompt-remote-prev],[data-dsh-prompt-remote-next],[data-dsh-prompt-remote-close]'
   const focusRing = '2px solid var(--dsw-specific-accent)'
   const hoverRing = '0 0 0 2px var(--dsw-alias-border-l2)'
   return [
-    barBtn + ',' + cloudBtn + ',' + act + ',' + pin + ',' + hide + ',' + rBtn + '{transition:filter .12s ease,box-shadow .12s ease,transform .06s ease;}',
-    barBtn + ':hover,' + cloudBtn + ':hover,' + act + ':hover,' + pin + ':hover,' + hide + ':hover,' + rBtn + ':hover{filter:brightness(1.25);box-shadow:' + hoverRing + ';}',
-    barBtn + ':active,' + cloudBtn + ':active,' + act + ':active,' + hide + ':active,' + rBtn + ':active{transform:translateY(1px);}',
+    barBtn + ',' + cloudBtn + ',' + act + ',' + pin + ',' + hide + ',' + trig + ',' + rBtn + '{transition:filter .12s ease,box-shadow .12s ease,transform .06s ease;}',
+    barBtn + ':hover,' + cloudBtn + ':hover,' + act + ':hover,' + pin + ':hover,' + hide + ':hover,' + trig + ':hover,' + rBtn + ':hover{filter:brightness(1.25);box-shadow:' + hoverRing + ';}',
+    barBtn + ':active,' + cloudBtn + ':active,' + act + ':active,' + hide + ':active,' + trig + ':active,' + rBtn + ':active{transform:translateY(1px);}',
     pin + ':active{transform:scale(.9);}',
     // 焦点环挂在真能聚焦的东西上（全是原生 button/input），悬浮灰、焦点橙，双通道可分。
-    barBtn + ':focus-visible,' + cloudBtn + ':focus-visible,' + act + ':focus-visible,' + pin + ':focus-visible,' + hide + ':focus-visible,' + rBtn + ':focus-visible{outline:' + focusRing + ';outline-offset:2px;}',
+    barBtn + ':focus-visible,' + cloudBtn + ':focus-visible,' + act + ':focus-visible,' + pin + ':focus-visible,' + hide + ':focus-visible,' + trig + ':focus-visible,' + rBtn + ':focus-visible{outline:' + focusRing + ';outline-offset:2px;}',
+    // #179 设置面板两枚控件悬浮反馈显式化（用户口径：选中的那个悬浮时要看得见）——
+    // 勾选框是原生控件没有 hover 态，补 accent 外环 + 提亮；勾选态再强一档。
+    hideToggle + '{transition:box-shadow .12s ease,filter .12s ease;border-radius:4px;}',
+    hideToggle + ':hover{box-shadow:0 0 0 3px rgba(240,164,92,.3);filter:brightness(1.12);}',
+    hideToggle + ':checked:hover{box-shadow:0 0 0 3px rgba(240,164,92,.55);}',
+    hideToggle + ':focus-visible{outline:' + focusRing + ';outline-offset:2px;}',
+    // 触发方式钮选中态（aria-pressed=true=仅点击触发）悬浮时加一圈 accent 环，选中的状态看得见。
+    trig + '[aria-pressed="true"]:hover{box-shadow:0 0 0 2px rgba(240,164,92,.55);}',
     // 关闭：平时描边框（内联 border，比原来无框显眼但几何不动）；
     // hover 走原型 v3 DELTA-1（浅红 tint 底 + 危险字 + 2px tint 环，!important 盖过内联透明底/次级字）。
     '[data-dsh-prompt-close]:hover,[data-dsh-prompt-remote-close]:hover{background:rgba(224,108,117,.16)!important;color:var(--dsw-specific-danger)!important;box-shadow:0 0 0 2px rgba(224,108,117,.35);}',
@@ -1617,31 +1715,9 @@ export function TemplateBrowser(props: BrowserProps): any {
   // #165 屏蔽钮（C 方案定稿：实线边框 + 8px 圆角 + 4px 12px 垫衬，跟＋新增同族；
   // 幽灵态永不整块发黄，状态只走眼睛图标开合 + 双色：睁眼=accent 橙"点它展示"，闭眼斜线=dim 灰"点它藏起"；
   // 文案动作式：屏蔽中"展示预制模板"，展示中"屏蔽预制模板"）。
-  // 定义在样式区（远程分支之前）：小列表底栏与大列表底栏共用同一枚，大列表先渲染。
-  const hideBtnStyle: any = {
-    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 12px', borderRadius: 8,
-    border: line, background: 'transparent', color: dim, cursor: 'pointer',
-    fontFamily: 'var(--dsw-font-family)', fontSize: '0.85em', whiteSpace: 'nowrap', flex: 'none',
-  }
-  const hideEyeSvg = (open: boolean): any => {
-    const color = open ? 'var(--dsw-specific-accent,#f0a45c)' : dim
-    const kids = open
-      ? [
-        h('path', { key: 'o', d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' }),
-        h('circle', { key: 'p', cx: 12, cy: 12, r: 3 }),
-      ]
-      : [
-        h('path', { key: 'o1', d: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94' }),
-        h('path', { key: 'o2', d: 'M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19' }),
-        h('path', { key: 'o3', d: 'M14.12 14.12a3 3 0 1 1-4.24-4.24' }),
-        h('line', { key: 'o4', x1: 1, y1: 1, x2: 23, y2: 23 }),
-      ]
-    return h('svg', {
-      key: 'eye', width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: color,
-      strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
-      'aria-hidden': 'true', style: { flex: 'none', display: 'block' },
-    }, kids)
-  }
+  // #179 收敛：外形走模块级 GHOST_PILL_STYLE、眼睛几何走 PresetEyeIcon —— 设置页行首图标与底栏同一份，
+  // 不再各画一套。定义在样式区（远程分支之前）：小列表底栏与大列表底栏共用同一枚，大列表先渲染。
+  const hideBtnStyle: any = { ...GHOST_PILL_STYLE }
   const hideToggleNode = (hookKey: string): any => h('button', {
     key: hookKey, style: hideBtnStyle,
     'data-dsh-prompt-hide': '1',
@@ -1650,7 +1726,7 @@ export function TemplateBrowser(props: BrowserProps): any {
     'aria-label': t(hide ? 'showPreset' : 'hidePreset'),
     onMouseDown: keepComposerFocus,
     onClick: () => { saveHidePreset(!hide); refresh() },
-  }, hideEyeSvg(hide), ' ' + t(hide ? 'showPreset' : 'hidePreset'))
+  }, h(PresetEyeIcon, { open: hide }), ' ' + t(hide ? 'showPreset' : 'hidePreset'))
   // #70 P6a 云行布局（顶部唯一行；flexWrap 承接自定义词增多时的换行）。
   const cloudRowStyle: any = { display: 'flex', gap: 4, padding: '3px 8px 0', flexWrap: 'wrap' }
   // #70 P6a 云按钮（全部/范围钮与行动词共用同一手感；首行 tabBtn 已随页签删除）。
@@ -2295,6 +2371,9 @@ export function TemplateBrowser(props: BrowserProps): any {
         onClick: () => modalState[1]({ kind: 'add' }),
       }, t('plusGlyph') + ' ' + t('addShort')),
       hideToggleNode('hide'),
+      // #179 触发方式：紧挨「展示预制模板」右侧的同款动作式胶囊（悬浮模式写「点击触发」、
+      // 点击模式写「悬浮触发」）。与设置页那一行读同一全局位，点哪边都同时翻两处。
+      h(TriggerModeButton, { key: 'trigger', hover: loadHoverTrigger(), lang }),
       h('button', {
         key: 'go-settings',
         style: { ...footLink, whiteSpace: 'nowrap', textAlign: 'right', flex: 'none' }, 'data-dsh-prompt-chrome': 'goSettings',

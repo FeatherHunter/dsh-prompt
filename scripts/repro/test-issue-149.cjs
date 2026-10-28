@@ -123,10 +123,12 @@ if (tree) {
         if (chrome === 'plusGlyph') return 'add';
         if (chrome === 'goSettings') return 'go';
         if (c.props['data-dsh-prompt-hide'] === '1') return 'hide'; // #165：＋新增 与 设置入口 之间
+        if (c.type === panelMod.TriggerModeButton || (c.type && c.type.name === 'TriggerModeButton')) return 'trigger'; // #179：屏蔽预制 与 设置入口 之间（组件实例，内层才是 button）
+        if (c.props['data-dsh-prompt-trigger'] === '1') return 'trigger'; // #179（万一化平进宿主层）
         if (c.props.title === T('close')) return 'close';
         return '?';
       };
-      eq(direct.map(kindOf).join(','), 'search,counts,add,hide,go,close', '合并行从左到右应为 搜索 → 条数 → ＋新增 → 屏蔽预制 → 设置入口 → ×');
+      eq(direct.map(kindOf).join(','), 'search,counts,add,hide,trigger,go,close', '合并行从左到右应为 搜索 → 条数 → ＋新增 → 屏蔽预制 → 触发方式 → 设置入口 → ×');
       const ss = direct[0] && direct[0].props && direct[0].props.style;
       eq(ss && ss.flex, '1 1 auto', '搜索框应吃掉弹性宽度（flex:1 1 auto）');
       eq(ss && ss.minWidth, 0, '搜索框须可收缩（minWidth:0），否则撑破单行');

@@ -41,8 +41,27 @@ export function setHoverCloseSuppressed(v: boolean): void {
 }
 export function isHoverCloseSuppressed(): boolean { return hoverCloseSuppressed }
 
+/**
+ * #179 触发方式（全局设置，缺省=悬浮触发）：true=悬浮开/离开延迟关（#12 既定行为，一字不动）；
+ * false=仅点击触发 —— 入口 onMouseEnter 不再开窗，且所有 hover 排关失效
+ * （四条排关位：入口 leave / 根节点 leave / 远程根 leave / #14 补关），只保留显式关闭。
+ * 本文件仍是纯 UI 瞬态位：值由 index.ts 从 template-library 的 host 快照读入后同步过来，
+ * 不在 panel-visibility 里 import store（保住 #171 N6 的 import 边界）。
+ */
+let hoverTriggerEnabled = true
+export function isHoverTriggerEnabled(): boolean { return hoverTriggerEnabled }
+export function setHoverTriggerEnabled(on: boolean): void {
+  const next = on !== false
+  if (hoverTriggerEnabled === next) return
+  hoverTriggerEnabled = next
+  // 切到仅点击：撤销挂起的 hover 排关，面板保持当前开合 —— 切换是「改触发方式」，不是替用户开/关。
+  if (!next) cancelPanelClose()
+}
+
 /** hover 离开后延迟关窗（短暂计时，防止从按钮移动到列表之间的误关） */
 export function schedulePanelClose(ms: number): void {
+  // #179：仅点击模式下一律不排 hover 关（显式关闭走 setPanelOpen(false)，不经过这里）。
+  if (!hoverTriggerEnabled) return
   if (hoverCloseSuppressed) return
   if (closeTimer !== null) clearTimeout(closeTimer)
   closeTimer = setTimeout(() => setPanelOpen(false), ms)

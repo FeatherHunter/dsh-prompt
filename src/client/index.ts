@@ -12,14 +12,14 @@ import { SettingsPage } from './settings-page'
 import { buildPromptSource } from './prompt-trigger'
 import { SmartCardHost } from './smart-card'
 import { setSmartInput } from './smart-draft'
-import { ensureLoaded } from './template-library'
+import { ensureLoaded, loadHoverTrigger, subscribeStore } from './template-library'
 import { ensureRemoteLoaded, subscribeRemote, getRemotePrefs, warmEnvOrientation } from './remote-mode'
 import { getSystemOrientation } from './system-orientation'
 import { syncHostFont, syncRemoteRows, syncAssistantZoom, clearHostBridges } from './host-content-font'
 import { applyOwnedStyle, styleDocument } from './style-ownership'
 import { getLang, tr, STR } from './strings'
 import { installLocaleService } from './locale'
-import { isPanelOpen, onPanelOpen } from './panel-visibility'
+import { isPanelOpen, onPanelOpen, setHoverTriggerEnabled } from './panel-visibility'
 import { startLog, getLog } from './log'
 
 /** 记一条调试级事件（先问开关再组装字段：关着开关时连字符串都不拼，包内兜底拦不住调用前的求值）。 */
@@ -156,8 +156,8 @@ export function apply(ctx: ClientContext): void {
   const log = startLog()
   log.reconcile().catch(() => undefined)
   // entryCount = 下面 `ctx.effect` 无条件注册数（#127 删自研更新后 update-auto 退出，8→7；
-  // 现为：store/remote/字桥/entry/panel/settings/smart；/prompt 源按宿主能力条件注册，不计）
-  log.log('app.boot', { hasReact: !!getReact(), lang: getLang(), entryCount: 7 })
+  // #179 加触发方式同步后 7→8；现为：store/trigger/remote/字桥/entry/panel/settings/smart；/prompt 源按宿主能力条件注册，不计）
+  log.log('app.boot', { hasReact: !!getReact(), lang: getLang(), entryCount: 8 })
   // #137：语言面装配 —— 宿主语言中枢（ctx.locale）经 ctx.get 免声明读取（**不加 inject**），
   // 包成 { getActive, subscribe } 适配器装进 locale.ts 的共享单例订阅器；html[lang] 兜底观察者
   // 由订阅器自己挂。插件侧只读 + 订阅，**绝不写回** html[lang]（宿主 syncDocumentLanguage 是它
@@ -181,6 +181,17 @@ export function apply(ctx: ClientContext): void {
   }, 'dsh-prompt: locale')
   // #20：client 启动即拉 host 快照（失败 warn + 内存默认，不阻塞装配）
   ctx.effect(() => { ensureLoaded().catch(() => undefined) }, 'dsh-prompt: store load')
+  // #179 触发方式：store 快照到达 / 底栏或设置页翻转后，把全局位同步进 panel-visibility 的 UI 瞬态位。
+  // 缺键/非法值一律归一 true（悬浮触发）—— 旧用户升级后行为与今天一字不差。
+  ctx.effect(() => {
+    const sync = (): void => {
+      try { setHoverTriggerEnabled(loadHoverTrigger()) } catch (e) { /* fail-soft：触发方式永不影响装配 */ }
+    }
+    sync()
+    let off: undefined | (() => void)
+    try { off = subscribeStore(sync) } catch (e) { off = undefined }
+    return () => { try { if (typeof off === 'function') off() } catch (e) { /* ignore */ } }
+  }, 'dsh-prompt: trigger mode')
   // #82：远程偏好同理（总闸默认关，host 不可达时当次默认、下次恢复默认并明示）
   ctx.effect(() => {
     ensureRemoteLoaded()

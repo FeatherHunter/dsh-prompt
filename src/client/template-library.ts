@@ -63,6 +63,8 @@ const BUMP_URL = '/_dsh/dsh-prompt/usage/bump'
 const PINNED_URL = '/_dsh/dsh-prompt/pinned/set'
 // #165 屏蔽预制：全局开关落 host global 区（storages/dsh_prompt.json），缺省=屏蔽
 const HIDE_URL = '/_dsh/dsh-prompt/hide/set'
+// #179 触发方式：同一条 host global 区，缺省=true（悬浮触发，历史行为一字不动）
+const HOVER_TRIGGER_URL = '/_dsh/dsh-prompt/trigger/set'
 
 interface StoreSnapshot {
   customs: CustomTemplate[]
@@ -70,11 +72,12 @@ interface StoreSnapshot {
   pinned: string[]
   lastUsed: string | null
   hidePreset: boolean
+  hoverTrigger: boolean
 }
 
 /* ── 内存缓存（唯一真相来源；初始空 = 直接切换语义） ── */
 
-const cache: StoreSnapshot = { customs: [], usage: {}, pinned: [], lastUsed: null, hidePreset: true }
+const cache: StoreSnapshot = { customs: [], usage: {}, pinned: [], lastUsed: null, hidePreset: true, hoverTrigger: true }
 let storeLoaded = false
 let loadPromise: Promise<void> | null = null
 // #91 启动竞态兜底旗（与 remote.ts loadRetried 同构）：快照失败只补一次延迟重拉。
@@ -113,6 +116,7 @@ const ROUTE_NAMES: Record<string, string> = {
   [BUMP_URL]: 'usage.bump',
   [PINNED_URL]: 'pinned.set',
   [HIDE_URL]: 'hide.set',
+  [HOVER_TRIGGER_URL]: 'trigger.set',
 }
 
 /** 拉取 host 快照并装入缓存（失败 → 保持内存默认 + 记事件，不读旧 localStorage；#91 起失败补一次 2500ms 延迟重拉，与 remote 同构）。 */
@@ -129,6 +133,7 @@ export function ensureLoaded(): Promise<void> {
       if (Array.isArray(v.pinned)) cache.pinned = (v.pinned as unknown[]).filter((x): x is string => typeof x === 'string')
       cache.lastUsed = typeof v.lastUsed === 'string' ? v.lastUsed : null
       cache.hidePreset = normalizeHidePreset((v as { hidePreset?: unknown }).hidePreset)
+      cache.hoverTrigger = normalizeHoverTrigger((v as { hoverTrigger?: unknown }).hoverTrigger)
       logEvent('store.snapshot.ok', { customs: cache.customs.length, pinned: cache.pinned.length, latencyMs: Date.now() - startedAt })
     } else {
       logEvent('store.snapshot.fail', {
@@ -249,6 +254,25 @@ export function saveHidePreset(hide: boolean): void {
 export function applyHidePreset(list: PromptTemplate[], hide: boolean): PromptTemplate[] {
   if (!hide) return [...list]
   return list.filter((x) => !x.builtin)
+}
+
+/* ── 触发方式（#179：悬浮触发/仅点击触发，全局开关，缺省=悬浮；落 host global 区） ── */
+
+/** 读侧归一：只有显式 false 是「仅点击」，其余一律悬浮触发（缺键/非法值/存量脏数据全部回落 true）。 */
+export function normalizeHoverTrigger(v: unknown): boolean {
+  return v === false ? false : true
+}
+
+/** 当前是否悬浮触发（true=悬浮开菜单；false=仅点击开菜单）。 */
+export function loadHoverTrigger(): boolean {
+  return cache.hoverTrigger
+}
+
+/** 设置触发方式（内存先行 + notifyStore 刷底栏/设置页两处 UI，再 fire-and-forget 落 host）。 */
+export function saveHoverTrigger(hover: boolean): void {
+  cache.hoverTrigger = hover === false ? false : true
+  notifyStore()
+  persist(HOVER_TRIGGER_URL, { hover: cache.hoverTrigger })
 }
 
 /** 全部模板（预制 + 自定义） */

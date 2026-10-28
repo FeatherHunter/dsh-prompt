@@ -12,7 +12,7 @@
  *   SettingGroup 一组：有边框的卡片 + 组标题，组内间距统一（4/8/12/16/24 这个比例）
  * 不可逆操作（清空日志）不与常规操作平权：单独一行、默认低调、hover 才显示危险色，并两步确认。
  */
-import { getReact, TemplateBrowser } from './template-browser'
+import { getReact, TemplateBrowser, TriggerModeButton, PresetEyeIcon, TriggerPointerIcon } from './template-browser'
 import { SettingsHeaderLinks, AuthorPlugins } from './settings-links'
 import { UpdateEntryButton } from './update-client'
 
@@ -28,7 +28,7 @@ import { remoteSizeScale, resolveEffectiveOrientation, deriveRemoteOrientation, 
 import { setSystemOrientation, getSystemOrientation, isSystemOrientation } from './system-orientation'
 import { tr, STR } from './strings'
 import { resolveLocale, subscribeLocale } from './locale'
-import { loadHidePreset, saveHidePreset, subscribeStore } from './template-library'
+import { loadHidePreset, saveHidePreset, loadHoverTrigger, subscribeStore } from './template-library'
 
 /** 取日志能力（装在槽里的那个实例）；能力缺席时返回 null，界面据此走「不可用」分支，不静默。 */
 function logCap(): any {
@@ -52,14 +52,18 @@ const TOK = {
   font: 'var(--dsw-font-family)',
 }
 
-/** 一行：标签在左、控件在右，说明占满行宽正常流排（此前 maxWidth:520 在宽弹窗里半屏换行）。 */
+/** 一行：标签在左、控件在右，说明占满行宽正常流排（此前 maxWidth:520 在宽弹窗里半屏换行）。
+ *  #179：可选 `icon` —— 行首图标（与本插件底栏按钮同一份 SVG），标签仍是纯文本节点，便于 i18n 门禁扫文案。 */
 function SettingRow(props: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
   const kids: any[] = [
     h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 } }, [
-      h('span', { key: 'label', style: { fontFamily: TOK.font, fontSize: '0.93em', color: TOK.labelPrimary } }, props.label),
+      h('span', { key: 'label', style: { display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0, fontFamily: TOK.font, fontSize: '0.93em', color: TOK.labelPrimary } }, [
+        props.icon ? h('span', { key: 'icon', style: { display: 'inline-flex', alignItems: 'center', flex: 'none' } }, props.icon) : null,
+        h('span', { key: 'text' }, props.label),
+      ]),
       props.control ? h('span', { key: 'control', style: { display: 'inline-flex', alignItems: 'center' } }, props.control) : null,
     ]),
   ]
@@ -214,6 +218,9 @@ export function SettingsPage(props: any): any {
   // #165 屏蔽预制开关（与底栏按钮同一全局位；面板侧翻转后经订阅刷回本面）。
   const hideState = react.useState(loadHidePreset())
   const hideOn = hideState[0]
+  // #179 触发方式（与底栏「点击触发/悬浮触发」同一全局位；两处经订阅双向同步）。
+  const triggerState = react.useState(loadHoverTrigger())
+  const hoverTriggerOn = triggerState[0]
 
   const reasonText = (code?: string): string => {
     const key = code === 'host-unavailable' || code === 'host-unreachable' ? 'logReasonHost'
@@ -226,9 +233,10 @@ export function SettingsPage(props: any): any {
 
   // 语言跟随：共享单例订阅器（#137；观察者与去重都在 locale.ts 一处，本面只重渲染）
   react.useEffect(() => subscribeLocale((l) => { langState[1](l) }), [])
-  // #165：屏蔽位经 store 订阅刷新（含面板底栏/大列表翻转后的回写）。
+  // #165/#179：屏蔽位与触发方式经 store 订阅刷新（含面板底栏/大列表翻转后的回写）。
   react.useEffect(() => subscribeStore(() => {
     try { hideState[1](loadHidePreset()) } catch (e) { /* ignore */ }
+    try { triggerState[1](loadHoverTrigger()) } catch (e) { /* ignore */ }
   }), [])
   // 开关状态变化（启动对账、写入成功、跨标签页广播）时刷新界面。
   react.useEffect(() => {
@@ -676,8 +684,10 @@ export function SettingsPage(props: any): any {
     // pad 取 4px 6px 8px：内嵌浏览器自带 8px 内边距，6 + 8 = 14px，与其它卡的内容左轨对齐。
     h(SettingGroup, { key: 'list', pad: '4px 6px 8px' }, [
       // #165 需求 4：屏蔽预置开关（与底栏按钮同一全局位，开=屏蔽；缺省开）。
+      // #179：行首补上与底栏按钮同一份眼睛 SVG（同一个 PresetEyeIcon，不再各画一套）。
       h(SettingRow, {
         key: 'hide-preset',
+        icon: h(PresetEyeIcon, { open: hideOn }),
         label: t('hidePresetToggle'),
         description: t('hidePresetHint'),
         control: h(Check, {
@@ -689,6 +699,15 @@ export function SettingsPage(props: any): any {
             hideState[1](loadHidePreset())
           },
         }),
+      }),
+      // #179 触发方式：模板卡片内「屏蔽预制模板」行下方新增一行 ——
+      // 左侧行首指针图标 + 「触发方式」，右侧与底栏同款、同文案的胶囊按钮（点它切模式，文案随状态翻转）。
+      h(SettingRow, {
+        key: 'trigger-mode',
+        icon: h(TriggerPointerIcon, { clickOnly: !hoverTriggerOn }),
+        label: t('triggerRowLabel'),
+        description: t('triggerHint'),
+        control: h(TriggerModeButton, { hover: hoverTriggerOn, lang }),
       }),
       hairline('sep-hide-browser'),
       h(TemplateBrowser, { key: 'browser', compact: false, collapsible: true }),

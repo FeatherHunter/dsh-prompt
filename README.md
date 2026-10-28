@@ -68,6 +68,8 @@ dsh plugin --profile desktop add dsh-prompt@0.4.38 --registry https://registry.n
 
 点底栏「屏蔽预制模板」，屏蔽官方预置Prompt；再点「展示预制模板」解除屏蔽。
 
+不想鼠标划过就展开？点底栏「点击触发」（或设置面板里的「触发方式」），此后只有点击按钮才开合，鼠标偶然划过不再闪烁；再点「悬浮触发」切回。
+
 </div>
 
 <div align="center">

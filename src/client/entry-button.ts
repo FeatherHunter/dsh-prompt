@@ -8,7 +8,7 @@
 import { getReact, keepComposerFocus, ModalPortal, PanelPortal, MODAL_Z } from './template-browser'
 import { SettingsPage } from './settings-page'
 import { remoteChromeScale, scaledBaseFontSize } from './remote-grid'
-import { isPanelOpen, setPanelOpen, cancelPanelClose, schedulePanelClose, noteHoverOpen, takeHoverOpen } from './panel-visibility'
+import { isPanelOpen, setPanelOpen, cancelPanelClose, schedulePanelClose, noteHoverOpen, takeHoverOpen, isHoverTriggerEnabled } from './panel-visibility'
 import {
   getRemotePrefs, subscribeRemote, ensureRemoteLoaded,
 } from './remote-mode'
@@ -458,8 +458,17 @@ export function EntryButton(props: any): any {
     // hover 触发：进入即开；离开延迟 150ms 关（列表接管时取消）
     // #112 去闪关：只有闭→开这一跳才打同手势点——稳态已开时移入不重新武装，
     // 否则逛过面板回来点按钮就永远关不掉了。
-    onMouseEnter: () => { cancelPanelClose(); if (!isPanelOpen()) { setPanelOpen(true); noteHoverOpen() } },
-    onMouseLeave: () => { schedulePanelClose(150) },
+    // #179 仅点击模式：进入不开、离开不排关（不 note 不 cancel，鼠标划过不再闪）；
+    // click 语义两模式都保留（开关面板的唯一入口）。
+    onMouseEnter: () => {
+      if (!isHoverTriggerEnabled()) return
+      cancelPanelClose()
+      if (!isPanelOpen()) { setPanelOpen(true); noteHoverOpen() }
+    },
+    onMouseLeave: () => {
+      if (!isHoverTriggerEnabled()) return
+      schedulePanelClose(150)
+    },
     // click 保留：触屏 tap / 键盘 focus+Enter 的 fallback + 手动开关
     // #112 去闪关：hover 已开窗的同手势跟进单击是“确认/保持”，不是“取反关”——
     // mouseEnter 先开了窗，click 再按旧状态取反就会闪关；标记消费一次，

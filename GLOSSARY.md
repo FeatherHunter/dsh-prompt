@@ -43,8 +43,12 @@ Writing a template's text into the current conversation input on click.
 _Avoid_: inject, paste, apply, 插入 (as an implementation verb)
 
 **Hover List**:
-The compact floating template list triggered by hovering the Prompt button.
+The compact floating template list opened from the Prompt button — by default on hover, or only on click when the Trigger Mode is set to click.
 _Avoid_: hover menu, popup list, 悬浮列表 outside this definition
+
+**Trigger Mode**:
+Whether the Hover List opens as soon as the pointer enters the Prompt button (hover, the default) or only after a click.
+_Avoid_: trigger, open mode, 触发方式 outside this definition
 
 ### Smart suggestions
 

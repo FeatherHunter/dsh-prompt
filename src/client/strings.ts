@@ -53,6 +53,13 @@ export const STR = {
   // #165 需求 4：设置页开关行（与屏蔽钮同词"屏蔽预制模板"，开关语义：开=屏蔽）。
   hidePresetToggle: { zh: '屏蔽预制模板', en: 'Hide preset templates' },
   hidePresetHint: { zh: '打开后列表与标签云不再展示预制模板', en: 'When on, preset templates are hidden from the list and label cloud' },
+  // #179 触发方式（悬浮触发 / 仅点击触发）：底栏按钮与设置行共用**动作式**文案（说点它会切到哪种模式），
+  // 铁律：缺省=悬浮触发；悬浮中按钮写「点击触发」，点击中写「悬浮触发」。
+  // 设置行左侧标签固定「触发方式」，右侧按钮文案随状态翻转 —— 两处同一份词表，永不各写一套。
+  triggerRowLabel: { zh: '触发方式', en: 'Trigger mode' },
+  switchToClick: { zh: '点击触发', en: 'Click to open' },
+  switchToHover: { zh: '悬浮触发', en: 'Hover to open' },
+  triggerHint: { zh: '缺省悬浮即开；切到点击触发后，鼠标划过不再闪烁，只有点击才开。', en: 'Hover opens the menu by default. With click-to-open, only a click opens it — an accidental pointer pass no longer flickers.' },
   customCount: { zh: '自定义', en: 'Custom' },
   // #142：空标签回落词显示映射 —— en 与 tabCustom/customCount 同字（Custom）但**不同键、不复用**
   // （那两个是范围钮/条数摘要的铬，钩子要能分开定位；见 #141 presetCount/scopePreset 先例）。

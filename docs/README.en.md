@@ -67,6 +67,8 @@ Move the mouse onto the "Prompt" button left of the input box and the list opens
 
 Hit "Hide presets" in the bottom bar to hide the official preset prompts; hit "Show presets" to unhide them.
 
+Do not want it to open merely because the pointer passed over the button? Hit "Click to open" in the bottom bar (or "Trigger mode" in the settings panel): from then on the list opens and closes only on click and an accidental pointer pass no longer flickers; hit "Hover to open" to switch back.
+
 </div>
 
 <div align="center">

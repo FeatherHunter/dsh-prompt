@@ -114,7 +114,7 @@ Type `/prompt` or `/p` in the box.<br>
 
 <img src="../assets/readme/06-custom-manage.png" width="560" alt="Custom management: new custom template dialog (name, labels, text color, body)" style="border:1px solid #30363d;border-radius:6px">
 
-The body is kept exactly as you write it: line breaks survive, including blank lines at the start or end (only leading/trailing spaces and tabs are trimmed). To put the caret where you want it after inserting, place `{{cursor}}` in the body — only the first one counts, the rest are removed. Without a marker the caret lands at the end of the inserted text, just like before; `/prompt` insertion only strips the marker and does not move the caret. After inserting, the first undo may undo just the caret step (you'll see the marker text come back); a second undo removes the insertion. Also, a literal `{{cursor}}` cannot be expressed for now — if you write it in a body, it is treated as a caret marker.
+The body is kept exactly as you write it: line breaks survive, including blank lines at the start or end (only leading/trailing spaces and tabs are trimmed). To put the caret where you want it after inserting, place `{{cursor}}` in the body — only the first one counts, the rest are removed. Without a marker the caret lands right after the inserted text; `/prompt` insertion only strips the marker and does not move the caret. After inserting, the first undo may undo just the caret step (you'll see the marker text come back); a second undo removes the insertion. Also, a literal `{{cursor}}` cannot be expressed for now — if you write it in a body, it is treated as a caret marker.
 
 **👇 The text color can be changed, and text outline is supported.**
 

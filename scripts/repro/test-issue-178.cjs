@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict'
 /**
- * dsh-prompt issue #178「对转义符的支持」回归脚本 —— 契约版本 2（R1 + R2，ADR-0010 accepted）
+ * dsh-prompt issue #178「对转义符的支持」回归脚本 —— 契约版本 3（R1 + R2 + #180 失焦焦点次序，ADR-0010 accepted）
  *
  * 覆盖：
  *   [R1 保存] 正文只削开头/结尾的空格(0x20)与 tab，保留所有换行（含首尾空行）；
@@ -14,6 +14,8 @@
  *              文本永远逐字符正确、无标记残留、不抛用户可见错误。
  *   [R2 其它入口] /prompt onPick 返回剥标记正文且候选描述无标记；smart-card.smartInsert 走 applyInsert（静态 + 行为）。
  *   [集成] insertBody 仍返回插入前草稿长度；pick.insert 日志字段不变。
+ *   [#180 失焦] 失焦插入时宿主编辑前必须先把焦点送回同一个作曲家根（两编辑在失焦态不写 DOM 选择，
+ *              插入后才 focus 会把浏览器 caret 归零）；已聚焦不重复抢焦；编辑期采样落点仍被尊重。
  *
  * 跑法：node scripts/repro/test-issue-178.cjs   或   npm run check:issue-178
  * 契约版本：
@@ -755,6 +757,24 @@ async function groupK() {
     smartCard.smartInsert('\n正文\n', 'x-plain')
     eq(recorded.length, 1, 'K16 无标记路径同样走 applyInsert')
     eq(plainCalls, ['abc\n正文\n'], 'K17 无标记路径单次 setDraft 且逐字符正确')
+
+    // K18–K20（#180）：智能卡失焦插入 —— 焦点收口在 applyInsert（面板与智能卡共用），
+    // 首次宿主写入之前焦点已回到作曲家根，完成后浏览器 caret 落在标记位而不是归零。
+    recorded.length = 0
+    const savedDocK = globalThis.document
+    try {
+      const hz = caretHost('head')
+      globalThis.document = hz.doc
+      installSelectionNode(null, 0)
+      smartDraft.setSmartInput({ draft: 'head', actions: hz.actions })
+      smartCard.smartInsert('Z{{cursor}}', 'x-blur')
+      eq(hz.calls[0] && hz.calls[0].active, true, 'K18 智能卡失焦插入：首次 setDraft 前焦点已回到作曲家根')
+      eq(hz.model.text, 'headZ', 'K19 智能卡失焦插入：文本无标记残留')
+      eq(hz.model.caret, 5, 'K20 智能卡失焦插入：caret 落标记位 5（修复前 smartInsert 不补焦，caret 归零）')
+    } finally {
+      globalThis.document = savedDocK
+      try { delete globalThis.getSelection } catch (e) { /* ignore */ }
+    }
     await new Promise((r) => setTimeout(r, 5))
   } finally {
     panel.applyInsert = original
@@ -1044,6 +1064,137 @@ async function groupM() {
   }
 }
 
+/* ── N. #180 失焦插入：宿主编辑前先把焦点送回同一个作曲家根 ── */
+
+/**
+ * 假宿主（Lexical）模型：把 research/blurred-composer-caret/findings.md 里【实测 + 源码】确认的行为
+ * 写成可断言的状态：
+ *  1) 作曲家未聚焦时 setDraft / insertText 只改模型选择，不写 DOM 选择（宿主 skip-dom-selection）；
+ *  2) 对未聚焦的 contenteditable 调 focus() ⇒ 浏览器把 caret 放到文档开头 0，Lexical 随即把模型选择同步成 0；
+ *  3) 对已聚焦的根再 focus() 是无操作（不会重新放 caret）。
+ * 纯 DOM 桩模拟不了第 2 条，所以这里把「插入走完后浏览器视角的 caret」变成断言值：
+ * 失焦插入若没在宿主编辑前聚焦，尾部 setTimeout focus 会把 caret 归零 —— 正是 #180 的现象。
+ */
+function caretHost(initialDraft, startFocused) {
+  const model = { text: String(initialDraft), caret: String(initialDraft).length }
+  const tn = tnode(model.text)
+  const p = domNode('P', [tn])
+  const root = composerRoot([p])
+  let active = startFocused ? root : null
+  const focusEvents = []
+  const calls = []
+  function sync() {
+    tn.nodeValue = model.text
+    tn.textContent = model.text
+    p.textContent = model.text
+    root.textContent = model.text
+  }
+  root.focus = function () {
+    if (active === root) return // 已聚焦：浏览器不重放 caret
+    active = root
+    model.caret = 0 // 失焦根被 focus：浏览器把 caret 放文档开头
+    focusEvents.push(model.caret)
+  }
+  const actions = {
+    setDraft(v) {
+      calls.push({ type: 'setDraft', active: active === root })
+      model.text = String(v)
+      model.caret = model.text.length
+      sync()
+    },
+    captureInsertion() { calls.push({ type: 'captureInsertion' }); return { draftRev: 7 } },
+    insertText(text, range) {
+      calls.push({ type: 'insertText', active: active === root })
+      if (text === '' && range) {
+        model.text = model.text.slice(0, range.start) + model.text.slice(range.end)
+        model.caret = range.start
+        sync()
+      }
+      return true
+    },
+  }
+  const doc = {
+    get activeElement() { return active },
+    documentElement: { lang: 'zh-CN' },
+    querySelectorAll(sel) {
+      const s = String(sel)
+      if (s.indexOf('contenteditable') >= 0) return [root]
+      if (s === 'textarea') return []
+      return []
+    },
+    querySelector() { return null },
+    addEventListener() {}, removeEventListener() {}, dispatch() {},
+  }
+  return {
+    root: root, textNode: tn, model: model, calls: calls, focusEvents: focusEvents, doc: doc, actions: actions,
+    blurToBody() { active = null },
+  }
+}
+
+async function groupN() {
+  section('N. #180 失焦插入：宿主编辑前先聚焦同一个作曲家根（完成后浏览器 caret 不归零）')
+  const savedDocument = globalThis.document
+  const savedWindow = globalThis.window
+  let firstBlurredCalls = null
+  function useHost(h) {
+    globalThis.document = h.doc
+    installSelectionNode(null, 0)
+  }
+  function settle() { return new Promise((r) => setTimeout(r, 10)) }
+  try {
+    {
+      const h = caretHost('abc')
+      useHost(h)
+      tapDraft('abc')
+      panel.insertBody(NOP_BRIDGE, h.actions, 'SMART{{cursor}}END')
+      await settle()
+      eq(h.model.text, 'abcSMARTEND', 'N1 失焦带标记插入：文本 = abcSMARTEND，无标记残留')
+      eq(h.model.caret, 8, 'N2 失焦带标记插入：完成后浏览器 caret = 标记位 8（修复前为 0）')
+      eq(h.calls[0] && h.calls[0].active, true, 'N3 失焦：第一次 setDraft 之前焦点已回到同一个作曲家根')
+      eq(h.calls.filter((c) => c.type === 'insertText').map((c) => c.active), [true], 'N4 失焦：insertText 删标记时焦点仍在作曲家根')
+      firstBlurredCalls = h.calls.map((c) => c.type)
+    }
+    {
+      const h = caretHost('abc', true)
+      useHost(h)
+      tapDraft('abc')
+      panel.insertBody(NOP_BRIDGE, h.actions, 'SMART{{cursor}}END')
+      await settle()
+      eq(h.model.text, 'abcSMARTEND', 'N5 已聚焦带标记插入：文本不变')
+      eq(h.model.caret, 8, 'N6 已聚焦带标记插入：caret 仍精确落在标记位 8（新增逻辑不偏移既有路径）')
+      eq(h.focusEvents.length, 0, 'N7 已聚焦：不发生「焦点从别处转回来」（不重复抢焦）')
+    }
+    {
+      const h = caretHost('abc')
+      useHost(h)
+      tapDraft('abc')
+      panel.insertBody(NOP_BRIDGE, h.actions, 'X')
+      await settle()
+      eq(h.model.text, 'abcX', 'N8 失焦无标记插入：文本逐字符正确')
+      eq(h.model.caret, 4, 'N9 失焦无标记插入：完成后 caret 在插入文本之后（修复前为 0）')
+    }
+    {
+      const h = caretHost('abc')
+      useHost(h)
+      h.root.focus() // 用户先点进输入框（模型 caret 先归 0，随后选择覆盖）
+      installSelectionNode(h.textNode, 2) // 光标停在 b 与 c 之间
+      panel.keepComposerFocus({ preventDefault() {} }) // 编辑期采样：caretSample = 2
+      h.blurToBody()
+      installSelectionNode(null, 0)
+      tapDraft('abc')
+      panel.insertBody(NOP_BRIDGE, h.actions, 'X{{cursor}}Y')
+      await settle()
+      eq(h.model.text, 'abXYc', 'N10 失焦 + 编辑期采样落点：文本插在采样位置（abXYc）')
+      eq(h.model.caret, 3, 'N11 失焦 + 采样落点：完成后 caret = 标记位 3（修复前为 0）')
+    }
+    eq(firstBlurredCalls, ['setDraft', 'captureInsertion', 'insertText'], 'N12 失焦带标记：走两编辑 span 路径（mode=span 的调用序列）')
+  } finally {
+    globalThis.document = savedDocument
+    globalThis.window = savedWindow
+    try { delete globalThis.getSelection } catch (e) { /* ignore */ }
+  }
+}
+
 /* ── 主流程 ── */
 
 ;(async () => {
@@ -1064,6 +1215,7 @@ async function groupM() {
   await groupD()
   await groupERender()
   await groupM()
+  await groupN()
 
   if (failures > 0) {
     console.log('\nRESULT: FAIL (' + failures + ' failures, ' + passCount + ' passed)')

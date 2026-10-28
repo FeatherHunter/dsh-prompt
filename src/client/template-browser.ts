@@ -533,14 +533,18 @@ function pickEditable(): any | null {
   return roots[0]
 }
 
+/** 把焦点送到指定的作曲家根（#180：插入前与尾部兜底共用；根必须还是当前该用的那个）。 */
+function focusComposerRoot(el: any): void {
+  if (el && typeof el.focus === 'function') {
+    try { el.focus({ preventScroll: true }) } catch (e2) { try { (el as any).focus() } catch (e3) { /* ignore */ } }
+  }
+}
+
 /** 把焦点送回作曲家（宿主 input.left 自家按钮同款 keepFocus 语义）。 */
 function focusComposer(): void {
   try {
     if (typeof document === 'undefined') return
-    const el = pickEditable()
-    if (el && typeof el.focus === 'function') {
-      try { el.focus({ preventScroll: true }) } catch (e2) { try { (el as any).focus() } catch (e3) { /* ignore */ } }
-    }
+    focusComposerRoot(pickEditable())
   } catch (e) { /* ignore */ }
 }
 
@@ -573,8 +577,9 @@ export function keepComposerFocus(e: any): void {
  *  切段、段间补一个 \n，模型才是行结构的真值；DOM 只是渲染表象（空块、装饰器、末尾 BR
  *  都可能凭空多出或吞掉换行）。真机日志实证过 H 与 D 长度分歧（D 少 1–9 字符）。
  *  落点：作曲家持焦点 → 活读（看得见的）；已失焦 → 编辑期采样（selectionchange 留下）；
- *  都没有 → 活读兜底。真机实证失焦后选择会被归一化到上一行末尾，字就插错了行。 */
-function resolveDraft(): { text: string; caret: number; caretSrc: string } {
+ *  都没有 → 活读兜底。真机实证失焦后选择会被归一化到上一行末尾，字就插错了行。
+ *  #180：root 一并带回 —— 插入前要恢复焦点时，必须对准"决议这份草稿时读的那个根"。 */
+function resolveDraft(): { text: string; caret: number; caretSrc: string; root: any } {
   const norm = (s: string) => (s || '').replace(/\r\n?/g, '\n')
   const H = norm(tapDraft)
   const root = pickEditable()
@@ -606,13 +611,13 @@ function resolveDraft(): { text: string; caret: number; caretSrc: string } {
     if (!d) {
       // DOM 读空：编辑器空着（或未渲染）—— H 有就信 H，没有就是真空
       // 落点被顶到 H 末尾，来源如实记 'end'（别让诊断字段说谎）
-      if (H) return { text: H, caret: H.length, caretSrc: 'end' }
-      return { text: '', caret: 0, caretSrc }
+      if (H) return { text: H, caret: H.length, caretSrc: 'end', root }
+      return { text: '', caret: 0, caretSrc, root }
     }
-    if (!H) return { text: d, caret, caretSrc }
-    if (H === d) return { text: H, caret, caretSrc }
+    if (!H) return { text: d, caret, caretSrc, root }
+    if (H === d) return { text: H, caret, caretSrc, root }
     // 引用 chip：DOM 显示形≠存储形，信桥保编码（光标只能回末尾，无 chip 读写 API）。
-    if (CHIP_RE.test(H)) return { text: H, caret: H.length, caretSrc: 'end' }
+    if (CHIP_RE.test(H)) return { text: H, caret: H.length, caretSrc: 'end', root }
     // #76 换行权威：可见字符一模一样、只有换行形态不同 → 信宿主模型 H，
     // 落点按"换行前/换行后"逐位对齐映射过去（见 mapCaret），不乱改行号。
     // 例外（尾部空行注入修）：光标停在 D 的尾部换行区里且 D 尾部比 H 长 ⇒ 取 H 的行结构 + D 的尾部；
@@ -624,12 +629,12 @@ function resolveDraft(): { text: string; caret: number; caretSrc: string } {
       if (dTail.length > 0 && caret >= d.length - dTail.length && dTail.length !== hTail.length) {
         text = H.slice(0, H.length - hTail.length) + dTail
       }
-      return { text, caret: mapCaret(d, caret, text), caretSrc }
+      return { text, caret: mapCaret(d, caret, text), caretSrc, root }
     }
     // 其余一切分歧（组词中/桥滞后/跨会话残留）：信看得见的，绝不丢字。
-    return { text: d, caret, caretSrc }
+    return { text: d, caret, caretSrc, root }
   }
-  if (H) return { text: H, caret: H.length, caretSrc: 'end' }
+  if (H) return { text: H, caret: H.length, caretSrc: 'end', root }
   // 末路：史前 textarea 形态兼容（弹窗输入已排除）。
   try {
     if (typeof document !== 'undefined' && (document as any).querySelectorAll) {
@@ -643,12 +648,12 @@ function resolveDraft(): { text: string; caret: number; caretSrc: string } {
         if (v) {
           let p = v.length
           try { if (typeof ta.selectionStart === 'number' && ta.selectionStart > 0) p = ta.selectionStart } catch (e) { /* ignore */ }
-          return { text: v, caret: p, caretSrc: 'legacy' }
+          return { text: v, caret: p, caretSrc: 'legacy', root }
         }
       }
     }
   } catch (e) { /* ignore */ }
-  return { text: '', caret: 0, caretSrc: 'none' }
+  return { text: '', caret: 0, caretSrc: 'none', root }
 }
 
 /** 上一次决议的落点诊断（只记数字与来源枚举，不记正文）：供 pick.insert 落盘。
@@ -665,14 +670,20 @@ let lastInsertProbe: { caret: number; caretSrc: string; draftLines: number } = {
  *     这是一次可撤销的纯文本编辑（undo 第一下会先看到标记回到正文，再 undo 才撤插入）。
  *  3) 任何一环不可用（旧宿主缺 action / insertText 返回 false / 抛错 / 草稿含引用 chip）：
  *     降级为「剥标记 + 整框 setDraft」，光标置尾；文本永远正确、绝不留标记。
- *  「先算后写」：text 是最终整篇草稿文本，draftChars 仍是插入前的草稿长度（pick.insert 契约不变）。 */
-export function applyInsert(inputActions: any, draft: string, caret: number, body: string): { draftChars: number; mode: 'plain' | 'span' | 'degraded'; marker: boolean; text: string } {
+ *  「先算后写」：text 是最终整篇草稿文本，draftChars 仍是插入前的草稿长度（pick.insert 契约不变）。
+ *  #180：这里是「宿主写入」的唯一收口（面板 onPick 与智能卡 smartInsert 都从这里过），所以在
+ *  第一次 setDraft 之前把焦点送回作曲家根 —— 失焦时宿主的两次编辑只改模型选择、不写 DOM 选择
+ *  （skip-dom-selection），而事后再 focus 会让浏览器把 caret 放回文档开头、Lexical 随即同步成 0。
+ *  root 由调用方传入「决议草稿时读的那个根」；不传则就地 pickEditable()（智能卡路径没有独立决议）。 */
+export function applyInsert(inputActions: any, draft: string, caret: number, body: string, root?: any): { draftChars: number; mode: 'plain' | 'span' | 'degraded'; marker: boolean; text: string } {
   const src = draft == null ? '' : String(draft)
   const pos = Math.max(0, Math.min(Number.isFinite(caret) ? caret : src.length, src.length))
   const parsed = stripCursorMarkers(body)
   const finalText = src.slice(0, pos) + parsed.text + src.slice(pos)
   const result = { draftChars: src.length, mode: 'plain' as 'plain' | 'span' | 'degraded', marker: parsed.caret !== null, text: finalText }
   if (!inputActions || typeof inputActions.setDraft !== 'function') return result
+  const focusRoot = root || pickEditable()
+  if (focusRoot && !composerFocused(focusRoot)) focusComposerRoot(focusRoot)
   if (parsed.caret === null) {
     inputActions.setDraft(finalText)
     return result
@@ -712,7 +723,11 @@ export function insertBody(useInput: any, inputActions: any, body: string): numb
   const draft = r.text
   const pos = Math.max(0, Math.min(r.caret, draft.length))
   lastInsertProbe = { caret: pos, caretSrc: r.caretSrc, draftLines: draft.length === 0 ? 0 : draft.split('\n').length }
-  if (inputActions && typeof inputActions.setDraft === 'function') applyInsert(inputActions, draft, pos, body)
+  // #180：失焦插入的根因（宿主未聚焦时编辑只改模型选择、事后再 focus 让浏览器把 caret 放回 0）
+  // 与修法统一收口在 applyInsert —— 那里在首次宿主编辑前把焦点送回 r.root，之后走的就是 #178
+  // 真机验收过的「已聚焦」两编辑路径；智能卡 smartInsert 同样经过 applyInsert，自然一起修好。
+  // 尾部 setTimeout 仍保留作兜底（已聚焦时不重复抢焦）。
+  if (inputActions && typeof inputActions.setDraft === 'function') applyInsert(inputActions, draft, pos, body, r.root)
   setTimeout(() => {
     try { focusComposer() } catch (e) { /* ignore */ }
   }, 0)

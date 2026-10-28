@@ -14,7 +14,7 @@
 import type { PromptTemplate } from './templates'
 import {
   allTemplates, sortedTemplates, templateHaystack, matchLabel, getTemplate, bumpUsage,
-  ensureLoaded, oneLinePreview,
+  ensureLoaded, oneLinePreview, stripCursorMarkers,
 } from './template-library'
 import { displayLabelString } from './label-identity'
 import { resolveLocale } from './locale'
@@ -59,7 +59,7 @@ export function buildPromptSource(): PromptTriggerSource {
       // 按次 resolveLocale() 取 live 语言（candidates 每 query 调一次，切语言下次即翻；不新增裸 getLang）。
       return filterPromptTemplates(req.query).slice(0, MAX_ITEMS).map((t) => ({
         name: t.name,
-        // #178：描述行取单行预览（空白压成单空格），不出空首行。
+        // #178：描述行取单行预览（剥标记 + 空白压成单空格），不显示 {{cursor}}、不出空首行。
         description: displayLabelString(t, resolveLocale()) + ' — ' + oneLinePreview(t.body).slice(0, 42),
         templateId: t.id,
       }))
@@ -68,7 +68,8 @@ export function buildPromptSource(): PromptTriggerSource {
       const tpl = getTemplate(pick.candidate.templateId)
       if (!tpl) return undefined
       bumpUsage(tpl.id) // 与面板插入一致：用量仅排序不显示
-      return { text: tpl.body }
+      // #178 R2：斜杠管线只剥光标标记、不承诺光标落位（宿主替换 span 后光标由宿主定）。
+      return { text: stripCursorMarkers(tpl.body).text }
     },
   }
 }

@@ -11,7 +11,7 @@
  * 与 /prompt 共用模板数据/排序基础（架构：allTemplates/bumpUsage/loadLastUsed）。
  */
 import type { PromptTemplate } from './templates'
-import { allTemplates, getTemplate, loadUsage, loadLastUsed, loadPinned, tieBreakOrder, templateLabels, LABEL_FALLBACK } from './template-library'
+import { allTemplates, getTemplate, loadUsage, loadLastUsed, loadPinned, tieBreakOrder, templateLabels, LABEL_FALLBACK, stripCursorMarkers } from './template-library'
 import { SMART_WORDS } from './smart-words'
 
 export const SMART_THRESHOLD = 2
@@ -54,7 +54,7 @@ export function scoreCustomLabels(draft: string, tpl: PromptTemplate): ScoreResu
   const weak: string[] = []
   const name = (tpl.name || '').trim()
   if (name && text.includes(name.toLowerCase())) weak.push(name)
-  const body = (tpl.body || '').trim()
+  const body = stripCursorMarkers(tpl.body || '').text.trim()
   if (body && text.includes(body.toLowerCase())) weak.push(body.slice(0, 12) + '…')
   return { score: strong.length * 2 + weak.length, strong, weak }
 }

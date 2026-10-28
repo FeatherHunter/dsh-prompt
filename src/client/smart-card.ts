@@ -9,9 +9,9 @@
  * 评分=专属词×2+通用词×1（≥2 出卡）/ #22 bottom-up：评分升序（最相关在底部）→用量升序 / 序号按排名（1=最相关在底部）/ 点击即填入 + 光标定位首字段冒号后（DEC11 修订）/
  * 默认开可配置关闭 / 与面板各管各的；键盘可达（↑↓/Enter/Esc）。
  */
-import { getReact, INK_TINT_ATTR } from './template-browser'
+import { getReact, INK_TINT_ATTR, applyInsert } from './template-browser'
 import { smartCandidates, firstFieldCaret, type ScoredTemplate } from './smart-score'
-import { allTemplates, bumpUsage, loadUsage, tieBreakOrder, templateLabels, LABEL_FALLBACK, inkColorOf, inkOutlineOf } from './template-library'
+import { allTemplates, bumpUsage, loadUsage, tieBreakOrder, templateLabels, LABEL_FALLBACK, inkColorOf, inkOutlineOf, stripCursorMarkers } from './template-library'
 import { displayLabelString } from './label-identity'
 import {
   getSmartInput, onSmartInput, isSmartEnabled, setSmartEnabled,
@@ -142,26 +142,32 @@ function caretInDraft(draft: string): number {
   return draft.length
 }
 
-/** 智能插入：光标处插入模板正文（不覆盖），光标定位到首字段冒号后；用量+1；抑制卡片重现
+/** 智能插入：光标处插入模板正文（不覆盖）；#178 R2 起有 {{cursor}} 时由宿主两编辑落位，
+ *  无标记时沿用旧行为（插入后尝试定位首字段冒号后，只对 textarea 旧宿主有效）；用量+1；抑制卡片重现
  *  草稿源与出卡判定同源（currentDraft）——卡片按哪份草稿出现，就按哪份草稿拼接，绝不覆盖用户已输入内容。 */
 export function smartInsert(body: string, id: string): void {
   const { actions } = getSmartInput()
   if (!actions || typeof actions.setDraft !== 'function') return
   const draft = currentDraft()
   const caret = caretInDraft(draft)
-  const newDraft = draft.slice(0, caret) + body + draft.slice(caret)
-  actions.setDraft(newDraft)
-  const fieldCaret = caret + firstFieldCaret(body)
-  setTimeout(() => {
-    try {
-      if (typeof document === 'undefined') return
-      const tas = document.querySelectorAll('textarea')
-      for (let i = 0; i < tas.length; i++) {
-        const ta = tas[i] as HTMLTextAreaElement
-        if (ta.value === newDraft) { ta.focus(); ta.setSelectionRange(fieldCaret, fieldCaret); break }
-      }
-    } catch (e) { /* ignore */ }
-  }, 0)
+  const parsed = stripCursorMarkers(body)
+  const newDraft = draft.slice(0, caret) + parsed.text + draft.slice(caret)
+  applyInsert(actions, draft, caret, body)
+  // 无标记：保留 DEC11 的「首字段冒号后」定位尝试（宿主已是 Lexical 时找不到 textarea，自然落空）。
+  // 有标记：定位已由 applyInsert 的两编辑完成，不再用 textarea 近似。
+  if (parsed.caret === null) {
+    const fieldCaret = caret + firstFieldCaret(parsed.text)
+    setTimeout(() => {
+      try {
+        if (typeof document === 'undefined') return
+        const tas = document.querySelectorAll('textarea')
+        for (let i = 0; i < tas.length; i++) {
+          const ta = tas[i] as HTMLTextAreaElement
+          if (ta.value === newDraft) { ta.focus(); ta.setSelectionRange(fieldCaret, fieldCaret); break }
+        }
+      } catch (e) { /* ignore */ }
+    }, 0)
+  }
   bumpUsage(id)
   logEvent('pick.insert', {
     source: 'smart',

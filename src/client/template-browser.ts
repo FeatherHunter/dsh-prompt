@@ -24,7 +24,7 @@ import {
   allTemplates, sortedTemplates, sortedTemplatesBottomUp, templateLabels, matchLabel,
   allKnownLabels, normalizeLabels, validateLabels, isPinned, togglePin, canPinMore, LABEL_FALLBACK,
   addCustom, updateCustom, removeCustom, copyPresetToCustom, bumpUsage, loadUsage, templateHaystack, MAX_BODY,
-  trimBodyEdges, firstLineIntro, oneLinePreview,
+  trimBodyEdges, firstLineIntro, oneLinePreview, stripCursorMarkers, CURSOR_MARKER,
   inkColorOf, inkOutlineOf, relativeLuminance, INK_PICK_L_MIN, INK_PICK_L_MAX,
   ensureLoaded, subscribeStore, loadHidePreset, saveHidePreset, applyHidePreset,
 } from './template-library'
@@ -569,9 +569,54 @@ function resolveDraft(): { text: string; caret: number; caretSrc: string } {
  *  被既有调用点与回归当作"插入前草稿长度"用，不能改签名去顺带回传这份诊断。 */
 let lastInsertProbe: { caret: number; caretSrc: string; draftLines: number } = { caret: 0, caretSrc: 'none', draftLines: 0 }
 
+/** #178 R2：一次插入的宿主侧计划 —— 先算出最终整篇文本（永远字符正确），再决定怎么交给宿主。
+ *  1) 正文无光标标记：单次 setDraft(最终文本)，行为与旧版完全一致（光标由宿主置尾）。
+ *  2) 有 {{cursor}} 且宿主公开 captureInsertion + insertText、草稿里也没有引用 chip：
+ *     先 setDraft(含一个标记的全文) → captureInsertion() 取这次整框替换的 draftRev →
+ *     insertText('', { draftRev, start: markerAt, end: markerAt + 标记长 }) 删掉标记。
+ *     Lexical 删除文本后光标塌缩在删除区间起点 ⇒ 光标精确落在标记位、标记不留痕；
+ *     这是一次可撤销的纯文本编辑（undo 第一下会先看到标记回到正文，再 undo 才撤插入）。
+ *  3) 任何一环不可用（旧宿主缺 action / insertText 返回 false / 抛错 / 草稿含引用 chip）：
+ *     降级为「剥标记 + 整框 setDraft」，光标置尾；文本永远正确、绝不留标记。
+ *  「先算后写」：text 是最终整篇草稿文本，draftChars 仍是插入前的草稿长度（pick.insert 契约不变）。 */
+export function applyInsert(inputActions: any, draft: string, caret: number, body: string): { draftChars: number; mode: 'plain' | 'span' | 'degraded'; marker: boolean; text: string } {
+  const src = draft == null ? '' : String(draft)
+  const pos = Math.max(0, Math.min(Number.isFinite(caret) ? caret : src.length, src.length))
+  const parsed = stripCursorMarkers(body)
+  const finalText = src.slice(0, pos) + parsed.text + src.slice(pos)
+  const result = { draftChars: src.length, mode: 'plain' as 'plain' | 'span' | 'degraded', marker: parsed.caret !== null, text: finalText }
+  if (!inputActions || typeof inputActions.setDraft !== 'function') return result
+  if (parsed.caret === null) {
+    inputActions.setDraft(finalText)
+    return result
+  }
+  const markerAt = pos + parsed.caret
+  const canSpan = typeof inputActions.captureInsertion === 'function' && typeof inputActions.insertText === 'function'
+  if (!canSpan || CHIP_RE.test(src)) {
+    inputActions.setDraft(finalText)
+    result.mode = 'degraded'
+    return result
+  }
+  const withMarker = src.slice(0, pos) + parsed.text.slice(0, parsed.caret) + CURSOR_MARKER + parsed.text.slice(parsed.caret) + src.slice(pos)
+  try {
+    inputActions.setDraft(withMarker)
+    const cap = inputActions.captureInsertion()
+    const rev = cap && typeof cap.draftRev === 'number' ? cap.draftRev : null
+    if (rev !== null) {
+      const ok = inputActions.insertText('', { draftRev: rev, start: markerAt, end: markerAt + CURSOR_MARKER.length })
+      if (ok === true) {
+        result.mode = 'span'
+        return result
+      }
+    }
+  } catch (e) { /* 降级：文本正确性优先 */ }
+  inputActions.setDraft(finalText)
+  result.mode = 'degraded'
+  return result
+}
+
 /** 插入正文到当前草稿（光标处优先，否则末尾；不覆盖；自动聚焦）。返回插入前的草稿长度，供调用点记日志。
- * 注意：宿主 setDraft 语义是全文替换且光标置尾（无光标级写入 API），中部插入后光标回尾是宿主行为，
- * 不是本函数能定的；验收“光标在插入文本后”在尾插时精确成立。
+ * #178 R2：宿主写入收口在 applyInsert —— 无标记时单编辑、光标尾（与旧版逐字节一致）；有标记时两编辑落位。
  * useInput 只为兼容旧签名保留：真正的桥订阅在 render 内的 DraftTap，事件回调里不再碰它（Q3）。 */
 export function insertBody(useInput: any, inputActions: any, body: string): number {
   void useInput
@@ -580,8 +625,7 @@ export function insertBody(useInput: any, inputActions: any, body: string): numb
   const draft = r.text
   const pos = Math.max(0, Math.min(r.caret, draft.length))
   lastInsertProbe = { caret: pos, caretSrc: r.caretSrc, draftLines: draft.length === 0 ? 0 : draft.split('\n').length }
-  const newDraft = draft.slice(0, pos) + body + draft.slice(pos)
-  if (inputActions && typeof inputActions.setDraft === 'function') inputActions.setDraft(newDraft)
+  if (inputActions && typeof inputActions.setDraft === 'function') applyInsert(inputActions, draft, pos, body)
   setTimeout(() => {
     try { focusComposer() } catch (e) { /* ignore */ }
   }, 0)
@@ -1123,6 +1167,8 @@ function TemplateModal(props: any): any {
       // 都显示「默认」，两者只在**保存时**分道（null → 不改这一项；'' → 清除），这层差别不上屏。
       h(InkPicker, { key: 'ink-picker', t: props.t, value: ink || '', name, outline: outline, onOutline: (v: boolean) => setOutline(v), onChange: (v: string) => setInk(v) }),
       h('textarea', { style: { ...modalFieldStyle, height: labelGridOn ? 400 : 200, resize: 'vertical' }, placeholder: props.t('bodyPh'), value: body, onChange: (e: any) => setBody(e.target.value) }),
+      // #178：换行保留与 {{cursor}} 的存法提示（同一段灰字，正文框正下方）。
+      h('div', { style: { fontSize: '0.85em', color: 'var(--dsw-alias-label-tertiary)' } }, props.t('bodyHint')),
       err ? h('div', { style: { fontSize: '0.92em', color: 'var(--dsw-specific-danger,#e06c75)' } }, props.t(err as keyof typeof STR)) : null,
       h('div', { style: modalBtnsStyle }, [
         h('button', { style: modalBtn(), onClick: props.onCancel }, props.t('cancel')),
@@ -1883,7 +1929,7 @@ export function TemplateBrowser(props: BrowserProps): any {
       const tpl = remoteById.get(s.id)
       if (!tpl) return h('div', { key: 'empty-' + s.order, style: remoteEmptyStyle, 'data-dsh-prompt-remote-empty': '1', 'aria-hidden': 'true' })
       // 简介取正文全文（空白压成单空格），卡内自然流排、底边硬裁——全面展示，高度不跳。
-      // #178：走单行预览（空白压成单空格），远程大卡与面板列表同一口径。
+      // #178：走单行预览（剥标记 + 空白压成单空格），不显示 {{cursor}}。
       const intro = oneLinePreview(tpl.body)
       const usageN = remoteUsage[tpl.id] || 0
       const pinned = isPinned(tpl.id)

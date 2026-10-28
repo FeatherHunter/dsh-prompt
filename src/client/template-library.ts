@@ -412,24 +412,37 @@ export function inkOutlineOf(t: { color?: unknown; outline?: unknown }): boolean
   return t ? t.outline !== false : true
 }
 
-/** 检索串（面板搜索与 /prompt 触发源共用）：名称/英文名/正文/领域/阶段/动作/标签（旧找法不断） */
+/** #178 R2：光标标记 —— 正文里写 {{cursor}} 表示「插入后光标停这儿」；第一个生效，其余在插入时删除。 */
+export const CURSOR_MARKER = '{{cursor}}'
+
+/** #178 R2：剥掉正文里所有光标标记，并给出第一个标记在**剥后文本**中的偏移（插入后的光标目标）。
+ *  无标记 → caret = null（插入行为与旧版完全一致：单次整框 setDraft，光标由宿主置尾）。
+ *  标记不参与任何展示、检索与评分；标记以外的字（含换行、空格）逐字节原样。 */
+export function stripCursorMarkers(body: string): { text: string; caret: number | null } {
+  const src = body == null ? '' : String(body)
+  const parts = src.split(CURSOR_MARKER)
+  return { text: parts.join(''), caret: parts.length > 1 ? parts[0].length : null }
+}
+
+/** 检索串（面板搜索与 /prompt 触发源共用）：名称/英文名/正文/领域/阶段/动作/标签（旧找法不断）
+ *  #178 R2：正文先剥光标标记 —— 搜索不能把 {{cursor}} 当关键词命中。 */
 export function templateHaystack(t: PromptTemplate): string {
-  return (t.name + ' ' + (t.nameEn || '') + ' ' + (t.body || '') + ' ' + (t.domain || '') + ' ' + (t.stage || '') + ' ' + (t.action || []).join(' ') + ' ' + templateLabels(t).join(' ')).toLowerCase()
+  return (t.name + ' ' + (t.nameEn || '') + ' ' + stripCursorMarkers(t.body || '').text + ' ' + (t.domain || '') + ' ' + (t.stage || '') + ' ' + (t.action || []).join(' ') + ' ' + templateLabels(t).join(' ')).toLowerCase()
 }
 
 /**
  * #178 R1：保存路径的正文清洗 —— 只削「行首/行尾的空格与 tab」，**保留所有换行**（含正文开头/结尾的空行）。
  * 旧实现用的是 body.trim()：它会把首尾换行一并吃掉，于是「正文顶部的空行」「结尾的空行」存不下来。
  * 之所以不引入 \n 转义语言：真换行本来就能存能插，存量正文里的 C:\new、/\n/ 等字面文本不能被解码误伤
- * （ADR-0007 的「用户数据逐字节不变」价值观）。
+ * （见 docs/adr/0010 与 ADR-0007 的「用户数据逐字节不变」价值观）。
  */
 export function trimBodyEdges(body: string): string {
   return (body == null ? '' : String(body)).replace(/^[ \t]+|[ \t]+$/g, '')
 }
 
-/** #178 R1：展示用首行 —— 取第一个**非空**行（行首尾空白削掉）；正文以空行开头时不产生空简介。 */
+/** #178 R1：展示用首行 —— 先剥光标标记，再取第一个**非空**行（行首尾空白削掉）；正文以空行开头时不产生空简介。 */
 export function firstLineIntro(body: string): string {
-  const lines = body.split('\n')
+  const lines = stripCursorMarkers(body).text.split('\n')
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
     if (line) return line
@@ -437,9 +450,9 @@ export function firstLineIntro(body: string): string {
   return ''
 }
 
-/** #178 R1：展示用单行预览 —— 把空白（含换行）压成单空格并削首尾；远程大卡简介与设置页展开预览用。 */
+/** #178 R1：展示用单行预览 —— 先剥光标标记，再把空白（含换行）压成单空格并削首尾；远程大卡简介与设置页展开预览用。 */
 export function oneLinePreview(body: string): string {
-  return body.split(/\s+/).filter((x) => !!x).join(' ')
+  return stripCursorMarkers(body).text.split(/\s+/).filter((x) => !!x).join(' ')
 }
 
 /** 排序（#68 决议 2026-09-15）：设置页与 /prompt 忽略置顶，只按用量计数降序 → 末键。

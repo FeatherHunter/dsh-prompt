@@ -108,6 +108,8 @@ export const STR = {
   labelPicker: { zh: '标签选择', en: 'Pick tags' },
   labelDone: { zh: '完成', en: 'Done' },
   bodyPh: { zh: 'Prompt 正文（≤10000 字）', en: 'Prompt body (≤10000 chars)' },
+  // #178：正文输入框下的存法提示 —— 换行原样保留；{{cursor}} 是插入后光标位（第一个生效，其余删除）。
+  bodyHint: { zh: '换行会原样保留（包括开头和结尾的空行，只忽略首尾空格与制表符）。把 {{cursor}} 放进正文，插入后光标会停在那儿；只认第一个，其余会被删掉。', en: 'Line breaks are kept exactly as written — including blank lines at the start or end; only edge spaces and tabs are ignored. Put {{cursor}} in the body and the caret lands there after inserting; only the first one counts, the rest are removed.' },
   cancel: { zh: '取消', en: 'Cancel' },
   save: { zh: '保存', en: 'Save' },
   addOk: { zh: '添加', en: 'Add' },

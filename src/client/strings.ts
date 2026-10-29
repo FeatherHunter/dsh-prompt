@@ -53,12 +53,19 @@ export const STR = {
   // #165 需求 4：设置页开关行（与屏蔽钮同词"屏蔽预制模板"，开关语义：开=屏蔽）。
   hidePresetToggle: { zh: '屏蔽预制模板', en: 'Hide preset templates' },
   hidePresetHint: { zh: '打开后列表与标签云不再展示预制模板', en: 'When on, preset templates are hidden from the list and label cloud' },
-  // #179 触发方式（悬浮触发 / 仅点击触发）：底栏按钮与设置行共用**动作式**文案（说点它会切到哪种模式），
-  // 铁律：缺省=悬浮触发；悬浮中按钮写「点击触发」，点击中写「悬浮触发」。
+  // #179 触发方式（悬浮触发 / 仅点击触发）：底栏按钮与设置行共用**状态式**文案（说当前是哪种模式），
+  // 铁律：缺省=悬浮触发；悬浮中按钮写「当前：悬浮触发」，点击中写「当前：点击触发」。
+  // 用户反馈「点击触发」四字单看分不清是状态还是动作（m00001）→ 按钮正文一律带「当前：」前缀表状态，
+  // 点后去向只放在 title/aria（triggerTitle*），不再只靠正文反推。
   // 设置行左侧标签固定「触发方式」，右侧按钮文案随状态翻转 —— 两处同一份词表，永不各写一套。
+  // switchToClick/switchToHover 为 #179 首版动作式旧键（只增不减，保留不删，组件已改走 triggerNow*/triggerTitle*）。
   triggerRowLabel: { zh: '触发方式', en: 'Trigger mode' },
   switchToClick: { zh: '点击触发', en: 'Click to open' },
   switchToHover: { zh: '悬浮触发', en: 'Hover to open' },
+  triggerNowHover: { zh: '当前：悬浮触发', en: 'Hover now' },
+  triggerNowClick: { zh: '当前：点击触发', en: 'Click now' },
+  triggerTitleHover: { zh: '当前：悬浮触发，点击切换为点击触发', en: 'Now hover-to-open; click to switch to click-to-open' },
+  triggerTitleClick: { zh: '当前：点击触发，点击切换为悬浮触发', en: 'Now click-to-open; click to switch to hover-to-open' },
   triggerHint: { zh: '缺省悬浮即开；切到点击触发后，鼠标划过不再闪烁，只有点击才开。', en: 'Hover opens the menu by default. With click-to-open, only a click opens it — an accidental pointer pass no longer flickers.' },
   customCount: { zh: '自定义', en: 'Custom' },
   // #142：空标签回落词显示映射 —— en 与 tabCustom/customCount 同字（Custom）但**不同键、不复用**

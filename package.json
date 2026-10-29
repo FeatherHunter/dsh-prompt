@@ -60,7 +60,7 @@
     "star:history": "node scripts/update-star-history.ts",
     "thanks:update": "node scripts/update-thanks.mts",
     "check:target-tree": "node scripts/check-target-tree.mjs --expect=target",
-    "check": "npm run typecheck && npm run check:update-catalog && npm run check:lib-sync && npm run check:modal && npm run check:issue-14 && npm run check:bottom-up && npm run check:bilingual-134 && npm run check:locale-137 && npm run check:update-inline-39 && npm run check:log-shape && npm run check:host-deps && npm run check:color-scale-156 && npm run check:issue-176 && npm run check:issue-177 && npm run check:issue-178 && npm run check:issue-181 && npm run check:issue-179 && npm run check:issue-182 && npm run check:remote-zoom-167 && npm run check:marketplace-readme && npm run test:star-history && npm run test:thanks && npm run check:update-pkg && npm run check:target-tree",
+    "check": "npm run typecheck && npm run check:update-catalog && npm run check:lib-sync && npm run check:modal && npm run check:issue-14 && npm run check:bottom-up && npm run check:bilingual-134 && npm run check:locale-137 && npm run check:update-inline-39 && npm run check:log-shape && npm run check:host-deps && npm run check:color-scale-156 && npm run check:issue-176 && npm run check:issue-177 && npm run check:issue-178 && npm run check:issue-181 && npm run check:issue-179 && npm run test:hover-tip && npm run check:issue-182 && npm run check:remote-zoom-167 && npm run check:marketplace-readme && npm run test:star-history && npm run test:thanks && npm run check:update-pkg && npm run check:target-tree",
     "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck:host",
     "typecheck:host": "tsc -p tsconfig.host.json",
     "real:smoke": "node scripts/real/run.mjs --suite smoke",
@@ -124,6 +124,7 @@
     "test:issue-177": "node scripts/repro/test-issue-177.cjs",
     "test:issue-178": "node scripts/repro/test-issue-178.cjs",
     "test:issue-179": "node scripts/repro/test-issue-179.cjs",
+    "test:hover-tip": "node scripts/repro/test-hover-tip.cjs",
     "test:issue-181": "node scripts/check-issue-181.mjs"
   },
   "dsh": {

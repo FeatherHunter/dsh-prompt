@@ -133,7 +133,9 @@ const GHOST_PILL_STYLE: any = {
 }
 
 /**
- * #179 触发方式动作按钮（底栏与设置页共用）：幽灵胶囊 + 指针图标 + 动作式文案。
+ * #179 触发方式状态按钮（底栏与设置页共用）：幽灵胶囊 + 指针图标 + 状态式文案。
+ * - 按钮正文 = 当前状态（悬浮中「当前：悬浮触发」，点击中「当前：点击触发」），一眼看出当前在哪档；
+ * - title/aria = 状态 + 去向（「当前：…，点击切换为…」），读屏与悬停都能确认点后去哪；
  * - aria-pressed=true 表示「当前=仅点击触发」（读屏与静态/渲染门禁都认这一位）；
  * - 点它 = 切到另一种触发方式（内存先行 + notifyStore 自动回刷底栏/设置页两处）；
  * - data-dsh-prompt-trigger 供门禁/测试定位；data-dsh-prompt-chrome 让设置入口的排己逻辑继续生效。
@@ -144,17 +146,19 @@ export function TriggerModeButton(props: { hover: boolean; lang: Lang }): any {
   if (!react) return null
   const h = react.createElement
   const hover = props.hover !== false
-  // chrome 钩子值必须是 STR key（#141 口径：钩子值 = 该节点的文案键）——这里随状态二选一。
-  const labelKey = hover ? 'switchToClick' : 'switchToHover'
+  // chrome 钩子值必须是 STR key（#141 口径：钩子值 = 该节点的文案键）——这里随状态二选一（状态式新键）。
+  const labelKey = hover ? 'triggerNowHover' : 'triggerNowClick'
+  const titleKey = hover ? 'triggerTitleHover' : 'triggerTitleClick'
   const label = tr(props.lang, STR[labelKey])
+  const title = tr(props.lang, STR[titleKey])
   return h('button', {
     type: 'button',
     style: { ...GHOST_PILL_STYLE },
     'data-dsh-prompt-trigger': '1',
     'data-dsh-prompt-chrome': labelKey,
     'aria-pressed': hover ? 'false' : 'true',
-    title: label,
-    'aria-label': label,
+    title,
+    'aria-label': title,
     onMouseDown: keepComposerFocus,
     onClick: () => { try { saveHoverTrigger(!hover) } catch (e) { /* ignore */ } },
   }, TriggerPointerIcon({ clickOnly: !hover }), ' ' + label)
@@ -2449,8 +2453,8 @@ export function TemplateBrowser(props: BrowserProps): any {
         onClick: () => modalState[1]({ kind: 'add' }),
       }, t('plusGlyph') + ' ' + t('addShort')),
       hideToggleNode('hide'),
-      // #179 触发方式：紧挨「展示预制模板」右侧的同款动作式胶囊（悬浮模式写「点击触发」、
-      // 点击模式写「悬浮触发」）。与设置页那一行读同一全局位，点哪边都同时翻两处。
+      // #179 触发方式：紧挨「展示预制模板」右侧的同款状态式胶囊（悬浮模式写「当前：悬浮触发」、
+      // 点击模式写「当前：点击触发」，去向只在 title/aria）。与设置页那一行读同一全局位，点哪边都同时翻两处。
       h(TriggerModeButton, { key: 'trigger', hover: loadHoverTrigger(), lang }),
       h('button', {
         key: 'go-settings',

@@ -711,7 +711,7 @@ export function SettingsPage(props: any): any {
         }),
       }),
       // #179 触发方式：模板卡片内「屏蔽预制模板」行下方新增一行 ——
-      // 左侧行首指针图标 + 「触发方式」，右侧与底栏同款、同文案的胶囊按钮（点它切模式，文案随状态翻转）。
+      // 左侧行首指针图标 + 「触发方式」，右侧与底栏同款、同文案的状态式胶囊按钮（正文=当前状态，title=状态+去向；点它切模式，两处同步翻转）。
       h(SettingRow, {
         key: 'trigger-mode',
         icon: h(TriggerPointerIcon, { clickOnly: !hoverTriggerOn }),

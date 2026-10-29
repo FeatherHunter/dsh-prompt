@@ -13,14 +13,15 @@
  *      切换瞬间撤销已挂起的 hover 排关；切回悬浮自动关恢复；显式 setPanelOpen(false) 仍能关；
  *      #112 同手势标记语义不被本票改變（读一次即消费）。
  *   D) entry-button（静态）：悬浮开/关两处都被 isHoverTriggerEnabled() 门住；onClick 两模式都保留。
- *   E) template-browser（静态）：触发钮 = 幽灵胶囊 + 指针 SVG + 动作式文案 + data-dsh-prompt-trigger
+ *   E) template-browser（静态）：触发钮 = 幽灵胶囊 + 指针 SVG + 状态式文案（正文=当前状态，title=状态+去向）+ data-dsh-prompt-trigger
  *      + aria-pressed（仅点击=true）+ chrome 钩子；它排在屏蔽钮与设置入口之间；眼睛/指针 SVG 几何共用；
  *      BAR_UI_CSS 含触发钮与设置页勾选框（含选中态）的 hover 显式反馈，且不写死颜色。
  *   F) settings（静态）：设置页读 loadHoverTrigger；屏蔽行补眼睛图标、触发行补指针图标（与底栏同一份 SVG）；
  *      两行控件都挂返回的钩子（勾选框 data-dsh-prompt-hide-toggle / 触发钮 data-dsh-prompt-trigger）。
  *   G) index（静态）：apply 里 loadHoverTrigger → setHoverTriggerEnabled（含 subscribeStore 回声）。
- *   H) i18n（运行时）：triggerRowLabel/switchToClick/switchToHover 中英齐全、en 无中文、真翻译。
- *   I) 渲染（运行时）：底栏触发钮两态文案/aria-pressed 随 saveHoverTrigger 翻转（同 store 联动）。
+ *   H) i18n（运行时）：triggerRowLabel 与 triggerNowHover、triggerNowClick、triggerTitleHover、triggerTitleClick 中英齐全、
+ *      en 无中文、真翻译（旧 switchToClick、switchToHover 只验保留不断键；新键正文带「当前：」、title 带去向，m00001 裸四字歧义不再出现）。
+ *   I) 渲染（运行时）：底栏触发钮两态正文体 + title/aria-pressed 随 saveHoverTrigger 翻转（同 store 联动）。
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -167,7 +168,8 @@ function groupE() {
   need(/saveHoverTrigger/.test(code), 'E) 触发钮应调 saveHoverTrigger');
   need(/export function TriggerModeButton/.test(code), 'E) 触发钮应为可复用组件（底栏/设置页同一份）');
   need(/data-dsh-prompt-trigger/.test(code), 'E) 触发钮应带 data-dsh-prompt-trigger 钩子');
-  need(/data-dsh-prompt-chrome': labelKey/.test(flat) && /hover \? 'switchToClick' : 'switchToHover'/.test(flat), 'E) chrome 钩子值取当前文案的 STR key（#141 口径：钩子值必须是 STR key）');
+  need(/data-dsh-prompt-chrome': labelKey/.test(flat) && /hover \? 'triggerNowHover' : 'triggerNowClick'/.test(flat), 'E) chrome 钩子值取当前文案的 STR key（#141 口径：钩子值必须是 STR key，状态式新键）');
+  need(/hover \? 'triggerTitleHover' : 'triggerTitleClick'/.test(flat), 'E) title 走状态+去向新键（正文只说状态，去向放 title/aria）');
   need(/aria-pressed': hover \? 'false' : 'true'/.test(flat), 'E) aria-pressed 表「当前=仅点击触发」');
   need(/M3 3l7\.07 16\.97/.test(code), 'E) 指针 SVG（Feather mouse-pointer 几何）应在源码里');
   need(/M1 12s4-8 11-8/.test(code), 'E) 眼睛 SVG 几何仍共用在 PresetEyeIcon 里');
@@ -213,13 +215,25 @@ function groupH() {
   const zh = (k) => i18n.tr('zh', STR[k]);
   const en = (k) => i18n.tr('en', STR[k]);
   eq(zh('triggerRowLabel'), '触发方式', 'H) zh 设置行文案=触发方式');
-  eq(zh('switchToClick'), '点击触发', 'H) zh 悬浮态按钮文案=点击触发（动作式：点它切到点击）');
-  eq(zh('switchToHover'), '悬浮触发', 'H) zh 点击态按钮文案=悬浮触发');
+  // 旧键保留（只增不减）：组件已改走 triggerNow*/triggerTitle*，这里只验不断键
+  need(typeof zh('switchToClick') === 'string' && zh('switchToClick').length > 0, 'H) zh switchToClick 旧键保留');
+  need(typeof zh('switchToHover') === 'string' && zh('switchToHover').length > 0, 'H) zh switchToHover 旧键保留');
+  // 新键：状态式（m00001：裸「点击触发」四字分不清是状态还是动作，正文一律带「当前：」）
+  eq(zh('triggerNowHover'), '当前：悬浮触发', 'H) zh 悬浮态按钮正文=当前：悬浮触发（状态式）');
+  eq(zh('triggerNowClick'), '当前：点击触发', 'H) zh 点击态按钮正文=当前：点击触发');
+  eq(zh('triggerTitleHover'), '当前：悬浮触发，点击切换为点击触发', 'H) zh 悬浮态 title=状态+去向');
+  eq(zh('triggerTitleClick'), '当前：点击触发，点击切换为悬浮触发', 'H) zh 点击态 title=状态+去向');
+  need(/^当前：/.test(zh('triggerNowHover')) && /^当前：/.test(zh('triggerNowClick')), 'H) zh 按钮正文一律带「当前：」前缀（状态可辨）');
+  need(/点击切换为/.test(zh('triggerTitleHover')) && /点击切换为/.test(zh('triggerTitleClick')), 'H) zh title 必须带去向（点后切到哪）');
   need(typeof en('triggerRowLabel') === 'string' && en('triggerRowLabel').length > 0, 'H) en triggerRowLabel 非空');
-  need(typeof en('switchToClick') === 'string' && en('switchToClick').length > 0, 'H) en switchToClick 非空');
-  need(typeof en('switchToHover') === 'string' && en('switchToHover').length > 0, 'H) en switchToHover 非空');
-  need(!/[\u4e00-\u9fff]/.test(en('triggerRowLabel') + en('switchToClick') + en('switchToHover') + en('triggerHint')), 'H) en 文案不得含中文');
-  need(en('switchToClick') !== zh('switchToClick') && en('switchToHover') !== zh('switchToHover'), 'H) en 是真翻译，不是占位');
+  need(typeof en('switchToClick') === 'string' && en('switchToClick').length > 0, 'H) en switchToClick 旧键保留');
+  need(typeof en('switchToHover') === 'string' && en('switchToHover').length > 0, 'H) en switchToHover 旧键保留');
+  need(typeof en('triggerNowHover') === 'string' && en('triggerNowHover').length > 0, 'H) en triggerNowHover 非空');
+  need(typeof en('triggerNowClick') === 'string' && en('triggerNowClick').length > 0, 'H) en triggerNowClick 非空');
+  need(typeof en('triggerTitleHover') === 'string' && en('triggerTitleHover').length > 0, 'H) en triggerTitleHover 非空');
+  need(typeof en('triggerTitleClick') === 'string' && en('triggerTitleClick').length > 0, 'H) en triggerTitleClick 非空');
+  need(!/[\u4e00-\u9fff]/.test(en('triggerRowLabel') + en('triggerNowHover') + en('triggerNowClick') + en('triggerTitleHover') + en('triggerTitleClick') + en('triggerHint')), 'H) en 文案不得含中文');
+  need(en('triggerNowHover') !== zh('triggerNowHover') && en('triggerNowClick') !== zh('triggerNowClick'), 'H) en 是真翻译，不是占位');
 }
 
 // ═══ I) 渲染：底栏触发钮两态 ═══
@@ -234,14 +248,23 @@ async function groupI() {
     TR.act(() => { tree = TR.create(React.createElement(panelMod.TemplateBrowser, { compact: true })); });
   } catch (e) { fail('I) 紧凑浮层应可挂载：' + (e && e.message)); return; }
   const btn = () => tree.root.findAll((n) => n.props && n.props['data-dsh-prompt-trigger'] === '1')[0];
+  const textOf = (b) => ((b && b.children) || []).filter((c) => typeof c === 'string').join('').trim();
   const b0 = btn();
   if (!b0) { fail('I) 底栏应有触发钮'); return; }
-  eq(b0.props.title, T('switchToClick'), 'I) 悬浮态按钮文案=点击触发');
+  eq(textOf(b0), T('triggerNowHover'), 'I) 悬浮态按钮正文=当前：悬浮触发（状态式，单看即知在哪档）');
+  eq(b0.props.title, T('triggerTitleHover'), 'I) 悬浮态 title=状态+去向');
+  eq(b0.props['aria-label'], T('triggerTitleHover'), 'I) 悬浮态 aria-label 与 title 同步');
+  eq(b0.props['data-dsh-prompt-chrome'], 'triggerNowHover', 'I) 悬浮态 chrome 钩子=正文 STR key');
   eq(String(b0.props['aria-pressed']), 'false', 'I) 悬浮态 aria-pressed=false');
+  need(!/^(点击触发|悬浮触发)$/.test(textOf(b0)), 'I) 按钮正文不得是裸四字（m00001：分不清状态还是动作）');
   TR.act(() => { store.saveHoverTrigger(false); });
   const b1 = btn();
-  eq(b1.props.title, T('switchToHover'), 'I) 点击态按钮文案=悬浮触发');
+  eq(textOf(b1), T('triggerNowClick'), 'I) 点击态按钮正文=当前：点击触发');
+  eq(b1.props.title, T('triggerTitleClick'), 'I) 点击态 title=状态+去向');
+  eq(b1.props['aria-label'], T('triggerTitleClick'), 'I) 点击态 aria-label 与 title 同步');
+  eq(b1.props['data-dsh-prompt-chrome'], 'triggerNowClick', 'I) 点击态 chrome 钩子=正文 STR key');
   eq(String(b1.props['aria-pressed']), 'true', 'I) 点击态 aria-pressed=true');
+  need(!/^(点击触发|悬浮触发)$/.test(textOf(b1)), 'I) 点击态正文也不得是裸四字');
   TR.act(() => { tree.unmount(); });
   store.saveHoverTrigger(true);
 }

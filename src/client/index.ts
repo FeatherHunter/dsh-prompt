@@ -17,6 +17,7 @@ import { ensureRemoteLoaded, subscribeRemote, getRemotePrefs, warmEnvOrientation
 import { getSystemOrientation } from './system-orientation'
 import { syncHostFont, syncRemoteRows, syncAssistantZoom, clearHostBridges } from './host-content-font'
 import { applyOwnedStyle, styleDocument } from './style-ownership'
+import { HOVER_TIP_CSS, installHoverTip } from './hover-tip'
 import { getLang, tr, STR } from './strings'
 import { installLocaleService } from './locale'
 import { isPanelOpen, onPanelOpen, setHoverTriggerEnabled } from './panel-visibility'
@@ -150,6 +151,20 @@ function applyBarUiStyle(): void {
     applyOwnedStyle(doc, BAR_UI_STYLE_MARKER, BAR_UI_CSS)
   } catch (e) { /* fail-soft：样式注入永不影响装配 */ }
 }
+/**
+ * 悬停提示 portal 的样式段 + 事件接管（CSS 本体在 `./hover-tip` 的 `HOVER_TIP_CSS`）：
+ * 整面 title 原生提示 → 按钮上方单行 popover。同样走归属缝注入（第四条私有标记，
+ * 互不覆盖），页面级只注/只装一次；监听挂在样式文档上，随页面走。
+ */
+const HOVER_TIP_STYLE_MARKER = 'hover-tip'
+function applyHoverTipStyle(): void {
+  try {
+    const doc = styleDocument()
+    if (!doc) return
+    applyOwnedStyle(doc, HOVER_TIP_STYLE_MARKER, HOVER_TIP_CSS)
+    installHoverTip(doc)
+  } catch (e) { /* fail-soft：样式注入永不影响装配 */ }
+}
 
 export function apply(ctx: ClientContext): void {
   // 日志能力（#49）：先建日志器（本地开关秒显），再向宿主对账（以宿主为准），最后才写第一条事件。
@@ -241,6 +256,8 @@ export function apply(ctx: ClientContext): void {
   applyInkUiStyle()
   // 小列表的交互反馈样式段（#165；同归属缝、第三条标记；同样页面级一次）。
   applyBarUiStyle()
+  // 悬停提示 portal（样式 + 接管；同样页面级一次）。
+  applyHoverTipStyle()
   // 入口按钮（input.left；开合状态跟随面板）
   ctx.effect(() => ctx.slots.inject('conversation.input.left', () =>
     ctx.slots.register({ name: 'conversation.input.left', id: 'dsh-prompt-entry', order: 10, label: () => 'dsh-prompt' },

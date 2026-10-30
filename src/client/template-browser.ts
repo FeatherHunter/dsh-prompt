@@ -29,7 +29,7 @@ import {
   ensureLoaded, subscribeStore, loadHidePreset, saveHidePreset, applyHidePreset, loadHoverTrigger, saveHoverTrigger,
 } from './template-library'
 import { setPanelOpen, schedulePanelClose, cancelPanelClose, setHoverCloseSuppressed } from './panel-visibility'
-import { getRemotePrefs, getEnvOrientation, subscribeRemote, ensureRemoteLoaded } from './remote-mode'
+import { getRemotePrefs, getEnvOrientation, subscribeRemote, ensureRemoteLoaded, isRemoteLoaded } from './remote-mode'
 import {
   deriveRemoteOrientation, resolveEffectiveOrientation, computeRemoteView, remoteSizeScale,
   normalizeRemoteDensity, scaledBaseFontSize,
@@ -155,6 +155,9 @@ export function TriggerModeButton(props: { hover: boolean; lang: Lang }): any {
     type: 'button',
     style: { ...GHOST_PILL_STYLE },
     'data-dsh-prompt-trigger': '1',
+    // #190 契约钩子：触发方式的机器可读值（hover/click）。aria-pressed 的 true 语义是
+    // 「仅点击模式已选中」，与直觉反向，真机用例不再解析 aria，直接读这个值。
+    'data-dsh-prompt-trigger-mode': hover ? 'hover' : 'click',
     'data-dsh-prompt-chrome': labelKey,
     'aria-pressed': hover ? 'false' : 'true',
     title,
@@ -1272,7 +1275,7 @@ function TemplateModal(props: any): any {
   }
   const chipStyle: any = { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.85em', color: 'var(--dsw-alias-label-primary)', background: 'var(--dsw-alias-bg-layer-3)', border: '1px solid var(--dsw-alias-border-l2)', padding: '1px 4px 1px 9px', borderRadius: 999, whiteSpace: 'nowrap' }
   const chipXStyle: any = { border: 0, background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', cursor: 'pointer', fontSize: '1em', lineHeight: 1, padding: '0 2px', fontFamily: 'var(--dsw-font-family)' }
-  return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
+  return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', 'data-dsh-prompt-modal-kind': editing ? 'edit' : 'create', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
     h('div', { style: { ...cardStyleScaled, width: labelGridOn ? 'min(1440px, 96vw)' : 'min(640px, 94vw)', maxHeight: labelGridOn ? '90vh' : '92vh', overflowY: 'auto' } }, [
       h('h3', { style: { fontSize: '1.08em', margin: 0 } }, editing ? props.t('editTitle') : props.t('addTitle')),
       h('input', { style: modalFieldStyle, placeholder: props.t('namePh'), value: name, onChange: (e: any) => setName(e.target.value) }),
@@ -1366,7 +1369,7 @@ function ConfirmDelete(props: any): any {
   // 删除确认跟大小（仅远程开时；关=正常尺寸）。
   const uiScale = remoteSizeScale(getRemotePrefs().enabled ? getRemotePrefs().size : 1)
   const cardStyleScaled: any = { ...modalCardStyle, fontSize: 'calc(1em * ' + uiScale + ')' }
-  return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
+  return h('div', { style: modalMaskStyle, 'data-dsh-prompt-modal': '', 'data-dsh-prompt-modal-kind': 'delete-confirm', onClick: (e: any) => { if (e.target === e.currentTarget) props.onCancel() } }, [
     h('div', { style: cardStyleScaled }, [
       h('h3', { style: { fontSize: '1.08em', margin: 0 } }, props.t('delTitle')),
       h('div', { style: { fontSize: '0.96em', color: 'var(--dsw-alias-label-tertiary)' } }, [props.t('delMsg'), h('span', { 'data-dsh-prompt-chrome': 'nameQuote' }, props.t('nameQuote').replace('{name}', props.tpl.name)), props.t('delUnrecover')]),
@@ -1460,6 +1463,10 @@ export function TemplateBrowser(props: BrowserProps): any {
   // #149：设置入口的失败反馈态（跳转是异步 DOM 兜底，失败必须可见，不许静默 —— 见底栏 ③ 动作行）。
   const goHintState = react.useState(false)
   const goHint = goHintState[0]
+  // #190 契约钩子：设置跳转的导航状态（idle → navigating → ok / failed），失败原因同时落到
+  // data-dsh-prompt-go-settings-error。真机用例不用再靠「面板有没有关」猜跳转成功与否。
+  const goNavState = react.useState({ phase: 'idle', error: '' } as { phase: string; error: string })
+  const goNav = goNavState[0]
   /**
    * #77 设置页折叠（默认收起）：只渲染头行，列表整块不挂载。
    * 只认「compact 为假 + 调用方显式给了 collapsible」——悬浮面板永远是展开的，
@@ -2152,6 +2159,12 @@ export function TemplateBrowser(props: BrowserProps): any {
       ])
     })
     // #132 标签节点已删（过滤只走搜索框）。
+    // #190 契约钩子：远程大列表的装载态 —— 快到 store 快照未到时 loading；到了但当前视图/搜索
+    // 没有卡片是 empty；有卡片是 ready。'error' 不纳入值域：持久化失败只影响偏好不影响卡片，
+    // 没有可区分的失败源就不承诺（宁可少一个值，也不给真机用例一个永远等不到的状态）。
+    const remoteListState = !isRemoteLoaded()
+      ? 'loading'
+      : (remoteView.slots.some((s: any) => s.kind !== 'empty' && !!remoteById.get(s.id)) ? 'ready' : 'empty')
     const remoteSearchToggle = (): void => {
       const next = !remoteSearchOpen
       remoteSearchState[1](next)
@@ -2164,6 +2177,10 @@ export function TemplateBrowser(props: BrowserProps): any {
     return h('div', {
       ref: rootRef, style: remotePanelStyle, ...remoteHover,
       'data-dsh-prompt-remote-panel': '1',
+      // #190 契约钩子：区域归属（remote）、总闸状态、列表装载态（loading/ready/empty）。
+      'data-dsh-prompt-panel-surface': 'remote',
+      'data-dsh-prompt-remote-enabled': remotePrefs.enabled ? 'true' : 'false',
+      'data-dsh-prompt-remote-state': remoteListState,
       'data-dsh-prompt-remote-orient': remoteView.orientation,
       'data-dsh-prompt-remote-size': String((remotePrefs as any).size),
       'data-dsh-prompt-remote-orientation-pref': String(remotePref),
@@ -2343,7 +2360,7 @@ export function TemplateBrowser(props: BrowserProps): any {
         onFocus: () => hoverState[1](x.id),
         onBlur: () => hoverState[1](null),
       }
-      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, outline: itemOutline, minWidth: 0 }, 'data-dsh-prompt-id': x.id, 'data-dsh-prompt-chrome': 'insertHint', 'data-dsh-prompt-chrome-kind': 'title', ...rowInteract, onClick: () => handlePick(x), title: displayLabelString(x, lang) + ' · ' + t('insertHint') }, [
+      return h('div', { key: x.id, style: { ...itemStyle, background: itemBg, outline: itemOutline, minWidth: 0 }, 'data-dsh-prompt-id': x.id, 'data-dsh-prompt-row-role': 'insert', 'data-dsh-prompt-row-name': displayLabelString(x, lang), 'data-dsh-prompt-row-labels': templateLabels(x).join(','), 'data-dsh-prompt-row-preview': intro, 'data-dsh-prompt-chrome': 'insertHint', 'data-dsh-prompt-chrome-kind': 'title', ...rowInteract, onClick: () => handlePick(x), title: displayLabelString(x, lang) + ' · ' + t('insertHint') }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), 'data-dsh-prompt-pin': '1', onClick: (e: any) => handlePin(e, x) }, [
           h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : 'none', stroke: pinned ? 'var(--dsw-specific-accent,#f0a45c)' : dim, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, [
             h('path', { d: 'M12 17v5' }),
@@ -2374,7 +2391,7 @@ export function TemplateBrowser(props: BrowserProps): any {
     // 管理仍只走行内图钉/编辑/删除/复制按钮（其 onClick 已 stopPropagation，故不触发折叠）。
     // #74 行默认折叠：简介节点不渲染，单行只显示图钉 + 用量徽标 + 名称 + 标签 + 操作。
     // #141：折叠提示走词表；' · ' 分隔符留在调用方（数据词在前、铬在后，title 是二者拼接的属性位）
-    return h('div', { key: x.id, style: { ...itemStyle, cursor: 'pointer', background: itemBg }, 'data-dsh-prompt-id': x.id, 'data-dsh-prompt-chrome': 'rowExpandHint', 'data-dsh-prompt-chrome-kind': 'title', title: displayLabelString(x, lang) + ' · ' + t('rowExpandHint'), 'aria-expanded': expanded.has(x.id) ? 'true' : 'false', onClick: () => toggleExpanded(x.id) }, [
+    return h('div', { key: x.id, style: { ...itemStyle, cursor: 'pointer', background: itemBg }, 'data-dsh-prompt-id': x.id, 'data-dsh-prompt-row-role': 'settings', 'data-dsh-prompt-row-name': displayLabelString(x, lang), 'data-dsh-prompt-row-labels': templateLabels(x).join(','), 'data-dsh-prompt-row-preview': intro, 'data-dsh-prompt-chrome': 'rowExpandHint', 'data-dsh-prompt-chrome-kind': 'title', title: displayLabelString(x, lang) + ' · ' + t('rowExpandHint'), 'aria-expanded': expanded.has(x.id) ? 'true' : 'false', onClick: () => toggleExpanded(x.id) }, [
       h('div', { style: { flex: 'none', paddingTop: 2 } }, [
         h('button', { style: pinStyle(pinned), title: t('pin'), 'data-dsh-prompt-pin': '1', onClick: (e: any) => handlePin(e, x) }, [
           // 图钉（置顶语义）：置顶=橙色实心，未置顶=描边
@@ -2400,10 +2417,11 @@ export function TemplateBrowser(props: BrowserProps): any {
     ])
   })
   const listNode = rows.length > 0
-    ? h('div', { ref: compact ? listRef : null, 'data-dsh-prompt-list': compact ? '1' : undefined, style: listStyle }, rows)
+    ? h('div', { ref: compact ? listRef : null, 'data-dsh-prompt-list': compact ? '1' : undefined, 'data-dsh-prompt-panel-surface': 'list', style: listStyle }, rows)
     // #150：紧凑浮层空态 = 一行提示的自然高度（#149 的 5 行下限已按用户口径删除）；设置页维持原高度，一字不动。
     : h('div', {
       'data-dsh-prompt-list': compact ? '1' : undefined,
+      'data-dsh-prompt-panel-surface': 'list',
       style: {
         ...(compact ? {} : { height: 360 }),
         display: 'flex', alignItems: 'center', justifyContent: 'center', color: dim, fontSize: '0.92em', padding: '2px 2px 8px',
@@ -2435,7 +2453,7 @@ export function TemplateBrowser(props: BrowserProps): any {
   // 「设置 →」只是导航前缀（全称进 title/aria，显示用短形）。flex:none 垫底：面板高度怎么变都不抖。
   const countsText = t('presetCount') + ' ' + presetCount + ' · ' + t('customCount') + ' ' + customCount
   const barNode = h('div', {
-    key: 'dsh-prompt-bar', 'data-dsh-prompt-bar': '1',
+    key: 'dsh-prompt-bar', 'data-dsh-prompt-bar': '1', 'data-dsh-prompt-panel-surface': 'bar',
     style: { flex: 'none', display: 'flex', flexDirection: 'column', borderTop: line },
   }, [
     cloudNodes,
@@ -2459,14 +2477,20 @@ export function TemplateBrowser(props: BrowserProps): any {
       h('button', {
         key: 'go-settings',
         style: { ...footLink, whiteSpace: 'nowrap', textAlign: 'right', flex: 'none' }, 'data-dsh-prompt-chrome': 'goSettings',
+        // #190：导航状态与失败原因（契约钩子，见 docs/real/hooks.md）。失败原因取值由 index.ts 的
+        // goSettings 兜底路径给出：no-document / no-trigger / timeout / exception / no-handler。
+        'data-dsh-prompt-go-settings-state': goNav.phase,
+        'data-dsh-prompt-go-settings-error': goNav.phase === 'failed' ? goNav.error : undefined,
         // #150：显示用短形（模板管理），全称留在 title/aria —— 「设置 →」是导航前缀，不承载语义。
         title: goHint ? t('goSettingsFail') : t('goSettings'),
         'aria-label': goHint ? t('goSettingsFail') : t('goSettings'),
         // #149 B：宿主设置弹窗只能靠 DOM 兜底打开（异步），失败必须可见 ——
         // 跳成功才收面板；跳不动就在原位换成提示（4 秒后复原），不再"先关面板、然后什么都没发生"。
         onClick: () => {
-          emitGoSettings((ok: boolean) => {
-            if (ok) { setPanelOpen(false); return }
+          goNavState[1]({ phase: 'navigating', error: '' })
+          emitGoSettings((ok: boolean, error?: string) => {
+            if (ok) { goNavState[1]({ phase: 'ok', error: '' }); setPanelOpen(false); return }
+            goNavState[1]({ phase: 'failed', error: error || 'unknown' })
             goHintState[1](true)
             try { setTimeout(() => goHintState[1](false), 4000) } catch (e) { /* ignore */ }
           })
@@ -2557,13 +2581,15 @@ export function TemplateBrowser(props: BrowserProps): any {
 
 /** 面板 → 设置页跳转（宿主 settings 路由：由 index.ts 注册）。
  *  #149：跳转是异步 DOM 兜底，失败要能报出来 —— 可选 done(ok) 回调；
- *  旧调用方（remote.openRemoteSettings / globalThis.__dshPromptGoSettings）不传回调，行为不变。 */
-let goSettingsHandler: ((done?: (ok: boolean) => void) => void) | null = null
-export function setGoSettingsHandler(fn: ((done?: (ok: boolean) => void) => void) | null): void { goSettingsHandler = fn }
-function emitGoSettings(done?: (ok: boolean) => void): void {
+ *  旧调用方（remote.openRemoteSettings / globalThis.__dshPromptGoSettings）不传回调，行为不变。
+ *  #190：done 追加第二个参数 error（失败原因码，供 data-dsh-prompt-go-settings-error）；旧回调
+ *  `(ok) => …` 语法上完全兼容（多传一个实参不影响只声明一个形参的函数）。 */
+let goSettingsHandler: ((done?: (ok: boolean, error?: string) => void) => void) | null = null
+export function setGoSettingsHandler(fn: ((done?: (ok: boolean, error?: string) => void) => void) | null): void { goSettingsHandler = fn }
+function emitGoSettings(done?: (ok: boolean, error?: string) => void): void {
   const fn = goSettingsHandler
-  if (!fn) { if (done) { try { done(false) } catch (e) { /* ignore */ } } return }
-  try { fn(done) } catch (e) { if (done) { try { done(false) } catch (err) { /* ignore */ } } }
+  if (!fn) { if (done) { try { done(false, 'no-handler') } catch (e) { /* ignore */ } } return }
+  try { fn(done) } catch (e) { if (done) { try { done(false, 'exception') } catch (err) { /* ignore */ } } }
 }
 
 export function getPresetList(): PromptTemplate[] { return PRESET_TEMPLATES }

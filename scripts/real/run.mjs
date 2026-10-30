@@ -2,7 +2,11 @@
 /**
  * 真机 kit 入口：一条命令装配一次性宿主、安装被测产物、起无头浏览器、跑套件、出证据。
  *
- * 退出码：0 = PASS；1 = FAIL（产品不符合期望）；2 = BLOCKED（装配/工具没就绪或未知套件）。
+ * 退出码（语义见 docs/real/report.md「退出码」）：
+ *   0 = PASS（含仅有预期失败的情形）；
+ *   1 = FAIL（产品不符合期望；预期失败不计）；
+ *   2 = BLOCKED（装配/环境没就绪、fixture 不符、参数错误、未知套件）；
+ *   3 = 工具故障（harness/CDP/驱动自身异常，不得冒充产品失败）。
  */
 
 import fs from 'node:fs';
@@ -18,15 +22,48 @@ import { launchBrowser } from './harness/browser.mjs';
 import { connect } from './harness/cdp.mjs';
 import { preparePage } from './harness/page.mjs';
 import { createRunContext, Recorder, writeReport } from './harness/evidence.mjs';
+import { captureFailureArtifacts } from './harness/report/artifacts.mjs';
+import { runPreflight } from './harness/contract/preflight.mjs';
+import { FixtureError, captureBaselineFromOrigin, checkBaseline, formatDiffs, loadFixture, makeFixtureParams, prepareFixture } from './harness/fixture/index.mjs';
+import { createObserver, createPersistence } from './harness/observe/index.mjs';
+import { createInputDriver } from './harness/input.mjs';
+import { applyFaults, assertKnownFaultIds } from './harness/fault/index.mjs';
 import { runSmoke } from './suites/smoke.mjs';
+import { runBoundary } from './suites/boundary.mjs';
+import { runUndoGroup } from './suites/undo-group.mjs';
+import { runTrigger } from './suites/trigger.mjs';
 
 const SUITES = {
   smoke: runSmoke,
+  boundary: runBoundary,
+  'undo-group': runUndoGroup,
+  trigger: runTrigger,
 };
+
+/**
+ * 报告里的 environment.fixture：配方名、参数、应用结果（重置/种子/故障）、声明与实测基线、差异。
+ * 声明与实测都进报告，失败时不必翻工作目录就能独立读结论。
+ */
+function fixtureEnvironment(prepared) {
+  return {
+    name: prepared.name,
+    request: prepared.fixture,
+    title: prepared.title,
+    params: prepared.params ?? null,
+    fault: prepared.applied.fault,
+    storePath: prepared.storePath,
+    storeGuard: prepared.guard ? { ok: prepared.guard.ok } : { ok: false },
+    applied: prepared.applied,
+    declared: prepared.declared,
+    observed: null,
+    ok: null,
+    diffs: [],
+  };
+}
 
 async function execute(bindings) {
   const runContext = createRunContext({ bindings, suite: bindings.suite });
-  const recorder = new Recorder({ suite: bindings.suite, runTag: runContext.runTag });
+  const recorder = new Recorder({ suite: bindings.suite, runTag: runContext.runTag, evidenceDir: runContext.evidenceDir });
   recorder.setEnvironment({
     platform: process.platform,
     arch: process.arch,
@@ -69,6 +106,25 @@ async function execute(bindings) {
       },
     });
 
+    // 初始态：profile 就绪后、起宿主前应用「重置 + 种子」。
+    // 声明是纯数据（--fixture 指向的配方），套件与用例代码零改动；种子按 storage-schema 契约写 store。
+    recorder.setEnvironment({ phase: 'fixture-apply' });
+    let preparedFixture;
+    try {
+      const fixtureParams = makeFixtureParams({ runTag: runContext.runTag });
+      preparedFixture = prepareFixture({
+        fixture: bindings.fixture,
+        homeDir: runContext.homeDir,
+        params: fixtureParams,
+        fault: bindings.fixtureFault,
+      });
+      preparedFixture.params = fixtureParams;
+    } catch (error) {
+      if (error instanceof FixtureError) throw new HarnessError('fixture 装配失败：' + error.message);
+      throw error;
+    }
+    recorder.setEnvironment({ fixture: fixtureEnvironment(preparedFixture) });
+
     server = await startWebServer({
       homeDir: runContext.homeDir,
       profileName: runContext.profileName,
@@ -97,24 +153,219 @@ async function execute(bindings) {
     client = await connect({ cdpPort: browser.cdpPort });
     recorder.setEnvironment({ phase: 'prepare-page' });
     const prepared = await preparePage(client, { url: server.url, timeouts: bindings.timeouts });
-    recorder.setEnvironment({ page: prepared.facts, startupGate: prepared.gate.gateActions });
+    recorder.setEnvironment({ page: prepared.facts, startupGate: prepared.gate.gateActions, startupGateRounds: prepared.gate.gateRounds });
     await client.screenshot(path.join(runContext.shotsDir, 'boot.png'));
 
-    recorder.setEnvironment({ phase: 'suite:' + bindings.suite });
-    await SUITES[bindings.suite]({
-      bindings,
-      recorder,
+    // 宿主契约 preflight：套件依赖的宿主行为事实先逐项核对。
+    // 任何一项断链 → 只记该一项 BLOCKED、不进入套件，避免把"宿主没就绪"误报成产品 FAIL。
+    recorder.setEnvironment({ phase: 'preflight' });
+    const preflight = await runPreflight({
       client,
       server,
       prepared,
-      shotsDir: runContext.shotsDir,
-      workDir: runContext.workDir,
-      timeouts: bindings.timeouts,
+      homeDir: runContext.homeDir,
+      bindings,
+      browserVersion: browser.version,
+      fault: bindings.contractFault,
     });
-    recorder.setEnvironment({ phase: 'done' });
+    recorder.setEnvironment({
+      preflight: {
+        contractVersion: preflight.contractVersion,
+        fault: preflight.fault,
+        ok: preflight.ok,
+        checks: preflight.checks.map((check) => ({ id: check.id, ok: check.ok })),
+      },
+    });
+    for (const check of preflight.checks) {
+      const contractEvidence = {
+        claim: '宿主契约「' + check.id + '」与钉住契约版本一致（不满足则整轮阻塞、不执行套件）',
+        steps: [
+          '在一次性 DSH_HOME 里安装被测产物（dsh plugin add file:<artifact>）',
+          '启动宿主 web 服务，用无头浏览器连 CDP 打开宿主页面',
+          '运行 preflight 的「' + check.id + '」探针，把契约期望与页面观测逐字段对比',
+        ],
+        observations: { expected: check.expected, observed: check.observed, detail: check.detail },
+        inference: check.ok
+          ? '契约成立时，套件的观测语义才有宿主版本前提'
+          : '契约不成立时产品/宿主边界变了，不能把后续检查结果归因到产品',
+      };
+      if (check.ok) {
+        recorder.pass('契约：' + check.id, {
+          detail: JSON.stringify({ expected: check.expected, observed: check.observed }),
+          ...contractEvidence,
+        });
+      } else {
+        recorder.blocked(
+          '契约：' + check.id,
+          '宿主行为与钉住版本不一致，套件未执行。期望 ' + JSON.stringify(check.expected) +
+            '；观测 ' + JSON.stringify(check.observed) + '；' + check.detail,
+          contractEvidence,
+        );
+      }
+    }
+
+    // 起始态基线：preflight 之后经产品公开路径（宿主 HTTP 桥 GET /_dsh/dsh-prompt/store）读回，
+    // 与配方声明逐路径对比。不符 → 整轮 BLOCKED、列出 current vs expected，不执行套件：
+    // 状态污染的锅不能记到产品头上，也不能让后续用例产生一堆假 FAIL。
+    let fixtureBaseline = null;
+    if (preflight.ok) {
+      recorder.setEnvironment({ phase: 'fixture-readback' });
+      let captured;
+      try {
+        captured = await captureBaselineFromOrigin({
+          origin: server.origin,
+          storePath: preparedFixture.storePath,
+          timeoutMs: bindings.timeouts.pageLoadMs,
+        });
+      } catch (error) {
+        if (error instanceof FixtureError) throw new HarnessError('fixture 起始态读回失败：' + error.message);
+        throw error;
+      }
+      fixtureBaseline = checkBaseline(preparedFixture.recipe, captured.baseline);
+      recorder.setEnvironment({
+        fixture: {
+          ...fixtureEnvironment(preparedFixture),
+          http: captured.http,
+          storeFile: captured.storeFile,
+          observed: fixtureBaseline.observed,
+          ok: fixtureBaseline.ok,
+          diffs: fixtureBaseline.diffs,
+        },
+      });
+      const fixtureEvidence = {
+        claim: '配方 ' + preparedFixture.name + ' 的起始 store 状态与声明一致（不符则整轮阻塞、不执行套件）',
+        steps: [
+          'preflight 通过后，经宿主 HTTP 桥 GET /_dsh/dsh-prompt/store 读回起始 baseline',
+          '与配方 expect 逐路径对比（customs/usage/pinned/lastUsed/hidePreset/hoverTrigger/remote）',
+          '不符时列出 current vs expected 的 diffs 并整轮 BLOCKED，不执行套件',
+        ],
+        observations: { recipe: preparedFixture.name, ok: fixtureBaseline.ok, diffs: fixtureBaseline.diffs },
+        inference: fixtureBaseline.ok
+          ? '起始态吻合时，套件里「插入后 +1」之类的增量断言才有可归因的零点'
+          : '起始态漂移属环境/配方问题，不能记到产品头上',
+      };
+      if (fixtureBaseline.ok) {
+        recorder.pass('fixture 起始态', {
+          detail: '配方 ' + preparedFixture.name + '：' + JSON.stringify(fixtureBaseline.observed),
+          ...fixtureEvidence,
+        });
+        recorder.setEnvironment({ phase: 'fixture-ok' });
+      } else {
+        recorder.blocked(
+          'fixture 起始态',
+          '配方 ' + preparedFixture.name + ' 起始态与声明不符，套件未执行。' + formatDiffs(fixtureBaseline.diffs),
+          fixtureEvidence,
+        );
+      }
+    }
+
+    if (preflight.ok && fixtureBaseline && fixtureBaseline.ok) {
+      recorder.setEnvironment({ phase: 'suite:' + bindings.suite });
+      // 套件句柄：观测层（六面原始观测/解释）、真实输入驱动、持久化通道（store 双通道）。
+      // 句柄只装一次、由 run.mjs 统一传入，套件不自己连 CDP/不自己拼 HTTP。
+      const observe = createObserver(client, { timeouts: bindings.timeouts });
+      const input = createInputDriver(client, { timeouts: bindings.timeouts });
+      const persistence = createPersistence({
+        origin: server.origin,
+        storePath: preparedFixture.storePath,
+        timeoutMs: bindings.timeouts.pageLoadMs,
+      });
+      // #191 故障注入：只在显式 --fault 时把接缝包成故障态；默认路径句柄原样、零影响。
+      // 注入元数据（期望变红的检查）与页面内计数写进报告环境，读者不用翻代码就知道动过什么。
+      let faultSession = null;
+      let handles = { observe, input, persistence };
+      if (bindings.faults.length > 0) {
+        recorder.setEnvironment({ phase: 'fault-apply' });
+        faultSession = await applyFaults({ ids: bindings.faults, handles: { client, observe, input, persistence } });
+        handles = {
+          observe: faultSession.handles.observe,
+          input: faultSession.handles.input,
+          persistence: faultSession.handles.persistence,
+        };
+      }
+      // 失败产物：套件跑完（无论是否抛错）先给 FAIL 检查补截图/页面状态/store/输入日志，
+      // 再进入清理（关 CDP / 浏览器之后就采不到了）。故障态要在卸载前采集。
+      try {
+        await SUITES[bindings.suite]({
+          bindings,
+          recorder,
+          client,
+          server,
+          prepared,
+          shotsDir: runContext.shotsDir,
+          workDir: runContext.workDir,
+          timeouts: bindings.timeouts,
+          fixture: preparedFixture,
+          observe: handles.observe,
+          input: handles.input,
+          persistence: handles.persistence,
+          faults: faultSession ? faultSession.injectors : [],
+        });
+      } finally {
+        await captureFailureArtifacts({ recorder, client, observe: handles.observe, persistence: handles.persistence, input: handles.input }).catch((error) => {
+          // 产物采集自身失败不能改变判定，只记进环境供报告读者参考。
+          recorder.setEnvironment({ artifactCapture: { ok: false, error: String(error && error.message ? error.message : error) } });
+        });
+        if (faultSession) {
+          let uninstall;
+          try {
+            uninstall = await faultSession.uninstall();
+          } catch (error) {
+            uninstall = { error: String(error && error.message ? error.message : error) };
+          }
+          recorder.setEnvironment({
+            faults: {
+              mode: 'injected',
+              injectors: faultSession.injectors,
+              evidence: faultSession.evidence,
+              uninstall,
+            },
+          });
+          const results = uninstall && uninstall.results ? Object.values(uninstall.results) : [];
+          const broken = results.filter((item) => item && item.restored === false);
+          if (broken.length > 0) {
+            recorder.toolFault('故障注入回滚失败', JSON.stringify(broken), {
+              claim: '本次 --fault 注入的接缝在套件结束后必须全部还原，否则后续运行会被残留故障污染',
+              steps: [
+                '套件结束时按逆序调用每个故障注入器的 uninstall()',
+                '收集每个注入器返回的 restored 布尔与证据',
+                '断言没有 restored===false 的注入器；有则记工具故障（不改产品判定）',
+              ],
+              observations: { broken, results: uninstall ? uninstall.results : null },
+              inference: '回滚失败属运行器/接缝问题，不能让故障残留影响下一轮或误判产品',
+            });
+          }
+        }
+      }
+      recorder.setEnvironment({ phase: 'done' });
+    } else if (!preflight.ok) {
+      recorder.setEnvironment({ phase: 'preflight-blocked' });
+    } else {
+      recorder.setEnvironment({ phase: 'fixture-blocked' });
+    }
   } catch (error) {
     const message = error instanceof HarnessError ? error.message : String(error && error.stack ? error.stack : error);
-    recorder.blocked(error instanceof HarnessError ? '装配环节' : '运行器未预期异常', message);
+    // 装配/环境问题 → BLOCKED（退出码 2）；运行器自身未预期异常 → 工具故障（退出码 3），
+    // 绝不让工具故障冒充产品失败。
+    if (error instanceof HarnessError) {
+      recorder.blocked('装配环节', message, {
+        claim: '一次性 profile、宿主服务、浏览器与观测句柄的装配必须全部成功，套件才能执行',
+        steps: [
+          '创建一次性 DSH_HOME 并安装被测产物',
+          '启动宿主 web 服务、启动无头浏览器并连 CDP、preparePage 收遮罩',
+          '创建 observe/input/persistence 句柄并执行 preflight 与 fixture 起始态检查',
+        ],
+        observations: { error: message },
+        inference: '装配失败属环境/宿主问题，套件未执行，不能记产品失败',
+      });
+    } else {
+      recorder.toolFault('运行器未预期异常', message, {
+        claim: '运行器自身异常必须与产品判定分开（不得冒充产品 FAIL）',
+        steps: ['捕获 execute() 的未预期异常', '写进报告工具故障分型（退出码 3）并保留 stack'],
+        observations: { error: message },
+        inference: '未预期异常来自运行器代码/宿主 SDK，先把运行器修好再谈产品结论',
+      });
+    }
   } finally {
     recorder.setEnvironment({ phase: 'cleanup' });
     const cleanup = { keptWorkDir: Boolean(bindings.keep) };
@@ -125,7 +376,12 @@ async function execute(bindings) {
       }
     } catch (error) {
       cleanup.cdpClosed = false;
-      recorder.blocked('CDP 连接收尾', String(error && error.message ? error.message : error));
+      recorder.blocked('CDP 连接收尾', String(error && error.message ? error.message : error), {
+        claim: 'CDP 连接必须在运行结束后关闭，避免浏览器进程/调试端口泄漏',
+        steps: ['调用 client.close() 关闭 CDP 连接', '失败时记录异常文本并继续后续清理'],
+        observations: { error: String(error && error.message ? error.message : error) },
+        inference: '收尾失败影响下一轮环境隔离，属运行器/环境问题',
+      });
     }
     try {
       if (browser) {
@@ -135,7 +391,12 @@ async function execute(bindings) {
         cleanup.browserCdpPortFree = await waitForPortFree(browser.cdpPort, 5_000);
       }
     } catch (error) {
-      recorder.blocked('浏览器收尾', String(error && error.message ? error.message : error));
+      recorder.blocked('浏览器收尾', String(error && error.message ? error.message : error), {
+        claim: '无头浏览器进程必须退出并释放 CDP 调试端口',
+        steps: ['调用 browser.close() 退出浏览器进程', 'waitForPortFree 等待 CDP 调试端口释放', '失败时记录异常文本并继续后续清理'],
+        observations: { error: String(error && error.message ? error.message : error), cdpPort: browser ? browser.cdpPort : null },
+        inference: '收尾失败影响下一轮环境隔离，属运行器/环境问题',
+      });
     }
     try {
       if (server) {
@@ -144,7 +405,12 @@ async function execute(bindings) {
         cleanup.serverPortFree = await isPortFree(stopped.port);
       }
     } catch (error) {
-      recorder.blocked('宿主服务收尾', String(error && error.message ? error.message : error));
+      recorder.blocked('宿主服务收尾', String(error && error.message ? error.message : error), {
+        claim: '一次性宿主 web 服务必须停止并释放端口',
+        steps: ['调用 server.stop() 停止宿主子进程', 'isPortFree 确认端口已释放', '失败时记录异常文本并继续后续清理'],
+        observations: { error: String(error && error.message ? error.message : error) },
+        inference: '收尾失败影响下一轮环境隔离，属运行器/环境问题',
+      });
     }
     if (!bindings.keep) {
       try {
@@ -161,7 +427,12 @@ async function execute(bindings) {
         }
       } catch (error) {
         cleanup.workDirRemoved = false;
-        recorder.blocked('清理一次性工作目录', String(error && error.message ? error.message : error));
+        recorder.blocked('清理一次性工作目录', String(error && error.message ? error.message : error), {
+          claim: '默认路径下一次性工作目录应被删除（--keep 时保留并记录路径）',
+          steps: ['fs.rmSync 递归删除本次 runTag 工作目录', '尝试 rmdir 空的 workRoot', '失败时记录异常与保留路径'],
+          observations: { workDir: runContext.workDir, error: String(error && error.message ? error.message : error) },
+          inference: '清理失败可能影响磁盘/下一轮隔离，属环境问题',
+        });
       }
     }
     recorder.setEnvironment({ cleanup });
@@ -171,21 +442,49 @@ async function execute(bindings) {
 }
 
 function printSummary(result, bindings) {
-  const { reportPath, report, runContext } = result;
+  const { reportPath, markdownPath, report, runContext } = result;
   console.log('[real] runTag=' + report.runTag);
   console.log('[real] 产物 ' + bindings.artifact.name + '@' + bindings.artifact.version + '  sha256=' + bindings.artifact.sha256);
   console.log('[real] 宿主 CLI ' + bindings.dshCli + '（' + bindings.hostVersion + '）');
   console.log('[real] 浏览器 ' + bindings.browser);
+  if (bindings.contractFault) console.log('[real] 契约注入项 ' + bindings.contractFault + '（负例：只让该契约项不匹配）');
+  if (bindings.faults.length > 0) {
+    console.log('[real] 故障注入 ' + bindings.faults.join(', ') + '（显式开启；默认关闭，期望变红的检查见报告 environment.faults）');
+  }
+  const fixture = report.environment && report.environment.fixture ? report.environment.fixture : null;
+  if (fixture) {
+    const state = fixture.ok === null ? '未读回' : fixture.ok ? '匹配声明' : '与声明不符（BLOCKED）';
+    console.log(
+      '[real] fixture ' + fixture.name +
+        (fixture.request && fixture.request !== fixture.name ? '（请求 ' + fixture.request + '）' : '') +
+        (fixture.fault ? '  故障注入=' + fixture.fault : '') +
+        '  起始态=' + state,
+    );
+  }
   const summary = report.summary;
   console.log(
-    '[real] PASS ' + summary.PASS + ' / FAIL ' + summary.FAIL + ' / BLOCKED ' + summary.BLOCKED + ' / N-A ' + (summary['N-A'] || 0) + '  ->  ' + report.verdict,
+    '[real] PASS ' + summary.PASS + ' / FAIL ' + summary.FAIL + ' / BLOCKED ' + summary.BLOCKED + ' / N-A ' + (summary['N-A'] || 0) +
+      '  ->  ' + report.verdict + '（exitCode=' + report.exitCode + '）',
   );
+  if (summary.expectedFailures > 0) {
+    console.log('[real] 预期失败 ' + summary.expectedFailures + ' 条（不计入产品失败，退出码按 0 计）');
+  }
+  if (summary.failureTypes && (summary.FAIL > 0 || summary.BLOCKED > 0)) {
+    console.log(
+      '[real] FAIL 分型：产品 ' + summary.failureTypes.product + ' / 规格 ' + summary.failureTypes.spec +
+        ' / 测试假象 ' + summary.failureTypes.test + ' / 工具 ' + summary.failureTypes.tool +
+        '；工具故障（含阻塞）' + summary.toolFaults + ' 条',
+    );
+  }
   for (const check of report.checks) {
     if (check.verdict === 'PASS') continue;
+    const expectedTag = check.expectedFailure === true ? '（预期失败）' : '';
+    const typeTag = check.verdict === 'FAIL' && check.failureType ? '[' + check.failureType + ']' : '';
     const tail = check.reason ? '：' + check.reason : check.observed !== undefined ? '：observed=' + JSON.stringify(check.observed) : '';
-    console.log('  [' + check.verdict + '] ' + check.name + tail);
+    console.log('  [' + check.verdict + ']' + typeTag + expectedTag + ' ' + check.name + tail);
   }
   console.log('[real] 证据: ' + reportPath);
+  console.log('[real] 摘要: ' + markdownPath);
   if (bindings.keep) console.log('[real] 工作目录已保留: ' + runContext.workDir);
 }
 
@@ -210,10 +509,30 @@ async function main() {
     console.error('[real][BLOCKED] 未知套件: ' + bindings.suite + '。可用套件: ' + Object.keys(SUITES).join(', '));
     return 2;
   }
+  // 配方名/路径在装配前先校验一次：typo 直接给可操作错误，不必先花几十秒起宿主。
+  try {
+    loadFixture(bindings.fixture);
+  } catch (error) {
+    if (error instanceof FixtureError) {
+      console.error('[real][BLOCKED] ' + error.message);
+      return 2;
+    }
+    throw error;
+  }
+  // 故障注入 id 在装配前先校验一次：typo 直接给可操作错误，不必先花几十秒起宿主。
+  try {
+    assertKnownFaultIds(bindings.faults);
+  } catch (error) {
+    if (error instanceof HarnessError) {
+      console.error('[real][BLOCKED] ' + error.message);
+      return 2;
+    }
+    throw error;
+  }
   const result = await execute(bindings);
   printSummary(result, bindings);
-  if (result.report.verdict === 'PASS') return 0;
-  return result.report.verdict === 'FAIL' ? 1 : 2;
+  // 退出码由报告层统一映射：0 全绿 / 1 有真实 FAIL / 2 BLOCKED / 3 工具故障。
+  return typeof result.report.exitCode === 'number' ? result.report.exitCode : 2;
 }
 
 main()
@@ -221,6 +540,6 @@ main()
     process.exit(typeof code === 'number' ? code : 0);
   })
   .catch((error) => {
-    console.error('[real][BLOCKED] 运行器崩溃: ' + String(error && error.stack ? error.stack : error));
-    process.exit(2);
+    console.error('[real][TOOL-FAULT] 运行器崩溃: ' + String(error && error.stack ? error.stack : error));
+    process.exit(3);
   });

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "notes": [
+    "已用旧产物基线登记表。只写文件名/sha256/来源说明，不写机器绝对路径 —— 基线 tgz 可以放在任意缓存目录，用 --baseline-dir（或 DSH_REAL_BASELINE_DIR）指过去；或直接用 --baseline-artifact 指定。",
+    "sha256 是差分的锚：登记过的基线跑出来 sha256 不符会直接 BLOCKED（退出码 2），防止「以为在比旧产物、其实两份一样」。"
+  ],
+  "baselines": [
+    {
+      "name": "dsh-prompt-0.4.32",
+      "fileName": "dsh-prompt-0.4.32.tgz",
+      "sha256": "1c6def48ca527dc84e716b7ef8bb31c8e8dc125feddb1ab1ddf12da194736d10",
+      "version": "0.4.32",
+      "commit": "v0.4.32",
+      "source": "旧发行版 npm 包（0.4.32 tag 构建）",
+      "note": "boundary 差分正例基线：⑥触发按钮底栏触发方式在 0.4.32 上红（observed=null），当前产物绿。",
+      "suites": [
+        "boundary"
+      ]
+    },
+    {
+      "name": "dsh-prompt-0.4.31",
+      "fileName": "dsh-prompt-0.4.31.tgz",
+      "sha256": "6ed62da680ea87e35f52c0c8d7aaa36321a587aecc6c1675174db63a12b56e19",
+      "version": "0.4.31",
+      "commit": "v0.4.31",
+      "source": "旧发行版 npm 包（0.4.31 tag 构建）",
+      "note": "boundary 上与 0.4.32 表现相同（同一 FAIL/BLOCKED 结构），可作 0.4.32 的替代基线。",
+      "suites": [
+        "boundary"
+      ]
+    },
+    {
+      "name": "dsh-prompt-0.4.39-pack183",
+      "fileName": "dsh-prompt-0.4.39.tgz",
+      "sha256": "30f9cd74329b94c19c62a69386a87f2910be468ee74f5a1172ae1c91a04f8301",
+      "version": "0.4.39",
+      "commit": "ecf9e35",
+      "source": "main HEAD ecf9e35 时代（#190 之前）的 0.4.39 构建产物",
+      "note": "boundary 上与当前产物同为全绿：用 boundary.expect.json 跑它必须得到「mustFlip 未翻转 → FAIL」，这是差分负例（无区分力），不是工具故障。",
+      "suites": []
+    }
+  ]
+}

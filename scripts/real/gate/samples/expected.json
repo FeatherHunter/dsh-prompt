@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "note": "门禁自证清单（#186）：bad/* 每个坏样本只违反自己那一类规则，expected 列出「规则 id + 行号（从 1 起）」，--selftest 要求实际命中与此完全一致；good/valid-entry.mjs 必须零违规。",
+  "bad": [
+    {
+      "file": "bad/r1-hardcoded-target.mjs",
+      "rule": "R1",
+      "case": "目标入口硬编码：主机 / 端口 / token 字面量，目标 URL 不走运行期输入",
+      "expected": [
+        { "rule": "R1", "line": 12, "note": "主机 127.0.0.1 与 token=deadbeefcafe 同行，合并为一条违规" },
+        { "rule": "R1", "line": 13, "note": "固定端口兜底 '9231'" }
+      ]
+    },
+    {
+      "file": "bad/r2-no-report.mjs",
+      "rule": "R2",
+      "case": "没有 JSON 报告，退出码只有 0（成功/失败不可区分）",
+      "expected": [
+        { "rule": "R2", "line": 1, "note": "文件级缺失：没有 writeReport" },
+        { "rule": "R2", "line": 15, "note": "process.exit(0) 只给了一个退出码" }
+      ]
+    },
+    {
+      "file": "bad/r3-no-cleanup.mjs",
+      "rule": "R3",
+      "case": "没有 finally 兜底，也没有任何清理调用（进程 / 端口 / 临时目录）",
+      "expected": [
+        { "rule": "R3", "line": 1, "note": "文件级缺失：finally 与清理调用都没有，合并为一条违规" }
+      ]
+    },
+    {
+      "file": "bad/r4-machine-values.mjs",
+      "rule": "R4",
+      "case": "硬编码机器特定值：用户主目录 / 浏览器路径 / 证据目录 / locale",
+      "expected": [
+        { "rule": "R4", "line": 12, "note": "用户主目录 C:\\\\Users\\\\alice" },
+        { "rule": "R4", "line": 13, "note": "浏览器路径 + Program Files" },
+        { "rule": "R4", "line": 14, "note": "证据目录 D:/Temp/gate-186" },
+        { "rule": "R4", "line": 15, "note": "硬编码 locale zh-CN" }
+      ]
+    },
+    {
+      "file": "bad/r5-duplicated-cdp.mjs",
+      "rule": "R5",
+      "case": "在脚本里复制 CDP 客户端：直连 /json/list、new WebSocket、自拼 Runtime.evaluate",
+      "expected": [
+        { "rule": "R5", "line": 13, "note": "直连 DevTools 调试端点 /json/list" },
+        { "rule": "R5", "line": 14, "note": "自己 new WebSocket" },
+        { "rule": "R5", "line": 15, "note": "自己拼 Runtime.evaluate" }
+      ]
+    }
+  ],
+  "good": [
+    {
+      "file": "good/valid-entry.mjs",
+      "note": "五类规则全部满足：运行期入口 / writeReport + 可区分退出码 / finally 清理 / 无机器特定值 / 不自造 CDP"
+    }
+  ]
+}

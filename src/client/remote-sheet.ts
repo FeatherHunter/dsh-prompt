@@ -181,7 +181,7 @@ export function RemoteInputSheet(props: RemoteInputSheetProps): any {
 
   const stale = (staleState[0] as boolean) === true;
 
-  return h('div', { style: rootStyle, 'data-dsh-prompt-remote-input-root': '1' },
+  return h('div', { style: rootStyle, 'data-dsh-prompt-remote-input-root': '1', 'data-dsh-prompt-modal-kind': 'remote-input' },
     h('div', {
       style: maskStyle, 'data-dsh-prompt-remote-input-mask': '1',
       onClick: (e: any) => { if (e.target === e.currentTarget) (props as any).onClose(); },

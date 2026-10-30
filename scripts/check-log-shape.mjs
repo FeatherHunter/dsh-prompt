@@ -21,6 +21,47 @@ function eq(actual, expected, msg) {
   else fail(msg + ' → 实际 ' + a + '，期望 ' + e);
 }
 
+/**
+ * console.* 的诚实白名单判定（#183 评审整改 F4）。纯函数，便于在门禁里自证：
+ * 常规输出必须走日志能力；唯一例外是客户端诊断的单点 `console.debug`（默认关闭时永不执行），
+ * 且它必须能追溯到 `DIAG_PREFIX` / `[dsh-prompt:diag]` 的诊断语义。任何第二处、其它文件、
+ * 其它 console 方法都判红。
+ * @param {{file: string, index?: number, line?: number, method: string}[]} hits 相对仓库根的命中
+ * @param {{sourceText?: string, lineOf?: (text: string, index: number) => number}} options
+ * @returns {string[]} 问题列表；空数组 = 通过
+ */
+export function checkConsoleAllowlist(hits, options = {}) {
+  const allowlist = [
+    { file: 'src/client/index.ts', method: 'debug', max: 1, requiresDiagnosticPrefix: true },
+  ];
+  const problems = [];
+  const byFile = new Map();
+  for (const hit of hits) {
+    if (!byFile.has(hit.file)) byFile.set(hit.file, []);
+    byFile.get(hit.file).push(hit);
+  }
+  for (const [file, fileHits] of byFile) {
+    const rule = allowlist.find((item) => item.file === file);
+    if (!rule) {
+      problems.push(`${file} 不允许出现 console.*（白名单只有 ${allowlist.map((item) => `${item.file} 的 console.${item.method}`).join('、')}）`);
+      continue;
+    }
+    if (fileHits.length > rule.max) {
+      problems.push(`${file} 的 console.* 出现 ${fileHits.length} 处，白名单只允许 ${rule.max} 处（第 ${rule.max + 1} 处起判红）`);
+    }
+    for (const hit of fileHits) {
+      if (hit.method !== rule.method) problems.push(`${file} 只允许 console.${rule.method}，实际出现 console.${hit.method}（第 ${hit.line ?? '?'} 行）`);
+    }
+  }
+  if (allowlist.some((rule) => rule.requiresDiagnosticPrefix)) {
+    const text = typeof options.sourceText === 'string' ? options.sourceText : '';
+    if (!text.includes('DIAG_PREFIX') || !text.includes('[dsh-prompt:diag]')) {
+      problems.push('白名单路径的 console.debug 必须能追溯到诊断前缀（源码里要同时出现 DIAG_PREFIX 与 [dsh-prompt:diag]），否则它就是偷偷打日志');
+    }
+  }
+  return problems;
+}
+
 function readJson(file) { return JSON.parse(fs.readFileSync(file, 'utf8')); }
 function logFileOf(home) {
   const day = new Date();
@@ -459,14 +500,61 @@ async function drain(cap, home, expectEvent) {
     }
   }
   const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/([^:])\/\/.*$/gm, '$1');
+  /**
+   * console.* 的诚实白名单（#183 评审整改 F4）。
+   * 常规输出必须走日志能力；唯一允许的是客户端诊断的单点 `console.debug`：
+   * 它只在诊断开关打开时执行、默认零成本，且这条输出必须能追溯到 DIAG_PREFIX/[dsh-prompt:diag]
+   * 的诊断语义（否则就不再是"诊断"而是偷偷打日志）。白名单按「精确路径 + 方法 + 出现次数」判定，
+   * 任何第二处、任何其它文件、任何其它 console 方法都仍然判红。
+   */
+  const CONSOLE_ALLOWLIST = [
+    {
+      file: 'src/client/index.ts',
+      method: 'debug',
+      max: 1,
+      reason: '客户端诊断输出（diagPrint），默认关闭时永不执行；见 src/client/index.ts 头注释',
+    },
+  ];
+  const lineOf = (text, index) => text.slice(0, index).split('\n').length;
+  const blankComments = (text) => text
+    .replace(/\/\*[\s\S]*?\*\//g, (match) => match.replace(/[^\n]/g, ' '))
+    .replace(/^(\s*)\/\/.*$/gm, (match) => ' '.repeat(match.length));
+  const consoleProblems = [];
   const consoleHits = [];
   for (const file of sourceFiles) {
-    const text = fs.readFileSync(file, 'utf8');
-    for (const m of text.matchAll(/console\.(?:log|warn|error|info|debug)/g)) {
-      consoleHits.push(path.relative(ROOT, file) + ':' + m.index);
+    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    const raw = fs.readFileSync(file, 'utf8');
+    const text = blankComments(raw);
+    for (const m of text.matchAll(/console\.(?:log|warn|error|info|debug)\s*\(/g)) {
+      consoleHits.push({ file: rel, index: m.index, line: lineOf(text, m.index), method: m[0].replace(/^console\./, '').replace(/\s*\($/, ''), context: text.slice(Math.max(0, m.index - 400), m.index) });
     }
   }
-  assert(consoleHits.length === 0, `源码里 console.* 已清零（残留：${consoleHits.join(', ') || '无'}）`);
+  const allowlistProblems = checkConsoleAllowlist(consoleHits, {
+    sourceText: fs.readFileSync(path.join(ROOT, 'src/client/index.ts'), 'utf8'),
+    lineOf,
+  });
+  for (const problem of allowlistProblems) consoleProblems.push(problem);
+  assert(consoleProblems.length === 0, `源码里 console.* 只允许白名单那一处（问题：${consoleProblems.join('；') || '无'}；命中：${consoleHits.map((hit) => `${hit.file}:${hit.line} console.${hit.method}`).join(', ') || '无'}）`);
+
+  // 白名单自证：唯一诊断 debug 通过；第二处、其它文件、其它方法、丢诊断前缀都必须被判红。
+  const fakeDiagSource = "function diagPrint(){} const DIAG_PREFIX = '[dsh-prompt:diag]'; console.debug(msg)";
+  const fakeOk = checkConsoleAllowlist([{ file: 'src/client/index.ts', index: 0, line: 1, method: 'debug' }], { sourceText: fakeDiagSource, lineOf: () => 1 });
+  assert(fakeOk.length === 0, `白名单自证：唯一诊断 debug 通过（问题：${fakeOk.join('；') || '无'}）`);
+  const fakeSecond = checkConsoleAllowlist([
+    { file: 'src/client/index.ts', index: 0, line: 1, method: 'debug' },
+    { file: 'src/client/index.ts', index: 10, line: 2, method: 'debug' },
+  ], { sourceText: fakeDiagSource, lineOf: () => 1 });
+  assert(fakeSecond.length > 0, '白名单自证：同文件第二处 console.debug 被判红');
+  const fakeOtherFile = checkConsoleAllowlist([{ file: 'src/client/other.ts', index: 0, line: 1, method: 'debug' }], { sourceText: fakeDiagSource, lineOf: () => 1 });
+  assert(fakeOtherFile.length > 0, '白名单自证：其它文件里的 console.debug 被判红');
+  const fakeOtherMethod = checkConsoleAllowlist([{ file: 'src/client/index.ts', index: 0, line: 1, method: 'log' }], { sourceText: fakeDiagSource, lineOf: () => 1 });
+  assert(fakeOtherMethod.length > 0, '白名单自证：白名单文件里的 console.log 被判红');
+  const fakeNoPrefix = checkConsoleAllowlist([{ file: 'src/client/index.ts', index: 0, line: 1, method: 'debug' }], { sourceText: 'function diagPrint(){}', lineOf: () => 1 });
+  assert(fakeNoPrefix.length > 0, '白名单自证：白名单路径的 debug 丢诊断前缀语义时被判红');
+  assert(
+    consoleHits.length === CONSOLE_ALLOWLIST.length,
+    `整仓 console.* 命中数等于白名单条目数（命中 ${consoleHits.length} / 白名单 ${CONSOLE_ALLOWLIST.length}）`,
+  );
   const liveCode = sourceFiles.map((f) => stripComments(fs.readFileSync(f, 'utf8'))).join('\n');
   assert(!/reportDiag\s*\(|client-diag\.jsonl'/.test(liveCode), '临时诊断上报（reportDiag / client-diag.jsonl）已删除');
   assert(fs.readFileSync(path.join(ROOT, 'lib', 'index.js'), 'utf8').includes('removed-endpoint'), '宿主 /_dsh/dsh-prompt/debug 已改为 404（不再是诊断落盘分支）');

@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "name": "trigger-click",
+  "title": "触发模式初始态：点按触发",
+  "description": "全局偏好 hoverTrigger=false（点按触发），其余偏好保持插件默认。用来证明「触发模式」这一类初始态可声明，且套件从该态出发不受上一轮残留影响。注意：当前唯一的 smoke 套件把「悬停打开面板」当基线（缺省悬浮触发态），在点按触发态下该断言不成立，会记 FAIL —— 这是套件与初始态的适配问题，不是产品缺陷；点按触发态留给 #188 写专属场景 / #192 第二套件。三类初始态验收跑的是 trigger-hover（悬浮触发显式钉住）。",
+  "reset": true,
+  "seed": {
+    "global": { "hoverTrigger": false }
+  },
+  "expect": {
+    "storePresent": true,
+    "unit": { "name": "dsh_prompt", "version": 0 },
+    "customs": [],
+    "usage": {},
+    "pinned": [],
+    "lastUsed": null,
+    "remote": { "enabled": false, "size": 5, "orientation": "auto", "density": "a" },
+    "hidePreset": true,
+    "hoverTrigger": false
+  }
+}

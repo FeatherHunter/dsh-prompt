@@ -55,6 +55,7 @@
 | `pager.ts` | 保持 | 无 DOM 纯页数学已自解释（豁免），调用方量、此收数 |
 | `index.ts` | 保持 | 装配器非 barrel（N5），T4 前不动 |
 | `log/index.ts` | 保持 | 现存唯一子目录即边界；T4 定升为 diagnostics 还是保留 |
+| `hover-tip.ts` | 保持 | 已自解释：整面悬停提示 portal（#181 修复引入的新文件，T5 之后落地，补登记以清目标树 gate 的 straggler） |
 
 ### 3.3 宿主半（5 个：改 2，保 3）
 

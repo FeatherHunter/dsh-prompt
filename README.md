@@ -171,7 +171,7 @@ dsh plugin --profile desktop add dsh-prompt@0.4.39 --registry https://registry.n
 
 ---
 
-<h2 align="center"><sub>CONNECT</sub><br>反馈与联系</h2>
+## 反馈与联系 <sub>CONNECT</sub>
 
 <div align="center">
 

@@ -170,7 +170,7 @@ Thanks to everyone who filed issues, sent PRs, or starred the repo — you make 
 
 ---
 
-<h2 align="center"><sub>CONNECT</sub><br>Feedback and Contact</h2>
+## Feedback and Contact <sub>CONNECT</sub>
 
 <div align="center">
 

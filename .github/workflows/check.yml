@@ -35,7 +35,7 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npm run typecheck
-      # 既有基线红项（main 上本来就有、与本 workflow 无关）：check:marketplace-readme、check:target-tree。
-      # 它们修好之前这一步会红 —— 那是基线事实；本 workflow 负责的是让「新增红」无处可藏。
+      # 基线红项已清（2026-10-31：市场 README 截图登记/原始 <h2>、目标树 hover-tip.ts 登记），
+      # 这一步现在是全绿门禁：任何新增红都会被拦住。
       - name: Check (static gates, no browser)
         run: npm run check

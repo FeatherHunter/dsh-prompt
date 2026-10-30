@@ -196,16 +196,18 @@ npm run check     # 静态检查链（含本门禁）
 - 真机证据（`report.json` + 截图）本来就是给人复盘的产物，放本地 `<evidence-dir>` 或仓库
   `.tmp-real/` 留档即可，不需要 CI 存档。
 
-### 既有基线红项（不是本门禁引入的）
+### 既有基线红项（2026-10-31 已清）
 
-在 #184 的集成分支 tip 上，`npm run check` 本来就有两项红：
+在 #184 的集成分支 tip 上，`npm run check` 本来就有两项红（不是本门禁引入的）：
 
 1. `check:marketplace-readme` —— `README.md` / `docs/README.en.md` 的「反馈与联系」段用了原始
    `<img>`（3 张未登记 `screenshots.json`）与原始 `<h2>`；
 2. `check:target-tree --expect=target` —— `stragglers: src/client/hover-tip.ts`（rename map 未登记）。
 
-本门禁不改这两处、也不改变它们的输出。在它们修好之前，CI 的 `npm run check` 步骤会是红的：那是
-基线事实，不是本 workflow 引入的噪声；本 workflow 的作用是让**新增红**无处可藏。
+两项在 spec #183 收口时按各自门禁的提示修好：3 张联系二维码补登记进 `screenshots.json`、
+原始 `<h2>` 改成 markdown 章节标题；`hover-tip.ts` 作为 #181 引入的新文件补进
+`docs/naming-169-spec.md` 的重命名映射表。现在 `npm run check` 在本仓是全绿的，CI 的
+`Check (static gates, no browser)` 步骤也是全绿门禁：任何新增红都会被拦住。
 
 ## 与 spec #183 的关系
 

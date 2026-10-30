@@ -1,0 +1,41 @@
+# 静态检查的 CI（#186，spec #183「真机测试复盘提效」的门禁层）
+#
+# 范围：只跑 npm run typecheck 与 npm run check（静态检查链）。
+# 不跑任何浏览器 / 真机套件（npm run real:smoke 一类）：真机装配需要 DSH CLI、本机浏览器与一次性
+# profile，在 CI runner 上既不稳定、也不代表真机环境；真机证据在本地跑、随 report.json 留档。
+# 为什么这样切、以及既有基线红项说明，见 docs/real/static-gate.md。
+name: Check
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# 同一分支连续推送时取消上一轮：静态检查很快，排队没有意义。
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      # 第三方步骤统一固定到提交哈希：井号后面的版本只给人看，实际跑的是前面的哈希（与仓库其它 workflow 一致）。
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # Node 22.18 是仓库脚本的下限（.ts/.mts 靠原生类型剥离直跑，Node 20 跑不了），与其它 workflow 一致。
+          node-version: 22.18
+          cache: npm
+      # 仓库有 package-lock.json，用 npm ci 装锁文件里的确切版本。
+      # npm ci 会执行 package.json 的 prepare（= npm run build）先产出 lib/，check:lib-sync 才有得比对。
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      # 既有基线红项（main 上本来就有、与本 workflow 无关）：check:marketplace-readme、check:target-tree。
+      # 它们修好之前这一步会红 —— 那是基线事实；本 workflow 负责的是让「新增红」无处可藏。
+      - name: Check (static gates, no browser)
+        run: npm run check

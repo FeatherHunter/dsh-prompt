@@ -71,6 +71,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck:host",
     "typecheck:host": "tsc -p tsconfig.host.json",
     "real:smoke": "node scripts/real/run.mjs --suite smoke",
+    "real:undo-group": "node scripts/real/run.mjs --suite undo-group --fixture undo-group",
+    "real:trigger": "node scripts/real/run.mjs --suite trigger --fixture trigger-hover",
     "test:lib-sync": "node scripts/check-lib-sync.mjs",
     "test:modal": "node scripts/check-modal.mjs",
     "test:issue-14": "node scripts/check-issue-14.mjs",

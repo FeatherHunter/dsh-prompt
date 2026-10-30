@@ -1,11 +1,12 @@
 /**
  * 页面侧准备与观测助手：把"打开真机页面并确认插件在场"变成可复用步骤。
  *
- * 登录门处理目前是启发式（宿主契约占位）：body 直属、position:fixed、
- * z-index >= 100、覆盖视口 90% 以上的元素视为登录遮罩，只在本次会话里隐藏；
- * 不修改插件代码，也不代表产品行为。等 #185 把宿主契约正式化后替换。
+ * 登录门/预览提示的识别条件、关闭动作与验证观测属于宿主契约，数据在
+ * contract/host.mjs 的 gates 段（#185）。本文件只负责按契约执行并记录每轮观测，
+ * 契约由 contract/preflight.mjs 在套件前复查；不修改插件代码。
  */
 
+import { HOST_CONTRACT } from './contract/host.mjs';
 import { HarnessError } from './errors.mjs';
 import { sleep } from './proc.mjs';
 
@@ -19,6 +20,10 @@ export const SELECTORS = {
 
 function call(fn) {
   return '(' + fn.toString() + ')()';
+}
+
+function callWithArgs(fn, args) {
+  return '(' + fn.toString() + ')(' + args.map((value) => JSON.stringify(value)).join(', ') + ')';
 }
 
 function hasSelector(selector) {
@@ -73,57 +78,83 @@ export async function pageFacts(client) {
 }
 
 /**
- * 关掉宿主启动时挡在页面最上层的说明/登录遮罩。
- *
- * 优先点掉真实的「继续」类按钮（等价于用户操作，宿主自己清干净）；
- * 没有可点按钮时退化为隐藏遮罩；同时清掉宿主可能挂在 #root 上的 inert/aria-hidden，
- * 否则入口按钮虽然可见却不接收指针事件。
+ * 页面内：按契约配置识别遮罩、清 inert、决定下一步动作。
+ * 只接收纯数据配置（overlay/continueLabels/phases），不引用 Node 侧变量。
+ */
+function inspectGateInPage(config) {
+  const vw = window.innerWidth || 0;
+  const vh = window.innerHeight || 0;
+  const overlay = config.overlay;
+  const isGate = (el) => {
+    if (!(el instanceof HTMLElement) || el.tagName !== overlay.bodyDirectTag) return false;
+    const style = getComputedStyle(el);
+    if (style.position !== overlay.position || style.display === 'none') return false;
+    const zIndex = Number.parseInt(style.zIndex, 10);
+    if (!Number.isFinite(zIndex) || zIndex < overlay.minZIndex) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width >= vw * overlay.minWidthRatio && rect.height >= vh * overlay.minHeightRatio;
+  };
+  // 先清 inert / aria-hidden：宿主启动期会把 #root 标成不可交互，不清掉入口不接收指针事件。
+  let inertRemoved = 0;
+  for (const el of Array.from(document.querySelectorAll('[inert]'))) {
+    el.removeAttribute('inert');
+    inertRemoved += 1;
+  }
+  const root = document.getElementById('root');
+  if (root && root.getAttribute('aria-hidden') === 'true') {
+    root.removeAttribute('aria-hidden');
+    inertRemoved += 1;
+  }
+  const gate = Array.from(document.body ? document.body.children : []).find(isGate) || null;
+  if (!gate) {
+    return { gate: false, inertRemoved, phase: null, action: inertRemoved > 0 ? 'remove-inert' : null, link: inertRemoved > 0 ? 'inert-cleanup' : null };
+  }
+  const text = String(gate.innerText || gate.textContent || '').replace(/\s+/g, ' ').trim();
+  const phase = (config.phases || []).find((item) => (item.textKeys || []).some((key) => text.indexOf(key) >= 0)) || null;
+  const buttons = Array.from(gate.querySelectorAll('button, [role=button]'));
+  for (const btn of buttons) {
+    const label = String(btn.innerText || btn.textContent || '').trim();
+    if (config.continueLabels.indexOf(label) < 0) continue;
+    const rect = btn.getBoundingClientRect();
+    return {
+      gate: true,
+      inertRemoved,
+      phase: phase ? phase.id : null,
+      action: 'click:' + label,
+      link: 'continue-label',
+      point: { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 },
+      zIndex: Number.parseInt(getComputedStyle(gate).zIndex, 10),
+      textSample: text.slice(0, 80),
+      className: String(gate.className || '').slice(0, 80),
+    };
+  }
+  // 没有可点按钮（实测：登录提示）→ 只在本次会话里隐藏；不改产品、不点登录。
+  gate.style.display = 'none';
+  return {
+    gate: true,
+    inertRemoved,
+    phase: phase ? phase.id : null,
+    action: 'hide-gate',
+    link: 'hide-fallback',
+    zIndex: Number.parseInt(getComputedStyle(gate).zIndex, 10),
+    textSample: text.slice(0, 120),
+    className: String(gate.className || '').slice(0, 80),
+  };
+}
+
+/**
+ * 关掉宿主启动时挡在页面最上层的说明/登录遮罩，直到没有可识别的遮罩或动作。
+ * 识别条件、按钮文案、动作表、最大轮数全部来自宿主契约（HOST_CONTRACT.gates）。
+ * 返回 { actions, rounds }：rounds 是每轮的识别观测，进证据并供 preflight 复查。
  */
 export async function dismissGates(client) {
-  const actions = [];
-  const inspect = () =>
-    client.evaluate(
-      call(() => {
-        const vw = window.innerWidth || 0;
-        const vh = window.innerHeight || 0;
-        const isGate = (el) => {
-          if (!(el instanceof HTMLElement) || el.tagName !== 'DIV') return false;
-          const style = getComputedStyle(el);
-          if (style.position !== 'fixed' || style.display === 'none') return false;
-          const zIndex = Number.parseInt(style.zIndex, 10);
-          if (!Number.isFinite(zIndex) || zIndex < 100) return false;
-          const rect = el.getBoundingClientRect();
-          return rect.width >= vw * 0.9 && rect.height >= vh * 0.9;
-        };
-        let inertRemoved = 0;
-        for (const el of Array.from(document.querySelectorAll('[inert]'))) {
-          el.removeAttribute('inert');
-          inertRemoved += 1;
-        }
-        const root = document.getElementById('root');
-        if (root && root.getAttribute('aria-hidden') === 'true') {
-          root.removeAttribute('aria-hidden');
-          inertRemoved += 1;
-        }
-        const gate = Array.from(document.body ? document.body.children : []).find(isGate) || null;
-        if (!gate) return { gate: false, inertRemoved, action: inertRemoved > 0 ? 'remove-inert' : null };
-        const wanted = ['继续', 'Continue', '跳过', 'Skip', '知道了', 'Got it', 'OK'];
-        const buttons = Array.from(gate.querySelectorAll('button, [role=button]'));
-        for (const btn of buttons) {
-          const text = String(btn.innerText || btn.textContent || '').trim();
-          if (wanted.indexOf(text) < 0) continue;
-          const rect = btn.getBoundingClientRect();
-          return { gate: true, inertRemoved, action: 'click:' + text, point: { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 } };
-        }
-        gate.style.display = 'none';
-        return { gate: true, inertRemoved, action: 'hide-gate' };
-      }),
-    );
-
-  for (let round = 0; round < 4; round += 1) {
-    const step = await inspect();
-    if (!step.action) return actions;
-    actions.push(step.action);
+  const contract = HOST_CONTRACT.gates;
+  const config = { overlay: contract.overlay, continueLabels: contract.continueLabels, phases: contract.phases };
+  const rounds = [];
+  for (let round = 0; round < contract.maxRounds; round += 1) {
+    const step = await client.evaluate(callWithArgs(inspectGateInPage, [config]));
+    if (!step.action) break;
+    rounds.push(step);
     if (step.point) {
       await client.click(step.point.x, step.point.y);
       await sleep(700);
@@ -131,7 +162,43 @@ export async function dismissGates(client) {
       await sleep(250);
     }
   }
-  return actions;
+  return { actions: rounds.map((step) => step.action), rounds };
+}
+
+/** 页面内：关闭后复查状态（可见遮罩、#root 可交互性、composer 在场）。 */
+function gateFactsInPage(overlay) {
+  const vw = window.innerWidth || 0;
+  const vh = window.innerHeight || 0;
+  const overlays = [];
+  for (const el of Array.from(document.body ? document.body.children : [])) {
+    if (!(el instanceof HTMLElement) || el.tagName !== overlay.bodyDirectTag) continue;
+    const style = getComputedStyle(el);
+    if (style.position !== overlay.position) continue;
+    const rect = el.getBoundingClientRect();
+    overlays.push({
+      className: String(el.className || '').slice(0, 80),
+      display: style.display,
+      zIndex: Number.parseInt(style.zIndex, 10) || 0,
+      widthRatio: vw ? Math.round((rect.width / vw) * 100) / 100 : 0,
+      heightRatio: vh ? Math.round((rect.height / vh) * 100) / 100 : 0,
+    });
+  }
+  const visibleOverlays = overlays.filter(
+    (item) => item.display !== 'none' && item.zIndex >= overlay.minZIndex && item.widthRatio >= overlay.minWidthRatio && item.heightRatio >= overlay.minHeightRatio,
+  );
+  const root = document.getElementById('root');
+  return {
+    overlays,
+    visibleOverlays,
+    rootInert: root ? root.hasAttribute('inert') : null,
+    rootAriaHidden: root ? root.getAttribute('aria-hidden') : null,
+    composerCount: document.querySelectorAll('[contenteditable="true"]').length,
+  };
+}
+
+/** 关闭遮罩后的页面观测（契约 host.startup-gates 的"验证观测"部分）。 */
+export async function gateFacts(client) {
+  return await client.evaluate(callWithArgs(gateFactsInPage, [HOST_CONTRACT.gates.overlay]));
 }
 
 /** 悬停失败时的现场：入口矩形、入口坐标上实际命中的元素、遮罩与 inert 状态。 */
@@ -177,9 +244,9 @@ export async function preparePage(client, { url, timeouts }) {
   });
   // 启动说明弹窗通常比插件入口晚一步挂载：等一拍再收掉，避免收早了又被盖住。
   await sleep(800);
-  const gateActions = await dismissGates(client);
+  const gate = await dismissGates(client);
   await sleep(300);
-  return { gate: { gateActions }, facts: await pageFacts(client) };
+  return { gate: { gateActions: gate.actions, gateRounds: gate.rounds }, facts: await pageFacts(client) };
 }
 
 export async function panelState(client) {

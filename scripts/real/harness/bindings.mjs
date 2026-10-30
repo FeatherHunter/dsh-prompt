@@ -49,6 +49,7 @@ const USAGE = [
   '  --evidence-dir <path>    证据目录根（或 DSH_REAL_EVIDENCE_DIR，默认仓库 .tmp-real）',
   '  --port <n>               指定端口；默认 0 由宿主自选',
   '  --timeout-scale <x>      超时倍率（或 DSH_REAL_TIMEOUT_SCALE）',
+  '  --contract-fault <id>    负例自检：只替换一项宿主契约观测后再跑（或 DSH_REAL_CONTRACT_FAULT）',
   '  --keep                   保留工作目录便于排查（默认清理）',
   '  --help                   打印本帮助',
 ].join('\n');
@@ -252,6 +253,7 @@ export function resolveBindings(argv, env = process.env) {
     timeouts,
     suite: args.suite ?? 'smoke',
     port,
+    contractFault: args['contract-fault'] ?? env.DSH_REAL_CONTRACT_FAULT ?? null,
     keep: Boolean(args.keep) || env.DSH_REAL_KEEP === '1',
     env,
   };

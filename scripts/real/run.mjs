@@ -18,6 +18,7 @@ import { launchBrowser } from './harness/browser.mjs';
 import { connect } from './harness/cdp.mjs';
 import { preparePage } from './harness/page.mjs';
 import { createRunContext, Recorder, writeReport } from './harness/evidence.mjs';
+import { runPreflight } from './harness/contract/preflight.mjs';
 import { runSmoke } from './suites/smoke.mjs';
 
 const SUITES = {
@@ -97,21 +98,57 @@ async function execute(bindings) {
     client = await connect({ cdpPort: browser.cdpPort });
     recorder.setEnvironment({ phase: 'prepare-page' });
     const prepared = await preparePage(client, { url: server.url, timeouts: bindings.timeouts });
-    recorder.setEnvironment({ page: prepared.facts, startupGate: prepared.gate.gateActions });
+    recorder.setEnvironment({ page: prepared.facts, startupGate: prepared.gate.gateActions, startupGateRounds: prepared.gate.gateRounds });
     await client.screenshot(path.join(runContext.shotsDir, 'boot.png'));
 
-    recorder.setEnvironment({ phase: 'suite:' + bindings.suite });
-    await SUITES[bindings.suite]({
-      bindings,
-      recorder,
+    // 宿主契约 preflight：套件依赖的宿主行为事实先逐项核对。
+    // 任何一项断链 → 只记该一项 BLOCKED、不进入套件，避免把"宿主没就绪"误报成产品 FAIL。
+    recorder.setEnvironment({ phase: 'preflight' });
+    const preflight = await runPreflight({
       client,
       server,
       prepared,
-      shotsDir: runContext.shotsDir,
-      workDir: runContext.workDir,
-      timeouts: bindings.timeouts,
+      homeDir: runContext.homeDir,
+      bindings,
+      browserVersion: browser.version,
+      fault: bindings.contractFault,
     });
-    recorder.setEnvironment({ phase: 'done' });
+    recorder.setEnvironment({
+      preflight: {
+        contractVersion: preflight.contractVersion,
+        fault: preflight.fault,
+        ok: preflight.ok,
+        checks: preflight.checks.map((check) => ({ id: check.id, ok: check.ok })),
+      },
+    });
+    for (const check of preflight.checks) {
+      if (check.ok) {
+        recorder.pass('契约：' + check.id, JSON.stringify({ expected: check.expected, observed: check.observed }));
+      } else {
+        recorder.blocked(
+          '契约：' + check.id,
+          '宿主行为与钉住版本不一致，套件未执行。期望 ' + JSON.stringify(check.expected) +
+            '；观测 ' + JSON.stringify(check.observed) + '；' + check.detail,
+        );
+      }
+    }
+
+    if (preflight.ok) {
+      recorder.setEnvironment({ phase: 'suite:' + bindings.suite });
+      await SUITES[bindings.suite]({
+        bindings,
+        recorder,
+        client,
+        server,
+        prepared,
+        shotsDir: runContext.shotsDir,
+        workDir: runContext.workDir,
+        timeouts: bindings.timeouts,
+      });
+      recorder.setEnvironment({ phase: 'done' });
+    } else {
+      recorder.setEnvironment({ phase: 'preflight-blocked' });
+    }
   } catch (error) {
     const message = error instanceof HarnessError ? error.message : String(error && error.stack ? error.stack : error);
     recorder.blocked(error instanceof HarnessError ? '装配环节' : '运行器未预期异常', message);
@@ -176,6 +213,7 @@ function printSummary(result, bindings) {
   console.log('[real] 产物 ' + bindings.artifact.name + '@' + bindings.artifact.version + '  sha256=' + bindings.artifact.sha256);
   console.log('[real] 宿主 CLI ' + bindings.dshCli + '（' + bindings.hostVersion + '）');
   console.log('[real] 浏览器 ' + bindings.browser);
+  if (bindings.contractFault) console.log('[real] 契约注入项 ' + bindings.contractFault + '（负例：只让该契约项不匹配）');
   const summary = report.summary;
   console.log(
     '[real] PASS ' + summary.PASS + ' / FAIL ' + summary.FAIL + ' / BLOCKED ' + summary.BLOCKED + ' / N-A ' + (summary['N-A'] || 0) + '  ->  ' + report.verdict,

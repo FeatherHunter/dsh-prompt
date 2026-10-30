@@ -18,6 +18,10 @@
 - 终端摘要（PASS / FAIL / BLOCKED / N-A 与证据路径）；
 - 证据目录 `.tmp-real/<runTag>/`：`report.json`、`shots/*.png`。
 
+套件执行前会先跑**宿主契约 preflight**（6 项，见 `docs/real/host-contract.md`）：
+任何一项与钉住的宿主版本行为不符，只记一条指名契约项的 BLOCKED、跳过套件、退出码 2，
+不会把"宿主没就绪"误报成产品 FAIL。
+
 ## 它做了什么
 
 1. 在临时目录建一次性 `DSH_HOME`；
@@ -26,8 +30,9 @@
 4. `dsh --profile real --port 0 --no-open` 起服务，解析 stdout 里的访问 URL；
 5. 起无头浏览器（临时 user-data-dir，随机调试端口），CDP 连接页面；
 6. 收掉宿主启动说明遮罩（优先点「继续」类真实按钮，没有可点按钮才隐藏）、等插件入口 `[data-dsh-prompt-entry]` 出现；
-7. 跑套件、收集判定、截图；
-8. 杀进程树、确认端口释放，按需清理一次性工作目录。
+7. **宿主契约 preflight**：启动输出形状、启动遮罩、输入 actions、存储 schema、语言面、宿主/浏览器版本逐项核对；
+8. 契约全绿后跑套件、收集判定、截图；任一项断链则只报该一项并跳过套件；
+9. 杀进程树、确认端口释放，按需清理一次性工作目录。
 
 ## 参数与环境变量
 
@@ -41,6 +46,7 @@
 | `--evidence-dir <path>` | `DSH_REAL_EVIDENCE_DIR` | 证据根目录，缺省仓库 `.tmp-real/` |
 | `--port <n>` | — | 宿主端口，缺省 0 由系统分配 |
 | `--timeout-scale <x>` | `DSH_REAL_TIMEOUT_SCALE` | 超时倍率，慢机器用 |
+| `--contract-fault <id>` | `DSH_REAL_CONTRACT_FAULT` | 负例自检：只替换一项宿主契约观测（模拟宿主升级），见 `docs/real/host-contract.md` |
 | `--keep` | `DSH_REAL_KEEP=1` | 保留一次性工作目录 |
 
 ## 退出码与判定
@@ -49,7 +55,7 @@
 | --- | --- |
 | 0 | 全部 PASS |
 | 1 | 有 FAIL（产品行为不符合期望） |
-| 2 | BLOCKED（装配/工具没就绪）或参数错误 |
+| 2 | BLOCKED（装配/宿主契约没就绪）或参数错误 |
 
 判定只有四类：`PASS` / `FAIL` / `BLOCKED` / `N-A`。
 FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以下结论；N-A 必须写原因。
@@ -74,23 +80,43 @@ FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以�
         server.mjs         宿主 Web 服务生命周期
         browser.mjs        无头浏览器生命周期
         cdp.mjs            最小 CDP 客户端（Page/Runtime/Input/Log）
-        page.mjs           页面准备、登录遮罩处理、观测助手
+        page.mjs           页面准备、按契约收启动遮罩、观测助手
         evidence.mjs       判定、证据、报告 schema
         proc.mjs           进程/端口底座（跨平台）
         errors.mjs         HarnessError / CheckFailure
+        contract/
+          host.mjs         宿主契约数据（版本钉/识别条件/期望形状/失败后果/升级路径）+ 纯探测
+          preflight.mjs    运行前 preflight：采集观测 → 逐项判定
+          selftest.mjs     契约模块自证（纯 Node，零浏览器）
       suites/
         smoke.mjs          回路自检套件
 
 分层约定：方法层（协议与判据）与平台契约层（宿主行为事实）不写死在绑定层；
-绑定层只回答「这台机器上这些东西在哪里、超时多少」。
+绑定层只回答「这台机器上这些东西在哪里、超时多少」。宿主契约住在 `harness/` 下，
+因为浏览器产品名 / 语言标签 / 启动输出形状这类宿主事实只允许出现在平台契约层
+（真机静态门禁 #186 对 harness 豁免 R4/R5，用例层仍禁止写宿主事实）。
 
-## 宿主契约现状
+## 宿主契约与 preflight
 
-- **登录遮罩**目前用启发式识别并隐藏（body 直属、fixed、z-index>=100、覆盖视口 90% 以上），
-  只是为了让未登录的一次性实例能操作页面；这是宿主契约的占位实现，正式契约见 #185。
+宿主行为事实收敛在 `scripts/real/harness/contract/host.mjs`（版本钉数据 + 纯探测），
+`preflight.mjs` 在每次真机套件前逐项核对，失败项只报该一项、跳过套件、退出码 2。
+完整契约（版本范围、探测方式、期望形状、失败后果、升级路径、回填规则）见
+[`docs/real/host-contract.md`](../../docs/real/host-contract.md)。
+
+负例自检（只红注入的那一项）：
+
+    $env:DSH_REAL_CONTRACT_FAULT='host.input-actions'
+    node scripts/real/run.mjs --artifact <tgz> --suite smoke
+    # 或：node scripts/real/run.mjs --artifact <tgz> --suite smoke --contract-fault host.startup-output
+
+纯 Node 自证（不需要浏览器/宿主）：
+
+    node scripts/real/harness/contract/selftest.mjs
+
+- 登录遮罩现在按契约识别与关闭（预览提示点「继续」→ 登录提示仅本次会话隐藏），
+  每轮识别观测进 `environment.startupGateRounds`。
 - 插件入口/面板/关闭按钮的选择器（`data-dsh-prompt-*`）是插件提供的观测钩子契约，
   正式化见 #190。
-- 预检（缺 CLI、缺浏览器、版本不对、端口占用）尽量在装配前失败并给可操作错误，完整 preflight 见 #185。
 
 ## 验收对照（#184）
 
@@ -117,6 +143,7 @@ FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以�
 ## 与 spec #183 的关系
 
 本 kit 是 #183 的 T1（#184）：只交付「一条命令起可丢弃宿主并跑通一个套件」的骨架。
-后续票在此基础上补：宿主契约与 preflight（#185）、静态门禁与 CI（#186）、fixture 与干净态（#187）、
+#185 已在此骨架上补宿主契约与运行前 preflight（见 `docs/real/host-contract.md`）。
+后续票在此基础上补：静态门禁与 CI（#186）、fixture 与干净态（#187）、
 边界观测与真实输入（#188）、判定分类与证据报告（#189）、插件测试钩子（#190）、
 差分运行器（#191）、pilot 迁移与复用证明（#192）、方法层分发（#193）。

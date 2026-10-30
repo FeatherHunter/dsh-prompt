@@ -20,10 +20,14 @@ import { preparePage } from './harness/page.mjs';
 import { createRunContext, Recorder, writeReport } from './harness/evidence.mjs';
 import { runPreflight } from './harness/contract/preflight.mjs';
 import { FixtureError, captureBaselineFromOrigin, checkBaseline, formatDiffs, loadFixture, makeFixtureParams, prepareFixture } from './harness/fixture/index.mjs';
+import { createObserver, createPersistence } from './harness/observe/index.mjs';
+import { createInputDriver } from './harness/input.mjs';
 import { runSmoke } from './suites/smoke.mjs';
+import { runBoundary } from './suites/boundary.mjs';
 
 const SUITES = {
   smoke: runSmoke,
+  boundary: runBoundary,
 };
 
 /**
@@ -215,6 +219,15 @@ async function execute(bindings) {
 
     if (preflight.ok && fixtureBaseline && fixtureBaseline.ok) {
       recorder.setEnvironment({ phase: 'suite:' + bindings.suite });
+      // 套件句柄：观测层（六面原始观测/解释）、真实输入驱动、持久化通道（store 双通道）。
+      // 句柄只装一次、由 run.mjs 统一传入，套件不自己连 CDP/不自己拼 HTTP。
+      const observe = createObserver(client, { timeouts: bindings.timeouts });
+      const input = createInputDriver(client, { timeouts: bindings.timeouts });
+      const persistence = createPersistence({
+        origin: server.origin,
+        storePath: preparedFixture.storePath,
+        timeoutMs: bindings.timeouts.pageLoadMs,
+      });
       await SUITES[bindings.suite]({
         bindings,
         recorder,
@@ -224,6 +237,10 @@ async function execute(bindings) {
         shotsDir: runContext.shotsDir,
         workDir: runContext.workDir,
         timeouts: bindings.timeouts,
+        fixture: preparedFixture,
+        observe,
+        input,
+        persistence,
       });
       recorder.setEnvironment({ phase: 'done' });
     } else if (!preflight.ok) {

@@ -7,8 +7,8 @@
 - 契约的机器门禁：`scripts/check-real-hooks.mjs`（构建产物断言 + 本文件双向交叉校验）。
 - 相关文档：真机 kit 说明 [`scripts/real/README.md`](../../scripts/real/README.md)、
   宿主契约 [`docs/real/host-contract.md`](host-contract.md)、静态门禁 [`docs/real/static-gate.md`](static-gate.md)。
-  观测面研究 `docs/real/observability.md` 与缺口清单 `docs/real/hook-gaps.md` 由 #188 产出，
-  随该票合入（本文件引用其规则结论，不复制）。
+  观测面研究 [`docs/real/observability.md`](observability.md) 与缺口清单
+  [`docs/real/hook-gaps.md`](hook-gaps.md) 由 #188 产出，随该票合入（本文件引用其规则结论，不复制）。
 
 ## 1. 两条铁律
 
@@ -51,7 +51,7 @@
 - 行元素带 `data-dsh-prompt-id`（模板 id，稳定但由用户数据决定，**不要**写死具体值）。
 - 行内的操作按钮（复制/编辑/删除）没有独立钩子：在 `[data-dsh-prompt-act]` 范围内按语义文本找。
 - 宿主侧弹窗内部结构**没有**插件钩子（宿主归宿主）：找不到宿主元素时应按 BLOCKED 处理，
-  规则见 `docs/real/observability.md`（#188）的「语义定位」节。
+  规则见 [`docs/real/observability.md`](observability.md)（#188）的「语义定位」节。
 
 ## 4. 新增 / 修改钩子的流程（三处同步，缺一处门禁就红）
 
@@ -328,5 +328,5 @@
 
 - 内部 CSS 类名（`className`）、内联样式、DOM 层级、组件名、React 内部结构：一律不是契约。
 - 宿主侧结构（设置弹窗分区导航、composer 光标与输入框）：宿主归宿主，规则见
-  `docs/real/observability.md`（#188）第「语义定位」节；宿主元素找不到时按 BLOCKED。
+  [`docs/real/observability.md`](observability.md)（#188）第「语义定位」节；宿主元素找不到时按 BLOCKED。
 - `data-dsh-prompt-*` 之外的自定义属性（如 `data-dsh-style`）不是测试接缝。

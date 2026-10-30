@@ -53,7 +53,7 @@ async function collectGates(client, prepared) {
  * 页面内：从 composer 的 React fiber 链上取宿主公开的 inputActions（只读探测）。
  * 不依赖插件内部，也不依赖宿主模块导出：这是页面里真实可用的能力面。
  */
-function inputActionsInPage() {
+export function inputActionsInPage() {
   const composer = document.querySelector('[contenteditable="true"]');
   const composerCount = document.querySelectorAll('[contenteditable="true"]').length;
   if (!composer) {

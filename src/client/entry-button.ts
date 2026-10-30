@@ -452,6 +452,9 @@ export function EntryButton(props: any): any {
     // 与可见文字同名（WCAG 2.5.3 名称与可见标签一致）；宽屏下与文字重复也无害。
     'aria-label': label,
     'data-dsh-prompt-entry': '1',
+    // #190 契约钩子：面板开合状态（open/closed）恒挂在入口按钮上 —— 面板关时 panel-root
+    // 整个卸载，只有入口按钮是「关」态也存在的稳定载体（真机用例据此判开合）。
+    'data-dsh-prompt-panel-state': open ? 'open' : 'closed',
     // #61 保焦（宿主 input.left 自家按钮同款 keepFocus）：click 开面板时不把焦点从作曲家抢走，
     // 面板内搜索框聚焦时不抢（见 keepComposerFocus）；键盘 Tab+Enter 无 mousedown，不受影响。
     onMouseDown: keepComposerFocus,

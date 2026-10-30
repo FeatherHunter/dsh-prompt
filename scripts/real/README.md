@@ -131,8 +131,8 @@ FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以�
 
 - 登录遮罩现在按契约识别与关闭（预览提示点「继续」→ 登录提示仅本次会话隐藏），
   每轮识别观测进 `environment.startupGateRounds`。
-- 插件入口/面板/关闭按钮的选择器（`data-dsh-prompt-*`）是插件提供的观测钩子契约，
-  正式化见 #190。
+- 插件入口/面板/关闭按钮等选择器（`data-dsh-prompt-*`）是插件提供的观测钩子契约，
+  完整清单、值域与稳定性承诺见 [`docs/real/hooks.md`](../../docs/real/hooks.md)（#190 正式化）。
 
 ## 初始态 fixture 与干净态基线
 
@@ -171,6 +171,40 @@ FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以�
 内（越界拒绝），失败/中断后直接重跑即可恢复。配方格式、字段口径、与契约的关系、给 #188 的 API
 见 [`docs/real/fixture.md`](../../docs/real/fixture.md)。
 
+## 钩子契约与诊断（#190）
+
+真机用例定位插件元素只靠两样东西：`data-dsh-prompt-*` 契约钩子、语义文本（可见文案 /
+`title` / `aria-label`）。契约分两档：**可依赖**（96 个，由构建产物门禁钉死）与**仅调试用**
+（41 个，真机套件不得依赖）。完整清单、所在元素、值域、首次引入版本见
+[`docs/real/hooks.md`](../../docs/real/hooks.md)。
+
+门禁（断言必需钩子与诊断标记确实进了 `lib/client.js`，并与契约文档双向交叉校验）：
+
+    node scripts/check-real-hooks.mjs --selftest   # 自证：完整副本绿 / 删一个必需钩子必红 / 文档漂移必红
+    node scripts/check-real-hooks.mjs              # 正式检查
+
+> 门禁读的是入库构建产物 `lib/client.js`：改了 `src/` 要先 `npm run build` 再跑它（lib 由主工作目录
+> 串行构建提交，见 `docs/real/static-gate.md` 与协作约定）。
+
+诊断开关（现场排障用，**默认关闭**，不新增任何 UI）：
+
+- 开：页面地址加 `?dsh-prompt-diag=1`（只本页），或 `localStorage.setItem('dsh-prompt-diag', '1')`
+  （跨刷新），或已开启后在控制台用 `__dshPromptDiag.disable()` / `.enable()` 反复开关。
+- 看：`__dshPromptDiag.snapshot()` 返回结构化只读快照（契约版本 + 面板开合/触发方式/行数/
+  设置项/远程/弹层/日志状态）；`.dump()` 以固定前缀 `[dsh-prompt:diag]` 打到 `console.debug`。
+- 设计约束：默认关时零 window 对象、零监听、零 console 输出；不读模板正文/草稿；不写常规日志
+  （日志事件清单是冻结契约）。快照格式与设计理由见 `docs/real/hooks.md` 第 5 节。
+
+## 验收对照（#190）
+
+| 验收项 | 怎么满足 | 证据 |
+| --- | --- | --- |
+| 契约文档列稳定钩子与语义、标注调试用 | `docs/real/hooks.md` 按 9 个区域登记 96 个「可依赖」+ 41 个「仅调试用」，逐项写属性名/所在元素与区域/语义/稳定性/首次引入版本 | 门禁 `PASS: 契约文档可解析 — 137 行登记，可依赖 96 / 仅调试用 41` |
+| 构建产物断言必需钩子，移除一个即红 | `scripts/check-real-hooks.mjs` 扫 `lib/client.js`；`--selftest` 把真实产物复制到系统临时目录删一个必需钩子，断言恰好报这一条 | `PASS: 真实产物删一个必红` + `PASS: 必需钩子齐全 — 96 个` |
+| 诊断开关默认关、可显式开、可重复开闭、不污染 UI/常规日志 | `src/client/index.ts` 的 `installDiag`：URL `?dsh-prompt-diag=1` / localStorage / 控制台 `__dshPromptDiag.enable/disable`；默认零 window 对象、零监听、零 console；快照只读聚合 | 门禁 `PASS: 诊断开关标记齐全`；设计与格式见 `docs/real/hooks.md` §5 |
+| 真机用例只依赖契约钩子/语义文本 | `docs/real/hooks.md` §1/§3；调试用钩子明确不承诺稳定 | smoke 套件 3 个配方各 `PASS 12 / FAIL 0` |
+| 契约变更需同步门禁与文档（有检查提示） | 文档 ↔ 门禁双向交叉校验（缺一行、多标一个都红）；README 与 hooks.md 都写明「产品/文档/门禁」三处同步流程 | selftest 的「文档缺一行必红」「文档多标可依赖必红」 |
+
 ## 验收对照（#187）
 
 | 验收项 | 怎么满足 | 证据 |
@@ -208,6 +242,7 @@ FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以�
 本 kit 是 #183 的 T1（#184）：只交付「一条命令起可丢弃宿主并跑通一个套件」的骨架。
 #185 已在此骨架上补宿主契约与运行前 preflight（见 `docs/real/host-contract.md`）。
 #186 补真机脚本静态门禁与 CI（见 `docs/real/static-gate.md`）。
-#187 补声明式 fixture 与干净态基线（见 `docs/real/fixture.md`）。
+# 187 补声明式 fixture 与干净态基线（见 `docs/real/fixture.md`）。
+# 190 补插件测试钩子契约与诊断输出（见 `docs/real/hooks.md`）。
 后续票在此基础上补：边界观测与真实输入（#188）、判定分类与证据报告（#189）、
-插件测试钩子（#190）、差分运行器（#191）、pilot 迁移与复用证明（#192）、方法层分发（#193）。
+差分运行器（#191）、pilot 迁移与复用证明（#192）、方法层分发（#193）。

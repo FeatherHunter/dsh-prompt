@@ -23,12 +23,16 @@
 
 > 说明：以上都是**运行期绑定**——路径与可执行文件从参数/环境进入，不写死在文档与测试逻辑里。
 
+**完成判据**：`node -v` 打出 22+ 的版本；`node scripts/real/run.mjs --help` 打出参数表且退出码 0。
+
 ## 1. 打一个被测产物（约 2 分钟）
 
     mkdir <pack-dir>
     npm pack --pack-destination <pack-dir>
 
 得到一个 `<pack-dir>/dsh-prompt-<version>.tgz`。`--artifact` 指向它即可；不要解包，也不要改包内文件。
+
+**完成判据**：`<pack-dir>` 下出现 `dsh-prompt-<version>.tgz`，文件名里的版本与 `package.json` 的 `version` 一致。
 
 ## 2. 跑第一轮检查（约 3 分钟）
 
@@ -49,6 +53,8 @@
 - `report.md` —— 由 JSON 生成，可直接贴 issue；
 - `shots/`、失败时的 `artifacts/`。
 
+**完成判据**：终端打出 `runTag`、产物 sha256、宿主/浏览器、四类统计与证据路径；`<evidence-root>/<runTag>/report.json` 存在且 `schemaVersion=2`。
+
 ## 3. 读报告（约 5 分钟）
 
 按顺序看 `report.json`：
@@ -68,6 +74,8 @@
 - 两侧都绿（bothGreen）的对照**没有证据力**，不要把它当通过。
 
 完整协议（分型判据、六元组、schema v2、退出码）见 `docs/real/report.md`。
+
+**完成判据**：能用自己的话说清本轮 `verdict`、每条非 PASS 检查的理由与分型、以及覆盖缺口（`N-A` / `BLOCKED`）落在哪。
 
 ## 4. 写第一条新检查（约 10 分钟）
 
@@ -101,6 +109,8 @@
 - [ ] 失败时能看出期望与实测，超时带末次观测；
 - [ ] 没有把本机路径/端口/浏览器/locale 写进代码与断言（`node scripts/check-real-method.mjs` 与 gate 会拦文档，测试代码由 `scripts/check-real-gate.mjs` 拦）；
 - [ ] 新检查能在坏的情况下红（做过一次反例：旧产物/注入/故意改错）。
+
+**完成判据**：新检查出现在 `report.json` 的 `checks[]` 里、六元组齐全，并且做过一次反例让它红。
 
 ## 5. 30 分钟预算（#193 演练实测）
 

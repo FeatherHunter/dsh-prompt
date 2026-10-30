@@ -2,7 +2,11 @@
 /**
  * 真机 kit 入口：一条命令装配一次性宿主、安装被测产物、起无头浏览器、跑套件、出证据。
  *
- * 退出码：0 = PASS；1 = FAIL（产品不符合期望）；2 = BLOCKED（装配/工具没就绪或未知套件）。
+ * 退出码（语义见 docs/real/report.md「退出码」）：
+ *   0 = PASS（含仅有预期失败的情形）；
+ *   1 = FAIL（产品不符合期望；预期失败不计）；
+ *   2 = BLOCKED（装配/环境没就绪、fixture 不符、参数错误、未知套件）；
+ *   3 = 工具故障（harness/CDP/驱动自身异常，不得冒充产品失败）。
  */
 
 import fs from 'node:fs';
@@ -18,6 +22,7 @@ import { launchBrowser } from './harness/browser.mjs';
 import { connect } from './harness/cdp.mjs';
 import { preparePage } from './harness/page.mjs';
 import { createRunContext, Recorder, writeReport } from './harness/evidence.mjs';
+import { captureFailureArtifacts } from './harness/report/artifacts.mjs';
 import { runPreflight } from './harness/contract/preflight.mjs';
 import { FixtureError, captureBaselineFromOrigin, checkBaseline, formatDiffs, loadFixture, makeFixtureParams, prepareFixture } from './harness/fixture/index.mjs';
 import { createObserver, createPersistence } from './harness/observe/index.mjs';
@@ -53,7 +58,7 @@ function fixtureEnvironment(prepared) {
 
 async function execute(bindings) {
   const runContext = createRunContext({ bindings, suite: bindings.suite });
-  const recorder = new Recorder({ suite: bindings.suite, runTag: runContext.runTag });
+  const recorder = new Recorder({ suite: bindings.suite, runTag: runContext.runTag, evidenceDir: runContext.evidenceDir });
   recorder.setEnvironment({
     platform: process.platform,
     arch: process.arch,
@@ -228,20 +233,29 @@ async function execute(bindings) {
         storePath: preparedFixture.storePath,
         timeoutMs: bindings.timeouts.pageLoadMs,
       });
-      await SUITES[bindings.suite]({
-        bindings,
-        recorder,
-        client,
-        server,
-        prepared,
-        shotsDir: runContext.shotsDir,
-        workDir: runContext.workDir,
-        timeouts: bindings.timeouts,
-        fixture: preparedFixture,
-        observe,
-        input,
-        persistence,
-      });
+      // 失败产物：套件跑完（无论是否抛错）先给 FAIL 检查补截图/页面状态/store/输入日志，
+      // 再进入清理（关 CDP / 浏览器之后就采不到了）。
+      try {
+        await SUITES[bindings.suite]({
+          bindings,
+          recorder,
+          client,
+          server,
+          prepared,
+          shotsDir: runContext.shotsDir,
+          workDir: runContext.workDir,
+          timeouts: bindings.timeouts,
+          fixture: preparedFixture,
+          observe,
+          input,
+          persistence,
+        });
+      } finally {
+        await captureFailureArtifacts({ recorder, client, observe, persistence, input }).catch((error) => {
+          // 产物采集自身失败不能改变判定，只记进环境供报告读者参考。
+          recorder.setEnvironment({ artifactCapture: { ok: false, error: String(error && error.message ? error.message : error) } });
+        });
+      }
       recorder.setEnvironment({ phase: 'done' });
     } else if (!preflight.ok) {
       recorder.setEnvironment({ phase: 'preflight-blocked' });
@@ -250,7 +264,13 @@ async function execute(bindings) {
     }
   } catch (error) {
     const message = error instanceof HarnessError ? error.message : String(error && error.stack ? error.stack : error);
-    recorder.blocked(error instanceof HarnessError ? '装配环节' : '运行器未预期异常', message);
+    // 装配/环境问题 → BLOCKED（退出码 2）；运行器自身未预期异常 → 工具故障（退出码 3），
+    // 绝不让工具故障冒充产品失败。
+    if (error instanceof HarnessError) {
+      recorder.blocked('装配环节', message);
+    } else {
+      recorder.toolFault('运行器未预期异常', message);
+    }
   } finally {
     recorder.setEnvironment({ phase: 'cleanup' });
     const cleanup = { keptWorkDir: Boolean(bindings.keep) };
@@ -307,7 +327,7 @@ async function execute(bindings) {
 }
 
 function printSummary(result, bindings) {
-  const { reportPath, report, runContext } = result;
+  const { reportPath, markdownPath, report, runContext } = result;
   console.log('[real] runTag=' + report.runTag);
   console.log('[real] 产物 ' + bindings.artifact.name + '@' + bindings.artifact.version + '  sha256=' + bindings.artifact.sha256);
   console.log('[real] 宿主 CLI ' + bindings.dshCli + '（' + bindings.hostVersion + '）');
@@ -325,14 +345,28 @@ function printSummary(result, bindings) {
   }
   const summary = report.summary;
   console.log(
-    '[real] PASS ' + summary.PASS + ' / FAIL ' + summary.FAIL + ' / BLOCKED ' + summary.BLOCKED + ' / N-A ' + (summary['N-A'] || 0) + '  ->  ' + report.verdict,
+    '[real] PASS ' + summary.PASS + ' / FAIL ' + summary.FAIL + ' / BLOCKED ' + summary.BLOCKED + ' / N-A ' + (summary['N-A'] || 0) +
+      '  ->  ' + report.verdict + '（exitCode=' + report.exitCode + '）',
   );
+  if (summary.expectedFailures > 0) {
+    console.log('[real] 预期失败 ' + summary.expectedFailures + ' 条（不计入产品失败，退出码按 0 计）');
+  }
+  if (summary.failureTypes && (summary.FAIL > 0 || summary.BLOCKED > 0)) {
+    console.log(
+      '[real] FAIL 分型：产品 ' + summary.failureTypes.product + ' / 规格 ' + summary.failureTypes.spec +
+        ' / 测试假象 ' + summary.failureTypes.test + ' / 工具 ' + summary.failureTypes.tool +
+        '；工具故障（含阻塞）' + summary.toolFaults + ' 条',
+    );
+  }
   for (const check of report.checks) {
     if (check.verdict === 'PASS') continue;
+    const expectedTag = check.expectedFailure === true ? '（预期失败）' : '';
+    const typeTag = check.verdict === 'FAIL' && check.failureType ? '[' + check.failureType + ']' : '';
     const tail = check.reason ? '：' + check.reason : check.observed !== undefined ? '：observed=' + JSON.stringify(check.observed) : '';
-    console.log('  [' + check.verdict + '] ' + check.name + tail);
+    console.log('  [' + check.verdict + ']' + typeTag + expectedTag + ' ' + check.name + tail);
   }
   console.log('[real] 证据: ' + reportPath);
+  console.log('[real] 摘要: ' + markdownPath);
   if (bindings.keep) console.log('[real] 工作目录已保留: ' + runContext.workDir);
 }
 
@@ -369,8 +403,8 @@ async function main() {
   }
   const result = await execute(bindings);
   printSummary(result, bindings);
-  if (result.report.verdict === 'PASS') return 0;
-  return result.report.verdict === 'FAIL' ? 1 : 2;
+  // 退出码由报告层统一映射：0 全绿 / 1 有真实 FAIL / 2 BLOCKED / 3 工具故障。
+  return typeof result.report.exitCode === 'number' ? result.report.exitCode : 2;
 }
 
 main()
@@ -378,6 +412,6 @@ main()
     process.exit(typeof code === 'number' ? code : 0);
   })
   .catch((error) => {
-    console.error('[real][BLOCKED] 运行器崩溃: ' + String(error && error.stack ? error.stack : error));
-    process.exit(2);
+    console.error('[real][TOOL-FAULT] 运行器崩溃: ' + String(error && error.stack ? error.stack : error));
+    process.exit(3);
   });

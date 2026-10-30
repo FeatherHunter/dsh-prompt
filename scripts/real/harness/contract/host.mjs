@@ -136,7 +136,9 @@ export const HOST_CONTRACT = {
     topKeys: ['unit', 'global', 'tables'],
     minSingleFiles: 1,
     // 插件域文件在"还没有模板写入"时不落盘是正常态，因此只记录存在性、不作必要条件。
-    pluginDomain: { name: 'dsh_prompt', file: 'dsh_prompt.json' },
+    // #183 评审整改 S2：域名/文件名/unit.version 只在这里写一份；fixture 层从这里取，
+    // 避免 harness/fixture 与 harness/contract 各存一份宿主事实后漂移。
+    pluginDomain: { name: 'dsh_prompt', file: 'dsh_prompt.json', version: 0 },
   },
 
   // ---- ⑤ 界面语言面 ----

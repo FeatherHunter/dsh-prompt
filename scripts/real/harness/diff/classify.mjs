@@ -207,3 +207,67 @@ export function groupByArea(rows) {
   }
   return groups;
 }
+
+/* ───────────────────── 差分问题的失败分型（#183 评审整改 S3） ───────────────────── */
+
+/**
+ * 差分问题码 → FAIL 分型的显式映射表（不进 model 逻辑，方便单测和文档引用）。
+ *
+ * 判据：差分 FAIL 不都是产品缺陷。
+ * - 期望清单缺失/写错、清单内断言没有区分力、注入器串扰 → test（测试方法/证据不足）；
+ * - 候选侧真实行为比对照侧变差（回归、候选自身非预期红、必须保持绿的断言在判定侧红了）→ product；
+ * - 环境不一致 → test（环境准备问题，不是产品行为）。
+ * 未知码按 test 处理（fail-closed 到「不足以判产品」这一侧，避免把工具问题报成产品缺陷）。
+ */
+export const DIFF_PROBLEM_FAILURE_TYPES = Object.freeze({
+  'regression': 'product',
+  'expect-regression': 'product',
+  'candidate-product-fail': 'product',
+  'expect-candidate-not-green': 'product',
+  'candidate-missing-checks': 'test',
+  'empty-expectations': 'test',
+  'expect-missing-check': 'test',
+  'no-discrimination': 'test',
+  'no-flip': 'test',
+  'expect-baseline-not-green': 'test',
+  'fault-not-detected': 'test',
+  'fault-partial-red': 'test',
+  'fault-reference-not-green': 'test',
+  'fault-stay-green-reference': 'test',
+  'fault-stay-green-broken': 'test',
+  'unexpected-fault-influence': 'test',
+  'environment-mismatch': 'test',
+});
+
+/** FAIL 检查里「有产品行为证据」的问题码白名单（用于 reason 文案，可读可测）。 */
+export const PRODUCT_PROBLEM_CODES = Object.freeze(
+  Object.entries(DIFF_PROBLEM_FAILURE_TYPES)
+    .filter(([, type]) => type === 'product')
+    .map(([code]) => code),
+);
+
+/**
+ * 从一组差分问题（doc.problems）推导写进 #189 报告的 FAIL 分型。
+ * 只要有一个 FAIL 问题码映射到 product，就按 product 记；否则 test。
+ * 返回 { failureType, codes, productCodes, basis }，basis 直接用于 failureTypeBasis。
+ */
+export function failureTypeForProblems(problems) {
+  const fails = (Array.isArray(problems) ? problems : []).filter((problem) => problem && problem.severity === 'FAIL');
+  const codes = fails.map((problem) => String(problem.code ?? 'unknown'));
+  const productCodes = codes.filter((code) => DIFF_PROBLEM_FAILURE_TYPES[code] === 'product');
+  const failureType = productCodes.length > 0 ? 'product' : 'test';
+  const signal = codes.length > 0 ? codes.join(',') : 'unknown';
+  return {
+    failureType,
+    codes,
+    productCodes,
+    basis: {
+      source: 'diff',
+      signal,
+      note:
+        failureType === 'product'
+          ? '候选侧真实行为比对照侧变差（问题码：' + productCodes.join(',') + '）'
+          : '差分结论被清单/证据力/注入面问题阻断（问题码：' + signal + '）；不是候选侧行为回归',
+    },
+  };
+}

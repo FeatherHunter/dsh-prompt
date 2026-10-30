@@ -32,6 +32,7 @@ import {
   EXIT_CODES,
   FAILURE_TYPE_IDS,
   FAILURE_TYPES,
+  PLACEHOLDER_STEPS_TEXT,
   SCHEMA_VERSION,
   VERDICTS,
   ReportError,
@@ -115,6 +116,9 @@ function newRecorder({ suite = 'selftest', runTag = 'selftest-fixture', evidence
   return recorder;
 }
 
+/** 样例检查的通用可重放步骤（#183 评审整改 S1：每条检查都必须带非空 steps）。 */
+const SAMPLE_STEPS = ['启动一次性环境并安装被测产物', '执行样例操作并采集原始观测', '按样例声明对比期望与观测'];
+
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
@@ -127,8 +131,8 @@ function checkByName(report, name) {
 
 function samplePass(dir) {
   const recorder = newRecorder({ evidenceDir: dir });
-  recorder.pass('宿主页面可加载', 'HTTP 200，1234 bytes');
-  recorder.pass('插件入口渲染', '入口文案: "提示词模板"');
+  recorder.pass('宿主页面可加载', { detail: 'HTTP 200，1234 bytes', steps: SAMPLE_STEPS });
+  recorder.pass('插件入口渲染', { detail: '入口文案: "提示词模板"', steps: SAMPLE_STEPS });
   return { recorder, written: writeReport(recorder, dir) };
 }
 
@@ -148,13 +152,15 @@ function sampleProductFail(dir) {
 
 function sampleBlocked(dir) {
   const recorder = newRecorder({ evidenceDir: dir });
-  recorder.blocked('fixture 起始态', '配方 templates 起始态与声明不符，套件未执行：global.hidePreset current=false expected=true');
+  recorder.blocked('fixture 起始态', '配方 templates 起始态与声明不符，套件未执行：global.hidePreset current=false expected=true', {
+    steps: ['安装被测产物并启动宿主', '经 HTTP 桥读回 store 起始态', '与配方 expect 逐路径对比'],
+  });
   return { recorder, written: writeReport(recorder, dir) };
 }
 
 function sampleNa(dir) {
   const recorder = newRecorder({ evidenceDir: dir });
-  recorder.pass('宿主页面可加载', 'HTTP 200，1234 bytes');
+  recorder.pass('宿主页面可加载', { detail: 'HTTP 200，1234 bytes', steps: SAMPLE_STEPS });
   recorder.na('远程模板分组', '本轮远程总闸关闭（remote-prefs 配方），远程观测不适用');
   return { recorder, written: writeReport(recorder, dir) };
 }
@@ -165,6 +171,7 @@ function sampleToolFault(dir) {
     expected: 'store 可读且与界面一致',
     observed: 'CDP 连接已关闭，无法 evaluate',
     error: new HarnessError('CDP 连接已关闭：Runtime.evaluate 失败'),
+    steps: ['启动宿主与 CDP 连接', '发 GET /_dsh/dsh-prompt/store 读回', '断言 store 可读'],
   });
   return { recorder, written: writeReport(recorder, dir) };
 }
@@ -175,8 +182,9 @@ function sampleExpectedFailure(dir) {
     expected: 'fixture 正文',
     observed: '空草稿（旧产物缺陷）',
     detail: '旧工件预期在插入落位断言上红（差分基线）',
+    steps: ['安装旧产物并启动宿主', '物理点击模板行', '断言草稿逐字等于 fixture 正文'],
   });
-  recorder.pass('当前产物：草稿逐字等于 fixture 正文', '与 fixture 正文逐字一致');
+  recorder.pass('当前产物：草稿逐字等于 fixture 正文', { detail: '与 fixture 正文逐字一致', steps: SAMPLE_STEPS });
   return { recorder, written: writeReport(recorder, dir) };
 }
 
@@ -333,8 +341,8 @@ section('C. FAIL 四分型判据（自动推断 + 显式覆盖）');
   // 四分型在报告里各自落位（product 已由 B2 覆盖，这里补 spec / test）
   const dir = sampleDir('types');
   const recorder = newRecorder({ evidenceDir: dir });
-  recorder.fail('规格缺陷样例', { expected: 'x', observed: 'y', failureType: 'spec', failureTypeBasis: '规格歧义' });
-  recorder.fail('测试假象样例', { expected: 'x', observed: 'y', flakySuspect: true });
+  recorder.fail('规格缺陷样例', { expected: 'x', observed: 'y', failureType: 'spec', failureTypeBasis: '规格歧义', steps: SAMPLE_STEPS });
+  recorder.fail('测试假象样例', { expected: 'x', observed: 'y', flakySuspect: true, steps: SAMPLE_STEPS });
   const written = writeReport(recorder, dir);
   const specCheck = checkByName(written.report, '规格缺陷样例');
   const flakyCheck = checkByName(written.report, '测试假象样例');
@@ -357,7 +365,7 @@ section('D. 证据六元组（完整性 + 自动补全）');
 {
   const dir = sampleDir('tuple');
   const recorder = newRecorder({ evidenceDir: dir });
-  recorder.fail('自动补全六元组', { expected: 'a', observed: 'b' });
+  recorder.fail('自动补全六元组', { expected: 'a', observed: 'b', steps: ['打开被测界面', '断言样例期望'] });
   const written = writeReport(recorder, dir);
   const check = checkByName(written.report, '自动补全六元组');
 
@@ -409,6 +417,25 @@ section('D. 证据六元组（完整性 + 自动补全）');
   const problems = validateReport(rawBroken);
   ok(problemsMatching(problems, /claim/).length > 0, 'D21 报告校验拒绝缺 claim 的失败检查');
   ok(problemsMatching(problems, /inference/).length > 0, 'D22 报告校验拒绝缺 inference 的失败检查');
+
+  // D23/D24（#183 评审整改 S1）：steps 空 / 兜底占位文本 → 报告校验 fail-closed；
+  // 写报告路径（writeReport → assertValidReport）直接拒绝，兜底文本不可能静默通过。
+  const noStepsReport = JSON.parse(JSON.stringify(written.report));
+  delete noStepsReport.checks[0].steps;
+  ok(problemsMatching(validateReport(noStepsReport), /steps/).length > 0, 'D23 报告校验拒绝缺 steps 的检查');
+  const placeholderReport = JSON.parse(JSON.stringify(written.report));
+  placeholderReport.checks[0].steps = ['执行检查「自动补全六元组」（套件未声明逐步操作）'];
+  ok(
+    problemsMatching(validateReport(placeholderReport), PLACEHOLDER_STEPS_TEXT).length > 0,
+    'D24 报告校验拒绝套件兜底占位文本（套件未声明逐步操作）',
+  );
+  const rawRecorder = newRecorder({ evidenceDir: sampleDir('tuple-missing-steps') });
+  rawRecorder.fail('无步骤的真实检查', { expected: 'a', observed: 'b' });
+  throws(
+    () => writeReport(rawRecorder, sampleDir('tuple-missing-steps')),
+    'steps',
+    'D25 writeReport 对无步骤检查直接抛 ReportError（哨兵：兜底文本不再放行）',
+  );
 }
 
 /* ─────────────────────────────── E. N-A 理由 ─────────────────────────────── */
@@ -463,8 +490,8 @@ section('F. 预期失败（差分/负例）不计入产品失败');
   // fail({expected:true}) 等价入口（票面约定）与 fail({expectedFailure:true}) 等价入口
   const dir2 = sampleDir('expected-fail-flag');
   const recorder2 = newRecorder({ evidenceDir: dir2 });
-  recorder2.fail('另一条预期失败', { expected: 'x', observed: 'y', expectedFailure: true });
-  recorder2.fail('票面入口：fail({expected:true})', { expected: true, observed: 'z' });
+  recorder2.fail('另一条预期失败', { expected: 'x', observed: 'y', expectedFailure: true, steps: SAMPLE_STEPS });
+  recorder2.fail('票面入口：fail({expected:true})', { expected: true, observed: 'z', steps: SAMPLE_STEPS });
   eq(recorder2.summary().expectedFailures, 2, 'F12 expectFail / fail({expected:true}) 都记为预期失败');
   eq(recorder2.summary().FAIL, 0, 'F13 预期失败不计产品失败');
   writeReport(recorder2, dir2);
@@ -472,7 +499,7 @@ section('F. 预期失败（差分/负例）不计入产品失败');
   // 显式 expectedFailure:false 覆盖「expected:true」简写（期望值恰好是布尔 true 的极端情况）
   const dir2b = sampleDir('expected-explicit-false');
   const recorder2b = newRecorder({ evidenceDir: dir2b });
-  recorder2b.fail('显式否定优先', { expected: true, expectedFailure: false, observed: 'w' });
+  recorder2b.fail('显式否定优先', { expected: true, expectedFailure: false, observed: 'w', steps: SAMPLE_STEPS });
   eq(recorder2b.summary().expectedFailures, 0, 'F13b 显式 expectedFailure=false 覆盖票面简写');
   eq(recorder2b.summary().FAIL, 1, 'F13c 显式否定后按真实失败计数');
   writeReport(recorder2b, dir2b);
@@ -481,7 +508,7 @@ section('F. 预期失败（差分/负例）不计入产品失败');
   const dir3 = sampleDir('expected-missed');
   const recorder3 = newRecorder({ evidenceDir: dir3 });
   recorder3.expectFailures(['旧产物的关键断言']);
-  recorder3.pass('旧产物的关键断言', '旧产物也绿了');
+  recorder3.pass('旧产物的关键断言', { detail: '旧产物也绿了', steps: SAMPLE_STEPS });
   const missed = writeReport(recorder3, dir3);
   eq(missed.report.summary.FAIL, 1, 'F14 预期失败未成立 → 记真实 FAIL');
   eq(missed.report.verdict, 'FAIL', 'F15 预期失败未成立 → 整体 FAIL');
@@ -507,6 +534,7 @@ section('G. 失败产物（可打开文件 / 无产物说明）');
     expected: '面板可见',
     observed: '面板不可见',
     artifacts: [logRef, stateRef],
+    steps: ['物理悬停入口', '读取面板观测', '断言面板可见'],
   });
   const written = writeReport(recorder, dir);
   const check = checkByName(written.report, '悬停打开模板面板');
@@ -521,7 +549,7 @@ section('G. 失败产物（可打开文件 / 无产物说明）');
   // G2 无产物 → 必须有 artifactsWhy（写报告时显式兜底）
   const dir2 = sampleDir('artifacts-missing');
   const recorder2 = newRecorder({ evidenceDir: dir2 });
-  recorder2.fail('无产物的失败', { expected: 'x', observed: 'y' });
+  recorder2.fail('无产物的失败', { expected: 'x', observed: 'y', steps: SAMPLE_STEPS });
   const written2 = writeReport(recorder2, dir2);
   const check2 = checkByName(written2.report, '无产物的失败');
   ok(typeof check2.artifactsWhy === 'string' && check2.artifactsWhy.length > 0, 'G7 无产物失败必须有 artifactsWhy');
@@ -535,7 +563,7 @@ section('G. 失败产物（可打开文件 / 无产物说明）');
   // G3 自动采集：失败后无需套件手动截图也能拿到四类产物（用假句柄离线验证）
   const dir3 = sampleDir('artifacts-auto');
   const recorder3 = newRecorder({ evidenceDir: dir3 });
-  recorder3.fail('自动采集产物的失败', { expected: 'x', observed: 'y' });
+  recorder3.fail('自动采集产物的失败', { expected: 'x', observed: 'y', steps: SAMPLE_STEPS });
   const savedShot = [];
   const fakeClient = {
     async screenshot(file) {
@@ -566,7 +594,7 @@ section('G. 失败产物（可打开文件 / 无产物说明）');
   // G4 自动采集无失败时不写文件
   const dir4 = sampleDir('artifacts-none');
   const recorder4 = newRecorder({ evidenceDir: dir4 });
-  recorder4.pass('全绿', 'ok');
+  recorder4.pass('全绿', { detail: 'ok', steps: SAMPLE_STEPS });
   const empty = await captureFailureArtifacts({ recorder: recorder4, client: fakeClient, observe: fakeObserve, persistence: fakePersistence, input: fakeInput });
   eq(empty.captured, 0, 'G14 无失败时不采集产物');
 }
@@ -625,8 +653,8 @@ section('I. 报告 schema v2 与向后兼容');
 {
   const dir = sampleDir('compat');
   const recorder = newRecorder({ evidenceDir: dir });
-  recorder.pass('旧调用：pass(name, detail)', '旧风格 detail 字符串');
-  recorder.fail('旧调用：fail({expected,observed,detail})', { expected: 'e', observed: 'o', detail: 'd' });
+  recorder.pass('旧调用：pass(name, detail)', { detail: '旧风格 detail 字符串', steps: SAMPLE_STEPS });
+  recorder.fail('旧调用：fail({expected,observed,detail})', { expected: 'e', observed: 'o', detail: 'd', steps: SAMPLE_STEPS });
   const written = writeReport(recorder, dir);
   const report = written.report;
 

@@ -292,11 +292,19 @@ export class Recorder {
   }
 
   /** 记录 N-A：reason 必填，缺理由直接抛错且不留下残缺检查。 */
-  na(name, reason) {
+  na(name, reason, options = {}) {
     if (reason === undefined || reason === null || String(reason).trim() === '') {
       throw new ReportError('N-A 必须写 reason（为什么不适用）：' + name);
     }
-    return this.record('N-A', name, { reason: String(reason) });
+    const text = String(reason);
+    return this.record('N-A', name, {
+      reason: text,
+      claim: options.claim,
+      // N-A 也带 steps：写清「为什么没执行、谁来覆盖」，报告里不能出现空步骤（#183 评审整改 S1）。
+      steps: Array.isArray(options.steps) && options.steps.length > 0 ? options.steps : ['N-A 不执行：' + text],
+      observations: options.observations,
+      inference: options.inference,
+    });
   }
 
   /* ───────────────────────── 统计与落盘 ───────────────────────── */

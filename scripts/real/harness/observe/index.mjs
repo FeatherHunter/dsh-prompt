@@ -20,7 +20,19 @@ export * from './source.mjs';
 export * from './text.mjs';
 export * from './compare.mjs';
 export * from './interpret.mjs';
-export { collectSnapshot, waitForSnapshot, snapshotExpression, PROBE_VERSION, HOOKS } from './probes.mjs';
+export {
+  collectSnapshot,
+  waitForSnapshot,
+  snapshotExpression,
+  hitTestExpression,
+  scrollLogInstallExpression,
+  scrollLogClearExpression,
+  scrollLogReadExpression,
+  SCROLL_LOG_KEY,
+  PROBE_VERSION,
+  HOOKS,
+} from './probes.mjs';
+export { waitForLayoutSettled, layoutSettledExpression } from './settle.mjs';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 

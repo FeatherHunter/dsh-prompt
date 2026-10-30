@@ -77,6 +77,13 @@
 - 兼容说明：v1 的 `expected` 字段语义是「期望值本身」（`fail({expected, observed})`），保持不变；
   预期失败标记是新增字段 `expectedFailure`，两件事不混用。
 
+### 差分聚合层的分型（#183 评审整改 S3）
+
+差分运行器（#191）自己也产标准报告；它的 FAIL 分型按**问题来源**映射，不再写死 `product`：
+清单缺陷/期望未满足/无区分力/注入器串扰/环境漂移记 `test`，候选侧真实回归或候选产物自身未预期 FAIL 记 `product`。
+映射表与判据见 `scripts/real/harness/diff/classify.mjs` 的 `DIFF_PROBLEM_FAILURE_TYPES` 与
+[`diff.md`](diff.md) 的「差分侧 FAIL 分型」节；`diff/selftest.mjs` 覆盖映射与未知码 fail-closed。
+
 ## 证据六元组
 
 每条检查（尤其 FAIL）都记录六元组，字段名即报告 JSON 键名：
@@ -188,7 +195,7 @@
 
 ```bash
 node scripts/real/harness/report/selftest.mjs
-# RESULT: 202 PASS / 0 FAIL（判定分类与证据报告自证全绿）
+# RESULT: 205 PASS / 0 FAIL（判定分类与证据报告自证全绿）
 ```
 
 覆盖 A–J 十节：协议常量与退出码；四类判定样例；FAIL 四分型（自动推断与显式覆盖）；六元组完整性与

@@ -24,8 +24,13 @@ import {
   describeSources,
   diffEventSequences,
   diffObservations,
+  hitTestExpression,
   locateRows,
   normalizeText,
+  scrollLogClearExpression,
+  scrollLogInstallExpression,
+  scrollLogReadExpression,
+  waitForLayoutSettled,
 } from '../harness/observe/index.mjs';
 
 /** 产品文本（字符串是产品行为的一部分，不是 locale 标签）。 */
@@ -92,130 +97,82 @@ function hitsHook(event, hook) {
 }
 
 /**
- * 诊断探针：document.elementFromPoint 的命中链 + 所有 trigger 按钮的几何/状态。
- * 只在「等待观测条件超时」时采集，用来区分「产品没响应」与「点击没打到目标」。
+ * 场景级证据（#183 评审整改 F2）：scenario() 声明本场景的布置/操作步骤，
+ * 场景内所有 assertField/assertDual 默认把它并入六元组，个别检查可覆盖。
+ * 这样报告里的 steps 是「怎么重放这条检查」，而不是统一兜底文本。
  */
-function hitTestExpression(point) {
-  return (
-    '(function () {' +
-    '  const point = ' + JSON.stringify({ x: point.x, y: point.y }) + ';' +
-    '  const contractAttrs = (node) => {' +
-    '    const attrs = {};' +
-    '    for (const attr of (node.attributes || [])) {' +
-    '      if (attr.name.indexOf("data-dsh-prompt-") !== 0) continue;' +
-    '      attrs[attr.name] = attr.value.length > 80 ? attr.value.slice(0, 80) : attr.value;' +
-    '    }' +
-    '    return attrs;' +
-    '  };' +
-    '  const describe = (node) => {' +
-    '    if (!node || node.nodeType !== 1) return node ? { tag: String(node.nodeName || "") } : null;' +
-    '    let owner = null;' +
-    '    for (let cur = node; cur && cur.nodeType === 1; cur = cur.parentElement) {' +
-    '      const attrs = contractAttrs(cur);' +
-    '      if (Object.keys(attrs).length > 0) { owner = { tag: String(cur.tagName || "").toLowerCase(), attrs }; break; }' +
-    '    }' +
-    '    const rect = node.getBoundingClientRect();' +
-    '    let pointerEvents = null;' +
-    '    try { pointerEvents = getComputedStyle(node).pointerEvents; } catch (error) { pointerEvents = null; }' +
-    '    return {' +
-    '      tag: String(node.tagName || "").toLowerCase(),' +
-    '      owner,' +
-    '      role: node.getAttribute ? node.getAttribute("role") : null,' +
-    '      text: String(node.innerText || node.textContent || "").trim().slice(0, 60),' +
-    '      pointerEvents,' +
-    '      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height, cx: rect.x + rect.width / 2, cy: rect.y + rect.height / 2 },' +
-    '    };' +
-    '  };' +
-    '  const triggers = Array.from(document.querySelectorAll("[data-dsh-prompt-trigger]")).map((node) => ({' +
-    '    ariaPressed: node.getAttribute("aria-pressed"),' +
-    '    text: String(node.innerText || node.textContent || "").trim().slice(0, 40),' +
-    '    rect: (() => { const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, cx: r.x + r.width / 2, cy: r.y + r.height / 2 }; })(),' +
-    '  }));' +
-    '  return {' +
-    '    point,' +
-    '    hit: describe(document.elementFromPoint(point.x, point.y)),' +
-    '    activeElement: describe(document.activeElement),' +
-    '    triggerCount: triggers.length,' +
-    '    triggers,' +
-    '    dialogCount: Array.from(document.querySelectorAll("[role=dialog][aria-modal=true]")).filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length,' +
-    '  };' +
-    '})()'
-  );
+let currentScenarioEvidence = null;
+
+function evidenceFor(overrides = {}) {
+  const base = currentScenarioEvidence || {};
+  return {
+    steps: overrides.steps !== undefined ? overrides.steps : base.steps,
+    claim: overrides.claim !== undefined ? overrides.claim : base.claim,
+    observations: overrides.observations,
+    inference: overrides.inference !== undefined ? overrides.inference : base.inference,
+  };
 }
 
-/**
- * 页面滚动事件日志（诊断用）：capture 阶段记录任何容器/文档的 scroll 事件与 scrollTop。
- * 用来区分「滚动是产品行为」还是「工具/宿主滚动容器行为」——尤其是设置页控件几何在
- * 快照与点击之间变化时，先看是谁在什么时候滚了它。
- */
-const SCROLL_LOG_KEY = '__dshPromptScrollLog';
-
-const scrollLogInstallExpression =
-  '(function () {' +
-  '  if (window.' + SCROLL_LOG_KEY + ') return "already-installed";' +
-  '  window.' + SCROLL_LOG_KEY + ' = [];' +
-  '  const attrsOf = (node) => {' +
-  '    const attrs = {};' +
-  '    for (const attr of (node.attributes || [])) {' +
-  '      if (attr.name.indexOf("data-dsh-prompt-") !== 0) continue;' +
-  '      attrs[attr.name] = attr.value.length > 60 ? attr.value.slice(0, 60) : attr.value;' +
-  '    }' +
-  '    return attrs;' +
-  '  };' +
-  '  document.addEventListener("scroll", (event) => {' +
-  '    const node = event.target;' +
-  '    const isElement = !!(node && node.nodeType === 1);' +
-  '    window.' + SCROLL_LOG_KEY + '.push({' +
-  '      at: Math.round(window.performance && performance.now ? performance.now() : Date.now()),' +
-  '      tag: isElement ? String(node.tagName || "").toLowerCase() : "#document",' +
-  '      attrs: isElement ? attrsOf(node) : {},' +
-  '      scrollTop: Math.round(isElement ? node.scrollTop : (document.scrollingElement || {}).scrollTop || 0),' +
-  '      scrollHeight: isElement ? node.scrollHeight : (document.scrollingElement || {}).scrollHeight,' +
-  '      clientHeight: isElement ? node.clientHeight : (document.scrollingElement || {}).clientHeight,' +
-  '    });' +
-  '    if (window.' + SCROLL_LOG_KEY + '.length > 300) window.' + SCROLL_LOG_KEY + '.shift();' +
-  '  }, true);' +
-  '  return "installed";' +
-  '})()';
-
-const scrollLogClearExpression = '(window.' + SCROLL_LOG_KEY + ' = [], "cleared")';
-
-const scrollLogReadExpression = '(window.' + SCROLL_LOG_KEY + ' || []).slice(-80)';
-
 /** 单字段断言：expected 来自契约/配方，observed 来自观测层，source 标来源等级。 */
-function assertField(recorder, name, assertion) {
+function assertField(recorder, name, assertion, evidence = {}) {
   const { expected, observed, source, detail } = assertion;
+  const tuple = evidenceFor(evidence);
   if (deepEqual(expected, observed)) {
-    recorder.pass(name, 'source=' + source + '；expected=' + json(expected) + (detail ? '；' + detail : ''));
+    recorder.pass(name, {
+      detail: 'source=' + source + '；expected=' + json(expected) + (detail ? '；' + detail : ''),
+      ...tuple,
+    });
     return true;
   }
   recorder.fail(name, {
     expected,
     observed,
     detail: 'source=' + source + (detail ? '；' + detail : ''),
+    ...tuple,
+    // 失败时也把观测值带进六元组，重放者不必翻 detail 解析
+    observations: tuple.observations !== undefined ? tuple.observations : { expected, observed, source },
   });
   return false;
 }
 
 /** 双通道断言：两路来自不同来源（界面/公开接口 vs 持久化），一致才算证据闭合。 */
-function assertDual(recorder, name, dual) {
+function assertDual(recorder, name, dual, evidence = {}) {
+  const tuple = evidenceFor({
+    observations: { a: { value: dual.a.value, source: dual.a.source }, b: { value: dual.b.value, source: dual.b.source } },
+    ...evidence,
+  });
   if (dual.agree) {
     recorder.pass(
       name,
-      '双通道一致：' + dual.a.name + '=' + json(dual.a.value) + '（' + dual.a.source + '）↔ ' +
-        dual.b.name + '=' + json(dual.b.value) + '（' + dual.b.source + '）',
+      {
+        detail: '双通道一致：' + dual.a.name + '=' + json(dual.a.value) + '（' + dual.a.source + '）↔ ' +
+          dual.b.name + '=' + json(dual.b.value) + '（' + dual.b.source + '）',
+        ...tuple,
+      },
     );
     return true;
   }
-  recorder.fail(name, { expected: dual.a.value, observed: dual.b.value, detail: dual.detail + '（双通道不一致）' });
+  recorder.fail(name, {
+    expected: dual.a.value,
+    observed: dual.b.value,
+    detail: dual.detail + '（双通道不一致）',
+    ...tuple,
+  });
   return false;
 }
 
 /**
  * 场景包装：超时 = FAIL（产品在预算内没有响应），工具链异常 = BLOCKED（不把宿主/工具故障记到产品头上）。
  * 无论成败都把原始观测刷新进报告环境，失败时证据仍然完整。
+ * scenarioSteps 是本场景可重放的布置/操作步骤，场景内检查默认继承（#183 评审整改 F2）。
  */
-async function scenario(recorder, boundaryEnv, name, body) {
+async function scenario(recorder, boundaryEnv, name, scenarioSteps, body) {
+  const evidence = {
+    steps: scenarioSteps,
+    claim: '场景「' + name + '」的布置、真实输入与观测按这些步骤可在同一环境重放',
+    inference: '步骤在预算内成立时，本场景内的界面断言与双通道对账才有证据力',
+  };
+  currentScenarioEvidence = evidence;
   recorder.setEnvironment({ boundary: { ...boundaryEnv, currentScenario: name } });
   try {
     await body();
@@ -223,11 +180,17 @@ async function scenario(recorder, boundaryEnv, name, body) {
   } catch (error) {
     const message = error instanceof HarnessError ? error.message : String(error && error.stack ? error.stack : error);
     if (/等待超时/.test(message)) {
-      recorder.fail(name + '：等待观测条件超时', { expected: '观测条件在预算内成立', observed: message });
+      recorder.fail(name + '：等待观测条件超时', {
+        expected: '观测条件在预算内成立',
+        observed: message,
+        ...evidence,
+        inference: '等待超时说明产品未在预算内响应，或布置前提不成立（工具链异常记 BLOCKED）',
+      });
     } else {
-      recorder.blocked(name + '：工具链异常', message);
+      recorder.blocked(name + '：工具链异常', message, evidence);
     }
   } finally {
+    currentScenarioEvidence = null;
     recorder.setEnvironment({ boundary: { ...boundaryEnv, currentScenario: null } });
   }
 }
@@ -297,8 +260,19 @@ export async function runBoundary(context) {
   };
   recorder.setEnvironment({ boundary: boundaryEnv });
 
+  /** 前置检查的证据：这些检查没进入任何场景，steps 显式写清「怎么重放前置自检」。 */
+  const preflightEvidence = {
+    steps: [
+      '检查 run.mjs 是否创建并传入 observe/input/persistence 句柄',
+      '检查 fixture.params.runTag、fixture.declared.customs、fixture.recipe.seed.customs 是否齐全',
+      '在页面注入输入事件日志（input.log.install）并确认成功',
+    ],
+    claim: '边界套件的装配前置（句柄/配方/事件日志）齐全，后续场景检查才有归因意义',
+    inference: '前置缺失属运行器装配或配方错误，记 BLOCKED 而不是产品失败',
+  };
+
   if (!observe || !input || !persistence) {
-    recorder.blocked('边界套件前置', '缺少 observe/input/persistence 句柄（run.mjs 需要创建并传给套件）');
+    recorder.blocked('边界套件前置', '缺少 observe/input/persistence 句柄（run.mjs 需要创建并传给套件）', preflightEvidence);
     return;
   }
 
@@ -309,14 +283,14 @@ export async function runBoundary(context) {
   const interpret = (raw) => observe.interpret(raw, { sectionName: SECTION_NAMES });
 
   if (!fixture || !fixture.params || typeof fixture.params.runTag !== 'string') {
-    recorder.blocked('边界套件前置', '缺少 fixture 装配结果（需要 fixture.params.runTag 以定位夹具模板）');
+    recorder.blocked('边界套件前置', '缺少 fixture 装配结果（需要 fixture.params.runTag 以定位夹具模板）', preflightEvidence);
     return;
   }
   const declared = fixture.declared || {};
   const recipe = fixture.recipe || {};
   const seedCustoms = recipe.seed && Array.isArray(recipe.seed.customs) ? recipe.seed.customs : [];
   if (!Array.isArray(declared.customs) || declared.customs.length === 0 || seedCustoms.length === 0) {
-    recorder.blocked('边界套件前置', '配方没有声明自定义模板或 seed.customs（需要 fixture templates.json）');
+    recorder.blocked('边界套件前置', '配方没有声明自定义模板或 seed.customs（需要 fixture templates.json）', preflightEvidence);
     return;
   }
   boundaryEnv.fixture = {
@@ -333,7 +307,11 @@ export async function runBoundary(context) {
   try {
     await input.log.install();
   } catch (error) {
-    recorder.blocked('边界套件前置', '无法安装页面输入事件日志：' + String(error && error.message ? error.message : error));
+    recorder.blocked('边界套件前置', '无法安装页面输入事件日志：' + String(error && error.message ? error.message : error), {
+      ...preflightEvidence,
+      steps: ['在页面注入输入事件日志脚本（input.log.install）'],
+      inference: '事件日志装不上属工具链/页面异常；继续跑会让「真实事件」类断言失去证据，记 BLOCKED',
+    });
     return;
   }
 
@@ -347,46 +325,12 @@ export async function runBoundary(context) {
     boundaryEnv.observations[key + 'Scroll'] = scroll;
     recorder.setEnvironment({ boundary: boundaryEnv });
     if (!scroll.ok) {
-      recorder.blocked('场景 3：机械滚动把控件放进视口', '物理点击前无法把设置页控件放进视口（宿主滚动容器限制，非产品失败）：' + json(scroll));
+      recorder.blocked('场景 3：机械滚动把控件放进视口', '物理点击前无法把设置页控件放进视口（宿主滚动容器限制，非产品失败）：' + json(scroll), evidenceFor({
+        inference: '滚不动是宿主滚动容器限制，工具/宿主问题记 BLOCKED，不能冒充产品 FAIL',
+      }));
       return null;
     }
     return { raw: await observe.snapshot(), scroll };
-  }
-
-  /**
-   * 等设置页自己的异步导航滚动落定。
-   * 产品行为（#82 直达）：点底栏设置入口后，插件会程序化点宿主设置导航，并**把远程段滚进视野**
-   * （`src/client/index.ts` goSettings 里 200ms 轮询 + scrollIntoView），滚动可能发生在设置弹窗
-   * 出现之后，让刚刚采集的控件几何瞬间过期。这里按「触发按钮矩形 + 滚动日志长度连续两拍不变」判稳；
-   * 超时也继续（点击前还有 elementFromPoint 命中验证兜底），不把等待当产品结论。
-   */
-  async function waitForSettingsLayoutSettled() {
-    let previous = null;
-    let scrollCount = -1;
-    let stable = 0;
-    for (let attempt = 0; attempt < 25; attempt += 1) {
-      const sample = await client.evaluate(
-        '(function () {' +
-        '  const node = document.querySelector(' + JSON.stringify(TRIGGER_SELECTOR) + ');' +
-        '  const rect = node ? node.getBoundingClientRect() : null;' +
-        '  const log = window.' + SCROLL_LOG_KEY + ' || [];' +
-        '  return { rect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null, scrollCount: log.length };' +
-        '})()',
-        { returnByValue: true },
-      );
-      const key = sample && sample.rect ? sample.rect.x + ',' + sample.rect.y : 'none';
-      const unchanged = previous !== null && key === previous && sample && sample.scrollCount === scrollCount;
-      previous = key;
-      scrollCount = sample ? sample.scrollCount : -1;
-      if (unchanged) {
-        stable += 1;
-        if (stable >= 2) return attempt + 1;
-      } else {
-        stable = 0;
-      }
-      await sleep(150);
-    }
-    return 25;
   }
 
   /**
@@ -436,7 +380,16 @@ export async function runBoundary(context) {
 
   /* ────────────────────────── 场景 1：打开面板 ────────────────────────── */
 
-  await scenario(recorder, boundaryEnv, '场景 1：打开面板', async () => {
+  await scenario(recorder, boundaryEnv, '场景 1：打开面板', [
+    '读快照确认面板初始收起（panel.visible=false）',
+    'input.move 多段移动悬停在入口按钮上 → waitFor panel.visible 为真',
+    '读 input.log：入口 pointerenter/pointerover/pointermove 都是 isTrusted=true，最后一段落点在入口矩形内',
+    '解释快照：断言面板根可见、触发胶囊 aria-pressed 与 fixture 声明的 hoverTrigger 语义一致',
+    'GET /_dsh/dsh-prompt/store 读回：界面行 id 集合与 store 自定义模板 id 集合一致（双通道），行数=自定义数',
+    '物理点击底栏关闭按钮 → waitFor panel.visible=false',
+    'input.syntheticClick 入口（element.click()）→ waitFor panel.visible；比对物理/合成两路径的观测差分与事件序列差分',
+    '恢复面板收起态',
+  ], async () => {
     await ensurePanelClosed({ observe, input, client, panelMs });
     const initial = await observe.snapshot();
     assertField(recorder, '①面板开关：场景开始时面板处于收起状态', {
@@ -606,12 +559,22 @@ export async function runBoundary(context) {
 
   /* ────────────────────────── 场景 2：行插入落位 ────────────────────────── */
 
-  await scenario(recorder, boundaryEnv, '场景 2：行插入落位', async () => {
+  await scenario(recorder, boundaryEnv, '场景 2：行插入落位', [
+    'clearComposer：物理点进 composer → Ctrl+A/Backspace → setSelection(0,0)，快照确认草稿为空且光标在起点',
+    '物理悬停入口打开面板（不是 element.click()）',
+    '解释快照按用户可见行名（fixture 声明）定位目标模板行，并核对行 id',
+    '物理点击目标行（input.clickRect）→ waitFor composer.text 逐字等于 fixture 正文',
+    '解释快照：草稿字节、DOM selection.start、宿主 captureInsertion.start 三处落点都在正文末尾；面板自动收起；点击事件 isTrusted 且命中该行',
+    'GET /_dsh/dsh-prompt/store：usage 计数 +1、lastUsed=该模板，并与界面/公开接口身份做双通道对账',
+    '清空草稿后走合成路径（element.click() 行）→ waitFor 草稿逐字等于正文；断言草稿与光标落点',
+    '读 store：usage 计数 = 声明值 + 2（合成路径再 +1）',
+    '比对物理/合成两路径的草稿/字符数/光标/面板状态差分（应为 0 条）',
+  ], async () => {
     const alpha = declared.customs[0];
     const alphaSeed = seedCustoms.find((item) => item && item.id === alpha.id) || null;
     const body = alphaSeed && typeof alphaSeed.body === 'string' ? alphaSeed.body : '';
     if (!body) {
-      recorder.blocked('场景 2：行插入落位', 'fixture 的 seed.customs[0].body 缺失，无法做字节级草稿断言');
+      recorder.blocked('场景 2：行插入落位', 'fixture 的 seed.customs[0].body 缺失，无法做字节级草稿断言', evidenceFor());
       return;
     }
     boundaryEnv.insertion = { templateId: alpha.id, templateName: alpha.name, expectedBody: body, expectedBodyChars: body.length };
@@ -637,6 +600,9 @@ export async function runBoundary(context) {
         expected: '文本包含「' + alpha.name + '」的行',
         observed: json(texts),
         detail: '模板行文本不含 fixture 声明名称',
+        ...evidenceFor(),
+        observations: { expectedText: alpha.name, rows: texts },
+        inference: '行名是用户可见的定位契约；行名不匹配说明 fixture 种子或列表渲染没有对齐',
       });
       throw new HarnessError('无法按语义文本定位模板行：' + alpha.name);
     }
@@ -772,7 +738,17 @@ export async function runBoundary(context) {
 
   /* ────────────────────────── 场景 3：设置页控件切换 ────────────────────────── */
 
-  await scenario(recorder, boundaryEnv, '场景 3：设置页控件切换', async () => {
+  await scenario(recorder, boundaryEnv, '场景 3：设置页控件切换', [
+    'GET /_dsh/dsh-prompt/store 读回起始 hidePreset，与 fixture 声明比对',
+    '物理悬停入口打开面板，物理点击底栏「模板管理」（data-dsh-prompt-chrome="goSettings"）',
+    'waitFor 宿主设置弹窗 + 插件设置分区 + 隐藏预置控件出现；装页面滚动事件日志并清空',
+    '等设置页自身异步滚动落定（控件矩形 + 滚动日志连续两拍不变），重新采集快照',
+    '解释快照：断言 dialog 打开、按产品文本定位分区导航、插件区块挂载、hidePreset 初始勾选与 fixture 一致',
+    'elementFromPoint 验证命中链含 data-dsh-prompt-hide-toggle 后物理点击 → waitFor checked=false；读 store 双通道对账 hidePreset',
+    '断言设置页触发方式初始为悬浮语义（aria-pressed=false）',
+    'elementFromPoint 验证命中 data-dsh-prompt-trigger 后物理点击 → waitFor aria-pressed=true（#179 仅点击契约）；读 store 双通道对账 hoverTrigger=false',
+    '解释快照：弹层观测面识别出设置弹窗（settingsDialogPresent）',
+  ], async () => {
     const storeBefore = await persistence.read();
     assertField(recorder, '双通道·持久化：起始 hidePreset 与 fixture 声明一致', {
       expected: declared.hidePreset,
@@ -783,7 +759,9 @@ export async function runBoundary(context) {
     const panelRaw = await ensurePanelOpen({ observe, input, client, panelMs });
     const goSettingsRect = panelRaw.panel.bar.goSettingsRect;
     if (!goSettingsRect) {
-      recorder.blocked('场景 3：设置页导航', '底栏缺少 data-dsh-prompt-chrome="goSettings" 入口几何');
+      recorder.blocked('场景 3：设置页导航', '底栏缺少 data-dsh-prompt-chrome="goSettings" 入口几何', evidenceFor({
+        inference: '底栏设置入口几何缺失=宿主/产品入口变化，导航无法推进，记 BLOCKED',
+      }));
       return;
     }
     await input.log.clear();
@@ -802,17 +780,18 @@ export async function runBoundary(context) {
         '场景 3：设置页导航',
         '物理点底栏 goSettings 后宿主设置弹窗/插件设置页未出现（宿主设置入口可能变化）：' +
           json({ dialogs: raw.settings.dialog, bar: raw.panel.bar, settings: raw.settings.section }),
+        evidenceFor({ inference: '宿主设置入口/弹窗结构变化时导航无法推进，记 BLOCKED 而不是产品 FAIL' }),
       );
       return;
     }
     // 诊断：装滚动事件日志并清空，失败时用来判断「谁把控件滚出了视口」。
-    await client.evaluate(scrollLogInstallExpression, { returnByValue: true });
-    await client.evaluate(scrollLogClearExpression, { returnByValue: true });
+    await client.evaluate(scrollLogInstallExpression(), { returnByValue: true });
+    await client.evaluate(scrollLogClearExpression(), { returnByValue: true });
     // 产品行为：打开设置页后插件自己会把远程段滚进视野（异步，可能在弹窗出现之后），
     // 先等布局落定再采集几何与点击——否则快照矩形会在点击前失效。
-    const settleSamples = await waitForSettingsLayoutSettled();
+    const settle = await waitForLayoutSettled({ client, observe, selector: TRIGGER_SELECTOR });
     settingsRaw = await observe.snapshot();
-    boundaryEnv.observations.scenario3SettleSamples = settleSamples;
+    boundaryEnv.observations.scenario3SettleSamples = settle.samples;
     boundaryEnv.observations.scenario3Settings = settingsRaw;
     const settings = interpret(settingsRaw);
     recorder.setEnvironment({ boundary: boundaryEnv });
@@ -857,7 +836,7 @@ export async function runBoundary(context) {
       const lastRaw = await observe.snapshot();
       boundaryEnv.observations.scenario3HidePresetFailure = {
         attempts: hideAttempts,
-        scrollLog: await client.evaluate(scrollLogReadExpression, { returnByValue: true }),
+        scrollLog: await client.evaluate(scrollLogReadExpression(), { returnByValue: true }),
         log: summarizeEventLog(await input.log.read({ clear: false })),
         store: (await persistence.read()).baseline.hidePreset,
         last: { hideChecked: lastRaw.settings.section.hideToggle.checked, rect: lastRaw.settings.section.hideToggle.rect },
@@ -867,6 +846,8 @@ export async function runBoundary(context) {
         expected: false,
         observed: interpret(lastRaw).settings.fields.hidePreset.value,
         detail: '3 次物理点击（每次点击前 elementFromPoint 命中验证）后勾选状态仍未翻转；attempts=' + json(hideAttempts),
+        ...evidenceFor(),
+        observations: { attempts: hideAttempts, lastHideChecked: lastRaw.settings.section.hideToggle.checked },
       });
       return;
     }
@@ -946,7 +927,7 @@ export async function runBoundary(context) {
         diagnose.hitAfter = await client.evaluate(hitTestExpression({ x: lastRect.cx, y: lastRect.cy }), { returnByValue: true });
       }
       diagnose.log = summarizeEventLog(await input.log.read({ clear: false }));
-      diagnose.scrollLog = await client.evaluate(scrollLogReadExpression, { returnByValue: true });
+      diagnose.scrollLog = await client.evaluate(scrollLogReadExpression(), { returnByValue: true });
       const storeNow = await persistence.read();
       diagnose.store = { hidePreset: storeNow.baseline.hidePreset, hoverTrigger: storeNow.baseline.hoverTrigger };
       // 诊断（不改变物理路径判定）：合成点击同一按钮，区分「产品不响应」与「物理点击没打到」。
@@ -984,6 +965,8 @@ export async function runBoundary(context) {
         expected: 'click',
         observed: interpret(lastRaw).settings.fields.triggerMode.value,
         detail: '3 次物理点击（每次点击前 elementFromPoint 命中验证）后仍未切换；attempts=' + json(triggerAttempts),
+        ...evidenceFor(),
+        observations: { attempts: triggerAttempts, lastAriaPressed: lastRaw.settings.section.triggerButton.ariaPressed },
       });
       return;
     }

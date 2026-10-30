@@ -22,6 +22,8 @@
 | ⑥ 触发按钮及状态 | 入口按钮、底栏触发方式按钮的 `aria-pressed` / 文本 / 矩形 | `[data-dsh-prompt-entry]`、`[data-dsh-prompt-trigger]` | 用户可见 |
 
 原始观测字段清单以 `harness/observe/probes.mjs` 的 `collectSnapshotInPage` 为准（`PROBE_VERSION=1`）；
+页面内诊断证据（命中链 `hitTestExpression`、滚动日志 `scrollLog*Expression`）同样由 `probes.mjs` 导出；
+布局落定等待在 `harness/observe/settle.mjs` 的 `waitForLayoutSettled`（都属观测层，套件只调用不实现）。
 解释后的分级字段清单以 `harness/observe/interpret.mjs` 为准。
 
 ## 来源等级（自述 < 内部状态 < 公开接口 < 用户可见 < 持久化）
@@ -65,7 +67,7 @@
 - 布局落定与命中验证（真机时序，非断言放宽）：打开插件设置页后，产品自己会把远程段滚进视野
   （`src/client/index.ts` 的 `goSettings` 用 200ms 轮询 + `scrollIntoView`，是 #82 直达行为），
   这个滚动可能发生在设置弹窗出现之后，让刚采集的控件几何失效。套件先等「触发按钮矩形 + scroll
-  日志长度连续两拍不变」再采集（`waitForSettingsLayoutSettled`），并且每次物理点击前用
+  日志长度连续两拍不变」再采集（`harness/observe/settle.mjs` 的 `waitForLayoutSettled`），并且每次物理点击前用
   `document.elementFromPoint` 验证命中链上确实是目标控件；命中不对或点击后状态没翻转才重新采集
   重点（≤3 次，每次都是真实指针）。三次真实物理点击后状态仍未翻转 → FAIL，不放宽判定。
 - 页面事件日志：`input.log.install()` 后在 capture 阶段记录 pointer/mouse/click/key/input/focus/
@@ -108,7 +110,7 @@
 
 ## boundary 套件
 
-    node scripts/real/run.mjs --artifact <tgz> --suite boundary --fixture templates --evidence-dir D:/Temp/evidence-188
+    node scripts/real/run.mjs --artifact <tgz> --suite boundary --fixture templates --evidence-dir <evidence-dir>
 
 三个代表性场景：
 
@@ -125,7 +127,7 @@
 ## 纯 Node 自证
 
     node scripts/real/harness/observe/selftest.mjs
-    # RESULT: 202 PASS / 0 FAIL（观测层自证全绿）
+    # RESULT: 208 PASS / 0 FAIL（观测层自证全绿）
     # package.json 建议行：check:real-observe（见报告，#188 不直接改 package.json）
 
 自证覆盖：来源等级模型、语义文本定位、扁平差分与双通道、输入序列构造（指针路径/点击/快捷键）、
@@ -137,9 +139,10 @@
       observe/
         source.mjs       来源等级模型（比较/分级/汇总）
         text.mjs         语义文本归一化与匹配、行定位
-        compare.mjs      原始观测扁平差分、双通道对账、事件序列差分
+        compare.mjs      原始观测扁平差分、双通道对账（含同源校验）、事件序列差分
         interpret.mjs    六个观测面的解释器（raw → 分级字段，不判期望）
-        probes.mjs       页面内采集函数 + HOOKS + snapshotExpression + 轮询等待
+        probes.mjs       页面内采集函数 + HOOKS + snapshotExpression + hitTestExpression + scrollLog*Expression + 轮询等待
+        settle.mjs       布局落定等待（矩形 + 滚动日志连续两拍不变；只等时序、不下判定）
         index.mjs        统一入口：createObserver / createPersistence / 重导出
         selftest.mjs     纯 Node 自证（零浏览器/零宿主）
       input-plan.mjs     指针路径/点击/按键/快捷键/文本输入序列构造（纯函数）

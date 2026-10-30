@@ -7,11 +7,11 @@
 
 前置：Node >= 22、DSH CLI（在 PATH 或显式指定）、Edge / Chrome / Chromium 任一。
 
-    npm run real:smoke -- --artifact D:/path/to/dsh-prompt-x.y.z.tgz
+    npm run real:smoke -- --artifact <插件.tgz>
 
 或直接：
 
-    node scripts/real/run.mjs --artifact D:/path/to/dsh-prompt-x.y.z.tgz --suite smoke
+    node scripts/real/run.mjs --artifact <插件.tgz> --suite smoke
 
 跑完看两处：
 
@@ -146,9 +146,10 @@
         observe/
           source.mjs       来源等级模型（自述<内部状态<公开接口<用户可见<持久化）
           text.mjs         语义文本归一化/匹配/行定位
-          compare.mjs      原始观测扁平差分、双通道对账、事件序列差分
+          compare.mjs      原始观测扁平差分、双通道对账（含同源校验）、事件序列差分
           interpret.mjs    六面解释器（raw → 分级字段，不判期望）
-          probes.mjs       页面内采集函数 + HOOKS + snapshotExpression + 轮询等待
+          probes.mjs       页面内采集 + HOOKS + snapshotExpression + hitTestExpression + scrollLog*Expression + 轮询等待
+          settle.mjs       布局落定等待（矩形 + 滚动日志连续两拍不变；只等时序，不下判定）
           index.mjs        统一入口：createObserver / createPersistence
           selftest.mjs     观测层自证（纯 Node，零浏览器/零宿主）
         fixture/
@@ -229,7 +230,7 @@
 纯 Node 自证（不需要浏览器/宿主）：
 
     node scripts/real/harness/fixture/selftest.mjs
-    # RESULT: 108 PASS / 0 FAIL（fixture 自证全绿）
+    # RESULT: 115 PASS / 0 FAIL（fixture 自证全绿）
 
 每轮 run tag 唯一（同秒连跑也不撞）并写进 `report.json`；store 路径必须落在本轮一次性 `DSH_HOME`
 内（越界拒绝），失败/中断后直接重跑即可恢复。配方格式、字段口径、与契约的关系、给 #188 的 API
@@ -263,7 +264,7 @@
 
 `--suite boundary` 用**真实输入**跑代表性场景，并把观测按来源等级解释、关键结论双通道对账：
 
-    node scripts/real/run.mjs --artifact <tgz> --suite boundary --fixture templates --evidence-dir D:/Temp/evidence-188
+    node scripts/real/run.mjs --artifact <tgz> --suite boundary --fixture templates --evidence-dir <evidence-dir>（#188）
 
 三个场景：
 
@@ -302,7 +303,7 @@
 kit 上的产物；pilot 已删除，仓内不再保留它自带的 CDP 客户端、`PAGE_API` 探针与 `window.__IA` 包裹。
 迁移边界：**只做布置 + 断言**，装配/观测/输入/判定/证据全部走 harness：
 
-    node scripts/real/run.mjs --artifact <tgz> --suite undo-group --fixture undo-group --evidence-dir D:/Temp/evidence-192
+    node scripts/real/run.mjs --artifact <tgz> --suite undo-group --fixture undo-group --evidence-dir <evidence-dir>
 
 - 覆盖旧 pilot A1–A5：非空草稿末尾/中间 + 含标记单行、空草稿 + 含标记多行、无标记插入非空/空草稿；
   每个场景用**真实物理点击**模板行插入，真实键盘 `Ctrl+Z` / `Ctrl+Y` / `Ctrl+Shift+Z` 验证 undo
@@ -318,7 +319,7 @@ kit 上的产物；pilot 已删除，仓内不再保留它自带的 CDP 客户�
 
 `--suite trigger` 证明观测层/输入驱动/判定协议能承载**另一个域**的验收，而不是只为 boundary 写死：
 
-    node scripts/real/run.mjs --artifact <tgz> --suite trigger --fixture trigger-hover --evidence-dir D:/Temp/evidence-192
+    node scripts/real/run.mjs --artifact <tgz> --suite trigger --fixture trigger-hover --evidence-dir <evidence-dir>
 
 - **真实指针路径**：物理悬停入口开面板 → 移开关面板 → 物理点底栏触发方式胶囊切到「仅点击」→
   移开后再悬停入口不再开窗（#179 契约）→ 物理点入口开面板 → 物理点关闭按钮收起；
@@ -357,7 +358,7 @@ kit 上的产物；pilot 已删除，仓内不再保留它自带的 CDP 客户�
 纯 Node 自证（不需要浏览器/宿主）：
 
     node scripts/real/harness/diff/selftest.mjs
-    # [diff-selftest] PASS 38 项（差分判定/期望清单/基线登记/注入器/退出码/CLI）
+    # [diff-selftest] PASS 43 项（差分判定/期望清单/基线登记/注入器/退出码/CLI）
 
 ## 验收对照（#191）
 
@@ -365,16 +366,16 @@ kit 上的产物；pilot 已删除，仓内不再保留它自带的 CDP 客户�
 | --- | --- | --- |
 | 一条命令跑旧/当前产物并产出 diff.json + diff.md | `diff.mjs` 子进程调 `run.mjs`，两侧各自 evidence 子目录，读两份 report.json 汇总 | `<evidence-dir>/diff.json`、`diff.md`；`reference/`、`candidate/` 子报告 |
 | 区分力分类，bothGreen 明确不判通过 | `classify.mjs` 分类 + `expect.mjs` 规则；bothGreen 进 mustFlip 即 FAIL | `harness/diff/selftest.mjs` 分类与负例用例 |
-| mustFlip 未翻转 → FAIL | 0.4.39（pack-183）基线跑 boundary：两侧全绿 → `no-discrimination`，exit 1 | `D:/Temp/evidence-191/diff-negative-pack183/diff.json` |
-| 真机旧红/当前绿 | 0.4.32 基线：⑥触发按钮检查旧红当前绿，其余两侧都绿（=无证据力） | `D:/Temp/evidence-191/diff-positive-0432/diff.json` |
-| 三种故障注入可逆、默认关闭、报告标出注入点与命中检查 | `--fault` 注入器；`environment.faults` 记元数据与安装/卸载证据；fault 模式 diff 证明注入侧按预期红 | `D:/Temp/evidence-191/diff-fault-*/diff.json`；run.mjs 注入轮 `report.json` |
+| mustFlip 未翻转 → FAIL | 0.4.39（pack-183）基线跑 boundary：两侧全绿 → `no-discrimination`，exit 1 | `<evidence-dir>/diff-negative-pack183/diff.json` |
+| 真机旧红/当前绿 | 0.4.32 基线：⑥触发按钮检查旧红当前绿，其余两侧都绿（=无证据力） | `<evidence-dir>/diff-positive-0432/diff.json` |
+| 三种故障注入可逆、默认关闭、报告标出注入点与命中检查 | `--fault` 注入器；`environment.faults` 记元数据与安装/卸载证据；fault 模式 diff 证明注入侧按预期红 | `<evidence-dir>/diff-fault-*/diff.json`；run.mjs 注入轮 `report.json` |
 | 清单/基线登记纯数据、不写机器路径 | `scripts/real/diffs/boundary.expect.json`、`baselines.json`（sha 锚） | selftest 校验结构 + 引用检查名存在于套件源码 |
 | 默认路径对既有 check 零影响 | 新增命令独立；`run.mjs` 无 `--fault` 时零包装 | `node scripts/real/diff.mjs --help` exit 0；`npm run check` 链不变 |
 
 纯 Node 自证（不需要浏览器/宿主）：
 
     node scripts/real/harness/observe/selftest.mjs
-    # RESULT: 202 PASS / 0 FAIL（观测层自证全绿）
+    # RESULT: 208 PASS / 0 FAIL（观测层自证全绿）
 
 覆盖：来源等级模型、语义文本定位、扁平差分与双通道、输入序列构造、六面解释器（合成 RAW 快照）、
 句柄装配（`snapshotExpression()` 可解析、接口封闭、参数校验）。
@@ -393,13 +394,13 @@ kit 上的产物；pilot 已删除，仓内不再保留它自带的 CDP 客户�
 负例自检（都应退出码 2、且不打印堆栈）：
 
     node scripts/real/run.mjs
-    node scripts/real/run.mjs --artifact <tgz> --browser C:\nope\msedge.exe
-    node scripts/real/run.mjs --artifact <tgz> --dsh-cli C:\nope\dsh.cmd
-    node scripts/real/run.mjs --artifact D:/nope.tgz
+    node scripts/real/run.mjs --artifact <tgz> --browser <不存在的浏览器>
+    node scripts/real/run.mjs --artifact <tgz> --dsh-cli <不存在的 CLI>
+    node scripts/real/run.mjs --artifact <不存在的产物.tgz>
 
 换绑定自检（不同 home / 端口 / 证据目录）：
 
-    node scripts/real/run.mjs --artifact <tgz> --workdir D:/Temp/alt-real --evidence-dir D:/Temp/alt-evidence --port 59661
+    node scripts/real/run.mjs --artifact <tgz> --workdir <工作目录>/alt-real --evidence-dir <evidence-dir>/alt --port <port>
 
 ## 验收对照（#187）
 
@@ -446,7 +447,7 @@ kit 上的产物；pilot 已删除，仓内不再保留它自带的 CDP 客户�
 纯 Node 自证（不需要浏览器/宿主，覆盖四类判定、四分型、六元组、预期失败、产物、Markdown 一致性、退出码）：
 
     node scripts/real/harness/report/selftest.mjs
-    # RESULT: 202 PASS / 0 FAIL（判定分类与证据报告自证全绿）
+    # RESULT: 205 PASS / 0 FAIL（判定分类与证据报告自证全绿）
 
 落盘样例（每个目录 `report.json` + `report.md`，可直接打开对照）：
 
@@ -480,12 +481,12 @@ kit 上的产物；pilot 已删除，仓内不再保留它自带的 CDP 客户�
 
 | 验收项 | 怎么满足 | 证据 |
 | --- | --- | --- |
-| pilot 经 kit 运行判定与迁移前一致，偏差有记录 | 迁移前用 kit harness 起环境、spawn 旧 pilot 得到 `ALL PASS 58/58`（acceptance 9/9）作基线；迁移后 `undo-group` 套件 `PASS 44/0/0`，A1–A5 逐条对齐旧断言 id；A6/A7/B1/B2 显式 `N-A` 并写明由 #191 覆盖 | `D:/Temp/evidence-192-legacy/bridge-summary.json`、`D:/Temp/evidence-192/<runTag>/report.json` 的 `checks[]` 与 `environment.undoGroup` |
+| pilot 经 kit 运行判定与迁移前一致，偏差有记录 | 迁移前用 kit harness 起环境、spawn 旧 pilot 得到 `ALL PASS 58/58`（acceptance 9/9）作基线；迁移后 `undo-group` 套件 `PASS 44/0/0`，A1–A5 逐条对齐旧断言 id；A6/A7/B1/B2 显式 `N-A` 并写明由 #191 覆盖 | `<evidence-dir>-legacy/bridge-summary.json`、`<evidence-dir>/<runTag>/report.json` 的 `checks[]` 与 `environment.undoGroup` |
 | 第二条套件只含场景与断言，无 harness/CDP 重复 | `suites/trigger.mjs` 只 import `errors` / `sleep` / `compareDualChannels`，装配/观测/输入/持久化/判定全部用 run.mjs 传入的句柄；静态门禁 R4/R5 对套件 0 违规 | `node scripts/check-real-gate.mjs` 0 FAIL；`trigger.mjs` 头注与 import 段 |
 | 仓内不再保留被迁移套件私有客户端/探针重复 | 删除 `scripts/repro/real/issue-181-real.mjs`（含私有 CDP 客户端、`PAGE_API`、`window.__IA` 包裹）；`exemptions.json` 清空；门禁自证 + 正式扫描全绿、`PILOT_REL` 只留 INFO | `git status`（删除文件）、`scripts/real/gate/exemptions.json`、`check-real-gate --selftest` 与正式扫描输出 |
-| 两套件同入口、同 fixture 语义、同证据协议，报告可并列比较 | `run.mjs` 的 `SUITES` 注册 `undo-group` / `trigger`；两者都走 preflight → fixture 起始态 → recorder 六元组 → `report.json`/`report.md`；差异只在 `environment.<suite>` 与 `checks[]` | `D:/Temp/evidence-192/` 下两份报告（`schemaVersion=2`、相同环境字段结构） |
+| 两套件同入口、同 fixture 语义、同证据协议，报告可并列比较 | `run.mjs` 的 `SUITES` 注册 `undo-group` / `trigger`；两者都走 preflight → fixture 起始态 → recorder 六元组 → `report.json`/`report.md`；差异只在 `environment.<suite>` 与 `checks[]` | `<evidence-dir>/` 下两份报告（`schemaVersion=2`、相同环境字段结构） |
 | 第二条套件覆盖 ≥1 真实指针路径 + ≥1 键盘路径 | T1：物理悬停/点击/移开（事件 `isTrusted=true` 断言）；T2：`focus` + `Enter` 开关面板、切触发方式，逐键 `keyDown/keyUp` 输入 `kbd` | `report.json` 的 T1/T2 检查与 `environment.trigger.observations` |
-| 迁移前后判定对照与真机连跑一致 | 每套件连跑两次（两轮 runTag），判定均为 PASS；对照表见交付报告（旧 pilot id → kit check 名 → 判定） | `D:/Temp/evidence-192/` 两轮 runTag 子目录各含 `report.json` |
+| 迁移前后判定对照与真机连跑一致 | 每套件连跑两次（两轮 runTag），判定均为 PASS；对照表见交付报告（旧 pilot id → kit check 名 → 判定） | `<evidence-dir>/` 两轮 runTag 子目录各含 `report.json` |
 
 ## 与 spec #183 的关系
 

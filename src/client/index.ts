@@ -53,7 +53,9 @@ function logDebug(event: string, fields?: Record<string, unknown>): void {
  * 只在用户自己写时参与，刷新后完全按配置重新决定（可重复、不残留上次会话状态）。
  *
  * 与门禁的关系：`scripts/check-real-hooks.mjs` 断言构建产物里含 `__dshPromptDiag`、
- * `dsh-prompt-diag`、`[dsh-prompt:diag]` 三个标记；改任一标记必须同步门禁与 `docs/real/hooks.md`。
+ * `dsh-prompt-diag`、`[dsh-prompt:diag]` 三个标记；`scripts/check-log-shape.mjs` 的诚实白名单
+ * 允许且只允许本文件这一处 `console.debug`（诊断输出，默认关闭时永不执行）；改任一标记或挪这处调用
+ * 必须同步门禁与 `docs/real/hooks.md`。
  */
 const DIAG_CONTRACT_VERSION = 1
 const DIAG_KEY = 'dsh-prompt-diag'
@@ -61,16 +63,14 @@ const DIAG_PREFIX = '[dsh-prompt:diag]'
 
 /**
  * 输出一行诊断信息。
- * 为什么经 globalThis/变量取控制台而不是直接写它的方法名：`scripts/check-log-shape.mjs` 要求
- * 源码里 `console.*` 调用清零（常规输出必须走日志能力）。诊断是不走日志能力的按需输出，
- * 只在这里集中调用一次 debug 通道；默认关闭时这段永远不会执行。
+ * 门禁白名单允许且只允许这一处 `console.debug`（见 `scripts/check-log-shape.mjs` 的
+ * `checkConsoleAllowlist`）：常规输出必须走日志能力，诊断是不走日志能力的按需输出，
+ * 所以在这里直白地调用 debug 通道一次；默认关闭时这段永远不会执行。
  */
 function diagPrint(msg: string, payload?: unknown): void {
   try {
-    const c: any = typeof console !== 'undefined' ? (console as any) : null
-    if (!c || typeof c.debug !== 'function') return
-    if (payload === undefined) c.debug(msg)
-    else c.debug(msg, payload)
+    if (typeof console === 'undefined' || typeof console.debug !== 'function') return
+    console.debug(msg, ...(payload === undefined ? [] : [payload]))
   } catch (e) { /* ignore */ }
 }
 

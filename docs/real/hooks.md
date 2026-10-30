@@ -111,7 +111,9 @@
   `enable`）；URL 只读不写回，localStorage 只在用户自己写时参与；刷新后完全按配置重新决定，
   不残留上次会话状态。
 - **门禁钉住**：`scripts/check-real-hooks.mjs` 断言构建产物含 `__dshPromptDiag`、`dsh-prompt-diag`、
-  `[dsh-prompt:diag]` 三个标记，排障入口被摇掉会立刻红。
+  `[dsh-prompt:diag]` 三个标记，排障入口被摇掉会立刻红；`scripts/check-log-shape.mjs` 的诚实白名单
+  允许且只允许 `src/client/index.ts` 这一处 `console.debug`（精确路径 + 唯一一次 + 可追溯到诊断前缀），
+  其它任何 `console.*` 仍判红。
 
 ## 6. 区域索引
 

@@ -14,6 +14,14 @@
 
 绑定进入仓库文件的唯一合法通道是「占位符 + 运行期参数」，见下节允许清单。
 
+**M1 的扫描范围（#183 评审整改后）**：`skills/**/*.md` 与实现层配方/说明文档
+`docs/real/{README,onboarding,boundary-policy}.md`、`docs/adr/0011-real-test-kit-layering.md`、
+`scripts/real/README.md`、`docs/real/{observability,static-gate,fixture,diff}.md`。
+两类文档显式排除，理由写在 `scripts/check-real-method.mjs` 的 `DOC_TARGETS_EXCLUDED` 并由 `--help` 打印：
+`docs/real/host-contract.md`（宿主实测事实：固定端口、locale、启动输出形状是契约主题本身）、
+`docs/real/report.md`（示例报告 JSON 里的 locale/timezone 是示例数据）。
+判据：受管文档里的运行期示例必须写成占位符；人写的实测/示例记录不因「如实记录本机事实」被判红。
+
 ## 2. 允许清单
 
 | 形态 | 示例（占位符） | 为什么允许 |
@@ -46,7 +54,7 @@
 
 | 门禁 | 扫描对象 | 规则 |
 | --- | --- | --- |
-| `scripts/check-real-method.mjs` | 方法层文档：`skills/**/*.md`、`docs/real/{README,onboarding,boundary-policy}.md`、分层 ADR | M1–M8 机器绑定；S1–S4 skill frontmatter；C1–C3 契约常量同步 |
+| `scripts/check-real-method.mjs` | 方法层文档：`skills/**/*.md`、`docs/real/{README,onboarding,boundary-policy}.md`、分层 ADR；实现层配方/说明文档：`scripts/real/README.md`、`docs/real/{observability,static-gate,fixture,diff}.md`（排除名单见上节） | M1–M8 机器绑定；S1–S4 skill frontmatter；C1–C3 契约常量同步 |
 | `scripts/check-real-gate.mjs` | 真机入口与套件代码（`scripts/real/**`、`scripts/repro/real/**`） | R1–R3 入口协议；R4–R5 机器绑定与自拼 CDP |
 
 两者都不把运行期证据当违规：`report.json` 里的绝对路径属于 provenance，不参与门禁扫描。

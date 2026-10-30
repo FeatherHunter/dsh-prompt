@@ -21,16 +21,39 @@ const ENTRY_SELECTOR = '[data-dsh-prompt-entry]';
 const TRIGGER_SELECTOR = '[data-dsh-prompt-trigger]';
 const COMPOSER_SELECTOR = '[data-composer-input]';
 
+/**
+ * 场景级证据（#183 评审整改 F2）：scenario() 声明本场景的布置/操作步骤，
+ * 场景内 assertField / 直接 pass 默认继承，个别检查可覆盖。
+ */
+let currentScenarioEvidence = null;
+
+function evidenceFor(overrides = {}) {
+  const base = currentScenarioEvidence || {};
+  return {
+    steps: overrides.steps !== undefined ? overrides.steps : base.steps,
+    claim: overrides.claim !== undefined ? overrides.claim : base.claim,
+    observations: overrides.observations,
+    inference: overrides.inference !== undefined ? overrides.inference : base.inference,
+  };
+}
+
 function assertField(recorder, name, options = {}) {
   const { expected, observed, source, detail, claim, steps, observations, inference } = options;
   const same = JSON.stringify(expected) === JSON.stringify(observed);
-  const record = { expected, observed, source, detail, claim, steps, observations, inference };
+  const tuple = evidenceFor({ claim, steps, observations, inference });
+  const record = { expected, observed, source, detail, ...tuple };
   if (same) recorder.pass(name, record);
   else recorder.fail(name, record);
   return same;
 }
 
-async function scenario(recorder, env, name, body) {
+async function scenario(recorder, env, name, scenarioSteps, body) {
+  const evidence = {
+    steps: scenarioSteps,
+    claim: '场景「' + name + '」的布置、真实输入与观测按这些步骤可在同一环境重放',
+    inference: '步骤在预算内成立时，本场景的触发方式断言与双通道对账才有证据力',
+  };
+  currentScenarioEvidence = evidence;
   recorder.setEnvironment({ trigger: { ...env, currentScenario: name } });
   try {
     await body();
@@ -38,11 +61,17 @@ async function scenario(recorder, env, name, body) {
   } catch (error) {
     const message = error instanceof HarnessError ? error.message : String(error && error.stack ? error.stack : error);
     if (/等待超时/.test(message)) {
-      recorder.fail(name + '：等待观测条件超时', { expected: '观测条件在预算内成立', observed: message });
+      recorder.fail(name + '：等待观测条件超时', {
+        expected: '观测条件在预算内成立',
+        observed: message,
+        ...evidence,
+        inference: '等待超时说明产品未在预算内响应，或布置前提不成立（工具链异常记 BLOCKED）',
+      });
     } else {
-      recorder.blocked(name + '：工具链异常', message);
+      recorder.blocked(name + '：工具链异常', message, evidence);
     }
   } finally {
+    currentScenarioEvidence = null;
     recorder.setEnvironment({ trigger: { ...env, currentScenario: null } });
   }
 }
@@ -130,17 +159,28 @@ export async function runTrigger(context) {
   };
   recorder.setEnvironment({ trigger: env });
 
+  /** 前置检查的证据（#183 评审整改 F2）：前置不在场景内，steps 显式写清怎么重放自检。 */
+  const preflightEvidence = {
+    steps: [
+      '检查 run.mjs 传入的 observe/input/persistence 句柄',
+      '检查 --fixture 是 trigger-hover 且 expect.hoverTrigger=true',
+      '在页面注入输入事件日志（input.log.install）并确认成功',
+    ],
+    claim: '触发套件的装配前置（句柄/配方/事件日志）齐全，后续指针与键盘路径才可归因',
+    inference: '前置缺失属运行器装配或配方错误，记 BLOCKED 而不是产品失败',
+  };
+
   if (!observe || !input || !persistence) {
-    recorder.blocked('触发套件前置', '缺少 observe/input/persistence 句柄（run.mjs 需要创建并传给套件）');
+    recorder.blocked('触发套件前置', '缺少 observe/input/persistence 句柄（run.mjs 需要创建并传给套件）', preflightEvidence);
     return;
   }
   if (!fixture || fixture.name !== 'trigger-hover') {
-    recorder.blocked('触发套件前置', '本套件需要 --fixture trigger-hover（当前 fixture=' + (fixture ? fixture.name : '无') + '）');
+    recorder.blocked('触发套件前置', '本套件需要 --fixture trigger-hover（当前 fixture=' + (fixture ? fixture.name : '无') + '）', preflightEvidence);
     return;
   }
   const declared = fixture.declared || {};
   if (declared.hoverTrigger !== true) {
-    recorder.blocked('触发套件前置', 'trigger-hover 配方的 expect.hoverTrigger 必须是 true，实际 ' + JSON.stringify(declared.hoverTrigger));
+    recorder.blocked('触发套件前置', 'trigger-hover 配方的 expect.hoverTrigger 必须是 true，实际 ' + JSON.stringify(declared.hoverTrigger), preflightEvidence);
     return;
   }
   env.fixture = { name: fixture.name, declaredHoverTrigger: declared.hoverTrigger, runTag: fixture.params && fixture.params.runTag };
@@ -149,13 +189,27 @@ export async function runTrigger(context) {
   try {
     await input.log.install();
   } catch (error) {
-    recorder.blocked('触发套件前置', '无法安装页面输入事件日志：' + String(error && error.message ? error.message : error));
+    recorder.blocked('触发套件前置', '无法安装页面输入事件日志：' + String(error && error.message ? error.message : error), {
+      ...preflightEvidence,
+      steps: ['在页面注入输入事件日志脚本（input.log.install）'],
+      inference: '事件日志装不上属工具链/页面异常；继续跑会让「真实指针事件」断言失去证据，记 BLOCKED',
+    });
     return;
   }
 
   /* ───────────────────── 场景 T1：真实指针触发路径（悬停开合 + 切到仅点击） ───────────────────── */
 
-  await scenario(recorder, env, 'T1：真实指针触发路径', async () => {
+  await scenario(recorder, env, 'T1：真实指针触发路径', [
+    'GET /_dsh/dsh-prompt/store 读回 hoverTrigger 初值，与 fixture 声明比对',
+    '读快照确认面板收起；input.move 多段移动悬停入口 → waitFor panel.visible',
+    '读 input.log：指针事件全部 isTrusted=true；断言打开态胶囊 aria-pressed=false（悬浮语义）',
+    '读 store 与界面触发语义双通道对账（悬浮 ⇔ true）',
+    'input.move 移开指针 → waitFor 面板自动收起（悬停排关）',
+    '重新悬停开面板；物理点击底栏触发方式胶囊 → waitFor aria-pressed=true（仅点击）',
+    '读 store 双通道对账（仅点击 ⇔ false）',
+    '面板收起后把指针停在入口 700ms，断言仍不开窗（#179 契约）',
+    '仅点击模式物理点入口开面板、物理点关闭按钮收面板',
+  ], async () => {
     // 初始态：配方声明 hoverTrigger=true，store 读回必须一致（fixture 起始态已由 run.mjs 校验，这里再取界面侧证据）。
     const initialStore = await persistence.read();
     assertField(recorder, 'T1-0 初始态：配方声明 hoverTrigger=true 且 store 读回一致', {
@@ -207,13 +261,18 @@ export async function runTrigger(context) {
       detail: 'aria-pressed=' + JSON.stringify(initialMode.ariaPressed) + '；text=' + JSON.stringify(initialMode.text),
     });
     const storeHover = await persistence.read();
-    recorder.pass(
-      '双通道：触发方式界面语义 ↔ 持久化 hoverTrigger 一致（悬浮 ⇔ true）',
-      compareDualChannels(
-        { name: 'ui.triggerMode', value: initialMode.mode, source: 'user-visible' },
-        { name: 'store.hoverTrigger', value: storeHover.baseline.hoverTrigger ? 'hover' : 'click', source: 'persisted' },
-      ),
+    const hoverDual = compareDualChannels(
+      { name: 'ui.triggerMode', value: initialMode.mode, source: 'user-visible' },
+      { name: 'store.hoverTrigger', value: storeHover.baseline.hoverTrigger ? 'hover' : 'click', source: 'persisted' },
     );
+    recorder.pass('双通道：触发方式界面语义 ↔ 持久化 hoverTrigger 一致（悬浮 ⇔ true）', {
+      detail: '双通道一致：' + hoverDual.a.name + '=' + JSON.stringify(hoverDual.a.value) + '（' + hoverDual.a.source + '）↔ ' +
+        hoverDual.b.name + '=' + JSON.stringify(hoverDual.b.value) + '（' + hoverDual.b.source + '）',
+      ...evidenceFor({
+        observations: { ui: hoverDual.a, store: hoverDual.b, agree: hoverDual.agree },
+        inference: '界面语义与持久化落在同一事实时，触发方式切换的证据才闭合',
+      }),
+    });
 
     // 指针路径 B：移开指针 → 悬停排关，面板收起。
     await input.move(null, { x: 5, y: 5 }, { steps: 6 });
@@ -256,13 +315,18 @@ export async function runTrigger(context) {
       timeoutMs: 6_000,
       label: '触发方式切换后 store.hoverTrigger 落盘 false',
     });
-    recorder.pass(
-      '双通道：触发方式界面语义 ↔ 持久化 hoverTrigger 一致（仅点击 ⇔ false）',
-      compareDualChannels(
-        { name: 'ui.triggerMode', value: modeAfter.mode, source: 'user-visible' },
-        { name: 'store.hoverTrigger', value: storeClick.baseline.hoverTrigger ? 'hover' : 'click', source: 'persisted' },
-      ),
+    const clickDual = compareDualChannels(
+      { name: 'ui.triggerMode', value: modeAfter.mode, source: 'user-visible' },
+      { name: 'store.hoverTrigger', value: storeClick.baseline.hoverTrigger ? 'hover' : 'click', source: 'persisted' },
     );
+    recorder.pass('双通道：触发方式界面语义 ↔ 持久化 hoverTrigger 一致（仅点击 ⇔ false）', {
+      detail: '双通道一致：' + clickDual.a.name + '=' + JSON.stringify(clickDual.a.value) + '（' + clickDual.a.source + '）↔ ' +
+        clickDual.b.name + '=' + JSON.stringify(clickDual.b.value) + '（' + clickDual.b.source + '）',
+      ...evidenceFor({
+        observations: { ui: clickDual.a, store: clickDual.b, agree: clickDual.agree },
+        inference: '界面语义与持久化落在同一事实时，触发方式切换的证据才闭合',
+      }),
+    });
 
     // 指针路径 D：#179 契约 —— 仅点击模式下悬停入口不再开窗。
     await closePanelByClick({ observe, input, panelMs });
@@ -297,7 +361,14 @@ export async function runTrigger(context) {
 
   /* ───────────────────── 场景 T2：真实键盘路径（Enter 激活 + 逐键输入） ───────────────────── */
 
-  await scenario(recorder, env, 'T2：真实键盘触发路径', async () => {
+  await scenario(recorder, env, 'T2：真实键盘触发路径', [
+    'DOM focus 入口按钮，读 input.focus 结果',
+    '经 harness/input 发真实键盘 Enter keyDown/keyUp → waitFor 面板打开（原生 button 键盘激活）',
+    'DOM focus 底栏触发方式按钮，真实 Enter → waitFor aria-pressed=false（回到悬浮）',
+    '读 store 与界面触发语义双通道对账（悬浮 ⇔ true）',
+    '再次 focus 入口 + Enter → waitFor 面板收起',
+    '清空 composer 后 focus composer，逐键发真实 k/b/d keyDown/keyUp → waitFor 草稿文本 kbd',
+  ], async () => {
     // T1 留下的是「仅点击」模式；键盘 Enter 在入口按钮上等价原生 click。
     const focusEntry = await input.focus(ENTRY_SELECTOR);
     assertField(recorder, 'T2-0 布置：入口按钮获得 DOM 焦点', {
@@ -343,13 +414,18 @@ export async function runTrigger(context) {
       timeoutMs: 6_000,
       label: '键盘切换后 store.hoverTrigger 落盘 true',
     });
-    recorder.pass(
-      '双通道：键盘切换后界面语义 ↔ 持久化 hoverTrigger 一致（悬浮 ⇔ true）',
-      compareDualChannels(
-        { name: 'ui.triggerMode', value: modeByKeyboard.mode, source: 'user-visible' },
-        { name: 'store.hoverTrigger', value: storeHoverAgain.baseline.hoverTrigger ? 'hover' : 'click', source: 'persisted' },
-      ),
+    const keyboardDual = compareDualChannels(
+      { name: 'ui.triggerMode', value: modeByKeyboard.mode, source: 'user-visible' },
+      { name: 'store.hoverTrigger', value: storeHoverAgain.baseline.hoverTrigger ? 'hover' : 'click', source: 'persisted' },
     );
+    recorder.pass('双通道：键盘切换后界面语义 ↔ 持久化 hoverTrigger 一致（悬浮 ⇔ true）', {
+      detail: '双通道一致：' + keyboardDual.a.name + '=' + JSON.stringify(keyboardDual.a.value) + '（' + keyboardDual.a.source + '）↔ ' +
+        keyboardDual.b.name + '=' + JSON.stringify(keyboardDual.b.value) + '（' + keyboardDual.b.source + '）',
+      ...evidenceFor({
+        observations: { ui: keyboardDual.a, store: keyboardDual.b, agree: keyboardDual.agree },
+        inference: '键盘路径与指针路径共享同一持久化事实，触发域两路证据闭合',
+      }),
+    });
 
     // 键盘再按一次入口：面板收起（button onClick 取反）。
     await input.focus(ENTRY_SELECTOR);

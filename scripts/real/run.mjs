@@ -177,13 +177,29 @@ async function execute(bindings) {
       },
     });
     for (const check of preflight.checks) {
+      const contractEvidence = {
+        claim: '宿主契约「' + check.id + '」与钉住契约版本一致（不满足则整轮阻塞、不执行套件）',
+        steps: [
+          '在一次性 DSH_HOME 里安装被测产物（dsh plugin add file:<artifact>）',
+          '启动宿主 web 服务，用无头浏览器连 CDP 打开宿主页面',
+          '运行 preflight 的「' + check.id + '」探针，把契约期望与页面观测逐字段对比',
+        ],
+        observations: { expected: check.expected, observed: check.observed, detail: check.detail },
+        inference: check.ok
+          ? '契约成立时，套件的观测语义才有宿主版本前提'
+          : '契约不成立时产品/宿主边界变了，不能把后续检查结果归因到产品',
+      };
       if (check.ok) {
-        recorder.pass('契约：' + check.id, JSON.stringify({ expected: check.expected, observed: check.observed }));
+        recorder.pass('契约：' + check.id, {
+          detail: JSON.stringify({ expected: check.expected, observed: check.observed }),
+          ...contractEvidence,
+        });
       } else {
         recorder.blocked(
           '契约：' + check.id,
           '宿主行为与钉住版本不一致，套件未执行。期望 ' + JSON.stringify(check.expected) +
             '；观测 ' + JSON.stringify(check.observed) + '；' + check.detail,
+          contractEvidence,
         );
       }
     }
@@ -216,13 +232,29 @@ async function execute(bindings) {
           diffs: fixtureBaseline.diffs,
         },
       });
+      const fixtureEvidence = {
+        claim: '配方 ' + preparedFixture.name + ' 的起始 store 状态与声明一致（不符则整轮阻塞、不执行套件）',
+        steps: [
+          'preflight 通过后，经宿主 HTTP 桥 GET /_dsh/dsh-prompt/store 读回起始 baseline',
+          '与配方 expect 逐路径对比（customs/usage/pinned/lastUsed/hidePreset/hoverTrigger/remote）',
+          '不符时列出 current vs expected 的 diffs 并整轮 BLOCKED，不执行套件',
+        ],
+        observations: { recipe: preparedFixture.name, ok: fixtureBaseline.ok, diffs: fixtureBaseline.diffs },
+        inference: fixtureBaseline.ok
+          ? '起始态吻合时，套件里「插入后 +1」之类的增量断言才有可归因的零点'
+          : '起始态漂移属环境/配方问题，不能记到产品头上',
+      };
       if (fixtureBaseline.ok) {
-        recorder.pass('fixture 起始态', '配方 ' + preparedFixture.name + '：' + JSON.stringify(fixtureBaseline.observed));
+        recorder.pass('fixture 起始态', {
+          detail: '配方 ' + preparedFixture.name + '：' + JSON.stringify(fixtureBaseline.observed),
+          ...fixtureEvidence,
+        });
         recorder.setEnvironment({ phase: 'fixture-ok' });
       } else {
         recorder.blocked(
           'fixture 起始态',
           '配方 ' + preparedFixture.name + ' 起始态与声明不符，套件未执行。' + formatDiffs(fixtureBaseline.diffs),
+          fixtureEvidence,
         );
       }
     }
@@ -292,7 +324,16 @@ async function execute(bindings) {
           const results = uninstall && uninstall.results ? Object.values(uninstall.results) : [];
           const broken = results.filter((item) => item && item.restored === false);
           if (broken.length > 0) {
-            recorder.toolFault('故障注入回滚失败', JSON.stringify(broken));
+            recorder.toolFault('故障注入回滚失败', JSON.stringify(broken), {
+              claim: '本次 --fault 注入的接缝在套件结束后必须全部还原，否则后续运行会被残留故障污染',
+              steps: [
+                '套件结束时按逆序调用每个故障注入器的 uninstall()',
+                '收集每个注入器返回的 restored 布尔与证据',
+                '断言没有 restored===false 的注入器；有则记工具故障（不改产品判定）',
+              ],
+              observations: { broken, results: uninstall ? uninstall.results : null },
+              inference: '回滚失败属运行器/接缝问题，不能让故障残留影响下一轮或误判产品',
+            });
           }
         }
       }
@@ -307,9 +348,23 @@ async function execute(bindings) {
     // 装配/环境问题 → BLOCKED（退出码 2）；运行器自身未预期异常 → 工具故障（退出码 3），
     // 绝不让工具故障冒充产品失败。
     if (error instanceof HarnessError) {
-      recorder.blocked('装配环节', message);
+      recorder.blocked('装配环节', message, {
+        claim: '一次性 profile、宿主服务、浏览器与观测句柄的装配必须全部成功，套件才能执行',
+        steps: [
+          '创建一次性 DSH_HOME 并安装被测产物',
+          '启动宿主 web 服务、启动无头浏览器并连 CDP、preparePage 收遮罩',
+          '创建 observe/input/persistence 句柄并执行 preflight 与 fixture 起始态检查',
+        ],
+        observations: { error: message },
+        inference: '装配失败属环境/宿主问题，套件未执行，不能记产品失败',
+      });
     } else {
-      recorder.toolFault('运行器未预期异常', message);
+      recorder.toolFault('运行器未预期异常', message, {
+        claim: '运行器自身异常必须与产品判定分开（不得冒充产品 FAIL）',
+        steps: ['捕获 execute() 的未预期异常', '写进报告工具故障分型（退出码 3）并保留 stack'],
+        observations: { error: message },
+        inference: '未预期异常来自运行器代码/宿主 SDK，先把运行器修好再谈产品结论',
+      });
     }
   } finally {
     recorder.setEnvironment({ phase: 'cleanup' });
@@ -321,7 +376,12 @@ async function execute(bindings) {
       }
     } catch (error) {
       cleanup.cdpClosed = false;
-      recorder.blocked('CDP 连接收尾', String(error && error.message ? error.message : error));
+      recorder.blocked('CDP 连接收尾', String(error && error.message ? error.message : error), {
+        claim: 'CDP 连接必须在运行结束后关闭，避免浏览器进程/调试端口泄漏',
+        steps: ['调用 client.close() 关闭 CDP 连接', '失败时记录异常文本并继续后续清理'],
+        observations: { error: String(error && error.message ? error.message : error) },
+        inference: '收尾失败影响下一轮环境隔离，属运行器/环境问题',
+      });
     }
     try {
       if (browser) {
@@ -331,7 +391,12 @@ async function execute(bindings) {
         cleanup.browserCdpPortFree = await waitForPortFree(browser.cdpPort, 5_000);
       }
     } catch (error) {
-      recorder.blocked('浏览器收尾', String(error && error.message ? error.message : error));
+      recorder.blocked('浏览器收尾', String(error && error.message ? error.message : error), {
+        claim: '无头浏览器进程必须退出并释放 CDP 调试端口',
+        steps: ['调用 browser.close() 退出浏览器进程', 'waitForPortFree 等待 CDP 调试端口释放', '失败时记录异常文本并继续后续清理'],
+        observations: { error: String(error && error.message ? error.message : error), cdpPort: browser ? browser.cdpPort : null },
+        inference: '收尾失败影响下一轮环境隔离，属运行器/环境问题',
+      });
     }
     try {
       if (server) {
@@ -340,7 +405,12 @@ async function execute(bindings) {
         cleanup.serverPortFree = await isPortFree(stopped.port);
       }
     } catch (error) {
-      recorder.blocked('宿主服务收尾', String(error && error.message ? error.message : error));
+      recorder.blocked('宿主服务收尾', String(error && error.message ? error.message : error), {
+        claim: '一次性宿主 web 服务必须停止并释放端口',
+        steps: ['调用 server.stop() 停止宿主子进程', 'isPortFree 确认端口已释放', '失败时记录异常文本并继续后续清理'],
+        observations: { error: String(error && error.message ? error.message : error) },
+        inference: '收尾失败影响下一轮环境隔离，属运行器/环境问题',
+      });
     }
     if (!bindings.keep) {
       try {
@@ -357,7 +427,12 @@ async function execute(bindings) {
         }
       } catch (error) {
         cleanup.workDirRemoved = false;
-        recorder.blocked('清理一次性工作目录', String(error && error.message ? error.message : error));
+        recorder.blocked('清理一次性工作目录', String(error && error.message ? error.message : error), {
+          claim: '默认路径下一次性工作目录应被删除（--keep 时保留并记录路径）',
+          steps: ['fs.rmSync 递归删除本次 runTag 工作目录', '尝试 rmdir 空的 workRoot', '失败时记录异常与保留路径'],
+          observations: { workDir: runContext.workDir, error: String(error && error.message ? error.message : error) },
+          inference: '清理失败可能影响磁盘/下一轮隔离，属环境问题',
+        });
       }
     }
     recorder.setEnvironment({ cleanup });

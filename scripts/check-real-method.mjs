@@ -35,6 +35,30 @@ const DOC_TARGETS = [
   'docs/real/onboarding.md',
   'docs/real/boundary-policy.md',
   'docs/adr/0011-real-test-kit-layering.md',
+  // #183 评审整改 F3：实现层文档也在边界政策 §1 的「机器绑定不得进仓库」范围内，
+  // 之前只在 check-real-gate 的 R4 里查 .mjs，配方/实现层 Markdown 没人管。
+  'scripts/real/README.md',
+  'docs/real/observability.md',
+  'docs/real/static-gate.md',
+  'docs/real/fixture.md',
+  'docs/real/diff.md',
+];
+
+/**
+ * 显式排除的文档与理由（#183 评审整改 F3）。
+ * 这些文件是「人写的实测/示例记录」，里面的固定端口、locale、示例路径是文档主题本身，
+ * 不是从本机抄进去的运行参数；把它们纳进 M1 会导致「为了过门禁而删掉实测事实」。
+ * 排除必须逐条写理由，不允许静默跳过（--help 与扫描输出都会打印这份名单）。
+ */
+export const DOC_TARGETS_EXCLUDED = [
+  {
+    file: 'docs/real/host-contract.md',
+    reason: '宿主实测事实：固定端口、locale、启动输出形状是契约主题本身，属人写的观测记录',
+  },
+  {
+    file: 'docs/real/report.md',
+    reason: '示例报告 JSON 里的 locale/timezone 是示例数据，不是本机运行参数',
+  },
 ];
 
 /* ───────────────────────────── 机器特定值规则 ───────────────────────────── */
@@ -379,6 +403,9 @@ function runSelftest() {
     ['bad/m6-locale.md', 'M6'],
     ['bad/m7-host-install.md', 'M7'],
     ['bad/m8-ipv4.md', 'M8'],
+    // #183 评审整改 F3：故意写成 scripts/real/README.md 风格（跑命令 + 证据目录），
+    // 证明实现层文档命中的本机路径同样会被 M1 抓到，而不是只管方法层四篇。
+    ['bad/readme-local-path.md', 'M1'],
   ];
   for (const [sample, expectedRule] of badCases) {
     check(`坏样本被拒：${sample} → ${expectedRule}`, () => {
@@ -390,6 +417,15 @@ function runSelftest() {
       );
     });
   }
+
+  check('坏样本经文档扫描路径也被拒（README 风格本机证据目录 → M1）', () => {
+    const { file } = readSample('bad/readme-local-path.md');
+    const violations = scanDocument(file);
+    assert(
+      violations.some((violation) => violation.ruleId === 'M1'),
+      `期望文档扫描命中 M1，实际 ${JSON.stringify(violations.map((violation) => violation.ruleId))}`,
+    );
+  });
 
   check('好样本不误报：good/clean.md', () => {
     const { text } = readSample('good/clean.md');
@@ -450,9 +486,14 @@ function usage() {
     '用法：node scripts/check-real-method.mjs [--selftest] [--help]',
     '',
     '扫描方法层文档（skills/**、docs/real/README.md、docs/real/onboarding.md、',
-    'docs/real/boundary-policy.md、docs/adr/0011-real-test-kit-layering.md）：',
+    'docs/real/boundary-policy.md、docs/adr/0011-real-test-kit-layering.md）',
+    '与实现层配方/说明文档（scripts/real/README.md、docs/real/observability.md、',
+    'docs/real/static-gate.md、docs/real/fixture.md、docs/real/diff.md）：',
     '命中本机绑定值（盘符路径、用户主目录、固定端口、浏览器安装路径、固定 locale、',
     'IPv4 字面量……）即 FAIL；同时校验 skill 契约常量与 harness/report/model.mjs 同步。',
+    '',
+    '显式排除（人写的实测/示例记录，固定值是其主题，逐条理由见 DOC_TARGETS_EXCLUDED）：',
+    ...DOC_TARGETS_EXCLUDED.map((item) => '  - ' + item.file + '：' + item.reason),
     '',
     '--selftest  用 scripts/real/method/samples/ 下的坏/好样本证明门禁能红也能绿',
     '--help      打印本帮助',
@@ -476,6 +517,8 @@ function main(argv) {
   const { files, violations } = scanAll();
   const skillCount = files.filter((file) => file.startsWith(SKILLS_ROOT + path.sep)).length;
   console.log(`[method] 扫描 ${files.length} 个方法层文档（skill ${skillCount} / docs ${files.length - skillCount}）`);
+  console.log(`[method] 显式排除 ${DOC_TARGETS_EXCLUDED.length} 篇（人写的实测/示例记录）：`);
+  for (const item of DOC_TARGETS_EXCLUDED) console.log(`[method]   - ${item.file}：${item.reason}`);
   for (const violation of violations) printViolation(violation);
   console.log(`RESULT: ${violations.length} FAIL`);
   return violations.length === 0 ? 0 : 1;

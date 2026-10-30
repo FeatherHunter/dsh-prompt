@@ -297,6 +297,29 @@ throws(
   '双通道不允许匿名来源（拿不到可信来源的通道不能当证据）',
 );
 
+// #183 评审整改 S4：两路证据同层不能当双通道（即使值相等也必须 agree=false/证据不闭合）。
+const dualSameLayer = compareDualChannels(
+  { name: 'panelVisible', value: true, source: 'user-visible' },
+  { name: 'rowVisible', value: true, source: 'user-visible' },
+  { name: 'visible' },
+);
+eq(dualSameLayer.agree, false, 'S4 同一来源层（user-visible vs user-visible）不算双通道一致');
+eq(dualSameLayer.sourceConflict, true, 'S4 同层对账显式标记 sourceConflict=true');
+ok(String(dualSameLayer.detail).includes('两路证据同源'), 'S4 同层对账写明「两路证据同源，证据不闭合」');
+const dualSamePersisted = compareDualChannels(
+  { name: 'storeUsage', value: 1, source: 'persisted' },
+  { name: 'storeLastUsed', value: 1, source: 'persisted' },
+  { name: 'persistedPair' },
+);
+eq(dualSamePersisted.agree, false, 'S4 两条 persisted 证据同样不能互证（同层）');
+eq(dualSamePersisted.sourceConflict, true, 'S4 两条持久化证据也标 sourceConflict');
+const dualCrossLayer = compareDualChannels(
+  { name: 'api', value: true, source: 'public-api' },
+  { name: 'store', value: true, source: 'persisted' },
+  { name: 'crossLayer' },
+);
+deepEq([dualCrossLayer.agree, dualCrossLayer.sourceConflict], [true, false], 'S4 跨层（public-api vs persisted）仍判 agree=true');
+
 const PHYS = [
   { type: 'pointer.move', phase: 'enter', target: 'entry' },
   { type: 'pointer.down', target: 'entry' },

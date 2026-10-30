@@ -94,7 +94,7 @@ node scripts/real/run.mjs --artifact <插件.tgz> --suite smoke --fixture trigge
 node scripts/real/run.mjs --artifact <插件.tgz> --suite smoke --fixture remote-prefs
 
 # 显式配方路径（跨仓复用/临时实验；仍只写本轮一次性 home）
-node scripts/real/run.mjs --artifact <插件.tgz> --fixture D:/tmp/my-fixture.json
+node scripts/real/run.mjs --artifact <插件.tgz> --fixture <fixture.json>
 ```
 
 也可用环境变量：`DSH_REAL_FIXTURE`（配方名/路径）、`DSH_REAL_FIXTURE_FAULT`（故障注入）。
@@ -102,7 +102,7 @@ node scripts/real/run.mjs --artifact <插件.tgz> --fixture D:/tmp/my-fixture.js
 
 ```powershell
 node scripts/real/harness/fixture/selftest.mjs
-# RESULT: 108 PASS / 0 FAIL（fixture 自证全绿）
+# RESULT: 115 PASS / 0 FAIL（fixture 自证全绿）
 ```
 
 ## 失败行为：BLOCKED 而不是假 FAIL

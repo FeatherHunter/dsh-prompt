@@ -25,6 +25,8 @@ import path from 'node:path';
 
 import { fileURLToPath } from 'node:url';
 
+import { HOST_CONTRACT } from '../contract/host.mjs';
+
 const FIXTURE_MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 /** 仓库内置配方目录（scripts/real/fixtures），与 harness 同级。 */
@@ -32,14 +34,28 @@ export const DEFAULT_FIXTURES_DIR = path.resolve(FIXTURE_MODULE_DIR, '..', '..',
 
 export const FIXTURE_FORMAT_VERSION = 1;
 
+// #183 评审整改 S2：store 位置与插件域只从宿主契约（harness/contract/host.mjs）取一份，
+// fixture 层不再各存一份字符串常量——宿主升级时只改契约，种子/读回路径自动跟着改。
+const { storage } = HOST_CONTRACT;
+
 /** 插件 store 相对一次性 DSH_HOME 的位置（single 布局：<root>/<域>.json）。 */
-export const STORE_RELATIVE_PATH = 'storages/dsh_prompt.json';
-export const STORE_FILE_NAME = 'dsh_prompt.json';
+export const STORE_RELATIVE_PATH = storage.rootRelative + '/' + storage.pluginDomain.file;
+export const STORE_FILE_NAME = storage.pluginDomain.file;
 
 /** 插件 domain 声明（`promptDomainSpec`：name/version 必须与落盘 unit 一致，否则宿主拒读）。 */
-export const DEFAULT_DOMAIN = Object.freeze({ name: 'dsh_prompt', version: 0 });
+export const DEFAULT_DOMAIN = Object.freeze({
+  name: storage.pluginDomain.name,
+  version: storage.pluginDomain.version,
+});
 
-/** 插件定义里的全局默认值（`promptDomainSpec.global.initial`）；干净态 = 这组值。 */
+/**
+ * 插件定义里的全局默认值（`promptDomainSpec.global.initial` 的产品固化副本）。
+ *
+ * 来源：产品构建产物 lib/index.js 的 `initial: { ... }`（域定义随产物发布，不随测试改）。
+ * 这是唯一允许在测试侧固化的产品 seed 值——因为 harness 不能 import 产物 bundle；
+ * 由 `harness/fixture/selftest.mjs` 的「CLEAN_GLOBAL 与产品 initial 一致」断言盯着：
+ * 产品改了 initial 而这里没跟上，fixture 自证会红，不会静默用旧默认值跑真机。
+ */
 export const CLEAN_GLOBAL = Object.freeze({
   lastUsed: null,
   remoteEnabled: false,

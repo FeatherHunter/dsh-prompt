@@ -23,13 +23,27 @@ const CURSOR_MARKER = '{{cursor}}';
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * 六元组断言：期望/实测都写进报告；判定协议与 boundary 套件一致（PASS/FAIL + 证据）。
- * 关键场景的 claim/steps/observations/inference 由 scenario 包装统一补，逐检查补 detail。
+ * 场景级证据（#183 评审整改 F2）：scenario() 声明本场景的布置/操作步骤，
+ * 场景内 assertField / assertDraftText 默认继承，个别检查可覆盖。
  */
+let currentScenarioEvidence = null;
+
+function evidenceFor(overrides = {}) {
+  const base = currentScenarioEvidence || {};
+  return {
+    steps: overrides.steps !== undefined ? overrides.steps : base.steps,
+    claim: overrides.claim !== undefined ? overrides.claim : base.claim,
+    observations: overrides.observations,
+    inference: overrides.inference !== undefined ? overrides.inference : base.inference,
+  };
+}
+
+/** 六元组断言：期望/实测都写进报告；判定协议与 boundary 套件一致（PASS/FAIL + 证据）。 */
 function assertField(recorder, name, options = {}) {
   const { expected, observed, source, detail, claim, steps, observations, inference } = options;
   const same = JSON.stringify(expected) === JSON.stringify(observed);
-  const record = { expected, observed, source, detail, claim, steps, observations, inference };
+  const tuple = evidenceFor({ claim, steps, observations, inference });
+  const record = { expected, observed, source, detail, ...tuple };
   if (same) recorder.pass(name, record);
   else recorder.fail(name, record);
   return same;
@@ -39,7 +53,13 @@ function assertField(recorder, name, options = {}) {
  * 场景包装：超时 = FAIL（产品在预算内没给出结果），工具链异常 = BLOCKED。
  * 与 boundary 套件同一套语义，报告可并列比较。
  */
-async function scenario(recorder, env, name, body) {
+async function scenario(recorder, env, name, scenarioSteps, body) {
+  const evidence = {
+    steps: scenarioSteps,
+    claim: '场景「' + name + '」的布置、真实输入与观测按这些步骤可在同一环境重放',
+    inference: '步骤在预算内成立时，草稿字节/caret 断言与撤销分组才可归因到产品行为',
+  };
+  currentScenarioEvidence = evidence;
   recorder.setEnvironment({ undoGroup: { ...env, currentScenario: name } });
   try {
     await body();
@@ -47,11 +67,17 @@ async function scenario(recorder, env, name, body) {
   } catch (error) {
     const message = error instanceof HarnessError ? error.message : String(error && error.stack ? error.stack : error);
     if (/等待超时/.test(message)) {
-      recorder.fail(name + '：等待观测条件超时', { expected: '观测条件在预算内成立', observed: message });
+      recorder.fail(name + '：等待观测条件超时', {
+        expected: '观测条件在预算内成立',
+        observed: message,
+        ...evidence,
+        inference: '等待超时说明产品未在预算内响应，或布置前提不成立（工具链异常记 BLOCKED）',
+      });
     } else {
-      recorder.blocked(name + '：工具链异常', message);
+      recorder.blocked(name + '：工具链异常', message, evidence);
     }
   } finally {
+    currentScenarioEvidence = null;
     recorder.setEnvironment({ undoGroup: { ...env, currentScenario: null } });
   }
 }
@@ -183,6 +209,8 @@ async function insertTemplate({ recorder, observe, input, client, panelMs, prese
       expected: '文本包含「' + preset.name + '」的行',
       observed: rows.map((row) => row.text),
       detail: '配方种子与界面行文本不一致，无法继续插入',
+      ...evidenceFor(),
+      observations: { expectedText: preset.name, rows: rows.map((row) => row.text) },
     });
     throw new HarnessError('无法按语义文本定位模板行：' + preset.name);
   }
@@ -244,10 +272,11 @@ function assertDraftText(recorder, name, raw, expected, options = {}) {
     expected: expected === null ? '（空草稿）' : expected,
     observed: observedText,
     detail: detail || ('chars=' + observedText.length),
-    claim: name,
-    steps: ['真实输入后读取观测层 composer 原始字段（innerText + DOM selection）'],
-    observations: { text: observedText, selectionStart: raw.composer.selection.start, selectionEnd: raw.composer.selection.end },
-    inference: '草稿文本与旧 pilot 期望逐字一致时，撤销分组行为未倒退',
+    ...evidenceFor({
+      claim: name,
+      observations: { text: observedText, selectionStart: raw.composer.selection.start, selectionEnd: raw.composer.selection.end },
+      inference: '草稿文本与旧 pilot 期望逐字一致时，撤销分组行为未倒退',
+    }),
   };
   if (ok) recorder.pass(name, record);
   else recorder.fail(name, record);
@@ -288,19 +317,30 @@ export async function runUndoGroup(context) {
   };
   recorder.setEnvironment({ undoGroup: env });
 
+  /** 前置检查的证据（#183 评审整改 F2）：前置不在场景内，steps 显式写清怎么重放自检。 */
+  const preflightEvidence = {
+    steps: [
+      '检查 run.mjs 传入的 observe/input 句柄',
+      '检查 --fixture 是 undo-group，且配方含 -undo-single / -undo-multi / -undo-plain 三条模板',
+      '在页面注入输入事件日志（input.log.install）并确认成功',
+    ],
+    claim: '撤销分组套件的装配前置（句柄/配方/事件日志）齐全，后续场景才可归因',
+    inference: '前置缺失属运行器装配或配方错误，记 BLOCKED 而不是产品失败',
+  };
+
   if (!observe || !input) {
-    recorder.blocked('撤销分组套件前置', '缺少 observe/input 句柄（run.mjs 需要创建并传给套件）');
+    recorder.blocked('撤销分组套件前置', '缺少 observe/input 句柄（run.mjs 需要创建并传给套件）', preflightEvidence);
     return;
   }
   if (!fixture || fixture.name !== 'undo-group') {
-    recorder.blocked('撤销分组套件前置', '本套件需要 --fixture undo-group（当前 fixture=' + (fixture ? fixture.name : '无') + '）');
+    recorder.blocked('撤销分组套件前置', '本套件需要 --fixture undo-group（当前 fixture=' + (fixture ? fixture.name : '无') + '）', preflightEvidence);
     return;
   }
   const single = pickPreset(fixture, '-undo-single');
   const multi = pickPreset(fixture, '-undo-multi');
   const plain = pickPreset(fixture, '-undo-plain');
   if (!single || !multi || !plain) {
-    recorder.blocked('撤销分组套件前置', 'undo-group 配方缺少三条约定模板（-undo-single / -undo-multi / -undo-plain）');
+    recorder.blocked('撤销分组套件前置', 'undo-group 配方缺少三条约定模板（-undo-single / -undo-multi / -undo-plain）', preflightEvidence);
     return;
   }
   env.fixture = {
@@ -313,13 +353,27 @@ export async function runUndoGroup(context) {
   try {
     await input.log.install();
   } catch (error) {
-    recorder.blocked('撤销分组套件前置', '无法安装页面输入事件日志：' + String(error && error.message ? error.message : error));
+    recorder.blocked('撤销分组套件前置', '无法安装页面输入事件日志：' + String(error && error.message ? error.message : error), {
+      ...preflightEvidence,
+      steps: ['在页面注入输入事件日志脚本（input.log.install）'],
+      inference: '事件日志装不上属工具链/页面异常；继续跑会让「真实输入」类证据不完整，记 BLOCKED',
+    });
     return;
   }
 
   /* ───────────────────── A1：非空草稿末尾 + 含标记单行（undo1/2/3 + redo） ───────────────────── */
 
-  await scenario(recorder, env, 'A1：末尾插入含标记单行', async () => {
+  await scenario(recorder, env, 'A1：末尾插入含标记单行', [
+    '清空 composer（物理点进编辑区 → Ctrl+A/Backspace → selection API 归零）并用宿主单笔输入键入草稿 abc',
+    '真实键盘把 caret 放到草稿末尾（等待 DOM selection 与 captureInsertion 同步在 3）',
+    '物理悬停入口开面板 → 按用户可见名称定位「标记单行」模板行 → 物理点击',
+    '等草稿 == abcSMARTEND 且 caret == 8；读宿主 captureInsertion 落点（公开接口）',
+    '真实键盘 Ctrl+Z：等草稿 == abcSMART{{cursor}}END（标记重现）',
+    '真实键盘 Ctrl+Z：等草稿 == abc',
+    '真实键盘 Ctrl+Z：等草稿清空',
+    '真实键盘 Ctrl+Y ×3：等草稿 == abc / abcSMART{{cursor}}END / abcSMARTEND',
+    'Ctrl+Z 回标记态后按 Ctrl+Shift+Z：等草稿 == abcSMARTEND（redo 备选键）',
+  ], async () => {
     const preparedDraft = await clearComposer({ observe, input, panelMs });
     env.observations.A1Prepared = { text: preparedDraft.raw.composer.text, selection: preparedDraft.raw.composer.selection };
     const typed = await typeDraft({ observe, input, panelMs, text: 'abc', env });
@@ -361,7 +415,13 @@ export async function runUndoGroup(context) {
 
   /* ───────────────────── A2：非空草稿中间 + 含标记单行 ───────────────────── */
 
-  await scenario(recorder, env, 'A2：中间插入含标记单行', async () => {
+  await scenario(recorder, env, 'A2：中间插入含标记单行', [
+    '重载页面（对齐旧 pilot 每场景 boot，隔离上一场景 undo 历史）',
+    '清空 composer 并键入 abc，真实键盘 ArrowLeft ×1 把 caret 放到 offset=2',
+    '物理悬停开面板 → 按用户可见名称定位「标记单行」模板行 → 物理点击（插入到草稿中间）',
+    '等草稿 == abSMARTENDc 且 caret == 7',
+    '真实键盘 Ctrl+Z：等草稿 == abSMART{{cursor}}ENDc / abc / 空',
+  ], async () => {
     // 对齐旧 pilot：每个场景重新 boot 页面，撤掉上一场景的 undo 历史与编辑器内存状态。
     await reloadPage({ client, server, timeouts, observe, input, pageLoadMs });
     await clearComposer({ observe, input, panelMs });
@@ -381,7 +441,13 @@ export async function runUndoGroup(context) {
 
   /* ───────────────────── A3：空草稿 + 含标记多行 ───────────────────── */
 
-  await scenario(recorder, env, 'A3：空草稿插入含标记多行', async () => {
+  await scenario(recorder, env, 'A3：空草稿插入含标记多行', [
+    '重载页面（隔离上一场景 undo 历史）',
+    '清空 composer，确认草稿为空且 caret 在起点',
+    '物理悬停开面板 → 按用户可见名称定位「标记多行」模板行 → 物理点击',
+    '等草稿 == 第一行第二行\\n第三行 且 caret == 3（多行保留）',
+    '真实键盘 Ctrl+Z ×2：等草稿 == 第一行{{cursor}}第二行\\n第三行 / 空',
+  ], async () => {
     await reloadPage({ client, server, timeouts, observe, input, pageLoadMs });
     const preparedDraft = await clearComposer({ observe, input, panelMs });
     assertField(recorder, 'A3-0 布置：草稿为空且 caret 在起点', {
@@ -400,7 +466,13 @@ export async function runUndoGroup(context) {
 
   /* ───────────────────── A4：无标记模板插入非空草稿中间 ───────────────────── */
 
-  await scenario(recorder, env, 'A4：中间插入无标记模板', async () => {
+  await scenario(recorder, env, 'A4：中间插入无标记模板', [
+    '重载页面（隔离上一场景 undo 历史）',
+    '清空 composer 并键入 abc，真实键盘 ArrowLeft ×2 把 caret 放到 offset=1',
+    '物理悬停开面板 → 按用户可见名称定位「无标记」模板行 → 物理点击（插入到草稿中间）',
+    '等草稿 == aNOMARKbc 且 caret == 7；读宿主 captureInsertion 落点 == 7',
+    '真实键盘 Ctrl+Z：等草稿 == abc（无标记只撤插入）',
+  ], async () => {
     await reloadPage({ client, server, timeouts, observe, input, pageLoadMs });
     await clearComposer({ observe, input, panelMs });
     await typeDraft({ observe, input, panelMs, text: 'abc', env });
@@ -422,7 +494,13 @@ export async function runUndoGroup(context) {
 
   /* ───────────────────── A5：无标记模板插入空草稿 ───────────────────── */
 
-  await scenario(recorder, env, 'A5：空草稿插入无标记模板', async () => {
+  await scenario(recorder, env, 'A5：空草稿插入无标记模板', [
+    '重载页面（隔离上一场景 undo 历史）',
+    '清空 composer，确认草稿为空',
+    '物理悬停开面板 → 按用户可见名称定位「无标记」模板行 → 物理点击',
+    '等草稿 == NOMARK 且 caret == 6',
+    '真实键盘 Ctrl+Z：等草稿清空（旧版不可撤销 → 新版可撤销）',
+  ], async () => {
     await reloadPage({ client, server, timeouts, observe, input, pageLoadMs });
     await clearComposer({ observe, input, panelMs });
     const inserted = await insertTemplate({ recorder, observe, input, client, panelMs, preset: plain, env, expectedCaret: 6 });

@@ -11,7 +11,7 @@
  * 纯函数、零 IO；页面侧的采集在 probes.mjs / input.mjs。
  */
 
-import { assertSourceId } from './source.mjs';
+import { assertSourceId, rankOf } from './source.mjs';
 
 /** 路径是否命中 ignore 规则：精确相等、"prefix.*" 前缀、或 "prefix" 前缀（点分层级）。 */
 function isIgnored(path, ignoreRules) {
@@ -85,6 +85,11 @@ export function sameObservation(before, after, options = {}) {
 /**
  * 双通道对账：a/b 各是 { name, value, source }。
  * 名称缺省用 "value"；compare 可注入（如界面文本 "3" vs 持久化 3）。
+ *
+ * #183 评审整改 S4：两路证据必须来自不同层（按 source.mjs 的 rank 阶梯）。
+ * 同一层（例如两个 user-visible、两个 persisted、甚至同一个 source id）不能当「独立两路」，
+ * 否则「双通道一致」只是同一份内部状态的自我复述。同层时 agree=false 并置 sourceConflict=true，
+ * 让套件把它记成 FAIL 而不是静默通过。
  */
 export function compareDualChannels(a, b, options = {}) {
   if (!a || typeof a !== 'object' || !('value' in a)) throw new Error('双通道 a 需要 {name,value,source}');
@@ -93,13 +98,28 @@ export function compareDualChannels(a, b, options = {}) {
   const compare = typeof options.compare === 'function' ? options.compare : (x, y) => Object.is(x, y);
   const left = { name: a.name || 'ui', value: a.value, source: assertSourceId(a.source) };
   const right = { name: b.name || 'store', value: b.value, source: assertSourceId(b.source) };
+  const leftRank = rankOf(left.source);
+  const rightRank = rankOf(right.source);
+  if (leftRank === rightRank) {
+    return {
+      name,
+      agree: false,
+      sourceConflict: true,
+      a: left,
+      b: right,
+      detail:
+        '两路证据同源（' + left.source + ' 与 ' + right.source + ' 同为来源等级 ' + leftRank + '），证据不闭合：' +
+        '双通道必须来自不同层（如 user-visible vs persisted、public-api vs user-visible），' +
+        '同一层只能当同一事实的复述，不能当两条独立证据',
+    };
+  }
   const agree = !!compare(a.value, b.value);
   let detail = '';
   if (!agree) {
     detail = left.name + '=' + JSON.stringify(left.value) + '（' + left.source + '），' +
       right.name + '=' + JSON.stringify(right.value) + '（' + right.source + '）';
   }
-  return { name, agree, a: left, b: right, detail };
+  return { name, agree, sourceConflict: false, a: left, b: right, detail };
 }
 
 /** 事件日志 → 事件名序列（type 字段）。 */

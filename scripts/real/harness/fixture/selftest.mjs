@@ -22,11 +22,17 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 
+import { fileURLToPath } from 'node:url';
+
 import {
+  CLEAN_GLOBAL,
+  DEFAULT_DOMAIN,
   DEFAULT_FIXTURES_DIR,
   FAULT_MODES,
   FIXTURE_FORMAT_VERSION,
   FixtureError,
+  STORE_FILE_NAME,
+  STORE_RELATIVE_PATH,
   applyFixture,
   assertStorePathInsideHome,
   baselineFromSnapshot,
@@ -41,6 +47,7 @@ import {
   resolveFixture,
   validateFixture,
 } from './index.mjs';
+import { HOST_CONTRACT } from '../contract/host.mjs';
 import { makeRunTag } from '../evidence.mjs';
 
 let passCount = 0;
@@ -425,6 +432,60 @@ ok(/^[0-9]{8}-[0-9]{6}-[0-9a-z]+-[0-9a-z]+-smoke$/.test(sampleTag), 'run tag 形
 ok(!/[\\/:*?"<>|]/.test(sampleTag), 'run tag 不含文件系统非法字符', sampleTag);
 eq(makeRunTag('smoke', fixed).endsWith('-smoke'), true, 'run tag 以套件结尾，报告可区分套件');
 ok(makeRunTag('smoke', fixed) !== makeRunTag('smoke', fixed), '同套件连续两次 tag 不同');
+
+/* ──────────────────────── 10. 宿主事实单一来源（#183 S2） ──────────────────────── */
+
+section('宿主事实单一来源：store 路径/domain 来自契约，CLEAN_GLOBAL 与产品 initial 对账');
+{
+  deepEq(
+    [STORE_RELATIVE_PATH, STORE_FILE_NAME],
+    [
+      HOST_CONTRACT.storage.rootRelative + '/' + HOST_CONTRACT.storage.pluginDomain.file,
+      HOST_CONTRACT.storage.pluginDomain.file,
+    ],
+    'store 相对路径/文件名由宿主契约派生（fixture 不再各存一份字符串）',
+  );
+  deepEq(
+    DEFAULT_DOMAIN,
+    {
+      name: HOST_CONTRACT.storage.pluginDomain.name,
+      version: HOST_CONTRACT.storage.pluginDomain.version,
+    },
+    'domain name/version 由宿主契约派生（unit 落盘形状只有一份事实）',
+  );
+  eq(typeof HOST_CONTRACT.storage.pluginDomain.version, 'number', '契约 pluginDomain 钉住 version（seed 的 unit 用它）');
+
+  // CLEAN_GLOBAL 是唯一允许在测试侧固化的产品 seed 值：读产物 lib/index.js 的域定义 initial，
+  // 与固化副本逐键对比。产品改默认值而 fixture 没跟上时这里必须红（不是静默用旧默认值跑真机）。
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const repoRoot = path.resolve(here, '..', '..', '..', '..');
+  const libPath = path.join(repoRoot, 'lib', 'index.js');
+  let libText = '';
+  try {
+    libText = fs.readFileSync(libPath, 'utf8');
+  } catch (error) {
+    ok(false, '可读到产物 lib/index.js（CLEAN_GLOBAL 对账的前提）', String(error && error.message));
+  }
+  const initialMatch = libText.match(/initial:\s*\{([^}]*)\}/);
+  ok(!!initialMatch, '在 lib/index.js 找到 promptDomainSpec 的 initial 定义');
+  const parsedInitial = {};
+  if (initialMatch) {
+    for (const entry of String(initialMatch[1]).split(',')) {
+      const pair = entry.trim();
+      if (!pair) continue;
+      const colon = pair.indexOf(':');
+      if (colon <= 0) continue;
+      const key = pair.slice(0, colon).trim();
+      const raw = pair.slice(colon + 1).trim();
+      if (raw === 'null') parsedInitial[key] = null;
+      else if (raw === 'true') parsedInitial[key] = true;
+      else if (raw === 'false') parsedInitial[key] = false;
+      else if (/^["']/.test(raw)) parsedInitial[key] = raw.replace(/^["']|["']$/g, '');
+      else parsedInitial[key] = Number(raw);
+    }
+  }
+  deepEq(parsedInitial, { ...CLEAN_GLOBAL }, 'CLEAN_GLOBAL 与产品 lib/index.js 的 initial 逐键一致');
+}
 
 /* ────────────────────────────── 汇总 ────────────────────────────── */
 

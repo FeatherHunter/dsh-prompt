@@ -21,7 +21,18 @@ import { spawnSync } from 'node:child_process';
 
 import { REPO_ROOT } from '../bindings.mjs';
 import { HarnessError } from '../errors.mjs';
-import { CLASSIFICATIONS, MISSING, areaOf, buildRows, classifyPair, groupByArea, summarizeRows } from './classify.mjs';
+import {
+  CLASSIFICATIONS,
+  DIFF_PROBLEM_FAILURE_TYPES,
+  MISSING,
+  PRODUCT_PROBLEM_CODES,
+  areaOf,
+  buildRows,
+  classifyPair,
+  failureTypeForProblems,
+  groupByArea,
+  summarizeRows,
+} from './classify.mjs';
 import { loadExpect, matchPattern, validateExpect } from './expect.mjs';
 import { evaluateFaultExpectations } from './expect.mjs';
 import { DIFF_EXIT_CODES, buildDiffDocument, extractEnvironment } from './model.mjs';
@@ -744,6 +755,76 @@ test('fault 模式：注入侧出现未声明的红 → 整体 FAIL（影响面�
     !doc.problems.some((problem) => problem.code === 'regression'),
     'expectedRed 命中的检查按设计从绿变红，不能被重复算成回归',
   );
+});
+
+/* ------------------------------------------------------------------------- */
+/* 5b. 差分 FAIL 分型（#183 评审整改 S3）                                      */
+/* ------------------------------------------------------------------------- */
+
+test('S3 分型映射表：清单/证据力/注入面问题归 test，候选侧真实变差归 product', () => {
+  assertEqual(DIFF_PROBLEM_FAILURE_TYPES['empty-expectations'], 'test', '空清单 → 测试方法问题');
+  assertEqual(DIFF_PROBLEM_FAILURE_TYPES['no-discrimination'], 'test', '无区分力 → 测试方法问题');
+  assertEqual(DIFF_PROBLEM_FAILURE_TYPES['unexpected-fault-influence'], 'test', '注入器串扰 → 测试方法问题');
+  assertEqual(DIFF_PROBLEM_FAILURE_TYPES['candidate-product-fail'], 'product', '候选侧自身非预期红 → 产品');
+  assertEqual(DIFF_PROBLEM_FAILURE_TYPES['regression'], 'product', '回归 → 产品');
+  assert(PRODUCT_PROBLEM_CODES.includes('regression'), 'product 码清单可读且含 regression');
+});
+
+test('S3 failureTypeForProblems：清单缺失/无区分力 → test 且 basis 指向 diff 问题码', () => {
+  const missing = failureTypeForProblems([{ code: 'expect-missing-check', severity: 'FAIL', message: '' }]);
+  assertEqual(missing.failureType, 'test');
+  assertEqual(missing.basis.source, 'diff');
+  assert(missing.basis.signal.includes('expect-missing-check'), 'basis.signal 记录问题码');
+  assert(missing.basis.note.includes('不是候选侧行为回归'), 'test 分型说明这不是产品回归');
+
+  const noPower = failureTypeForProblems([{ code: 'no-discrimination', severity: 'FAIL', message: '' }]);
+  assertEqual(noPower.failureType, 'test');
+});
+
+test('S3 failureTypeForProblems：候选侧真实红（candidate-product-fail/regression）→ product', () => {
+  const product = failureTypeForProblems([{ code: 'candidate-product-fail', severity: 'FAIL', message: '' }]);
+  assertEqual(product.failureType, 'product');
+  assert(product.productCodes.includes('candidate-product-fail'));
+  assert(product.basis.note.includes('候选侧真实行为比对照侧变差'));
+
+  const regression = failureTypeForProblems([
+    { code: 'no-flip', severity: 'FAIL' },
+    { code: 'regression', severity: 'FAIL' },
+  ]);
+  assertEqual(regression.failureType, 'product', '混合问题时 product 优先（有产品行为证据就不能降级成 test）');
+});
+
+test('S3 failureTypeForProblems：未知码 → test（fail-closed，不把工具/方法问题报成产品缺陷）', () => {
+  const unknown = failureTypeForProblems([{ code: 'mystery', severity: 'FAIL' }]);
+  assertEqual(unknown.failureType, 'test');
+  const none = failureTypeForProblems([]);
+  assertEqual(none.failureType, 'test');
+});
+
+test('S3 由真实 diff 文档问题推导分型：bothGreen → test；回归 → product', () => {
+  const noPowerDoc = makeDoc({
+    refChecks: [{ name: '检查 A', verdict: 'PASS' }],
+    curChecks: [{ name: '检查 A', verdict: 'PASS' }],
+    refVerdict: 'PASS',
+    curVerdict: 'PASS',
+    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'] }),
+  });
+  assertEqual(noPowerDoc.verdict, 'FAIL');
+  assert(noPowerDoc.problems.some((problem) => problem.code === 'no-discrimination'));
+  assertEqual(failureTypeForProblems(noPowerDoc.problems).failureType, 'test', 'bothGreen 的整体 FAIL 属测试方法问题');
+
+  const regressionDoc = makeDoc({
+    refChecks: [{ name: '检查 A', verdict: 'PASS' }],
+    curChecks: [{ name: '检查 A', verdict: 'FAIL' }],
+    refVerdict: 'PASS',
+    curVerdict: 'FAIL',
+    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'], mustStayGreen: [] }),
+  });
+  assert(
+    regressionDoc.problems.some((problem) => problem.code === 'regression'),
+    '候选侧把原本绿的检查弄红应产生 regression 问题',
+  );
+  assertEqual(failureTypeForProblems(regressionDoc.problems).failureType, 'product', '回归的整体 FAIL 属产品缺陷');
 });
 
 /* ------------------------------------------------------------------------- */

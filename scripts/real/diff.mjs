@@ -14,6 +14,7 @@
 
 import { HarnessError } from './harness/errors.mjs';
 import { Recorder, makeRunTag, writeReport } from './harness/evidence.mjs';
+import { failureTypeForProblems } from './harness/diff/classify.mjs';
 import { killTreeAll, parseDiffArgs, printDiffSummary, runDiff, usage } from './harness/diff/index.mjs';
 import { DIFF_EXIT_CODES } from './harness/diff/model.mjs';
 
@@ -71,21 +72,54 @@ function writeRunReport(result) {
     diffJson: paths.diffJson,
     diffMarkdown: paths.diffMarkdown,
   };
+  const claim =
+    '差分把「旧产物基线」或「故障注入态」当对照、同一套件同一 fixture 各跑一次；清单内必须翻转的断言全部成立且无回归才算通过';
+  const steps = [
+    '读期望清单（artifact 模式 scripts/real/diffs/<suite>.expect.json；fault 模式由注入器注册表派生）',
+    '子进程 run.mjs 分别跑对照侧与判定侧，各自独立 evidence 目录、不清上一轮证据',
+    '读两份 report.json，逐检查配对分类（discriminating/regression/bothGreen/…）',
+    '校验 mustFlip 全部成为 discriminating、mustStayGreen 两侧保持绿，并汇总问题与覆盖风险',
+    '写 diff.json（唯一事实源）与 diff.md（确定性渲染），同一判定写成本报告',
+  ];
+  const failure = failureTypeForProblems(doc.problems);
   if (doc.verdict === 'PASS') {
-    recorder.pass(name, { detail: doc.reason, observations });
+    recorder.pass(name, {
+      detail: doc.reason,
+      claim,
+      steps,
+      observations,
+      inference: '清单内断言在对照侧红/判定侧绿时，这条检查才有区分力；差分 PASS 只说明区分力成立，不等于候选全绿',
+    });
   } else if (doc.verdict === 'FAIL') {
     recorder.fail(name, {
       expected: '差分判定通过：清单内必须翻转的断言全部成立、保持绿全部成立、且无回归',
       observed: doc.reason,
       reason: doc.reason,
-      failureType: 'product',
-      failureTypeBasis: { source: 'diff', signal: 'expectation', note: '差分结论不满足期望清单/出现回归' },
+      failureType: failure.failureType,
+      failureTypeBasis: failure.basis,
+      claim,
+      steps,
       observations,
+      inference:
+        failure.failureType === 'product'
+          ? '候选侧行为比对照侧变差属产品缺陷；差分 FAIL 的「谁红」由对照侧定义，不能倒过来读'
+          : '清单/证据力/注入面不足属测试方法问题，先补期望清单或注入器，别当成产品回归',
     });
   } else if (doc.verdict === 'BLOCKED') {
-    recorder.blocked(name, doc.reason, { blockerKind: 'environment', observations });
+    recorder.blocked(name, doc.reason, {
+      blockerKind: 'environment',
+      claim,
+      steps,
+      observations,
+      inference: '两侧中至少一侧无法完成（环境/工具），差分结论不可用；不能因此判产品失败',
+    });
   } else {
-    recorder.toolFault(name, doc.reason, { observations });
+    recorder.toolFault(name, doc.reason, {
+      claim,
+      steps,
+      observations,
+      inference: '工具故障（子进程崩溃/报告缺失/异常）让差分结论不可用，分型记 tool、退出码 3',
+    });
   }
   return writeReport(recorder, paths.evidenceDir).reportPath;
 }

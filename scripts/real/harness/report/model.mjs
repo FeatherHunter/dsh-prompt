@@ -76,6 +76,12 @@ export const EXIT_CODES = {
 /** 证据六元组字段，顺序即报告与 Markdown 的展示顺序。 */
 export const EVIDENCE_TUPLE_FIELDS = ['claim', 'conditions', 'steps', 'observations', 'inference', 'verdict'];
 
+/**
+ * 套件未声明步骤时的历史兜底文本（evidence.mjs 仍会生成，但报告校验必须拒绝，
+ * 防止「兜底文本 = 空壳 steps」静默通过）。#183 评审整改 S1
+ */
+export const PLACEHOLDER_STEPS_TEXT = /套件未声明逐步操作/;
+
 /** 报告层协议/校验错误（与 HarnessError 区分：这是「报告不合法」，不是「被测系统坏了」）。 */
 export class ReportError extends Error {
   constructor(message, detail) {
@@ -395,6 +401,21 @@ export function validateReport(report) {
     if (typeof check.name !== 'string' || check.name.trim() === '') problems.push(problem(where + ' 缺少 name'));
     if (!VERDICTS.includes(check.verdict)) {
       problems.push(problem(where + ' verdict 非法：' + JSON.stringify(check.verdict)));
+    }
+
+    // #183 评审整改 S1：六元组 steps 是「怎么重放这条检查」的唯一入口，报告层 fail-closed：
+    // 空步骤或套件兜底占位文本（含「套件未声明逐步操作」）一律判报告不合格。
+    // 步骤项允许字符串或结构化对象（如 {action, target}），但不许空项/空壳。
+    const steps = check.steps;
+    const isValidStep = (step) => {
+      if (typeof step === 'string') return step.trim() !== '' && !PLACEHOLDER_STEPS_TEXT.test(step);
+      if (step && typeof step === 'object' && !Array.isArray(step)) return Object.keys(step).length > 0;
+      return false;
+    };
+    if (!Array.isArray(steps) || steps.length === 0) {
+      problems.push(problem(where + ' 必须带可重放的 steps（非空数组；报告不允许空步骤）', 'steps'));
+    } else if (!steps.every(isValidStep)) {
+      problems.push(problem(where + ' 的 steps 含空项或套件兜底占位文本「套件未声明逐步操作」；每条检查都要写怎么重放', 'steps'));
     }
 
     if (check.verdict === 'N-A') {

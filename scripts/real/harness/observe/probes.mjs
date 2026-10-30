@@ -359,3 +359,111 @@ export async function waitForSnapshot(client, predicate, options = {}) {
     },
   }));
 }
+
+/* ────────────────────────── 诊断探针（#183 评审整改 F1） ──────────────────────────
+ * 这些表达式原先写在 boundary 套件里，但它们同属「页面观测设施」而不是场景断言：
+ * 套件只该按六元组写布置与断言，页面探针必须沉在观测层，字段清单与维护入口才唯一。
+ * 三者都只读页面状态（装 scroll 日志只加 capture 监听、不改页面行为），不参与期望值计算。
+ */
+
+/**
+ * document.elementFromPoint 的命中链 + 所有 trigger 按钮的几何/状态。
+ * 只在「等待观测条件超时」「物理点击没打到目标」时采集，用来区分「产品没响应」与「点击没打到目标」；
+ * 属于诊断证据，不是断言来源。
+ */
+export function hitTestExpression(point) {
+  return (
+    '(function () {' +
+    '  const point = ' + JSON.stringify({ x: point.x, y: point.y }) + ';' +
+    '  const contractAttrs = (node) => {' +
+    '    const attrs = {};' +
+    '    for (const attr of (node.attributes || [])) {' +
+    '      if (attr.name.indexOf("data-dsh-prompt-") !== 0) continue;' +
+    '      attrs[attr.name] = attr.value.length > 80 ? attr.value.slice(0, 80) : attr.value;' +
+    '    }' +
+    '    return attrs;' +
+    '  };' +
+    '  const describe = (node) => {' +
+    '    if (!node || node.nodeType !== 1) return node ? { tag: String(node.nodeName || "") } : null;' +
+    '    let owner = null;' +
+    '    for (let cur = node; cur && cur.nodeType === 1; cur = cur.parentElement) {' +
+    '      const attrs = contractAttrs(cur);' +
+    '      if (Object.keys(attrs).length > 0) { owner = { tag: String(cur.tagName || "").toLowerCase(), attrs }; break; }' +
+    '    }' +
+    '    const rect = node.getBoundingClientRect();' +
+    '    let pointerEvents = null;' +
+    '    try { pointerEvents = getComputedStyle(node).pointerEvents; } catch (error) { pointerEvents = null; }' +
+    '    return {' +
+    '      tag: String(node.tagName || "").toLowerCase(),' +
+    '      owner,' +
+    '      role: node.getAttribute ? node.getAttribute("role") : null,' +
+    '      text: String(node.innerText || node.textContent || "").trim().slice(0, 60),' +
+    '      pointerEvents,' +
+    '      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height, cx: rect.x + rect.width / 2, cy: rect.y + rect.height / 2 },' +
+    '    };' +
+    '  };' +
+    '  const triggers = Array.from(document.querySelectorAll("[data-dsh-prompt-trigger]")).map((node) => ({' +
+    '    ariaPressed: node.getAttribute("aria-pressed"),' +
+    '    text: String(node.innerText || node.textContent || "").trim().slice(0, 40),' +
+    '    rect: (() => { const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, cx: r.x + r.width / 2, cy: r.y + r.height / 2 }; })(),' +
+    '  }));' +
+    '  return {' +
+    '    point,' +
+    '    hit: describe(document.elementFromPoint(point.x, point.y)),' +
+    '    activeElement: describe(document.activeElement),' +
+    '    triggerCount: triggers.length,' +
+    '    triggers,' +
+    '    dialogCount: Array.from(document.querySelectorAll("[role=dialog][aria-modal=true]")).filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length,' +
+    '  };' +
+    '})()'
+  );
+}
+
+/** 页面滚动事件日志键（诊断用）。 */
+export const SCROLL_LOG_KEY = '__dshPromptScrollLog';
+
+/**
+ * 页面滚动事件日志（诊断用）：capture 阶段记录任何容器/文档的 scroll 事件与 scrollTop。
+ * 用来区分「滚动是产品行为」还是「工具/宿主滚动容器行为」——尤其是设置页控件几何在
+ * 快照与点击之间变化时，先看是谁在什么时候滚了它。
+ */
+export function scrollLogInstallExpression() {
+  return (
+    '(function () {' +
+    '  if (window.' + SCROLL_LOG_KEY + ') return "already-installed";' +
+    '  window.' + SCROLL_LOG_KEY + ' = [];' +
+    '  const attrsOf = (node) => {' +
+    '    const attrs = {};' +
+    '    for (const attr of (node.attributes || [])) {' +
+    '      if (attr.name.indexOf("data-dsh-prompt-") !== 0) continue;' +
+    '      attrs[attr.name] = attr.value.length > 60 ? attr.value.slice(0, 60) : attr.value;' +
+    '    }' +
+    '    return attrs;' +
+    '  };' +
+    '  document.addEventListener("scroll", (event) => {' +
+    '    const node = event.target;' +
+    '    const isElement = !!(node && node.nodeType === 1);' +
+    '    window.' + SCROLL_LOG_KEY + '.push({' +
+    '      at: Math.round(window.performance && performance.now ? performance.now() : Date.now()),' +
+    '      tag: isElement ? String(node.tagName || "").toLowerCase() : "#document",' +
+    '      attrs: isElement ? attrsOf(node) : {},' +
+    '      scrollTop: Math.round(isElement ? node.scrollTop : (document.scrollingElement || {}).scrollTop || 0),' +
+    '      scrollHeight: isElement ? node.scrollHeight : (document.scrollingElement || {}).scrollHeight,' +
+    '      clientHeight: isElement ? node.clientHeight : (document.scrollingElement || {}).clientHeight,' +
+    '    });' +
+    '    if (window.' + SCROLL_LOG_KEY + '.length > 300) window.' + SCROLL_LOG_KEY + '.shift();' +
+    '  }, true);' +
+    '  return "installed";' +
+    '})()'
+  );
+}
+
+/** 清空页面滚动事件日志。 */
+export function scrollLogClearExpression() {
+  return '(window.' + SCROLL_LOG_KEY + ' = [], "cleared")';
+}
+
+/** 读取页面滚动事件日志（最近 80 条）。 */
+export function scrollLogReadExpression() {
+  return '(window.' + SCROLL_LOG_KEY + ' || []).slice(-80)';
+}

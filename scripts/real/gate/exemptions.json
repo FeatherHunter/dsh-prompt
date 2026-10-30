@@ -1,13 +1,5 @@
 {
   "schemaVersion": 1,
   "note": "真机脚本静态门禁的例外表（#186）。政策：例外只能临时，必须写 reason 与关联 issue；修复或迁移完成后删除条目。文件不存在 / 不在扫描范围 / 规则 id 未知都会判红，防止例外表悄悄过期或放空。",
-  "exemptions": [
-    {
-      "path": "scripts/repro/real/issue-181-real.mjs",
-      "rules": ["R1", "R2", "R4", "R5"],
-      "reason": "遗留 pilot（#181 undo grouping 真机验收）还没迁进 scripts/real 套件：自带一份 CDP 客户端，硬编码本地 CDP 端口与 D:/Temp 证据目录，是门禁要拦的历史写法。",
-      "issue": "#192",
-      "removeAfter": "#192 把 pilot 迁移成 scripts/real 下的套件并删除该文件后，删除本条豁免（文件不存在时门禁会判红提醒）。"
-    }
-  ]
+  "exemptions": []
 }

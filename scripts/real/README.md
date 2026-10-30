@@ -45,7 +45,7 @@
 | 参数 | 环境变量 | 说明 |
 | --- | --- | --- |
 | `--artifact <path>` | `DSH_REAL_ARTIFACT` | 被测插件 .tgz（必要） |
-| `--suite <name>` | — | 套件：`smoke`（宿主回路自检）/ `boundary`（边界观测 × 真实输入，见下文） |
+| `--suite <name>` | — | 套件：`smoke`（宿主回路自检）/ `boundary`（边界观测 × 真实输入）/ `undo-group`（撤销分组迁移）/ `trigger`（触发/插入域），后三者见下文 |
 | `--dsh-cli <path>` | `DSH_REAL_DSH_CLI` / `DSH_CLI` | DSH CLI，缺省查 PATH |
 | `--browser <path>` | `DSH_REAL_BROWSER` / `CHROME_PATH` / `EDGE_PATH` | 浏览器可执行文件 |
 | `--workdir <path>` | `DSH_REAL_WORKDIR` | 一次性工作目录根，缺省系统临时目录 |
@@ -148,12 +148,15 @@
       fixtures/
         clean.json         干净态（插件定义默认）
         templates.json     模板集合（自定义模板 + 置顶 + 用量，带 ${runTag}）
+        undo-group.json    撤销分组夹具：含标记单行/多行 + 无标记，模板名/id 带 ${runTag}
         trigger-hover.json 触发模式：悬浮触发（显式钉住）
-        trigger-click.json 触发模式：点按触发（留给 #188/#192 的 click 态场景）
+        trigger-click.json 触发模式：点按触发（留给 trigger 套件的 click 态场景）
         remote-prefs.json  远程开关类偏好（总闸关 + 尺寸/方向/密度非默认）
       suites/
         smoke.mjs          回路自检套件
         boundary.mjs       边界观测 × 真实输入套件（物理指针 vs 合成点击、双通道）
+        undo-group.mjs     #192 迁移：撤销分组 / redo 真机验收（只布置 + 断言）
+        trigger.mjs        #192 第二条套件：触发/插入域（真实指针路径 + 真实键盘路径 + 双通道）
 
 分层约定：方法层（协议与判据）与平台契约层（宿主行为事实）不写死在绑定层；
 绑定层只回答「这台机器上这些东西在哪里、超时多少」。宿主契约住在 `harness/` 下，
@@ -279,6 +282,38 @@
 套件共用的句柄（`observe` / `input` / `persistence`）由 `run.mjs` 在 preflight 与起始态断言通过后
 统一创建并传给套件；套件不自己连 CDP、不自己拼 HTTP。命令行的 `--suite boundary` 在 preflight
 或起始态 BLOCKED 时同样**不会执行**。
+
+## 撤销分组套件：旧 pilot 迁移（#192）
+
+`--suite undo-group` 是把 `scripts/repro/real/issue-181-real.mjs`（#181 的撤销分组真机 pilot）迁到
+kit 上的产物；pilot 已删除，仓内不再保留它自带的 CDP 客户端、`PAGE_API` 探针与 `window.__IA` 包裹。
+迁移边界：**只做布置 + 断言**，装配/观测/输入/判定/证据全部走 harness：
+
+    node scripts/real/run.mjs --artifact <tgz> --suite undo-group --fixture undo-group --evidence-dir D:/Temp/evidence-192
+
+- 覆盖旧 pilot A1–A5：非空草稿末尾/中间 + 含标记单行、空草稿 + 含标记多行、无标记插入非空/空草稿；
+  每个场景用**真实物理点击**模板行插入，真实键盘 `Ctrl+Z` / `Ctrl+Y` / `Ctrl+Shift+Z` 验证 undo
+  分组与 redo；落点断言 = composer 草稿字节 + DOM 选区/captureInsertion，不拿截图当主证据。
+  草稿布置用宿主单笔文本插入（对齐 pilot 的 `c.insertText`，避免逐键输入被拆成多条 undo 记录）；
+  A2–A5 进入前**重新加载页面**（对齐旧 pilot 每场景 boot 一次），不把上一场景的 undo 历史带进来。
+- 旧 pilot 的 A6（降级路径）、A6-8（chip 草稿）、A7（提交/重载）、B1/B2（失焦落点 == 旧包 0.4.39
+  基线）逐条 `N-A` 记账，不静默丢：降级由 #191 的 `--fault input-actions-missing` 覆盖，B 组旧包
+  基线对照由 #191 差分运行器覆盖（同一套件/配方，旧产物 vs 当前产物）。
+- `#187` fixture 新增 `undo-group.json`（3 条模板、名字/id 带 `${runTag}`），套件按可见名称定位行。
+
+## 第二条套件：触发/插入域（#192）
+
+`--suite trigger` 证明观测层/输入驱动/判定协议能承载**另一个域**的验收，而不是只为 boundary 写死：
+
+    node scripts/real/run.mjs --artifact <tgz> --suite trigger --fixture trigger-hover --evidence-dir D:/Temp/evidence-192
+
+- **真实指针路径**：物理悬停入口开面板 → 移开关面板 → 物理点底栏触发方式胶囊切到「仅点击」→
+  移开后再悬停入口不再开窗（#179 契约）→ 物理点入口开面板 → 物理点关闭按钮收起；
+- **真实键盘路径**：DOM focus + `Enter` 打开/关闭入口面板、`Enter` 切回悬浮触发、逐键
+  `keyDown/keyUp` 在 composer 输入文本；
+- **双通道**：每个模式切换点同时断言界面语义（`aria-pressed` / panel 可见性）与持久化 store
+  （`hoverTrigger` 读回落盘值），避免只看界面自述；
+- 不复制 harness/CDP/HTTP：套件里没有 CDP 客户端、没有页面探针、没有自拼请求。
 
 ## 差分运行器：旧产物基线 + 故障注入（#191）
 
@@ -428,6 +463,17 @@
 | 真机用例只依赖契约钩子/语义文本 | `docs/real/hooks.md` §1/§3；调试用钩子明确不承诺稳定 | smoke 套件 3 个配方各 `PASS 12 / FAIL 0` |
 | 契约变更需同步门禁与文档（有检查提示） | 文档 ↔ 门禁双向交叉校验（缺一行、多标一个都红）；README 与 hooks.md 都写明「产品/文档/门禁」三处同步流程 | selftest 的「文档缺一行必红」「文档多标可依赖必红」 |
 
+## 验收对照（#192）
+
+| 验收项 | 怎么满足 | 证据 |
+| --- | --- | --- |
+| pilot 经 kit 运行判定与迁移前一致，偏差有记录 | 迁移前用 kit harness 起环境、spawn 旧 pilot 得到 `ALL PASS 58/58`（acceptance 9/9）作基线；迁移后 `undo-group` 套件 `PASS 44/0/0`，A1–A5 逐条对齐旧断言 id；A6/A7/B1/B2 显式 `N-A` 并写明由 #191 覆盖 | `D:/Temp/evidence-192-legacy/bridge-summary.json`、`D:/Temp/evidence-192/<runTag>/report.json` 的 `checks[]` 与 `environment.undoGroup` |
+| 第二条套件只含场景与断言，无 harness/CDP 重复 | `suites/trigger.mjs` 只 import `errors` / `sleep` / `compareDualChannels`，装配/观测/输入/持久化/判定全部用 run.mjs 传入的句柄；静态门禁 R4/R5 对套件 0 违规 | `node scripts/check-real-gate.mjs` 0 FAIL；`trigger.mjs` 头注与 import 段 |
+| 仓内不再保留被迁移套件私有客户端/探针重复 | 删除 `scripts/repro/real/issue-181-real.mjs`（含私有 CDP 客户端、`PAGE_API`、`window.__IA` 包裹）；`exemptions.json` 清空；门禁自证 + 正式扫描全绿、`PILOT_REL` 只留 INFO | `git status`（删除文件）、`scripts/real/gate/exemptions.json`、`check-real-gate --selftest` 与正式扫描输出 |
+| 两套件同入口、同 fixture 语义、同证据协议，报告可并列比较 | `run.mjs` 的 `SUITES` 注册 `undo-group` / `trigger`；两者都走 preflight → fixture 起始态 → recorder 六元组 → `report.json`/`report.md`；差异只在 `environment.<suite>` 与 `checks[]` | `D:/Temp/evidence-192/` 下两份报告（`schemaVersion=2`、相同环境字段结构） |
+| 第二条套件覆盖 ≥1 真实指针路径 + ≥1 键盘路径 | T1：物理悬停/点击/移开（事件 `isTrusted=true` 断言）；T2：`focus` + `Enter` 开关面板、切触发方式，逐键 `keyDown/keyUp` 输入 `kbd` | `report.json` 的 T1/T2 检查与 `environment.trigger.observations` |
+| 迁移前后判定对照与真机连跑一致 | 每套件连跑两次（两轮 runTag），判定均为 PASS；对照表见交付报告（旧 pilot id → kit check 名 → 判定） | `D:/Temp/evidence-192/` 两轮 runTag 子目录各含 `report.json` |
+
 ## 与 spec #183 的关系
 
 本 kit 是 #183 的 T1（#184）：只交付「一条命令起可丢弃宿主并跑通一个套件」的骨架。
@@ -438,4 +484,6 @@
 #189 补判定分类、证据六元组、失败产物、JSON/Markdown 报告与退出码（见 `docs/real/report.md`）。
 #190 补插件测试钩子契约与诊断输出（见 `docs/real/hooks.md`）。
 #191 补差分证伪层：旧产物基线对照 + 三种故障注入，证明关键断言确实会红（见 `docs/real/diff.md`）。
-后续票在此基础上补：pilot 迁移与复用证明（#192）、方法层分发（#193）。
+#192 把 #181 撤销分组 pilot 迁进 `suites/undo-group.mjs` 并删除旧文件与门禁例外，同时新增第二条真实
+套件 `suites/trigger.mjs`（触发/插入域，真实指针 + 真实键盘 + 双通道），证明观测层跨场景复用。
+后续票在此基础上补：方法层分发（#193）。

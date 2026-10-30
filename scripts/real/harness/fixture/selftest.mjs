@@ -111,7 +111,7 @@ section('配方清单与解析');
 const fixtures = listFixtures();
 ok(Array.isArray(fixtures) && fixtures.length >= 5, '仓库内置配方 ≥ 5 条', '实际 ' + fixtures.length + ' 条');
 const names = fixtures.map((item) => item.name);
-deepEq(names.slice().sort(), ['clean', 'remote-prefs', 'templates', 'trigger-click', 'trigger-hover'], '内置配方名字齐全');
+deepEq(names.slice().sort(), ['clean', 'remote-prefs', 'templates', 'trigger-click', 'trigger-hover', 'undo-group'], '内置配方名字齐全');
 for (const item of fixtures) {
   ok(typeof item.path === 'string' && fs.existsSync(item.path), '配方路径存在：' + item.name, item.path);
 }
@@ -125,7 +125,7 @@ eq(byPath.name, 'templates', '显式路径也能加载配方');
 
 throwsFixture(() => loadFixture('no-such-fixture'), { code: 'fixture-not-found' }, '未知配方名 → fixture-not-found');
 
-for (const name of ['clean', 'templates', 'trigger-click', 'trigger-hover', 'remote-prefs']) {
+for (const name of ['clean', 'templates', 'trigger-click', 'trigger-hover', 'remote-prefs', 'undo-group']) {
   const resolved = resolveFixture(loadFixture(name), { runTag: 'selftest-run' });
   validateFixture(resolved);
   passCount += 1;

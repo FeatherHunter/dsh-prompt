@@ -30,10 +30,14 @@ import { createInputDriver } from './harness/input.mjs';
 import { applyFaults, assertKnownFaultIds } from './harness/fault/index.mjs';
 import { runSmoke } from './suites/smoke.mjs';
 import { runBoundary } from './suites/boundary.mjs';
+import { runUndoGroup } from './suites/undo-group.mjs';
+import { runTrigger } from './suites/trigger.mjs';
 
 const SUITES = {
   smoke: runSmoke,
   boundary: runBoundary,
+  'undo-group': runUndoGroup,
+  trigger: runTrigger,
 };
 
 /**

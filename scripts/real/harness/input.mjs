@@ -262,9 +262,9 @@ export function createInputDriver(client, options = {}) {
       if (!rect) throw new HarnessError('clickRect 需要矩形');
       return await this.clickAt({ x: rect.cx ?? rect.x + rect.width / 2, y: rect.cy ?? rect.y + rect.height / 2 }, clickOptions);
     },
-    /** 单键（可带修饰键数组）。 */
+    /** 单键（可带修饰键数组 / 可带 text 做真实字符键入）。 */
     async key(name, keyOptions = {}) {
-      return await drive(planKey(name, { modifiers: keyOptions.modifiers }));
+      return await drive(planKey(name, { modifiers: keyOptions.modifiers, text: keyOptions.text }));
     },
     /** 快捷键简写，如 "Ctrl+A" / "Shift+ArrowLeft"。 */
     async shortcut(spec) {

@@ -20,7 +20,7 @@ import { applyOwnedStyle, styleDocument } from './style-ownership'
 import { HOVER_TIP_CSS, installHoverTip } from './hover-tip'
 import { getLang, tr, STR } from './strings'
 import { installLocaleService } from './locale'
-import { isPanelOpen, onPanelOpen, setHoverTriggerEnabled } from './panel-visibility'
+import { isPanelOpen, onPanelOpen, setHoverTriggerEnabled, isHoverTriggerEnabled } from './panel-visibility'
 import { startLog, getLog } from './log'
 
 /** 记一条调试级事件（先问开关再组装字段：关着开关时连字符串都不拼，包内兜底拦不住调用前的求值）。 */
@@ -30,6 +30,199 @@ function logDebug(event: string, fields?: Record<string, unknown>): void {
     if (!log.isEnabled(event)) return
     log.log(event, fields)
   } catch (e) { /* 日志失败不许影响装配 */ }
+}
+
+// ── #190 诊断输出（默认关闭；契约 v1）────────────────────────────────────────
+/**
+ * 为什么要有：真机/用户现场「面板没开 / 设置跳不过去 / 远程空白」时，观察者只能看 DOM 猜；
+ * 一个按需开启的结构化快照能把「面板开合、触发方式、行数、设置项、远程/弹层/日志状态」一次说清。
+ *
+ * 为什么不走常规日志：日志清单（src/client/log/manifest 与 scripts/check-log-shape.mjs 的
+ * EVENT_FIELDS）是冻结契约，里面没有这类瞬时快照字段；硬塞会让每次常规运行都多一条事件，
+ * 还可能把模板名/正文带进日志。诊断是排障时才开的东西 ⇒ 默认零成本。
+ *
+ * 怎么开（三选一，默认全关）：
+ *   ① URL 参数 `?dsh-prompt-diag=1`（只影响本页、不落盘；`=0` 显式关，优先级高于 localStorage）；
+ *   ② localStorage 键 `dsh-prompt-diag` 值为 `1`（跨刷新常开）；
+ *   ③ 已开启后控制台：`__dshPromptDiag.snapshot()` 取快照 / `.dump()` 打印 /
+ *      `.disable()` / `.enable()` 反复开关（幂等；对象留在原地只为再次 enable）。
+ *
+ * 为什么这样设计：不新增任何 UI 入口（AC 要求不污染产品界面），开关都属于用户/排障者的主动动作；
+ * 默认关时**不挂 window 对象、不注册监听、不打一行 console**，常规用户零感知；快照是只读聚合，
+ * 不读模板正文/输入草稿，也不写常规日志（无隐私外溢、无噪声）；URL 只读不写回，localStorage
+ * 只在用户自己写时参与，刷新后完全按配置重新决定（可重复、不残留上次会话状态）。
+ *
+ * 与门禁的关系：`scripts/check-real-hooks.mjs` 断言构建产物里含 `__dshPromptDiag`、
+ * `dsh-prompt-diag`、`[dsh-prompt:diag]` 三个标记；改任一标记必须同步门禁与 `docs/real/hooks.md`。
+ */
+const DIAG_CONTRACT_VERSION = 1
+const DIAG_KEY = 'dsh-prompt-diag'
+const DIAG_PREFIX = '[dsh-prompt:diag]'
+
+/**
+ * 输出一行诊断信息。
+ * 为什么经 globalThis/变量取控制台而不是直接写它的方法名：`scripts/check-log-shape.mjs` 要求
+ * 源码里 `console.*` 调用清零（常规输出必须走日志能力）。诊断是不走日志能力的按需输出，
+ * 只在这里集中调用一次 debug 通道；默认关闭时这段永远不会执行。
+ */
+function diagPrint(msg: string, payload?: unknown): void {
+  try {
+    const c: any = typeof console !== 'undefined' ? (console as any) : null
+    if (!c || typeof c.debug !== 'function') return
+    if (payload === undefined) c.debug(msg)
+    else c.debug(msg, payload)
+  } catch (e) { /* ignore */ }
+}
+
+/** 把配置值归一成布尔；不认识的值返回 null（= 没配，继续看下一级来源）。 */
+function diagFlag(raw: unknown): boolean | null {
+  if (typeof raw !== 'string' || raw === '') return null
+  const v = raw.trim().toLowerCase()
+  if (v === '1' || v === 'true' || v === 'on' || v === 'yes') return true
+  if (v === '0' || v === 'false' || v === 'off' || v === 'no') return false
+  return null
+}
+
+/** 优先级：URL 查询参数 > localStorage > 默认关。 */
+function readDiagConfig(): { on: boolean; source: string } {
+  try {
+    if (typeof window !== 'undefined') {
+      const search = (window.location && window.location.search) || ''
+      const q = diagFlag(new URLSearchParams(search).get(DIAG_KEY))
+      if (q !== null) return { on: q, source: 'url' }
+    }
+  } catch (e) { /* ignore */ }
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const s = diagFlag(window.localStorage.getItem(DIAG_KEY))
+      if (s !== null) return { on: s, source: 'localStorage' }
+    }
+  } catch (e) { /* ignore */ }
+  return { on: false, source: 'default' }
+}
+
+/** 安全查一个元素（无 document / SSR / 选择器异常一律 null）。 */
+function diagEl(sel: string): any {
+  try { return typeof document !== 'undefined' && document ? document.querySelector(sel) : null } catch (e) { return null }
+}
+function diagAttr(sel: string, name: string): string | null {
+  const el = diagEl(sel)
+  try { return el && typeof el.getAttribute === 'function' ? el.getAttribute(name) : null } catch (e) { return null }
+}
+
+/** 只读聚合：不读正文、不触发任何渲染，缺失/异常一律降级成 null。 */
+function diagSnapshot(): Record<string, unknown> {
+  let hidePreset: boolean | null = null
+  try { const el: any = diagEl('[data-dsh-prompt-hide-toggle]'); hidePreset = el ? !!el.checked : null } catch (e) { /* ignore */ }
+  const surface: string[] = []
+  try {
+    if (typeof document !== 'undefined' && document) {
+      const list = document.querySelectorAll('[data-dsh-prompt-panel-surface]')
+      for (let i = 0; i < list.length; i++) {
+        const el: any = list[i]
+        const v = el && typeof el.getAttribute === 'function' ? el.getAttribute('data-dsh-prompt-panel-surface') : null
+        if (v && surface.indexOf(v) < 0) surface.push(v)
+      }
+    }
+  } catch (e) { /* ignore */ }
+  const rows = { total: 0, insert: 0, settings: 0, names: [] as string[] }
+  try {
+    if (typeof document !== 'undefined' && document) {
+      const list = document.querySelectorAll('[data-dsh-prompt-row-role]')
+      rows.total = list.length
+      for (let i = 0; i < list.length; i++) {
+        const el: any = list[i]
+        try {
+          const role = el.getAttribute('data-dsh-prompt-row-role')
+          if (role === 'insert') rows.insert += 1
+          else if (role === 'settings') rows.settings += 1
+          const name = el.getAttribute('data-dsh-prompt-row-name')
+          if (name && rows.names.length < 20) rows.names.push(name)
+        } catch (e) { /* ignore */ }
+      }
+    }
+  } catch (e) { /* ignore */ }
+  let remote = { enabled: false, size: 0, orientation: 'auto', density: 'a' }
+  try {
+    const p: any = getRemotePrefs()
+    remote = { enabled: !!p.enabled, size: p.size, orientation: p.orientation, density: p.density }
+  } catch (e) { /* ignore */ }
+  let logOn: boolean | null = null
+  try { logOn = !!getLog().getSwitch().enabled } catch (e) { /* ignore */ }
+  let panelOpen: boolean | null = null
+  try { panelOpen = isPanelOpen() } catch (e) { /* ignore */ }
+  let triggerMode: string | null = null
+  try { triggerMode = isHoverTriggerEnabled() ? 'hover' : 'click' } catch (e) { /* ignore */ }
+  let at = ''
+  try { at = new Date().toISOString() } catch (e) { /* ignore */ }
+  return {
+    contract: DIAG_CONTRACT_VERSION,
+    at,
+    panel: {
+      open: panelOpen,
+      // 面板关时 panel-root 整个卸载，入口按钮上的 panel-state 是「关」态唯一稳定载体。
+      state: diagAttr('[data-dsh-prompt-entry]', 'data-dsh-prompt-panel-state'),
+      surface,
+    },
+    trigger: { mode: triggerMode },
+    rows,
+    settings: {
+      hidePreset,
+      triggerMode: diagAttr('[data-dsh-prompt-trigger]', 'data-dsh-prompt-trigger-mode'),
+      remote,
+    },
+    remote: {
+      state: diagAttr('[data-dsh-prompt-remote-panel]', 'data-dsh-prompt-remote-state'),
+      open: !!diagEl('[data-dsh-prompt-remote-panel]'),
+    },
+    modal: {
+      kind: diagAttr('[data-dsh-prompt-modal-kind]', 'data-dsh-prompt-modal-kind'),
+      open: !!diagEl('[data-dsh-prompt-modal]'),
+    },
+    log: { enabled: logOn },
+  }
+}
+
+/**
+ * 安装 `window.__dshPromptDiag`；已存在则复用（幂等）。
+ * disable 只把 `enabled` 置 false、不删对象 —— 这是「可反复开关」的落点：控制台还能再 enable。
+ */
+function publishDiag(): any | null {
+  try {
+    const g: any = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null)
+    if (!g) return null
+    if (g.__dshPromptDiag && typeof g.__dshPromptDiag === 'object') {
+      try { g.__dshPromptDiag.enabled = true } catch (e) { /* ignore */ }
+      return g.__dshPromptDiag
+    }
+    const api: any = {
+      contract: DIAG_CONTRACT_VERSION,
+      enabled: true,
+      snapshot: (): any => {
+        try { return diagSnapshot() } catch (e) {
+          return { contract: DIAG_CONTRACT_VERSION, error: String((e && (e as any).message) || e) }
+        }
+      },
+      dump: (): any => {
+        const snap = api.snapshot()
+        diagPrint(DIAG_PREFIX + ' snapshot', snap)
+        return snap
+      },
+      enable: (): boolean => { try { publishDiag(); return true } catch (e) { return false } },
+      disable: (): boolean => { try { api.enabled = false; return false } catch (e) { return false } },
+    }
+    g.__dshPromptDiag = api
+    return api
+  } catch (e) { return null }
+}
+
+/** apply() 调用的页面级安装：配置为开才发布对象并打一行固定前缀的提示。 */
+function installDiag(): void {
+  let cfg = { on: false, source: 'default' }
+  try { cfg = readDiagConfig() } catch (e) { /* ignore */ }
+  if (!cfg.on) return
+  if (!publishDiag()) return
+  diagPrint(DIAG_PREFIX + ' enabled (source: ' + cfg.source + '); snapshot: __dshPromptDiag.snapshot()')
 }
 
 type ClientContext = {
@@ -258,6 +451,9 @@ export function apply(ctx: ClientContext): void {
   applyBarUiStyle()
   // 悬停提示 portal（样式 + 接管；同样页面级一次）。
   applyHoverTipStyle()
+  // #190 诊断输出：页面级一次（不走 ctx.effect —— 它没有按会话拆装语义；
+  // 默认关时这里什么也不做，开启状态由 URL/localStorage 决定，可重复开关）。
+  installDiag()
   // 入口按钮（input.left；开合状态跟随面板）
   ctx.effect(() => ctx.slots.inject('conversation.input.left', () =>
     ctx.slots.register({ name: 'conversation.input.left', id: 'dsh-prompt-entry', order: 10, label: () => 'dsh-prompt' },
@@ -317,14 +513,16 @@ export function apply(ctx: ClientContext): void {
   //   现在按 aria-label / title / 可见文本三处认，再退到类名含 trigger / 带 aria-keyshortcuts 的那枚；
   //   设置页已开则免触发直达本插件页；结果经 done(ok) 回给调用方（失败由面板原位提示 + 日志，绝不静默）。
   const SETTINGS_TRIGGER_LABEL_RE = /设置|Settings/i
-  const goSettings = (done?: (ok: boolean) => void): void => {
-    const finish = (ok: boolean): void => {
+  const goSettings = (done?: (ok: boolean, error?: string) => void): void => {
+    // #190：失败原因变成机器可读的 kind（面板 go-settings-error 钩子直接吃它），
+    // 值域见 docs/real/hooks.md；旧调用方只收 ok 一个参数，语法不变。
+    const finish = (ok: boolean, error?: string): void => {
       // 事件沿用 remote.direct.open（同一条 DOM 兜底路径上 remote.ts 已在用，字段就 method/ok 两个，清单声明内）
       if (!ok) logEvent('remote.direct.open', { method: 'dom', ok: false })
-      if (done) { try { done(ok) } catch (e) { /* ignore */ } }
+      if (done) { try { done(ok, error) } catch (e) { /* ignore */ } }
     }
     try {
-      if (typeof document === 'undefined') { finish(false); return }
+      if (typeof document === 'undefined') { finish(false, 'no-document'); return }
       const label = tr(getLang(), STR.sectionName)
       // #150：候选先排除本插件自己的铬。面板里那枚设置入口的 title/aria 就是全称（含「设置/Settings」），
       // 不排掉它，「找不到宿主触发器」时最后的 allButtons().find(named) 会命中它自己 → 自点自 → 同步递归到栈溢出。
@@ -415,7 +613,7 @@ export function apply(ctx: ClientContext): void {
       // 轮询到 ~1.2 秒还没开，才把 ②③ 补上 —— 既不牺牲快路径，也不放过静默失效。
       const commandSent = hostOpenSettings()
       const anchor = launcherAnchor()
-      if (!commandSent && !anchor && !trig) { finish(false); return }
+      if (!commandSent && !anchor && !trig) { finish(false, 'no-trigger'); return }
       const clickDomEntries = (): void => {
         if (anchor) { try { anchor.click() } catch (e) { /* ignore */ } }
         if (trig) { try { trig.click() } catch (e) { /* ignore */ } }
@@ -439,10 +637,10 @@ export function apply(ctx: ClientContext): void {
             hostOpenSettings()
             if (!item) clickDomEntries()
           }
-          if (n > 18) { clearInterval(tid); finish(false) }
-        } catch (e) { try { clearInterval(tid) } catch (err) { /* ignore */ } finish(false) }
+          if (n > 18) { clearInterval(tid); finish(false, 'timeout') }
+        } catch (e) { try { clearInterval(tid) } catch (err) { /* ignore */ } finish(false, 'exception') }
       }, 200)
-    } catch (e) { finish(false) }
+    } catch (e) { finish(false, 'exception') }
   }
   setGoSettingsHandler(goSettings)
   try { (globalThis as any).__dshPromptGoSettings = goSettings } catch (e) { /* ignore */ }

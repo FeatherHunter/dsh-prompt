@@ -53,11 +53,19 @@ const TOK = {
 }
 
 /** 一行：标签在左、控件在右，说明占满行宽正常流排（此前 maxWidth:520 在宽弹窗里半屏换行）。
- *  #179：可选 `icon` —— 行首图标（与本插件底栏按钮同一份 SVG），标签仍是纯文本节点，便于 i18n 门禁扫文案。 */
+ *  #179：可选 `icon` —— 行首图标（与本插件底栏按钮同一份 SVG），标签仍是纯文本节点，便于 i18n 门禁扫文案。
+ *  #190：与 Btn / Check 同口径透传 data-* / aria-*（`data-dsh-prompt-setting` 等契约钩子要落到 DOM 上，
+ *  不透传会被 React 丢掉；只放行这两类，不扩散其它属性）。 */
 function SettingRow(props: any): any {
   const react = getReact()
   if (!react) return null
   const h = react.createElement
+  const extra: any = {}
+  try {
+    for (const k of Object.keys(props || {})) {
+      if (k.indexOf('data-') === 0 || k.indexOf('aria-') === 0) extra[k] = (props as any)[k]
+    }
+  } catch (e) { /* ignore */ }
   const kids: any[] = [
     h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 } }, [
       h('span', { key: 'label', style: { display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0, fontFamily: TOK.font, fontSize: '0.93em', color: TOK.labelPrimary } }, [
@@ -70,7 +78,7 @@ function SettingRow(props: any): any {
   if (props.description) {
     kids.push(h('div', { key: 'desc', style: { fontFamily: TOK.font, fontSize: '0.86em', lineHeight: 1.65, color: TOK.labelTertiary } }, props.description))
   }
-  return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 0' } }, kids)
+  return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 0' }, ...extra }, kids)
 }
 
 /**
@@ -547,10 +555,14 @@ export function SettingsPage(props: any): any {
     // 总闸：默认关；开=大、关=小；去宿主化后恒可用，不因任何外部能力 disabled。
     h(SettingRow, {
       key: 'remote-switch',
+      'data-dsh-prompt-setting': 'remotePrefs',
       label: t('remoteToggle'),
       control: h(Check, {
         checked: !!remote.enabled,
         'data-dsh-prompt-remote-toggle': '1',
+        // #190 契约钩子：总闸的机器可读状态（true/false），与 checkbox.checked 双份 ——
+        // 真机用例不必再区分原生控件属性与 React 受控值。
+        'data-dsh-prompt-remote-enabled': remote.enabled ? 'true' : 'false',
         onChange: (e: any) => {
           // #110 改判：进出总闸只翻一个键，方向既不快照也不还原——会话内选的方向常驻。
           // 退出时对整机零调用：屏幕保持用户最后锁定的样子，不闪屏、不夺回控制权。
@@ -684,7 +696,7 @@ export function SettingsPage(props: any): any {
     fontSize: scaledBaseFontSize(remote.enabled, remote.size),
   }
   // #37：旧的一行文字链接（⛭ GitHub 仓库 / ⚠ 反馈故障）已由顶部右上角两个图标按钮取代，不再保留第二处入口。
-  return h('div', { style: settingsRootStyle }, [
+  return h('div', { style: settingsRootStyle, 'data-dsh-prompt-settings-root': '1' }, [
     // 标题栏置顶（身份行：提示词模板 + 更新入口 + 版本 + 🌟💬）。
     // #128 新整组件接回：入口按钮落位与 #60 旧位一致（🌟/💬 之前）。
     // 更新入口一枚（0.5.1 direct：点开即弹窗，面板挂载自查；更新卡已删，弹窗只按需出现）。
@@ -697,6 +709,7 @@ export function SettingsPage(props: any): any {
       // #179：行首补上与底栏按钮同一份眼睛 SVG（同一个 PresetEyeIcon，不再各画一套）。
       h(SettingRow, {
         key: 'hide-preset',
+        'data-dsh-prompt-setting': 'hidePreset',
         icon: h(PresetEyeIcon, { open: hideOn }),
         label: t('hidePresetToggle'),
         description: t('hidePresetHint'),
@@ -714,6 +727,7 @@ export function SettingsPage(props: any): any {
       // 左侧行首指针图标 + 「触发方式」，右侧与底栏同款、同文案的状态式胶囊按钮（正文=当前状态，title=状态+去向；点它切模式，两处同步翻转）。
       h(SettingRow, {
         key: 'trigger-mode',
+        'data-dsh-prompt-setting': 'triggerMode',
         icon: h(TriggerPointerIcon, { clickOnly: !hoverTriggerOn }),
         label: t('triggerRowLabel'),
         description: t('triggerHint'),

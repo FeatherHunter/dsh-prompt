@@ -177,8 +177,32 @@ export async function connect({ cdpPort, timeoutMs = 15_000 }) {
     return rect;
   }
 
-  async function mouseMove(x, y) {
-    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+  async function mouseMove(x, y, options = {}) {
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none', buttons: 0, modifiers: options.modifiers ?? 0 });
+  }
+
+  async function mouseDown(x, y, options = {}) {
+    await send('Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      x,
+      y,
+      button: options.button ?? 'left',
+      buttons: options.buttons ?? 1,
+      clickCount: options.clickCount ?? 1,
+      modifiers: options.modifiers ?? 0,
+    });
+  }
+
+  async function mouseUp(x, y, options = {}) {
+    await send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      x,
+      y,
+      button: options.button ?? 'left',
+      buttons: options.buttons ?? 0,
+      clickCount: options.clickCount ?? 1,
+      modifiers: options.modifiers ?? 0,
+    });
   }
 
   async function click(x, y, options = {}) {
@@ -203,15 +227,50 @@ export async function connect({ cdpPort, timeoutMs = 15_000 }) {
     Enter: { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 },
     Escape: { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 },
     Tab: { key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 },
+    Space: { key: ' ', code: 'Space', windowsVirtualKeyCode: 32 },
     Backspace: { key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 },
+    Delete: { key: 'Delete', code: 'Delete', windowsVirtualKeyCode: 46 },
     ArrowLeft: { key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 },
+    ArrowUp: { key: 'ArrowUp', code: 'ArrowUp', windowsVirtualKeyCode: 38 },
     ArrowRight: { key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 },
+    ArrowDown: { key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40 },
+    Home: { key: 'Home', code: 'Home', windowsVirtualKeyCode: 36 },
+    End: { key: 'End', code: 'End', windowsVirtualKeyCode: 35 },
   };
 
   async function pressKey(name) {
     const spec = KEYS[name] ?? { key: name, code: name, windowsVirtualKeyCode: 0 };
     await send('Input.dispatchKeyEvent', { type: 'keyDown', ...spec });
     await send('Input.dispatchKeyEvent', { type: 'keyUp', ...spec });
+  }
+
+  /**
+   * 低层按键：type = keyDown | rawKeyDown | keyUp。
+   * 带文本的按键走 keyDown（会产出 text/入力），带修饰键的组合键走 rawKeyDown（DevTools 同款）。
+   */
+  async function keyDown(spec = {}) {
+    const hasText = typeof spec.text === 'string' && spec.text.length > 0;
+    const payload = {
+      type: hasText ? 'keyDown' : 'rawKeyDown',
+      key: spec.key ?? '',
+      code: spec.code ?? '',
+      windowsVirtualKeyCode: spec.windowsVirtualKeyCode ?? 0,
+      nativeVirtualKeyCode: spec.nativeVirtualKeyCode ?? spec.windowsVirtualKeyCode ?? 0,
+      modifiers: spec.modifiers ?? 0,
+    };
+    if (hasText) payload.text = spec.text;
+    await send('Input.dispatchKeyEvent', payload);
+  }
+
+  async function keyUp(spec = {}) {
+    await send('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: spec.key ?? '',
+      code: spec.code ?? '',
+      windowsVirtualKeyCode: spec.windowsVirtualKeyCode ?? 0,
+      nativeVirtualKeyCode: spec.nativeVirtualKeyCode ?? spec.windowsVirtualKeyCode ?? 0,
+      modifiers: spec.modifiers ?? 0,
+    });
   }
 
   async function screenshot(filePath) {
@@ -236,5 +295,25 @@ export async function connect({ cdpPort, timeoutMs = 15_000 }) {
     await Promise.race([closedPromise, sleep(3_000)]);
   }
 
-  return { cdpPort, pageTarget: page, send, evaluate, waitFor, navigate, getRect, mouseMove, click, clickSelector, insertText, pressKey, screenshot, onEvent, close };
+  return {
+    cdpPort,
+    pageTarget: page,
+    send,
+    evaluate,
+    waitFor,
+    navigate,
+    getRect,
+    mouseMove,
+    mouseDown,
+    mouseUp,
+    click,
+    clickSelector,
+    insertText,
+    pressKey,
+    keyDown,
+    keyUp,
+    screenshot,
+    onEvent,
+    close,
+  };
 }

@@ -44,7 +44,7 @@
 | 参数 | 环境变量 | 说明 |
 | --- | --- | --- |
 | `--artifact <path>` | `DSH_REAL_ARTIFACT` | 被测插件 .tgz（必要） |
-| `--suite <name>` | — | 套件，目前只有 `smoke` |
+| `--suite <name>` | — | 套件：`smoke`（宿主回路自检）/ `boundary`（边界观测 × 真实输入，见下文） |
 | `--dsh-cli <path>` | `DSH_REAL_DSH_CLI` / `DSH_CLI` | DSH CLI，缺省查 PATH |
 | `--browser <path>` | `DSH_REAL_BROWSER` / `CHROME_PATH` / `EDGE_PATH` | 浏览器可执行文件 |
 | `--workdir <path>` | `DSH_REAL_WORKDIR` | 一次性工作目录根，缺省系统临时目录 |
@@ -91,6 +91,16 @@ FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以�
         evidence.mjs       判定、证据、报告 schema、唯一 run tag
         proc.mjs           进程/端口底座（跨平台）
         errors.mjs         HarnessError / CheckFailure
+        input-plan.mjs     输入序列构造纯函数（指针路径/点击/按键/快捷键/文本）
+        input.mjs          真实输入驱动 + 页面输入事件日志 + 显式合成点击
+        observe/
+          source.mjs       来源等级模型（自述<内部状态<公开接口<用户可见<持久化）
+          text.mjs         语义文本归一化/匹配/行定位
+          compare.mjs      原始观测扁平差分、双通道对账、事件序列差分
+          interpret.mjs    六面解释器（raw → 分级字段，不判期望）
+          probes.mjs       页面内采集函数 + HOOKS + snapshotExpression + 轮询等待
+          index.mjs        统一入口：createObserver / createPersistence
+          selftest.mjs     观测层自证（纯 Node，零浏览器/零宿主）
         fixture/
           index.mjs        声明式 fixture：配方解析/校验、重置+种子、路径守卫、基线投影与 diff、HTTP 读回
           selftest.mjs     fixture 自证（纯 Node，零浏览器/零宿主）
@@ -106,6 +116,7 @@ FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以�
         remote-prefs.json  远程开关类偏好（总闸关 + 尺寸/方向/密度非默认）
       suites/
         smoke.mjs          回路自检套件
+        boundary.mjs       边界观测 × 真实输入套件（物理指针 vs 合成点击、双通道）
 
 分层约定：方法层（协议与判据）与平台契约层（宿主行为事实）不写死在绑定层；
 绑定层只回答「这台机器上这些东西在哪里、超时多少」。宿主契约住在 `harness/` 下，
@@ -203,11 +214,67 @@ FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以�
 
     node scripts/real/run.mjs --artifact <tgz> --workdir D:/Temp/alt-real --evidence-dir D:/Temp/alt-evidence --port 59661
 
+## 边界观测与真实输入（#188）
+
+`--suite boundary` 用**真实输入**跑代表性场景，并把观测按来源等级解释、关键结论双通道对账：
+
+    node scripts/real/run.mjs --artifact <tgz> --suite boundary --fixture templates --evidence-dir D:/Temp/evidence-188
+
+三个场景：
+
+1. **打开面板**：物理多段鼠标悬停入口（move→…→enter）↔ `element.click()` 合成点击，两路都执行；
+   断言面板可见、入口事件 `isTrusted=true`、底栏触发方式与 fixture 声明一致、行 id 与 store 自定义
+   模板 id 双通道一致；两路行为差分 0 条，事件差异（物理独有真实指针序列、合成独有非 trusted click）
+   落进报告的差异清单。
+2. **行插入落位**：按用户可见名称定位模板行（不靠内部类名），物理点行后逐字断言宿主 composer 草稿
+   = fixture 正文、光标在正文末尾（`captureInsertion` 公开接口 + DOM 选区两路），store `usage+1`
+   与 `lastUsed` 双通道；再用合成点击重复一遍，断言结果一致。
+3. **设置页控件切换**：物理点底栏「模板管理」进设置页，断言宿主弹窗/插件分区/控件挂载；物理点
+   「屏蔽预制模板」→ 勾选状态翻转 + store `hidePreset` 落盘；物理点触发方式 → `aria-pressed`
+   语义翻转 + store `hoverTrigger` 落盘；两条都双通道对账。设置页打开后产品自己会把远程段滚进
+   视野（#82 直达，异步），所以先等布局落定、每次点击前用 `elementFromPoint` 验证命中再点；
+   三次真实物理点击后状态仍不翻转才 FAIL，判定不放宽。设置页导航失败按 BLOCKED 记，不冤枉产品。
+
+观测/输入契约：来源等级（自述 < 内部状态 < 公开接口 < 用户可见 < 持久化）、语义文本定位规则、
+双通道策略、输入序列与两路径差异记录方式见 [`docs/real/observability.md`](../../docs/real/observability.md)。
+页面里缺稳定钩子的地方逐条记在 [`docs/real/hook-gaps.md`](../../docs/real/hook-gaps.md)（交 #190）。
+
+报告里 `environment.boundary` 的结构：
+
+- `observations.*`：每个场景每条路径的原始观测（未解释的页面 JSON）；
+- `diffs.*`：两路径的行为差分（`diffObservations`，必须 0 条）与事件序列差异（`diffEventSequences`，
+  预期差异写明：物理独有 pointer 序列、合成 click 非 trusted）；
+- `sourceOrder` / `inputMethods` / `completedScenarios` / `fixture`：来源等级图例、两条路径方法说明、
+  场景进度与 fixture 声明。
+
+套件共用的句柄（`observe` / `input` / `persistence`）由 `run.mjs` 在 preflight 与起始态断言通过后
+统一创建并传给套件；套件不自己连 CDP、不自己拼 HTTP。命令行的 `--suite boundary` 在 preflight
+或起始态 BLOCKED 时同样**不会执行**。
+
+纯 Node 自证（不需要浏览器/宿主）：
+
+    node scripts/real/harness/observe/selftest.mjs
+    # RESULT: 202 PASS / 0 FAIL（观测层自证全绿）
+
+覆盖：来源等级模型、语义文本定位、扁平差分与双通道、输入序列构造、六面解释器（合成 RAW 快照）、
+句柄装配（`snapshotExpression()` 可解析、接口封闭、参数校验）。
+
+## 验收对照（#188）
+
+| 验收项 | 怎么满足 | 证据 |
+| --- | --- | --- |
+| 至少 3 个代表性场景只写布置与断言即可运行 | `suites/boundary.mjs`：打开面板 / 行插入落位 / 设置页控件切换 | `report.json.checks[]` 与 `environment.boundary.observations` |
+| 同场景物理指针与合成事件两条路径都执行并记录差异 | 场景 1、2 各跑物理路径 + `element.click()` 路径；两路原始观测进报告，行为差分 0 条断言、事件差异清单进 `boundary.diffs` | `environment.boundary.observations.scenario1Physical/.scenario1Synthetic`、`diffs.scenario1Behavior/.scenario1Events`、`diffs.scenario2Behavior` |
+| 每条检查标来源、关键检查双通道 | `assertField(..., {source})` 每个断言带来源等级；行身份/勾选状态/触发方式/usage/lastUsed 各用 `compareDualChannels`（界面或公开接口 ↔ store） | `checks[]` 的 detail 含 `source=`；双通道断言名以「双通道」开头 |
+| 光标/字节级断言不依赖截图 | 草稿文本逐字比较 + `captureInsertion` start/end + DOM 选区偏移；截图只作辅助证据 | 场景 2 的「逐字/光标」检查（FAIL 时带 expected/observed） |
+| 观测层不依赖内部类名，缺失钩子记成契约项 | `probes.mjs` 只用 `data-dsh-prompt-*`、`role`/`aria-*`/`contenteditable`；缺口逐条在 `docs/real/hook-gaps.md` | `hook-gaps.md` 的 G1–G9 / H1–H2 |
+
 ## 与 spec #183 的关系
 
 本 kit 是 #183 的 T1（#184）：只交付「一条命令起可丢弃宿主并跑通一个套件」的骨架。
 #185 已在此骨架上补宿主契约与运行前 preflight（见 `docs/real/host-contract.md`）。
 #186 补真机脚本静态门禁与 CI（见 `docs/real/static-gate.md`）。
 #187 补声明式 fixture 与干净态基线（见 `docs/real/fixture.md`）。
-后续票在此基础上补：边界观测与真实输入（#188）、判定分类与证据报告（#189）、
-插件测试钩子（#190）、差分运行器（#191）、pilot 迁移与复用证明（#192）、方法层分发（#193）。
+#188 补边界观测层与真实输入驱动（见 `docs/real/observability.md`、`hook-gaps.md`）。
+后续票在此基础上补：判定分类与证据报告（#189）、插件测试钩子（#190）、差分运行器（#191）、
+pilot 迁移与复用证明（#192）、方法层分发（#193）。

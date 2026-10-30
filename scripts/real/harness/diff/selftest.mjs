@@ -22,13 +22,17 @@ import { spawnSync } from 'node:child_process';
 import { REPO_ROOT } from '../bindings.mjs';
 import { HarnessError } from '../errors.mjs';
 import {
+  AREA_RULES,
   CLASSIFICATIONS,
   DIFF_PROBLEM_FAILURE_TYPES,
   MISSING,
   PRODUCT_PROBLEM_CODES,
+  UNCLASSIFIED_AREA,
+  VERDICTS,
   areaOf,
   buildRows,
   classifyPair,
+  describeArea,
   failureTypeForProblems,
   groupByArea,
   summarizeRows,
@@ -164,7 +168,7 @@ function makeExpect(overrides = {}) {
   return validateExpect(
     {
       suite: 'boundary',
-      mustFlipRedOnBaseline: ['检查 A'],
+      mustFlipRedOnBaseline: ['场景 1：检查 A'],
       mustStayGreen: [],
       notes: ['selftest 合成清单'],
       ...overrides,
@@ -216,10 +220,10 @@ test('分类：两侧都红/阻塞/缺失都有独立分类', () => {
 
 test('对照表：按对照侧顺序生成，判定侧独有检查补在后面', () => {
   const rows = buildRows(
-    makeReport({ checks: [{ name: '检查 A', verdict: 'FAIL' }, { name: '检查 B', verdict: 'PASS' }] }),
-    makeReport({ checks: [{ name: '检查 B', verdict: 'PASS' }, { name: '检查 A', verdict: 'PASS' }, { name: '检查 C', verdict: 'PASS' }] }),
+    makeReport({ checks: [{ name: '场景 1：检查 A', verdict: 'FAIL' }, { name: '场景 1：检查 B', verdict: 'PASS' }] }),
+    makeReport({ checks: [{ name: '场景 1：检查 B', verdict: 'PASS' }, { name: '场景 1：检查 A', verdict: 'PASS' }, { name: '检查 C', verdict: 'PASS' }] }),
   );
-  assertEqual(rows.map((row) => row.name).join('|'), '检查 A|检查 B|检查 C', '顺序必须确定');
+  assertEqual(rows.map((row) => row.name).join('|'), '场景 1：检查 A|场景 1：检查 B|检查 C', '顺序必须确定');
   assertEqual(rows[0].classification, 'discriminating');
   assertEqual(rows[0].flipped, true);
   assertEqual(rows[2].classification, 'missingInBaseline');
@@ -241,6 +245,43 @@ test('对照表：区域归类（场景/契约/fixture/冒号前缀）', () => {
   assertEqual(groups[0].area, '场景 1');
 });
 
+/* #183 评审整改 F5：区域归类要能被指名（命中哪条规则），未命中不静默换桶。 */
+test('F5 区域归类：命中规则可指名，未命中判未归类', () => {
+  assertEqual(describeArea('契约：host.input-actions').rule, 'contract');
+  assertEqual(describeArea('fixture 起始态').rule, 'fixture');
+  assertEqual(describeArea('场景 2：行插入落位').rule, 'scene');
+  assertEqual(describeArea('A1-1 插入后草稿文本 == abcSMARTEND').rule, 'group');
+  assertEqual(describeArea('A1-1 插入后草稿文本 == abcSMARTEND').area, '检查组 A1');
+  assertEqual(describeArea('T1-6 物理点底栏触发方式按钮').area, '检查组 T1');
+  assertEqual(describeArea('③光标位置：插入后光标停在正文末尾').rule, 'titled');
+  assertEqual(describeArea('没有前缀没有冒号的裸检查名').rule, 'unclassified');
+  assertEqual(describeArea('没有前缀没有冒号的裸检查名').area, UNCLASSIFIED_AREA);
+  assertEqual(describeArea('').area, UNCLASSIFIED_AREA);
+  assert(AREA_RULES.length >= 5, '区域规则必须显式声明（至少契约/fixture/场景/检查组分/冒号标题五类）');
+});
+
+test('F5 未归类检查名 → FAIL 问题（unclassified-check-areas），分型 test，不静默换桶', () => {
+  const doc = makeDoc({
+    refChecks: [{ name: '裸名字', verdict: 'FAIL', detail: '旧产物缺失' }, { name: '场景 1：A', verdict: 'PASS' }],
+    curChecks: [{ name: '裸名字', verdict: 'PASS' }, { name: '场景 1：A', verdict: 'PASS' }],
+    refVerdict: 'FAIL',
+    curVerdict: 'PASS',
+    expect: makeExpect({ mustFlipRedOnBaseline: ['裸名字'] }),
+  });
+  const problem = doc.problems.find((item) => item.code === 'unclassified-check-areas');
+  assert(problem, '未归类检查名必须记一条问题');
+  assertEqual(problem.severity, 'FAIL');
+  assertEqual(problem.checks.join('|'), '裸名字');
+  assertEqual(doc.verdict, 'FAIL');
+  assertEqual(doc.coverage.unclassifiedAreas.join('|'), '裸名字');
+  assertEqual(failureTypeForProblems(doc.problems).failureType, 'test');
+});
+
+test('F5 MISSING 是分类期哨兵，不是第五种判定', () => {
+  assert(!VERDICTS.includes(MISSING), 'MISSING 不得进 VERDICTS（判定只有四类）');
+  assertEqual(MISSING, 'MISSING');
+});
+
 test('检查名匹配：精确、前缀、* 通配', () => {
   assert(matchPattern('场景 2：行插入落位：等待观测条件超时', '场景 2：行插入落位'), '前缀应匹配');
   assert(matchPattern('场景 2：行插入落位：等待观测条件超时', '场景 *：行插入落位：*'), '通配应匹配');
@@ -253,11 +294,11 @@ test('检查名匹配：精确、前缀、* 通配', () => {
 
 test('全绿且有区分力 → PASS / exit 0', () => {
   const doc = makeDoc({
-    refChecks: [{ name: '检查 A', verdict: 'FAIL', detail: '旧产物行为缺失' }, { name: '检查 B', verdict: 'PASS' }],
-    curChecks: [{ name: '检查 A', verdict: 'PASS' }, { name: '检查 B', verdict: 'PASS' }],
+    refChecks: [{ name: '场景 1：检查 A', verdict: 'FAIL', detail: '旧产物行为缺失' }, { name: '场景 1：检查 B', verdict: 'PASS' }],
+    curChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }, { name: '场景 1：检查 B', verdict: 'PASS' }],
     refVerdict: 'FAIL',
     curVerdict: 'PASS',
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'], mustStayGreen: ['检查 B'] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 A'], mustStayGreen: ['场景 1：检查 B'] }),
   });
   assertEqual(doc.verdict, 'PASS', '结论');
   assertEqual(doc.exitCode, DIFF_EXIT_CODES.PASS);
@@ -269,11 +310,11 @@ test('全绿且有区分力 → PASS / exit 0', () => {
 
 test('bothGreen → 清单内断言无区分力 → FAIL / exit 1（不得判通过）', () => {
   const doc = makeDoc({
-    refChecks: [{ name: '检查 A', verdict: 'PASS' }],
-    curChecks: [{ name: '检查 A', verdict: 'PASS' }],
+    refChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }],
+    curChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }],
     refVerdict: 'PASS',
     curVerdict: 'PASS',
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 A'] }),
   });
   assertEqual(doc.verdict, 'FAIL', 'bothGreen 绝不能算通过');
   assertEqual(doc.exitCode, DIFF_EXIT_CODES.FAIL);
@@ -286,8 +327,8 @@ test('bothGreen → 清单内断言无区分力 → FAIL / exit 1（不得判通
 
 test('mustFlip 引用了不存在的检查 → FAIL / exit 1（清单过期）', () => {
   const doc = makeDoc({
-    refChecks: [{ name: '检查 B', verdict: 'PASS' }],
-    curChecks: [{ name: '检查 B', verdict: 'PASS' }],
+    refChecks: [{ name: '场景 1：检查 B', verdict: 'PASS' }],
+    curChecks: [{ name: '场景 1：检查 B', verdict: 'PASS' }],
     refVerdict: 'PASS',
     curVerdict: 'PASS',
     expect: makeExpect({ mustFlipRedOnBaseline: ['检查 X'], mustStayGreen: [] }),
@@ -301,8 +342,8 @@ test('清单为空（没有 mustFlip）→ FAIL / exit 1（无证据力）', () 
   // 清单对象，验证 buildDiffDocument 的兜底判定同样不判通过。
   const rawExpect = { suite: 'boundary', mustFlipRedOnBaseline: [], mustStayGreen: [], notes: [], source: '<selftest>' };
   const doc = makeDoc({
-    refChecks: [{ name: '检查 B', verdict: 'PASS' }],
-    curChecks: [{ name: '检查 B', verdict: 'PASS' }],
+    refChecks: [{ name: '场景 1：检查 B', verdict: 'PASS' }],
+    curChecks: [{ name: '场景 1：检查 B', verdict: 'PASS' }],
     refVerdict: 'PASS',
     curVerdict: 'PASS',
     expect: rawExpect,
@@ -313,11 +354,11 @@ test('清单为空（没有 mustFlip）→ FAIL / exit 1（无证据力）', () 
 
 test('回归（对照侧绿 → 判定侧红）→ FAIL / exit 1，且问题醒目', () => {
   const doc = makeDoc({
-    refChecks: [{ name: '检查 M', verdict: 'FAIL' }, { name: '检查 R', verdict: 'PASS' }],
-    curChecks: [{ name: '检查 M', verdict: 'PASS' }, { name: '检查 R', verdict: 'FAIL' }],
+    refChecks: [{ name: '场景 1：检查 M', verdict: 'FAIL' }, { name: '检查 R', verdict: 'PASS' }],
+    curChecks: [{ name: '场景 1：检查 M', verdict: 'PASS' }, { name: '检查 R', verdict: 'FAIL' }],
     refVerdict: 'FAIL',
     curVerdict: 'FAIL',
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 M'], mustStayGreen: [] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 M'], mustStayGreen: [] }),
   });
   assertEqual(doc.exitCode, DIFF_EXIT_CODES.FAIL);
   const row = doc.checks.find((item) => item.name === '检查 R');
@@ -327,11 +368,11 @@ test('回归（对照侧绿 → 判定侧红）→ FAIL / exit 1，且问题醒�
 
 test('判定侧缺失检查（artifact 模式）→ FAIL / exit 1', () => {
   const doc = makeDoc({
-    refChecks: [{ name: '检查 M', verdict: 'FAIL' }],
+    refChecks: [{ name: '场景 1：检查 M', verdict: 'FAIL' }],
     curChecks: [],
     refVerdict: 'FAIL',
     curVerdict: 'PASS',
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 M'] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 M'] }),
   });
   assertEqual(doc.checks[0].classification, 'missingInCandidate');
   assert(doc.problems.some((problem) => problem.code === 'candidate-missing-checks'), '应报 candidate-missing-checks');
@@ -340,11 +381,11 @@ test('判定侧缺失检查（artifact 模式）→ FAIL / exit 1', () => {
 
 test('当前产物自身还有产品 FAIL（差分成立 ≠ 当前全绿）→ FAIL / exit 1', () => {
   const doc = makeDoc({
-    refChecks: [{ name: '检查 A', verdict: 'FAIL' }, { name: '检查 Z', verdict: 'FAIL' }],
-    curChecks: [{ name: '检查 A', verdict: 'PASS' }, { name: '检查 Z', verdict: 'FAIL' }],
+    refChecks: [{ name: '场景 1：检查 A', verdict: 'FAIL' }, { name: '检查 Z', verdict: 'FAIL' }],
+    curChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }, { name: '检查 Z', verdict: 'FAIL' }],
     refVerdict: 'FAIL',
     curVerdict: 'FAIL',
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 A'] }),
   });
   assert(doc.problems.some((problem) => problem.code === 'candidate-product-fail'), '应报 candidate-product-fail');
   assertEqual(doc.exitCode, DIFF_EXIT_CODES.FAIL);
@@ -352,11 +393,11 @@ test('当前产物自身还有产品 FAIL（差分成立 ≠ 当前全绿）→ 
 
 test('对照侧报告整体 BLOCKED → BLOCKED / exit 2', () => {
   const doc = makeDoc({
-    refChecks: [{ name: '检查 A', verdict: 'BLOCKED' }],
-    curChecks: [{ name: '检查 A', verdict: 'PASS' }],
+    refChecks: [{ name: '场景 1：检查 A', verdict: 'BLOCKED' }],
+    curChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }],
     refVerdict: 'BLOCKED',
     curVerdict: 'PASS',
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 A'] }),
   });
   assertEqual(doc.verdict, 'BLOCKED');
   assertEqual(doc.exitCode, DIFF_EXIT_CODES.BLOCKED);
@@ -364,11 +405,11 @@ test('对照侧报告整体 BLOCKED → BLOCKED / exit 2', () => {
 
 test('工具故障（子进程报告缺失等）→ TOOL_FAULT / exit 3，不冒充产品判定', () => {
   const doc = makeDoc({
-    refChecks: [{ name: '检查 A', verdict: 'FAIL' }],
-    curChecks: [{ name: '检查 A', verdict: 'PASS' }],
+    refChecks: [{ name: '场景 1：检查 A', verdict: 'FAIL' }],
+    curChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }],
     refVerdict: 'FAIL',
     curVerdict: 'PASS',
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 A'] }),
     toolProblems: [{ code: 'reference-missing-report', severity: 'TOOL_FAULT', message: 'report.json 读不到', checks: [] }],
   });
   assertEqual(doc.verdict, 'TOOL_FAULT');
@@ -388,11 +429,11 @@ test('退出码表与 report 层同一语义：0/1/2/3', () => {
 
 test('md 由 JSON 唯一事实源渲染：两次渲染字节相同、JSON 往返后仍相同', () => {
   const doc = makeDoc({
-    refChecks: [{ name: '检查 A', verdict: 'FAIL', detail: '旧产物 observed=null' }, { name: '检查 B', verdict: 'PASS' }],
-    curChecks: [{ name: '检查 A', verdict: 'PASS' }, { name: '检查 B', verdict: 'PASS' }],
+    refChecks: [{ name: '场景 1：检查 A', verdict: 'FAIL', detail: '旧产物 observed=null' }, { name: '场景 1：检查 B', verdict: 'PASS' }],
+    curChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }, { name: '场景 1：检查 B', verdict: 'PASS' }],
     refVerdict: 'FAIL',
     curVerdict: 'PASS',
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'], mustStayGreen: ['检查 B'] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 A'], mustStayGreen: ['场景 1：检查 B'] }),
   });
   const json = JSON.stringify(doc, null, 2);
   const roundTripped = JSON.parse(json);
@@ -401,8 +442,8 @@ test('md 由 JSON 唯一事实源渲染：两次渲染字节相同、JSON 往返
   const md3 = renderDiffMarkdown(roundTripped);
   assert(md1 === md2, '同一 doc 两次渲染必须字节相同（确定性）');
   assert(md1 === md3, '先序列化再解析后渲染必须字节相同（md 只依赖 JSON 事实源）');
-  assert(md1.includes('检查 A'), 'md 必须列出检查名');
-  assert(md1.includes('检查 B'), 'md 必须列出检查名');
+  assert(md1.includes('场景 1：检查 A'), 'md 必须列出检查名');
+  assert(md1.includes('场景 1：检查 B'), 'md 必须列出检查名');
   assert(md1.includes('旧产物基线'), 'md 必须标出对照侧角色');
   assert(md1.includes('有区分力'), 'md 必须标出分类');
   assert(json.includes('"schemaVersion": 1'), 'diff.json 必须带 schemaVersion');
@@ -410,11 +451,11 @@ test('md 由 JSON 唯一事实源渲染：两次渲染字节相同、JSON 往返
 
 test('md 对 bothGreen 明说「无区分力」而不是通过', () => {
   const doc = makeDoc({
-    refChecks: [{ name: '检查 A', verdict: 'PASS' }],
-    curChecks: [{ name: '检查 A', verdict: 'PASS' }],
+    refChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }],
+    curChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }],
     refVerdict: 'PASS',
     curVerdict: 'PASS',
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 A'] }),
   });
   const md = renderDiffMarkdown(doc);
   assert(md.includes('无区分力'), 'md 必须写出无区分力');
@@ -711,10 +752,10 @@ test('fault 模式评估：注入侧红即检出，条件性检查不要求对�
 
 test('fault 模式评估：注入没有让断言变红 → FAIL（注入无区分力）', () => {
   const rows = buildRows(
-    makeReport({ checks: [{ name: '检查 A', verdict: 'PASS' }] }),
-    makeReport({ checks: [{ name: '检查 A', verdict: 'PASS' }] }),
+    makeReport({ checks: [{ name: '场景 1：检查 A', verdict: 'PASS' }] }),
+    makeReport({ checks: [{ name: '场景 1：检查 A', verdict: 'PASS' }] }),
   );
-  const result = evaluateFaultExpectations({ rows, expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'] }) });
+  const result = evaluateFaultExpectations({ rows, expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 A'] }) });
   assert(
     result.problems.some((problem) => problem.code === 'fault-not-detected' && problem.severity === 'FAIL'),
     '注入后仍绿必须报 fault-not-detected（不得判通过）',
@@ -723,12 +764,12 @@ test('fault 模式评估：注入没有让断言变红 → FAIL（注入无区�
 
 test('fault 模式评估：注入污染了无关断言 → FAIL', () => {
   const rows = buildRows(
-    makeReport({ checks: [{ name: '检查 A', verdict: 'PASS' }, { name: '检查 B', verdict: 'PASS' }] }),
-    makeReport({ verdict: 'FAIL', checks: [{ name: '检查 A', verdict: 'FAIL' }, { name: '检查 B', verdict: 'FAIL' }] }),
+    makeReport({ checks: [{ name: '场景 1：检查 A', verdict: 'PASS' }, { name: '场景 1：检查 B', verdict: 'PASS' }] }),
+    makeReport({ verdict: 'FAIL', checks: [{ name: '场景 1：检查 A', verdict: 'FAIL' }, { name: '场景 1：检查 B', verdict: 'FAIL' }] }),
   );
   const result = evaluateFaultExpectations({
     rows,
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'], mustStayGreen: ['检查 B'] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 A'], mustStayGreen: ['场景 1：检查 B'] }),
   });
   assert(
     result.problems.some((problem) => problem.code === 'fault-stay-green-broken' && problem.severity === 'FAIL'),
@@ -739,11 +780,11 @@ test('fault 模式评估：注入污染了无关断言 → FAIL', () => {
 test('fault 模式：注入侧出现未声明的红 → 整体 FAIL（影响面大于声明）', () => {
   const doc = makeDoc({
     mode: 'fault',
-    refChecks: [{ name: '检查 A', verdict: 'PASS' }],
-    curChecks: [{ name: '检查 A', verdict: 'FAIL' }, { name: '检查 B', verdict: 'FAIL' }],
+    refChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }],
+    curChecks: [{ name: '场景 1：检查 A', verdict: 'FAIL' }, { name: '场景 1：检查 B', verdict: 'FAIL' }],
     refVerdict: 'PASS',
     curVerdict: 'FAIL',
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'], mustStayGreen: [] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 A'], mustStayGreen: [] }),
   });
   assertEqual(doc.mode, 'fault');
   assertEqual(doc.verdict, 'FAIL');
@@ -803,22 +844,22 @@ test('S3 failureTypeForProblems：未知码 → test（fail-closed，不把工�
 
 test('S3 由真实 diff 文档问题推导分型：bothGreen → test；回归 → product', () => {
   const noPowerDoc = makeDoc({
-    refChecks: [{ name: '检查 A', verdict: 'PASS' }],
-    curChecks: [{ name: '检查 A', verdict: 'PASS' }],
+    refChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }],
+    curChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }],
     refVerdict: 'PASS',
     curVerdict: 'PASS',
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 A'] }),
   });
   assertEqual(noPowerDoc.verdict, 'FAIL');
   assert(noPowerDoc.problems.some((problem) => problem.code === 'no-discrimination'));
   assertEqual(failureTypeForProblems(noPowerDoc.problems).failureType, 'test', 'bothGreen 的整体 FAIL 属测试方法问题');
 
   const regressionDoc = makeDoc({
-    refChecks: [{ name: '检查 A', verdict: 'PASS' }],
-    curChecks: [{ name: '检查 A', verdict: 'FAIL' }],
+    refChecks: [{ name: '场景 1：检查 A', verdict: 'PASS' }],
+    curChecks: [{ name: '场景 1：检查 A', verdict: 'FAIL' }],
     refVerdict: 'PASS',
     curVerdict: 'FAIL',
-    expect: makeExpect({ mustFlipRedOnBaseline: ['检查 A'], mustStayGreen: [] }),
+    expect: makeExpect({ mustFlipRedOnBaseline: ['场景 1：检查 A'], mustStayGreen: [] }),
   });
   assert(
     regressionDoc.problems.some((problem) => problem.code === 'regression'),

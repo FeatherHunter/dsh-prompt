@@ -12,6 +12,12 @@
  */
 
 export const VERDICTS = Object.freeze(['PASS', 'FAIL', 'BLOCKED', 'N-A']);
+
+/**
+ * 差分侧的分类期哨兵（#183 评审整改 F5）：表示「该侧报告里没有这条检查」，
+ * 即某侧没跑到；它不是第五种判定，不进 `VERDICTS`、不参与退出码，
+ * 只在对照表里让「缺失」显式可见（否则会静默按 PASS 处理）。
+ */
 export const MISSING = 'MISSING';
 
 /** 分类 → 中文标签 / 证据力 / 严重度。渲染与统计共用同一张表，避免两处漂移。 */
@@ -87,17 +93,42 @@ export function classificationMeta(kind) {
   return CLASSIFICATIONS[kind] ?? CLASSIFICATIONS.unknown;
 }
 
-/** 把检查名归到可读区域：场景/契约/fixture 前缀优先，否则取第一个「：」前的语义段。 */
-export function areaOf(name) {
+/**
+ * 检查名 → 区域的可读归组规则（#183 评审整改 F5：不再「取第一个冒号前」静默换桶）。
+ *
+ * 每条规则声明它认得的命名形态；`describeArea` 返回命中的规则 id，
+ * 一条都不命中时返回 `UNCLASSIFIED_AREA` 而不是把整条检查名当成区域名 ——
+ * 后者会让每一条新检查各成一个「区域」，报告看起来有覆盖、实际没有归组。
+ */
+export const AREA_RULES = Object.freeze([
+  { id: 'contract', pattern: /^契约：/, area: () => '契约 preflight' },
+  { id: 'fixture', pattern: /^fixture\b/, area: () => 'fixture 起始态' },
+  { id: 'scene', pattern: /^场景\s*(\d+)/, area: (match) => '场景 ' + match[1] },
+  { id: 'group', pattern: /^([A-Z]\d+)-/, area: (match) => '检查组 ' + match[1] },
+  { id: 'titled', pattern: /^([^：]{1,40})：/, area: (match) => match[1].trim() },
+]);
+
+/** 没有命中任何 AREA_RULES 的检查名归到这里（调用方据此报警，而不是静默换桶）。 */
+export const UNCLASSIFIED_AREA = '（未归类）';
+
+/**
+ * 解析检查名所属区域与依据。
+ * @param {unknown} name
+ * @returns {{area: string, rule: string}}
+ */
+export function describeArea(name) {
   const text = typeof name === 'string' ? name : String(name ?? '');
-  if (!text) return '（未命名）';
-  if (text.startsWith('契约：')) return '契约 preflight';
-  if (text === 'fixture 起始态' || text.startsWith('fixture ')) return 'fixture 起始态';
-  const scene = text.match(/^场景\s*(\d+)/);
-  if (scene) return '场景 ' + scene[1];
-  const colon = text.indexOf('：');
-  if (colon > 0) return text.slice(0, colon);
-  return text;
+  if (!text) return { area: UNCLASSIFIED_AREA, rule: 'unclassified' };
+  for (const rule of AREA_RULES) {
+    const match = text.match(rule.pattern);
+    if (match) return { area: rule.area(match), rule: rule.id };
+  }
+  return { area: UNCLASSIFIED_AREA, rule: 'unclassified' };
+}
+
+/** 把检查名归到可读区域；规则见 AREA_RULES，未命中一律 UNCLASSIFIED_AREA。 */
+export function areaOf(name) {
+  return describeArea(name).area;
 }
 
 /** 一条检查的简短原因（写进对照表，便于贴 issue 时直接看懂为什么红/绿）。 */
@@ -147,9 +178,11 @@ export function buildRows(referenceReport, candidateReport) {
     const referenceVerdict = reference ? normalizeVerdict(reference.verdict) : MISSING;
     const candidateVerdict = candidate ? normalizeVerdict(candidate.verdict) : MISSING;
     const kind = classifyPair(referenceVerdict, candidateVerdict);
+    const area = describeArea(name);
     return {
       name,
-      area: areaOf(name),
+      area: area.area,
+      areaRule: area.rule,
       reference: {
         verdict: referenceVerdict,
         reason: describeCheck(reference),
@@ -237,6 +270,7 @@ export const DIFF_PROBLEM_FAILURE_TYPES = Object.freeze({
   'fault-stay-green-broken': 'test',
   'unexpected-fault-influence': 'test',
   'environment-mismatch': 'test',
+  'unclassified-check-areas': 'test',
 });
 
 /** FAIL 检查里「有产品行为证据」的问题码白名单（用于 reason 文案，可读可测）。 */

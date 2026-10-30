@@ -80,6 +80,7 @@
 | 3 | 工具故障（harness/CDP/驱动/运行器自身异常；不得冒充产品失败） |
 
 判定只有四类：`PASS` / `FAIL` / `BLOCKED` / `N-A`。
+差分侧另有一个**分类期哨兵** `MISSING`：只表示「该侧报告里没有这条检查」（某侧没跑到），它不是第五种判定、不进 `VERDICTS`、不参与退出码，只在对照表里让缺失显式可见（#183 评审整改 F5）。
 `FAIL` 必带证据六元组与分型（`product` 产品缺陷 / `spec` 规格缺陷 / `test` 测试假象 / `tool` 工具故障）
 及分型依据，并保存失败产物或写明 `artifactsWhy`；`BLOCKED` 必须写原因（`blockerKind` 区分环境/工具）；
 `N-A` 必须写原因（无理由直接抛错，不转 FAIL、不留下残缺检查）。
@@ -358,7 +359,7 @@ kit 上的产物；pilot 已删除，仓内不再保留它自带的 CDP 客户�
 纯 Node 自证（不需要浏览器/宿主）：
 
     node scripts/real/harness/diff/selftest.mjs
-    # [diff-selftest] PASS 43 项（差分判定/期望清单/基线登记/注入器/退出码/CLI）
+    # [diff-selftest] PASS 46 项（差分判定/期望清单/基线登记/注入器/退出码/CLI）
 
 ## 验收对照（#191）
 

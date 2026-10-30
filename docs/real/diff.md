@@ -22,7 +22,7 @@
 | `scripts/real/harness/diff/model.mjs` | 纯函数：构建 `diff.json` 文档（唯一事实源）与判定/退出码 |
 | `scripts/real/harness/diff/render.mjs` | 纯函数：从 `diff.json` 确定性渲染 `diff.md`（两次渲染字节相同） |
 | `scripts/real/harness/diff/baseline.mjs` | 旧产物登记表与缓存解析（sha256 锚定） |
-| `scripts/real/harness/diff/selftest.mjs` | 纯 Node 自证（43 项，无浏览器），`check:real-diff` 候选命令 |
+| `scripts/real/harness/diff/selftest.mjs` | 纯 Node 自证（46 项，无浏览器），`check:real-diff` 候选命令 |
 | `scripts/real/harness/fault/injectors.mjs` | 三个故障注入器注册表与安装/卸载实现 |
 | `scripts/real/harness/fault/index.mjs` | `applyFaults`：顺序安装、失败逆序回滚、元数据与证据 |
 | `scripts/real/diffs/boundary.expect.json` | `boundary` 套件的期望翻转清单（纯数据） |
@@ -199,6 +199,11 @@ node scripts/real/diff.mjs \
 - 安装顺序执行，任一注入器安装失败会逆序回滚已装部分；卸载失败记为 toolFault（exit 3）；
 - 每个注入器把「实际影响面」（页面状态、命中次数）写进报告 `environment.faults`；diff 模式若出现**未声明的红**，单列 `unexpected-fault-influence` 问题（FAIL），不会混进回归统计。
 
+## 区域归类与 MISSING 哨兵（#183 评审整改 F5）
+
+- **MISSING 不是第五种判定**：`scripts/real/harness/diff/classify.mjs` 的 `VERDICTS` 仍然只有四类；`MISSING` 只是分类期哨兵，表示「该侧报告里没有这条检查」（旧套件/场景中断），在对照表里显式可见、不参与退出码。
+- **区域归组有显式规则**：`AREA_RULES` 声明检查名的五种可读形态（`契约：` 前缀 / `fixture` 前缀 / `场景 N` / `检查组 A1·T1` / `标题：` 冒号前缀）。`describeArea(name)` 返回 `{area, rule}`；一条都不命中时归 `UNCLASSIFIED_AREA` 而不是把整条检查名当成区域名 —— 否则报告会退化成「每条检查各一个区域」，覆盖统计看着完整、实际没人能按区域读。
+- **未归类 fail-closed**：出现未归类检查名时，`buildDiffDocument` 记一条 `unclassified-check-areas` 的 FAIL 问题（分型 `test`，见下表），`coverage.unclassifiedAreas` 列出具体检查名，`diff.md` 的「覆盖与风险」里也有一行警告。当前三套件（boundary/trigger/undo-group）实测 0 条未归类。
 ## 差分侧 FAIL 分型（#183 评审整改 S3）
 
 差分命令自己也写标准 `report.json`，它的 FAIL 不能一律记成 `product`：有些问题出在**清单/注入器/期望表达**上，归 `test` 才诚实。分型映射表在 `scripts/real/harness/diff/classify.mjs` 的 `DIFF_PROBLEM_FAILURE_TYPES`，由 `failureTypeForProblems(problems)` 汇总（只要有一个 `product` 码就判 `product`，否则 `test`；未知码 fail-closed 按 `test`）：
@@ -211,6 +216,7 @@ node scripts/real/diff.mjs \
 | `empty-expectations` / `expect-missing-check` / `no-discrimination` / `no-flip` / `expect-baseline-not-green` | `test` | 期望清单没写到点子上或缺证据力，属 test 假象 |
 | `fault-not-detected` / `fault-partial-red` / `fault-reference-not-green` / `fault-stay-green-reference` / `fault-stay-green-broken` / `unexpected-fault-influence` | `test` | 注入器声明与实际影响面不符（注入器/清单缺陷） |
 | `environment-mismatch` | `test` | 两侧环境漂移，先修运行环境 |
+| `unclassified-check-areas` | `test` | 检查名没有命中任何区域规则（命名/方法问题，报告无法归组） |
 
 `failureTypeBasis` 固定为 `{source:'diff', signal:<命中的码集合>, note:…}`，报告里能看出这个 `test`/`product` 是怎么来的；`diff/selftest.mjs` 对映射表、未知码 fail-closed、以及「真实 doc 推导出 product/test」都有断言。
 
@@ -225,7 +231,7 @@ node scripts/real/diff.mjs \
 
 ```bash
 node scripts/real/harness/diff/selftest.mjs
-# [diff-selftest] PASS 43 项（差分判定/期望清单/基线登记/注入器/退出码/CLI）
+# [diff-selftest] PASS 46 项（差分判定/期望清单/基线登记/注入器/退出码/CLI）
 ```
 
 覆盖：逐检查分类与对照表生成、四类区分力（尤其 bothGreen 不算通过）、`mustFlip` 未翻转 → FAIL、`mustStayGreen` 破坏 → FAIL、regression 识别、未声明注入影响 → FAIL、md 与 JSON 一致性（重复渲染字节相同、JSON 往返后一致）、退出码 0/1/2/3、注入器注册表/默认关闭/安装-卸载可逆/半装回滚、真实仓库清单与基线登记表结构、CLI `--help` 与用法错误。

@@ -94,6 +94,9 @@ function collectCoverage(rows) {
   const blocked = [];
   const bothGreen = [];
   const bothRed = [];
+  // #183 评审整改 F5：检查名没能归进任何已声明区域规则时，不静默按「自己一个区域」处理，
+  // 而是记进 unclassifiedAreas 并由 buildDiffDocument 记一条 FAIL 问题（fail-closed）。
+  const unclassifiedAreas = [];
   for (const row of rows) {
     if (row.reference.verdict === 'MISSING' && row.candidate.verdict === 'MISSING') continue;
     if (row.reference.verdict === 'MISSING') missingInReference.push(row.name);
@@ -101,11 +104,13 @@ function collectCoverage(rows) {
     else if (row.reference.verdict === 'BLOCKED' || row.candidate.verdict === 'BLOCKED') blocked.push(row.name);
     if (row.classification === 'bothGreen') bothGreen.push(row.name);
     if (row.classification === 'bothRed') bothRed.push(row.name);
+    if (row.areaRule === 'unclassified') unclassifiedAreas.push(row.name);
   }
   if (blocked.length > 0) risk.push('有 ' + blocked.length + ' 条检查被阻塞（不是产品判定，覆盖不完整）');
   if (missingInReference.length > 0) risk.push('对照侧有 ' + missingInReference.length + ' 条检查未跑到（旧套件/场景中断），这些检查没有对照证据');
   if (missingInCandidate.length > 0) risk.push('判定侧有 ' + missingInCandidate.length + ' 条检查未跑到（场景中断），这些检查没有判定证据');
-  return { missingInReference, missingInCandidate, blocked, bothGreen, bothRed, risk };
+  if (unclassifiedAreas.length > 0) risk.push('有 ' + unclassifiedAreas.length + ' 条检查名没有命中任何区域规则（报告无法归组，按测试方法缺陷处理）');
+  return { missingInReference, missingInCandidate, blocked, bothGreen, bothRed, unclassifiedAreas, risk };
 }
 
 function decide(referenceReport, candidateReport, problems) {
@@ -200,6 +205,21 @@ export function buildDiffDocument(input) {
       severity: 'FAIL',
       message: '期望清单没有 mustFlipRedOnBaseline：无法证明任何区分力，不得判通过。',
       checks: [],
+    });
+  }
+
+  // #183 评审整改 F5：检查名必须能归进 AREA_RULES 声明的区域规则；归不进去时
+  // 报告会退化成「每条检查各一个区域」，覆盖统计看起来完整、实际没人能按区域读。
+  // 这是测试命名/方法问题，fail-closed 记 FAIL（分型 test），不静默换桶。
+  const unclassifiedAreaNames = rows.filter((row) => row.areaRule === 'unclassified').map((row) => row.name);
+  if (unclassifiedAreaNames.length > 0) {
+    problems.push({
+      code: 'unclassified-check-areas',
+      severity: 'FAIL',
+      checks: unclassifiedAreaNames,
+      message:
+        '有 ' + unclassifiedAreaNames.length + ' 条检查名没有命中任何区域规则（见 harness/diff/classify.mjs 的 AREA_RULES）；' +
+        '报告无法按区域归组，先补命名或补规则：' + unclassifiedAreaNames.slice(0, 3).join('、') + '…',
     });
   }
 

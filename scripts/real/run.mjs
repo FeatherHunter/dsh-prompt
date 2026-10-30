@@ -27,6 +27,7 @@ import { runPreflight } from './harness/contract/preflight.mjs';
 import { FixtureError, captureBaselineFromOrigin, checkBaseline, formatDiffs, loadFixture, makeFixtureParams, prepareFixture } from './harness/fixture/index.mjs';
 import { createObserver, createPersistence } from './harness/observe/index.mjs';
 import { createInputDriver } from './harness/input.mjs';
+import { applyFaults, assertKnownFaultIds } from './harness/fault/index.mjs';
 import { runSmoke } from './suites/smoke.mjs';
 import { runBoundary } from './suites/boundary.mjs';
 
@@ -233,8 +234,21 @@ async function execute(bindings) {
         storePath: preparedFixture.storePath,
         timeoutMs: bindings.timeouts.pageLoadMs,
       });
+      // #191 故障注入：只在显式 --fault 时把接缝包成故障态；默认路径句柄原样、零影响。
+      // 注入元数据（期望变红的检查）与页面内计数写进报告环境，读者不用翻代码就知道动过什么。
+      let faultSession = null;
+      let handles = { observe, input, persistence };
+      if (bindings.faults.length > 0) {
+        recorder.setEnvironment({ phase: 'fault-apply' });
+        faultSession = await applyFaults({ ids: bindings.faults, handles: { client, observe, input, persistence } });
+        handles = {
+          observe: faultSession.handles.observe,
+          input: faultSession.handles.input,
+          persistence: faultSession.handles.persistence,
+        };
+      }
       // 失败产物：套件跑完（无论是否抛错）先给 FAIL 检查补截图/页面状态/store/输入日志，
-      // 再进入清理（关 CDP / 浏览器之后就采不到了）。
+      // 再进入清理（关 CDP / 浏览器之后就采不到了）。故障态要在卸载前采集。
       try {
         await SUITES[bindings.suite]({
           bindings,
@@ -246,15 +260,37 @@ async function execute(bindings) {
           workDir: runContext.workDir,
           timeouts: bindings.timeouts,
           fixture: preparedFixture,
-          observe,
-          input,
-          persistence,
+          observe: handles.observe,
+          input: handles.input,
+          persistence: handles.persistence,
+          faults: faultSession ? faultSession.injectors : [],
         });
       } finally {
-        await captureFailureArtifacts({ recorder, client, observe, persistence, input }).catch((error) => {
+        await captureFailureArtifacts({ recorder, client, observe: handles.observe, persistence: handles.persistence, input: handles.input }).catch((error) => {
           // 产物采集自身失败不能改变判定，只记进环境供报告读者参考。
           recorder.setEnvironment({ artifactCapture: { ok: false, error: String(error && error.message ? error.message : error) } });
         });
+        if (faultSession) {
+          let uninstall;
+          try {
+            uninstall = await faultSession.uninstall();
+          } catch (error) {
+            uninstall = { error: String(error && error.message ? error.message : error) };
+          }
+          recorder.setEnvironment({
+            faults: {
+              mode: 'injected',
+              injectors: faultSession.injectors,
+              evidence: faultSession.evidence,
+              uninstall,
+            },
+          });
+          const results = uninstall && uninstall.results ? Object.values(uninstall.results) : [];
+          const broken = results.filter((item) => item && item.restored === false);
+          if (broken.length > 0) {
+            recorder.toolFault('故障注入回滚失败', JSON.stringify(broken));
+          }
+        }
       }
       recorder.setEnvironment({ phase: 'done' });
     } else if (!preflight.ok) {
@@ -333,6 +369,9 @@ function printSummary(result, bindings) {
   console.log('[real] 宿主 CLI ' + bindings.dshCli + '（' + bindings.hostVersion + '）');
   console.log('[real] 浏览器 ' + bindings.browser);
   if (bindings.contractFault) console.log('[real] 契约注入项 ' + bindings.contractFault + '（负例：只让该契约项不匹配）');
+  if (bindings.faults.length > 0) {
+    console.log('[real] 故障注入 ' + bindings.faults.join(', ') + '（显式开启；默认关闭，期望变红的检查见报告 environment.faults）');
+  }
   const fixture = report.environment && report.environment.fixture ? report.environment.fixture : null;
   if (fixture) {
     const state = fixture.ok === null ? '未读回' : fixture.ok ? '匹配声明' : '与声明不符（BLOCKED）';
@@ -396,6 +435,16 @@ async function main() {
     loadFixture(bindings.fixture);
   } catch (error) {
     if (error instanceof FixtureError) {
+      console.error('[real][BLOCKED] ' + error.message);
+      return 2;
+    }
+    throw error;
+  }
+  // 故障注入 id 在装配前先校验一次：typo 直接给可操作错误，不必先花几十秒起宿主。
+  try {
+    assertKnownFaultIds(bindings.faults);
+  } catch (error) {
+    if (error instanceof HarnessError) {
       console.error('[real][BLOCKED] ' + error.message);
       return 2;
     }

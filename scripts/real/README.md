@@ -100,6 +100,7 @@
 
     scripts/real/
       run.mjs              入口：编排与退出码
+      diff.mjs             差分入口：同一套件/协议分别跑旧基线/当前产物（或 干净/注入）→ diff.json + diff.md
       harness/
         bindings.mjs       运行期绑定：产物/CLI/浏览器/目录/超时/参数
         profile.mjs        一次性 profile 装配与安装校验
@@ -114,6 +115,17 @@
           artifacts.mjs    失败产物仓库与自动采集（截图/页面状态/store/输入日志）
           index.mjs        报告层统一入口
           selftest.mjs     判定分类与证据报告自证（纯 Node，零浏览器/零宿主）
+        diff/
+          classify.mjs     检查对照与区分力分类（有区分力/回归/两侧都绿/阻塞/缺失）
+          expect.mjs       期望清单加载/匹配/评估；fault 模式评估（注入侧红即检出）
+          baseline.mjs     旧产物基线登记表与缓存解析（登记不写机器绝对路径）
+          model.mjs        diff.json 文档模型与整体判定（纯函数）
+          render.mjs       diff.json → diff.md 确定性渲染
+          index.mjs        编排：子进程跑两侧 + 汇总 + 落盘
+          selftest.mjs     差分判定自证（纯 Node，零浏览器/零宿主）
+        fault/
+          injectors.mjs    三个故障注入器（可逆、默认关闭、带期望变红清单）
+          index.mjs        注入器安装/卸载编排（半装回滚）
         proc.mjs           进程/端口底座（跨平台）
         errors.mjs         HarnessError / CheckFailure
         input-plan.mjs     输入序列构造纯函数（指针路径/点击/按键/快捷键/文本）
@@ -268,6 +280,49 @@
 统一创建并传给套件；套件不自己连 CDP、不自己拼 HTTP。命令行的 `--suite boundary` 在 preflight
 或起始态 BLOCKED 时同样**不会执行**。
 
+## 差分运行器：旧产物基线 + 故障注入（#191）
+
+差分回答的不是「谁绿谁对」，而是「这条断言到底能不能区分旧/坏与修好」：
+
+- **artifact 模式**（默认）：同套件、同 fixture、同判定/证据协议，分别安装旧产物与当前产物各跑一轮，
+  逐检查对照 → `diff.json`（唯一事实源）+ `diff.md`（由 JSON 确定性渲染，可直接贴 issue）。
+- **fault 模式**（显式 `--fault`）：当前产物干净跑一轮作对照，当前产物 + 故障注入再跑一轮；
+  注入器声明「期望变红的检查」，证明这些断言对注入敏感。注入**默认关闭**，只在显式 `--fault` 时生效、可逆。
+
+    node scripts/real/diff.mjs --artifact <当前产物.tgz> --baseline-artifact <旧产物.tgz> --suite boundary --fixture templates --evidence-dir <证据目录>
+    node scripts/real/diff.mjs --artifact <当前产物.tgz> --fault insert-coordinate-offset --suite boundary --fixture templates
+
+判定：
+
+- 分类 `discriminating`（旧红 → 当前绿 = 有区分力）/ `regression`（旧绿 → 当前红，变差，必须醒目）/
+  `bothGreen`（两侧都绿 = 无区分力/无证据力，**不得判通过**）/ `bothRed` / 阻塞与缺失变体；
+- 期望清单是纯数据 `scripts/real/diffs/<suite>.expect.json`：`mustFlipRedOnBaseline` 任一项没在旧产物下红
+  → 整体 FAIL（退出码 1）；`mustStayGreen` 在旧产物下红 = 基线/环境问题（按原因 FAIL / BLOCKED）；
+- fault 模式的期望由注入器元数据派生：注入侧必须红；对照侧若记录到该检查必须绿（条件性检查只在失败时
+  记录，对照侧无记录属正常）；注入侧出现未声明的红 → FAIL（影响面大于声明）；
+- 退出码与报告层同语义：0 通过 / 1 有区分力问题或回归 / 2 阻塞 / 3 工具故障。
+
+旧产物基线可复现地生成与复用（`baselines.json` 只登记文件名/sha256/来源，不写机器绝对路径）：
+`--baseline-artifact` 直传，或缓存目录 + 登记表按 name/sha256/fileName 解析。生成方法、清单写法、
+注入器清单与真机证据见 [`docs/real/diff.md`](../../docs/real/diff.md)。
+
+纯 Node 自证（不需要浏览器/宿主）：
+
+    node scripts/real/harness/diff/selftest.mjs
+    # [diff-selftest] PASS 38 项（差分判定/期望清单/基线登记/注入器/退出码/CLI）
+
+## 验收对照（#191）
+
+| 验收项 | 怎么满足 | 证据 |
+| --- | --- | --- |
+| 一条命令跑旧/当前产物并产出 diff.json + diff.md | `diff.mjs` 子进程调 `run.mjs`，两侧各自 evidence 子目录，读两份 report.json 汇总 | `<evidence-dir>/diff.json`、`diff.md`；`reference/`、`candidate/` 子报告 |
+| 区分力分类，bothGreen 明确不判通过 | `classify.mjs` 分类 + `expect.mjs` 规则；bothGreen 进 mustFlip 即 FAIL | `harness/diff/selftest.mjs` 分类与负例用例 |
+| mustFlip 未翻转 → FAIL | 0.4.39（pack-183）基线跑 boundary：两侧全绿 → `no-discrimination`，exit 1 | `D:/Temp/evidence-191/diff-negative-pack183/diff.json` |
+| 真机旧红/当前绿 | 0.4.32 基线：⑥触发按钮检查旧红当前绿，其余两侧都绿（=无证据力） | `D:/Temp/evidence-191/diff-positive-0432/diff.json` |
+| 三种故障注入可逆、默认关闭、报告标出注入点与命中检查 | `--fault` 注入器；`environment.faults` 记元数据与安装/卸载证据；fault 模式 diff 证明注入侧按预期红 | `D:/Temp/evidence-191/diff-fault-*/diff.json`；run.mjs 注入轮 `report.json` |
+| 清单/基线登记纯数据、不写机器路径 | `scripts/real/diffs/boundary.expect.json`、`baselines.json`（sha 锚） | selftest 校验结构 + 引用检查名存在于套件源码 |
+| 默认路径对既有 check 零影响 | 新增命令独立；`run.mjs` 无 `--fault` 时零包装 | `node scripts/real/diff.mjs --help` exit 0；`npm run check` 链不变 |
+
 纯 Node 自证（不需要浏览器/宿主）：
 
     node scripts/real/harness/observe/selftest.mjs
@@ -382,5 +437,5 @@
 #188 补边界观测层与真实输入驱动（见 `docs/real/observability.md`、`docs/real/hook-gaps.md`）。
 #189 补判定分类、证据六元组、失败产物、JSON/Markdown 报告与退出码（见 `docs/real/report.md`）。
 #190 补插件测试钩子契约与诊断输出（见 `docs/real/hooks.md`）。
-后续票在此基础上补：差分运行器（#191）、
-pilot 迁移与复用证明（#192）、方法层分发（#193）。
+#191 补差分证伪层：旧产物基线对照 + 三种故障注入，证明关键断言确实会红（见 `docs/real/diff.md`）。
+后续票在此基础上补：pilot 迁移与复用证明（#192）、方法层分发（#193）。

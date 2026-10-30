@@ -52,6 +52,8 @@ const USAGE = [
   '  --fixture <name|path>    初始态配方：内置名或 .json 路径（或 DSH_REAL_FIXTURE，默认 clean）',
   '  --fixture-fault <mode>   负例自检：把初始态弄脏后再跑（pollute / skip-seed / drop-store；或 DSH_REAL_FIXTURE_FAULT）',
   '  --contract-fault <id>    负例自检：只替换一项宿主契约观测后再跑（或 DSH_REAL_CONTRACT_FAULT）',
+  '  --fault <id[,id…]>       故障注入（#191）：按注入器 id 打断一个可观测能力，证明断言有区分力；',
+  '                           只在显式给出时生效、默认零影响，可用 id 见 harness/fault/injectors.mjs',
   '  --keep                   保留工作目录便于排查（默认清理）',
   '  --help                   打印本帮助',
 ].join('\n');
@@ -79,6 +81,21 @@ export function parseArgs(argv) {
       continue;
     }
     out.positional.push(token);
+  }
+  return out;
+}
+
+/**
+ * 解析 `--fault a,b` / DSH_REAL_FAULT：只做逗号拆分与去重，id 合法性由注入器注册表校验。
+ */
+export function parseFaultList(value) {
+  if (value == null || value === '') return [];
+  const out = [];
+  for (const item of String(value).split(',')) {
+    const id = item.trim();
+    if (!id) continue;
+    if (out.includes(id)) continue;
+    out.push(id);
   }
   return out;
 }
@@ -258,6 +275,7 @@ export function resolveBindings(argv, env = process.env) {
     fixture: args.fixture ?? env.DSH_REAL_FIXTURE ?? 'clean',
     fixtureFault: args['fixture-fault'] ?? env.DSH_REAL_FIXTURE_FAULT ?? null,
     contractFault: args['contract-fault'] ?? env.DSH_REAL_CONTRACT_FAULT ?? null,
+    faults: parseFaultList(args.fault ?? env.DSH_REAL_FAULT),
     keep: Boolean(args.keep) || env.DSH_REAL_KEEP === '1',
     env,
   };

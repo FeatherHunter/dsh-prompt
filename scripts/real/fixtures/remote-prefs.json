@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "name": "remote-prefs",
+  "title": "远程开关类偏好初始态（总闸关 + 尺寸/方向/密度非默认）",
+  "description": "全局偏好 remoteEnabled=false（远程总闸关）、remoteSize=3、remoteOrientation=landscape、remoteDensity=b，其余保持插件默认。用来证明「远程开关类偏好」这一类初始态可声明，并覆盖 snapshot 的归一化口径（enabled/size/orientation/density）；总闸保持关闭，页面仍是普通悬浮列表，当前 smoke 套件的观测面不受影响。",
+  "reset": true,
+  "seed": {
+    "global": {
+      "remoteEnabled": false,
+      "remoteSize": 3,
+      "remoteOrientation": "landscape",
+      "remoteDensity": "b"
+    }
+  },
+  "expect": {
+    "storePresent": true,
+    "unit": { "name": "dsh_prompt", "version": 0 },
+    "customs": [],
+    "usage": {},
+    "pinned": [],
+    "lastUsed": null,
+    "remote": { "enabled": false, "size": 3, "orientation": "landscape", "density": "b" },
+    "hidePreset": true,
+    "hoverTrigger": true
+  }
+}

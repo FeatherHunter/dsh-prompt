@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "name": "clean",
+  "title": "干净态（插件定义默认）",
+  "description": "删除插件 store 后，宿主读到的快照应等于插件定义（promptDomainSpec）归一出的默认态：无自定义模板、无用量、无置顶、远程总闸关、悬浮触发、屏蔽预制。这是每轮真机运行的默认初始态。",
+  "reset": true,
+  "seed": {},
+  "expect": {
+    "storePresent": false,
+    "unit": null,
+    "customs": [],
+    "usage": {},
+    "pinned": [],
+    "lastUsed": null,
+    "remote": { "enabled": false, "size": 5, "orientation": "auto", "density": "a" },
+    "hidePreset": true,
+    "hoverTrigger": true
+  }
+}

@@ -19,11 +19,33 @@ import { connect } from './harness/cdp.mjs';
 import { preparePage } from './harness/page.mjs';
 import { createRunContext, Recorder, writeReport } from './harness/evidence.mjs';
 import { runPreflight } from './harness/contract/preflight.mjs';
+import { FixtureError, captureBaselineFromOrigin, checkBaseline, formatDiffs, loadFixture, makeFixtureParams, prepareFixture } from './harness/fixture/index.mjs';
 import { runSmoke } from './suites/smoke.mjs';
 
 const SUITES = {
   smoke: runSmoke,
 };
+
+/**
+ * 报告里的 environment.fixture：配方名、参数、应用结果（重置/种子/故障）、声明与实测基线、差异。
+ * 声明与实测都进报告，失败时不必翻工作目录就能独立读结论。
+ */
+function fixtureEnvironment(prepared) {
+  return {
+    name: prepared.name,
+    request: prepared.fixture,
+    title: prepared.title,
+    params: prepared.params ?? null,
+    fault: prepared.applied.fault,
+    storePath: prepared.storePath,
+    storeGuard: prepared.guard ? { ok: prepared.guard.ok } : { ok: false },
+    applied: prepared.applied,
+    declared: prepared.declared,
+    observed: null,
+    ok: null,
+    diffs: [],
+  };
+}
 
 async function execute(bindings) {
   const runContext = createRunContext({ bindings, suite: bindings.suite });
@@ -69,6 +91,25 @@ async function execute(bindings) {
         packagePath: bootstrap.profilePackagePath,
       },
     });
+
+    // 初始态：profile 就绪后、起宿主前应用「重置 + 种子」。
+    // 声明是纯数据（--fixture 指向的配方），套件与用例代码零改动；种子按 storage-schema 契约写 store。
+    recorder.setEnvironment({ phase: 'fixture-apply' });
+    let preparedFixture;
+    try {
+      const fixtureParams = makeFixtureParams({ runTag: runContext.runTag });
+      preparedFixture = prepareFixture({
+        fixture: bindings.fixture,
+        homeDir: runContext.homeDir,
+        params: fixtureParams,
+        fault: bindings.fixtureFault,
+      });
+      preparedFixture.params = fixtureParams;
+    } catch (error) {
+      if (error instanceof FixtureError) throw new HarnessError('fixture 装配失败：' + error.message);
+      throw error;
+    }
+    recorder.setEnvironment({ fixture: fixtureEnvironment(preparedFixture) });
 
     server = await startWebServer({
       homeDir: runContext.homeDir,
@@ -133,7 +174,46 @@ async function execute(bindings) {
       }
     }
 
+    // 起始态基线：preflight 之后经产品公开路径（宿主 HTTP 桥 GET /_dsh/dsh-prompt/store）读回，
+    // 与配方声明逐路径对比。不符 → 整轮 BLOCKED、列出 current vs expected，不执行套件：
+    // 状态污染的锅不能记到产品头上，也不能让后续用例产生一堆假 FAIL。
+    let fixtureBaseline = null;
     if (preflight.ok) {
+      recorder.setEnvironment({ phase: 'fixture-readback' });
+      let captured;
+      try {
+        captured = await captureBaselineFromOrigin({
+          origin: server.origin,
+          storePath: preparedFixture.storePath,
+          timeoutMs: bindings.timeouts.pageLoadMs,
+        });
+      } catch (error) {
+        if (error instanceof FixtureError) throw new HarnessError('fixture 起始态读回失败：' + error.message);
+        throw error;
+      }
+      fixtureBaseline = checkBaseline(preparedFixture.recipe, captured.baseline);
+      recorder.setEnvironment({
+        fixture: {
+          ...fixtureEnvironment(preparedFixture),
+          http: captured.http,
+          storeFile: captured.storeFile,
+          observed: fixtureBaseline.observed,
+          ok: fixtureBaseline.ok,
+          diffs: fixtureBaseline.diffs,
+        },
+      });
+      if (fixtureBaseline.ok) {
+        recorder.pass('fixture 起始态', '配方 ' + preparedFixture.name + '：' + JSON.stringify(fixtureBaseline.observed));
+        recorder.setEnvironment({ phase: 'fixture-ok' });
+      } else {
+        recorder.blocked(
+          'fixture 起始态',
+          '配方 ' + preparedFixture.name + ' 起始态与声明不符，套件未执行。' + formatDiffs(fixtureBaseline.diffs),
+        );
+      }
+    }
+
+    if (preflight.ok && fixtureBaseline && fixtureBaseline.ok) {
       recorder.setEnvironment({ phase: 'suite:' + bindings.suite });
       await SUITES[bindings.suite]({
         bindings,
@@ -146,8 +226,10 @@ async function execute(bindings) {
         timeouts: bindings.timeouts,
       });
       recorder.setEnvironment({ phase: 'done' });
-    } else {
+    } else if (!preflight.ok) {
       recorder.setEnvironment({ phase: 'preflight-blocked' });
+    } else {
+      recorder.setEnvironment({ phase: 'fixture-blocked' });
     }
   } catch (error) {
     const message = error instanceof HarnessError ? error.message : String(error && error.stack ? error.stack : error);
@@ -214,6 +296,16 @@ function printSummary(result, bindings) {
   console.log('[real] 宿主 CLI ' + bindings.dshCli + '（' + bindings.hostVersion + '）');
   console.log('[real] 浏览器 ' + bindings.browser);
   if (bindings.contractFault) console.log('[real] 契约注入项 ' + bindings.contractFault + '（负例：只让该契约项不匹配）');
+  const fixture = report.environment && report.environment.fixture ? report.environment.fixture : null;
+  if (fixture) {
+    const state = fixture.ok === null ? '未读回' : fixture.ok ? '匹配声明' : '与声明不符（BLOCKED）';
+    console.log(
+      '[real] fixture ' + fixture.name +
+        (fixture.request && fixture.request !== fixture.name ? '（请求 ' + fixture.request + '）' : '') +
+        (fixture.fault ? '  故障注入=' + fixture.fault : '') +
+        '  起始态=' + state,
+    );
+  }
   const summary = report.summary;
   console.log(
     '[real] PASS ' + summary.PASS + ' / FAIL ' + summary.FAIL + ' / BLOCKED ' + summary.BLOCKED + ' / N-A ' + (summary['N-A'] || 0) + '  ->  ' + report.verdict,
@@ -247,6 +339,16 @@ async function main() {
   if (!SUITES[bindings.suite]) {
     console.error('[real][BLOCKED] 未知套件: ' + bindings.suite + '。可用套件: ' + Object.keys(SUITES).join(', '));
     return 2;
+  }
+  // 配方名/路径在装配前先校验一次：typo 直接给可操作错误，不必先花几十秒起宿主。
+  try {
+    loadFixture(bindings.fixture);
+  } catch (error) {
+    if (error instanceof FixtureError) {
+      console.error('[real][BLOCKED] ' + error.message);
+      return 2;
+    }
+    throw error;
   }
   const result = await execute(bindings);
   printSummary(result, bindings);

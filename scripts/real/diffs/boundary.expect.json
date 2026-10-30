@@ -1,0 +1,28 @@
+{
+  "suite": "boundary",
+  "baseline": {
+    "name": "dsh-prompt-0.4.32",
+    "artifactFile": "dsh-prompt-0.4.32.tgz",
+    "sha256": "1c6def48ca527dc84e716b7ef8bb31c8e8dc125feddb1ab1ddf12da194736d10",
+    "version": "0.4.32",
+    "commit": "v0.4.32",
+    "note": "boundary 真正能区分的旧产物是 0.4.32：底栏触发方式的 aria-pressed 当时为 null（#179 契约之前）。0.4.39/0.4.38 时代产物跑 boundary 与当前全绿（bothGreen），那些基线在本清单下正确判 FAIL=无区分力，见 notes。"
+  },
+  "mustFlipRedOnBaseline": [
+    "⑥触发按钮：底栏触发方式与 fixture 声明一致"
+  ],
+  "mustStayGreen": [
+    "fixture 起始态",
+    "①面板开关：场景开始时面板处于收起状态",
+    "②模板行：行数等于 store 自定义模板数（hidePreset=true 时只列自定义）",
+    "③草稿文本：物理点击行后草稿逐字等于 fixture 正文（字节级）",
+    "双通道·持久化：插入后 usage 计数 +1（store，期望=声明值+1）"
+  ],
+  "notes": [
+    "#191 差分期望清单（纯数据）。判定：mustFlip 的每一条都必须在旧产物（对照侧）上红、在当前产物（判定侧）上绿 —— 即 classification=discriminating；任一条在旧产物下不红就说明这条断言没有区分力，diff 整体 FAIL（退出码 1），绝不判通过。",
+    "mustStayGreen 是差分成立的前提条件：旧产物上它们必须绿。旧产物上红说明基线装错了、环境坏了或产品确实在别的方向变差，按原因记 BLOCKED/FAIL。",
+    "本清单用 0.4.32 基线：boundary 的绝大多数检查在 0.4.32 就已经绿（bothGreen，只能算「无证据力」，不得当通过证据）；唯一有产品行为差异的是底栏触发方式（0.4.32 的 data-dsh-prompt-trigger 缺 aria-pressed，as 观测 null）。",
+    "用 pack-183（dsh-prompt-0.4.39.tgz，sha256 30f9cd74…）这类 0.4.39 时代基线跑本清单：对照侧也全绿 → mustFlip 未翻转 → 差分 FAIL=无区分力。这是正确的负例结果，不是工具故障。",
+    "基线来源与 sha256 见 scripts/real/diffs/baselines.json；基线生成方法见 docs/real/diff.md（旧 commit worktree → npm ci/build → npm pack，或 CI artifact 缓存）。"
+  ]
+}

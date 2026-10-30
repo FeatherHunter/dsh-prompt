@@ -77,8 +77,9 @@
 | --- | --- | --- |
 | `clean` | 干净态 | 重置后宿主读到的快照 = 插件定义默认（无模板/无用量/无置顶、远程关、悬浮触发、屏蔽预制），且插件无写入时 store 文件不存在 |
 | `templates` | 模板集合 | 2 条自定义模板 + 1 条置顶 + 1 条用量按 schema 落盘，模板 id/文案带 `${runTag}`（本轮种子可追溯） |
-| `trigger-hover` | 触发模式 | 触发模式显式钉在悬浮触发（防上一轮翻成点按）；三类验收用它 |
-| `trigger-click` | 触发模式 | 点按触发（`hoverTrigger=false`）；**当前唯一 smoke 套件假设 hover**，该态下 hover 断言不适用，留给 #188 的 click 态场景 / #192 第二套件 |
+| `trigger-hover` | 触发模式 | 触发模式显式钉在悬浮触发（防上一轮翻成点按）；三类验收用它；`#192` 的 `trigger` 套件用它做指针 + 键盘两路径 |
+| `trigger-click` | 触发模式 | 点按触发（`hoverTrigger=false`）；**当前唯一 smoke 套件假设 hover**，该态下 hover 断言不适用，留给 #192 的 click 态场景 |
+| `undo-group` | 撤销分组 | 3 条自定义模板：含标记单行 `SMART{{cursor}}END`、含标记多行、无标记 `NOMARK`；模板名/id 带 `${runTag}`；`#192` 的 `undo-group` 套件用真实输入验证 undo 分组 / redo |
 | `remote-prefs` | 远程开关类偏好 | 远程总闸关 + `size=3` / `orientation=landscape` / `density=b` 非默认档位，覆盖 snapshot 归一化口径；总闸关不改变当前 smoke 的观测面 |
 
 ## 命令

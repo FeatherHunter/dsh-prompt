@@ -347,5 +347,15 @@ export async function waitForSnapshot(client, predicate, options = {}) {
   if (lastError) {
     throw new HarnessError('等待超时（' + timeoutMs + 'ms）：' + label + '；采集失败：' + String(lastError.message || lastError));
   }
-  throw new HarnessError('等待超时（' + timeoutMs + 'ms）：' + label + '；末次快照=' + JSON.stringify(last && { panel: last.panel && last.panel.visible, dialog: last.settings && last.settings.dialog && last.settings.dialog.present }));
+  throw new HarnessError('等待超时（' + timeoutMs + 'ms）：' + label + '；末次快照=' + JSON.stringify(last && {
+    panel: last.panel && last.panel.visible,
+    dialog: last.settings && last.settings.dialog && last.settings.dialog.present,
+    composer: last.composer && {
+      text: last.composer.text,
+      focused: last.composer.focused,
+      selection: last.composer.selection,
+      capture: last.composer.inputActions && last.composer.inputActions.capture,
+      captureError: last.composer.inputActions && last.composer.inputActions.captureError,
+    },
+  }));
 }

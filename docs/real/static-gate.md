@@ -20,7 +20,7 @@ node scripts/check-real-gate.mjs --help
 `RESULT: N FAIL`。违规行把「规则 id + 文件:行号」放在最前面，可直接跳转：
 
 ```text
-FAIL: R4 scripts/repro/real/issue-181-real.mjs:28 — 绝对 Windows 路径字面量：…（命中：'D:/Temp/cdp181'）（行内容：const SHOT_DIR = process.env.SHOT_DIR || 'D:/Temp/cdp181'）
+FAIL: R4 scripts/real/suites/<套件>.mjs:28 — 绝对 Windows 路径字面量：…（命中：'D:…'）（行内容：const DIR = 'D:…'）
 ```
 
 退出码：`0` = 全绿；`1` = 有 FAIL（违规或例外表配置错误）；`2` = 用法错误。
@@ -33,15 +33,15 @@ FAIL: R4 scripts/repro/real/issue-181-real.mjs:28 — 绝对 Windows 路径字�
 | 范围 | 说明 |
 | --- | --- |
 | `scripts/real/**/*.mjs` | 真机 kit：入口 `run.mjs`、`harness/`、`suites/` |
-| `scripts/repro/real/**/*.mjs` | 遗留 pilot（迁移前的历史入口，见「例外政策」） |
+| `scripts/repro/real/**/*.mjs` | 历史真机入口目录：`#181` pilot 已在 `#192` 迁进 `suites/undo-group.mjs` 后删除，目录当前不存在；扫描路径保留，将来若落复现入口仍按入口层受检 |
 | 排除 `scripts/real/gate/` | 门禁自己的夹具（样本、例外表），不参与正式扫描 |
 | 不扫 `scripts/check-real-gate.mjs` | 门禁自身不扫自己 |
 
 扫描时区分两层，规则按层适用：
 
 - **入口脚本**：直接 `node <脚本>` 执行、负责「接目标入口 / 出报告 / 定退出码 / 收尾」的那一层。
-  判定约定是路径形状 —— `scripts/real/*.mjs`（顶层，如 `run.mjs`）与 `scripts/repro/real/*.mjs`。
-  R1–R3 只查这一层。
+  判定约定是路径形状 —— `scripts/real/*.mjs`（顶层，如 `run.mjs`）与 `scripts/repro/real/*.mjs`
+  （历史入口目录，当前为空）。R1–R3 只查这一层。
 - **运行库**：`harness/`、`suites/` 等模块。参数由入口传进来，不自己接 `argv`，所以不适用
   R1–R3；R4/R5 对它们生效（套件里同样不该硬编码机器值或自造 CDP）。
 - **vendored harness 白名单**：`scripts/real/harness/` 是唯一允许出现 CDP 协议细节与机器探测逻辑的
@@ -93,7 +93,9 @@ FAIL: R4 scripts/repro/real/issue-181-real.mjs:28 — 绝对 Windows 路径字�
 3. 合法样本零违规；
 4. 例外表结构齐全（path / rules / reason / issue），指向的文件在扫描范围内且存在；
 5. harness 白名单有效：`scripts/real/harness/cdp.mjs` 不被 R4/R5 误判；
-6. 遗留 pilot 去掉例外会被拒、加上例外零违规（证明例外机制真的在起作用，不是摆设）；
+6. 例外机制：自证会校验例外表结构；历史 pilot 用例在文件不存在时降级为 INFO（`#192` 迁移后其
+   文件已删除、例外表已清空），不会把「没有例外」误报成红；文件存在时则用「去掉豁免必被拒 /
+   加上豁免全放行」证明例外机制真的在起作用，不是摆设；
 7. `scripts/real/gate/` 与门禁脚本自己不出现在正式扫描清单里。
 
 坏样本每个只违反自己那一类规则，其余规则保持合规 —— 这样自证才能把失败精确归因到一条规则。
@@ -120,15 +122,20 @@ FAIL: R4 scripts/repro/real/issue-181-real.mjs:28 — 绝对 Windows 路径字�
 ```json
 {
   "schemaVersion": 1,
-  "exemptions": [
-    {
-      "path": "scripts/repro/real/issue-181-real.mjs",
-      "rules": ["R1", "R2", "R4", "R5"],
-      "reason": "遗留 pilot 还没迁进 scripts/real 套件：自带 CDP 客户端、硬编码本地端口与 D:/Temp 证据目录。",
-      "issue": "#192",
-      "removeAfter": "#192 把 pilot 迁移成 scripts/real 下的套件并删除该文件后，删除本条豁免。"
-    }
-  ]
+  "exemptions": []
+}
+```
+
+`#191` / `#192` 迁移期这里曾有一条遗留 pilot 例外；pilot 迁进 `suites/undo-group.mjs` 后已删除，
+表格清空。条目形状如下（需要时按此登记）：
+
+```json
+{
+  "path": "scripts/repro/real/<入口>.mjs",
+  "rules": ["R1", "R2", "R4", "R5"],
+  "reason": "迁移期遗留：自带 CDP 客户端、硬编码本地端口与证据目录。",
+  "issue": "#<迁移票>",
+  "removeAfter": "#<迁移票> 把入口迁进 scripts/real 或删除该文件后，删除本条豁免。"
 }
 ```
 
@@ -142,13 +149,12 @@ FAIL: R4 scripts/repro/real/issue-181-real.mjs:28 — 绝对 Windows 路径字�
 - 例外只对「文件 + 规则」精确生效；不要用宽泛路径掩盖新文件。
 - 修好或迁走后删掉条目；删完再跑一次 `--selftest` 和正式扫描。
 
-### 现有例外：遗留 pilot（#192）
+### 例外表现状（#192 迁移后）
 
-`scripts/repro/real/issue-181-real.mjs` 是 #181 的真机验收 pilot，还没迁进 `scripts/real` 套件：
-它自带一份 CDP 客户端、硬编码本地 CDP 端口与 `D:/Temp` 证据目录，正是 R1 / R2 / R4 / R5 要拦的
-历史写法。**#192 负责把它迁移成套件并删除该文件；#192 完成后删除本条豁免**（文件不存在时门禁会
-判红，不会忘）。在那之前，`--selftest` 里「去掉例外后 pilot 被拒」这一条会持续证明例外表在替
-真实违规兜底，而不是空转。
+`#192` 已把 `scripts/repro/real/issue-181-real.mjs`（`#181` undo grouping 真机验收 pilot）迁成
+[`scripts/real/suites/undo-group.mjs`](../../scripts/real/suites/undo-group.mjs)，旧文件与对应例外
+都已删除，例外表当前为空（`--selftest` 对「pilot 文件不存在」只给 INFO 提示，不判红）。
+特殊视觉：`#192` 之后仓内不再有自造 CDP 客户端的真机脚本；将来若再出现，门禁按 R5 判红。
 
 ## 接入 `npm run check`
 
@@ -204,5 +210,6 @@ npm run check     # 静态检查链（含本门禁）
 ## 与 spec #183 的关系
 
 本门禁是 #183 的 T8（#186）：把「真机脚本必须可复跑」的约定变成静态门禁 + 自证 + CI。
-后续票：pilot 迁移后删除本条例外（#192）；观测层 / 判定层 / 证据层若新增入口脚本，同样受本门禁
-约束（新增入口脚本放在 `scripts/real/` 顶层即可被当作入口层检查）。
+后续票：pilot 已在 `#192` 迁进 `suites/undo-group.mjs` 并删除、例外表清空；观测层 / 判定层 /
+证据层 / 套件层若新增入口脚本或复制私有探测，同样受本门禁约束（新增入口脚本放在
+`scripts/real/` 顶层即可被当作入口层检查）。

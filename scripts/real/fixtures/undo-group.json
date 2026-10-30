@@ -1,0 +1,53 @@
+{
+  "formatVersion": 1,
+  "name": "undo-group",
+  "title": "撤销分组初始态（三条插入落位夹具模板）",
+  "description": "为 undo-group 套件准备三条自定义模板：含标记单行、含标记多行、无标记。模板名与 id 带 ${runTag}，证明这一轮的种子只属于这一轮；套件按可见名称定位模板行、只断言草稿字节与光标落点，因此配方里不掺任何输入/撤销语义。",
+  "reset": true,
+  "seed": {
+    "customs": [
+      {
+        "id": "fx-${runTag}-undo-single",
+        "name": "夹具·标记单行（${runTag}）",
+        "nameEn": "",
+        "labels": ["夹具"],
+        "body": "SMART{{cursor}}END",
+        "builtin": false,
+        "createdAt": 1700000000101
+      },
+      {
+        "id": "fx-${runTag}-undo-multi",
+        "name": "夹具·标记多行（${runTag}）",
+        "nameEn": "",
+        "labels": ["夹具"],
+        "body": "第一行{{cursor}}第二行\n第三行",
+        "builtin": false,
+        "createdAt": 1700000000102
+      },
+      {
+        "id": "fx-${runTag}-undo-plain",
+        "name": "夹具·无标记（${runTag}）",
+        "nameEn": "",
+        "labels": ["夹具"],
+        "body": "NOMARK",
+        "builtin": false,
+        "createdAt": 1700000000103
+      }
+    ]
+  },
+  "expect": {
+    "storePresent": true,
+    "unit": { "name": "dsh_prompt", "version": 0 },
+    "customs": [
+      { "id": "fx-${runTag}-undo-single", "name": "夹具·标记单行（${runTag}）", "builtin": false, "labels": ["夹具"] },
+      { "id": "fx-${runTag}-undo-multi", "name": "夹具·标记多行（${runTag}）", "builtin": false, "labels": ["夹具"] },
+      { "id": "fx-${runTag}-undo-plain", "name": "夹具·无标记（${runTag}）", "builtin": false, "labels": ["夹具"] }
+    ],
+    "usage": {},
+    "pinned": [],
+    "lastUsed": null,
+    "remote": { "enabled": false, "size": 5, "orientation": "auto", "density": "a" },
+    "hidePreset": true,
+    "hoverTrigger": true
+  }
+}

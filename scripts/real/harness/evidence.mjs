@@ -8,12 +8,21 @@
  * 整体结论：有 FAIL 即 FAIL；否则有 BLOCKED 即 BLOCKED；否则 PASS。
  */
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
 function pad2(value) {
   return String(value).padStart(2, '0');
 }
+
+/**
+ * 每轮唯一的 run tag：`<YYYYMMDD-HHmmss>-<pid36><序号36>-<随机6位36>-<套件>`。
+ * 只用秒级时间戳会在同一秒连跑时撞目录（旧实现的问题）：这里加三样冗余 ——
+ *   序号（同进程内必然递增，100 次连跑也不重复）、pid（区分并行/连续进程）、随机段（区分跨进程同秒）。
+ * 字符集只含 [0-9a-z-]，可直接做目录名（Windows 也安全），并原样写进 report.json 的 runTag。
+ */
+let runTagSequence = 0;
 
 export function makeRunTag(suite, now = new Date()) {
   const stamp =
@@ -24,7 +33,10 @@ export function makeRunTag(suite, now = new Date()) {
     pad2(now.getHours()) +
     pad2(now.getMinutes()) +
     pad2(now.getSeconds());
-  return stamp + '-' + suite;
+  runTagSequence = (runTagSequence % (36 ** 3 - 1)) + 1;
+  const processSegment = process.pid.toString(36) + runTagSequence.toString(36);
+  const entropy = crypto.randomBytes(4).toString('hex').slice(0, 6);
+  return stamp + '-' + processSegment + '-' + entropy + '-' + suite;
 }
 
 export function createRunContext({ bindings, suite }) {

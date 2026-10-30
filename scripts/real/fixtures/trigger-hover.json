@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "name": "trigger-hover",
+  "title": "触发模式初始态：悬浮触发（显式钉住）",
+  "description": "把触发模式显式钉在 hoverTrigger=true（悬浮触发，插件缺省值），其余偏好保持默认。用来证明「触发模式」这一类初始态可声明、可读回：若上一轮残留或外部写入把模式翻成点按触发，起始态基线会当场拦下（而不是让 hover 套件产生假 FAIL）。点按触发态见 trigger-click.json（当前唯一 smoke 套件假设 hover，留给 #188 的 click 态场景）。",
+  "reset": true,
+  "seed": {
+    "global": { "hoverTrigger": true }
+  },
+  "expect": {
+    "storePresent": true,
+    "unit": { "name": "dsh_prompt", "version": 0 },
+    "customs": [],
+    "usage": {},
+    "pinned": [],
+    "lastUsed": null,
+    "remote": { "enabled": false, "size": 5, "orientation": "auto", "density": "a" },
+    "hidePreset": true,
+    "hoverTrigger": true
+  }
+}

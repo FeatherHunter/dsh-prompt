@@ -35,8 +35,21 @@ export async function runSmoke({ recorder, client, server, prepared, shotsDir, t
   let hovered = null;
   try {
     hovered = await hoverTrigger(client, { timeouts });
-    if (hovered.open && hovered.visible) recorder.pass('悬停打开模板面板', JSON.stringify(hovered.rect));
-    else {
+    if (hovered.open && hovered.visible) {
+      // 六元组示范（docs/real/report.md）：conditions 由 run.mjs 注入的环境自动补全，
+      // 套件只写它自己知道的部分；原始观测与推断分字段，不要混写。
+      recorder.pass('悬停打开模板面板', {
+        detail: JSON.stringify(hovered.rect),
+        claim: '物理悬停插件入口后，模板面板出现在入口下方且可见',
+        steps: [
+          '读取 [data-dsh-prompt-entry] 的矩形',
+          '经 CDP 物理移动鼠标到入口中心',
+          '轮询 [data-dsh-prompt-panel-root] 的 open/visible 与矩形',
+        ],
+        observations: { trigger: 'data-dsh-prompt-entry', open: hovered.open, visible: hovered.visible, rect: hovered.rect },
+        inference: '输入命中入口且面板在预算内可见，悬停打开链路成立。',
+      });
+    } else {
       recorder.fail('悬停打开模板面板', {
         expected: '[data-dsh-prompt-panel-root] 存在且可见',
         observed: JSON.stringify(hovered),
@@ -52,8 +65,17 @@ export async function runSmoke({ recorder, client, server, prepared, shotsDir, t
 
   try {
     const closed = await closePanel(client, { timeouts });
-    if (!closed.open) recorder.pass('显式关闭面板', '点击 [data-dsh-prompt-close] 后面板消失');
-    else recorder.fail('显式关闭面板', { expected: '面板消失', observed: JSON.stringify(closed) });
+    if (!closed.open) {
+      recorder.pass('显式关闭面板', {
+        detail: '点击 [data-dsh-prompt-close] 后面板消失',
+        claim: '点击面板关闭按钮后，模板面板消失（open=false）',
+        steps: ['读取 [data-dsh-prompt-close] 的矩形', '物理点击关闭按钮', '轮询面板 open/visible'],
+        observations: { closeButton: 'data-dsh-prompt-close', open: closed.open, visible: closed.visible },
+        inference: '点击后观测到面板关闭，关闭链路成立。',
+      });
+    } else {
+      recorder.fail('显式关闭面板', { expected: '面板消失', observed: JSON.stringify(closed) });
+    }
     await client.screenshot(path.join(shotsDir, 'panel-closed.png'));
   } catch (error) {
     const text = String(error && error.message ? error.message : error);

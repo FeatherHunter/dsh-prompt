@@ -15,8 +15,9 @@
 
 跑完看两处：
 
-- 终端摘要（PASS / FAIL / BLOCKED / N-A 与证据路径）；
-- 证据目录 `.tmp-real/<runTag>/`：`report.json`、`shots/*.png`。
+- 终端摘要（PASS / FAIL / BLOCKED / N-A、FAIL 分型与证据路径）；
+- 证据目录 `.tmp-real/<runTag>/`：`report.json`（唯一事实源）、`report.md`（由 JSON 生成的摘要，
+  可直接贴 issue）、`shots/*.png`、失败时的 `artifacts/*`。
 
 套件执行前会先跑**宿主契约 preflight**（6 项，见 `docs/real/host-contract.md`）：
 任何一项与钉住的宿主版本行为不符，只记一条指名契约项的 BLOCKED、跳过套件、退出码 2，
@@ -60,22 +61,40 @@
 
 | 退出码 | 含义 |
 | --- | --- |
-| 0 | 全部 PASS |
-| 1 | 有 FAIL（产品行为不符合期望） |
-| 2 | BLOCKED（装配/宿主契约/起始态没就绪）或参数错误 |
+| 0 | 全部 PASS（只有预期失败也算 0） |
+| 1 | 有非预期 FAIL（产品/规格/测试层面的期望不成立） |
+| 2 | BLOCKED（装配/宿主契约/起始态没就绪）或参数错误（含未知套件、fixture 名拼错） |
+| 3 | 工具故障（harness/CDP/驱动/运行器自身异常；不得冒充产品失败） |
 
 判定只有四类：`PASS` / `FAIL` / `BLOCKED` / `N-A`。
-FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以下结论；N-A 必须写原因。
-整体结论：有 FAIL 即 FAIL，否则有 BLOCKED 即 BLOCKED，否则 PASS。
+`FAIL` 必带证据六元组与分型（`product` 产品缺陷 / `spec` 规格缺陷 / `test` 测试假象 / `tool` 工具故障）
+及分型依据，并保存失败产物或写明 `artifactsWhy`；`BLOCKED` 必须写原因（`blockerKind` 区分环境/工具）；
+`N-A` 必须写原因（无理由直接抛错，不转 FAIL、不留下残缺检查）。
+预期失败（差分/负例）用 `expectedFailure: true` 标记，不计入产品 FAIL、退出码按 0 计；
+声明「应该红」的用例没红会额外记一条「无区分力」失败。
+整体结论：有非预期 FAIL 即 FAIL，否则有 BLOCKED 即 BLOCKED，否则 PASS。
+完整语义、分型判据、六元组、产物规则、JSON schema v2 与 Markdown 生成规则见
+[`docs/real/report.md`](../../docs/real/report.md)。
 
 ## 证据格式
 
-`report.json`（schemaVersion=1）包含：
+同目录两份文件，**`report.json` 是唯一事实源，`report.md` 由它生成**（同 JSON 两次生成字节相同）：
 
-- `runTag` / `suite` / `verdict` / `startedAt` / `finishedAt`；
-- `environment`：平台、Node 版本、产物 name/version/sha256、宿主 CLI 路径与版本、浏览器路径与运行版本、profile、服务 URL（token 打码）、页面事实、超时配置、当前阶段、`fixture`（配方名/参数/重置与种子结果/声明 vs 实测基线/差异）；
-- `checks[]`：每项的 verdict、名称、时间、期望/观测/原因；
-- `summary`：四类计数。
+`report.json`（`schemaVersion=2`）包含：
+
+- `runTag` / `suite` / `verdict` / `startedAt` / `finishedAt` / `exitCode`；
+- `meta`：产物 name/version/fileName/sizeBytes/sha256、宿主 CLI 与 runtime 版本、浏览器与 runtime、
+  fixture、locale/时区、证据目录（Markdown 环境表由它生成）；
+- `environment`：平台、Node 版本、宿主 CLI 路径与版本、浏览器路径与运行版本、profile、服务 URL（token 打码）、
+  页面事实、超时配置、当前阶段、`fixture`（配方名/参数/重置与种子结果/声明 vs 实测基线/差异）；
+- `checks[]`：每条带证据六元组 `claim` / `conditions` / `steps` / `observations` / `inference` / `verdict`；
+  沿用 v1 的 `expected` / `observed` / `detail` / `reason`；FAIL 追加
+  `failureType` + `failureTypeBasis` + `expectedFailure` + `artifacts[]`/`artifactsWhy`；
+  BLOCKED 追加 `reason` + `blockerKind`；N-A 追加 `reason`；
+- `summary`：四类计数 + 预期失败 / FAIL 分型 / 工具故障 / flakySuspect 细分；
+- `failures[]` / `expectedFailures[]`：非预期失败与预期失败分区；
+- `artifacts[]` 引用：`{kind,name,file,relative,bytes}`，`file` 是本机绝对路径，`relative`
+  是以 `artifacts/` 开头的安全相对路径（Markdown 只写相对路径）。
 
 ## 模块地图
 
@@ -89,6 +108,12 @@ FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以�
         cdp.mjs            最小 CDP 客户端（Page/Runtime/Input/Log）
         page.mjs           页面准备、按契约收启动遮罩、观测助手
         evidence.mjs       判定、证据、报告 schema、唯一 run tag
+        report/
+          model.mjs        判定模型：四类判定 / FAIL 四分型 / 退出码 / 六元组校验 / schema 校验
+          markdown.mjs     report.json → report.md 的纯函数渲染（确定性、不读时钟）
+          artifacts.mjs    失败产物仓库与自动采集（截图/页面状态/store/输入日志）
+          index.mjs        报告层统一入口
+          selftest.mjs     判定分类与证据报告自证（纯 Node，零浏览器/零宿主）
         proc.mjs           进程/端口底座（跨平台）
         errors.mjs         HarnessError / CheckFailure
         input-plan.mjs     输入序列构造纯函数（指针路径/点击/按键/快捷键/文本）
@@ -197,7 +222,7 @@ FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以�
 | 验收项 | 怎么满足 | 证据 |
 | --- | --- | --- |
 | 一条命令完成装配→起服→接浏览器→检查→报告→清理，成功退出 0 | `node scripts/real/run.mjs --artifact <tgz>` | 终端摘要 + `report.json` 的 `verdict=PASS` |
-| 报告落盘且机器可读，覆盖 provenance | `report.json`（schemaVersion=1）：产物 name/version/sha256、宿主 CLI 与版本、浏览器路径与 Edg/版本、runTag、startedAt/finishedAt、checks[] | `.tmp-real/<runTag>/report.json` |
+| 报告落盘且机器可读，覆盖 provenance | `report.json`（`schemaVersion=2`）：`meta` 里的产物 name/version/sha256、宿主 CLI 与版本、浏览器与 Edg/ 运行版本、runTag、startedAt/finishedAt；`checks[]` 带六元组 | `.tmp-real/<runTag>/report.json` |
 | 不碰真实 profile/数据；端口、进程、临时目录回收 | 临时 `DSH_HOME` + 临时浏览器 user-data-dir；收尾杀进程树、等端口释放、删本次运行目录（空了再删 workRoot） | `environment.cleanup`：`serverPortFree`、`browser.exited`、`browserCdpPortFree`、`workDirRemoved`、`workRootRemoved` |
 | 换 DSH_HOME / 空闲端口 / 浏览器 profile 仍通过 | 全部来自绑定层，不写死默认路径；一次性 home、随机调试端口、临时 user-data-dir | `--workdir <alt> --evidence-dir <alt> --port <n>` 再跑一遍同样 PASS |
 | 缺浏览器 / 宿主 CLI / 产物时给可操作错误 | 解析绑定阶段就失败，退出码 2，错误指名依赖与修法，无堆栈 | `[real][BLOCKED] 指定的无头浏览器不存在：…` |
@@ -269,6 +294,51 @@ FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以�
 | 光标/字节级断言不依赖截图 | 草稿文本逐字比较 + `captureInsertion` start/end + DOM 选区偏移；截图只作辅助证据 | 场景 2 的「逐字/光标」检查（FAIL 时带 expected/observed） |
 | 观测层不依赖内部类名，缺失钩子记成契约项 | `probes.mjs` 只用 `data-dsh-prompt-*`、`role`/`aria-*`/`contenteditable`；缺口逐条在 `docs/real/hook-gaps.md` | `hook-gaps.md` 的 G1–G9 / H1–H2 |
 
+## 判定分类与证据报告（#189）
+
+报告层把「怎么判、凭什么判、证据在哪、下次怎么复现」固定成协议（完整说明见
+[`docs/real/report.md`](../../docs/real/report.md)）：
+
+- 判定四类 `PASS` / `FAIL` / `BLOCKED` / `N-A`；FAIL 四分型 `product`/`spec`/`test`/`tool` 并带分型依据
+  （`failureTypeBasis`），工具故障不冒充产品失败；
+- 每条检查带证据六元组 `claim` / `conditions` / `steps` / `observations` / `inference` / `verdict`，
+  原始观测与推断分字段；`conditions` 由轮次环境（产物/宿主/浏览器/fixture/runTag）自动补全；
+- 失败产物写 `<evidence-dir>/<runTag>/artifacts/`（截图 / 页面状态 / store / 输入日志），
+  检查上记 `artifacts[]` 或 `artifactsWhy`；`run.mjs` 在套件之后、清理之前自动采集；
+- `report.md` 由 `report.json` 生成（同 JSON 两次生成字节相同），含环境与版本、判定统计、失败明细
+  （分型 + 六元组）、预期失败、阻塞、N/A、证据路径，可直接贴 issue；
+- 退出码收紧为 0 全绿 / 1 真实 FAIL / 2 BLOCKED（含参数错误）/ 3 工具故障（见上文「退出码与判定」）。
+
+预期失败（差分/负例，供 #191）：`recorder.expectFail(name, …)` 或 `fail({expectedFailure:true})`
+（票面简写 `fail({expected:true})` 亦可）不计产品失败；`expectFailures([...])` 声明「本轮应该红」的用例，
+没红会追加一条「预期失败未成立：<name>」的真实 FAIL（分型 `test`，注明无区分力）。
+
+六元组示范：`suites/smoke.mjs` 的「悬停打开模板面板」「显式关闭面板」两条 PASS 检查显式写了
+`claim` / `steps` / `observations` / `inference`，其余字段由记录器从轮次环境补全。
+
+纯 Node 自证（不需要浏览器/宿主，覆盖四类判定、四分型、六元组、预期失败、产物、Markdown 一致性、退出码）：
+
+    node scripts/real/harness/report/selftest.mjs
+    # RESULT: 202 PASS / 0 FAIL（判定分类与证据报告自证全绿）
+
+落盘样例（每个目录 `report.json` + `report.md`，可直接打开对照）：
+
+    node scripts/real/harness/report/selftest.mjs --out <目录>
+
+## 验收对照（#189）
+
+| 验收项 | 怎么满足 | 证据 |
+| --- | --- | --- |
+| 四类判定，N-A 必须理由 | `harness/report/model.mjs`；`Recorder.na()` 缺 reason 抛 `ReportError` 且不记录 | `report/selftest.mjs` A/B/E 节（N-A 无理由被拒） |
+| FAIL 四分型 + 分型依据 | `classifyFailure` 按显式 > 不可复现 > HarnessError > 驱动异常 > 超时/元素缺失 > 断言 的优先级推断，套件可显式覆盖 | `report/selftest.mjs` C 节（product/spec/test/tool 全覆盖与优先级） |
+| 预期失败不计产品失败且可对账 | `expectedFailure` 标记进 `expectedFailures[]`、`summary.FAIL` 不计数、退出码 0；`expectFailures` 声明没红 → 追加「无区分力」真实 FAIL | `report/selftest.mjs` F 节（F7/F12/F13/F18/F19/F20） |
+| 退出码 0/1/2/3，参数错误保持 2 | `exitCodeFor` 映射与 `run.mjs return report.exitCode`；参数/套件/fixture 错误仍 2 | `report/selftest.mjs` J 节矩阵；`run.mjs` 快速开始负例 |
+| 每条检查带证据六元组 | `Recorder._enrich` 自动补全，显式字段优先；缺字段报告校验拒绝 | `report/selftest.mjs` D 节（D2–D20） |
+| FAIL 产物或 artifactsWhy | `captureFailureArtifacts` 采截图/页面状态/store/输入日志；`writeReport` 兜底补说明 | `report/selftest.mjs` G 节（真实落盘、自动采集、部分/全部缺失） |
+| Markdown 由 JSON 生成且一致 | `writeReport` 先序列化 JSON、再解析同一份渲染；`renderMarkdown` 纯函数 | `report/selftest.mjs` H 节（H1/H2/H3/H4 字节相同） |
+| JSON schema v2 且向后兼容 v1 | `schemaVersion=2`；v1 顶层字段与 checks 既有字段保留；旧套件调用不受影响 | `report/selftest.mjs` I 节（I1–I21）；contract/fixture/observe 三个既有自证全绿 |
+| 真机可用 | `--suite boundary --fixture templates` 一轮 PASS 并产出 `report.json` + `report.md` | `.tmp-real/<runTag>/report.json`、`report.md` |
+
 ## 与 spec #183 的关系
 
 本 kit 是 #183 的 T1（#184）：只交付「一条命令起可丢弃宿主并跑通一个套件」的骨架。
@@ -276,5 +346,6 @@ FAIL 必须带 expected/observed，且可复现；BLOCKED 表示证据不足以�
 #186 补真机脚本静态门禁与 CI（见 `docs/real/static-gate.md`）。
 #187 补声明式 fixture 与干净态基线（见 `docs/real/fixture.md`）。
 #188 补边界观测层与真实输入驱动（见 `docs/real/observability.md`、`hook-gaps.md`）。
-后续票在此基础上补：判定分类与证据报告（#189）、插件测试钩子（#190）、差分运行器（#191）、
+#189 补判定分类、证据六元组、失败产物、JSON/Markdown 报告与退出码（见 `docs/real/report.md`）。
+后续票在此基础上补：插件测试钩子（#190）、差分运行器（#191）、
 pilot 迁移与复用证明（#192）、方法层分发（#193）。

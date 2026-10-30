@@ -26,6 +26,8 @@ function fail(msg) { failures++; console.log('FAIL: ' + msg); }
 function ok(msg) { console.log(' ok: ' + msg); }
 
 buildFlat(DIR, [SRC('template-browser.ts')]);
+// 语言钉死成 zh：本脚本按「＋ 新增」的中文字形与中文界面断言（成因见 scripts/lib/pin-locale.cjs）。
+require('./lib/pin-locale.cjs').pinLocaleZh();
 const React = require('react');
 const TR = require('react-test-renderer');
 const req = (n) => require(path.join(DIR, n + '.cjs'));

@@ -26,6 +26,8 @@ buildFlat(DIR, [
   REMOTEVIEW_TS,
   PANEL_TS,
 ]);
+// 语言钉死成 zh：本脚本按中文界面断言（成因见 scripts/lib/pin-locale.cjs）。
+require('./lib/pin-locale.cjs').pinLocaleZh();
 const React = require('react');
 const TR = require('react-test-renderer');
 const { TemplateBrowser } = require(path.join(DIR, 'template-browser.cjs'));

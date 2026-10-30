@@ -23,6 +23,11 @@ buildFlat(DIR, [
   PANEL_TS,
 ]);
 try {
+  // 语言钉死成 zh：本脚本断言的是中文界面（占位符、按钮文案走 zh 词表）。
+  // Node ≥21 自带 `navigator`，其 language 来自 ICU 默认区域 —— 开发机（zh-CN）与 CI（en-US）
+  // 因此渲染出两套文案：CI 上「＋ 新增」变成「+ Add」，按字形找按钮就会误红
+  // （2026-10-31 CI 首次跑就踩到）。共享件里钉一次，同一份提交在两种机器上断言同一个界面。
+  require('./lib/pin-locale.cjs').pinLocaleZh();
   const React = require('react');
   const TR = require('react-test-renderer');
   const { TemplateBrowser } = require(path.join(DIR, 'template-browser.cjs'));
@@ -42,10 +47,13 @@ try {
   console.log('step2: rendered');
 
   const byText = (txt) => root.findAll((x) => x.type === 'button' && Array.isArray(x.children) && x.children.some((c) => typeof c === 'string' && c.includes(txt)))[0];
+  const byHook = (name) => root.findAll((x) => x.type === 'button' && x.props && x.props['data-dsh-prompt-chrome'] === name)[0];
   const byPlaceholder = (ph) => root.findAll((x) => (x.type === 'input' || x.type === 'textarea') && x.props && x.props.placeholder === ph)[0];
 
-  const addBtn = byText('＋');
-  if (!addBtn) { console.log('FAIL: add button not found'); process.exit(1) }
+  // 认 `data-dsh-prompt-chrome="plusGlyph"` 契约钩子（#190），不再靠字形：
+  // 「＋/＋ 新增」的字符随语言变，按字形找按钮等于把语言也钉进断言里。
+  const addBtn = byHook('plusGlyph') || byText('＋') || byText('+');
+  if (!addBtn) { console.log('FAIL: add button not found (hook=plusGlyph)'); process.exit(1) }
   TR.act(() => { addBtn.props.onClick() });
   console.log('step3: modal open');
 

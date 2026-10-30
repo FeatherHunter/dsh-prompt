@@ -26,6 +26,19 @@
 之后还会断言**起始态 = 声明值**（fixture，见 `docs/real/fixture.md`）：不符只记一条
 `BLOCKED fixture 起始态`、跳过套件、退出码 2，不会把状态污染误报成产品 FAIL。
 
+## 方法层分发（#193）
+
+方法（怎么立论、怎么反审、怎么判分型、机器绑定边界）与实现（本目录的 kit）分开管理：
+
+- 仓内 skill（单一事实源）：`skills/real-evidence/SKILL.md`，分发与安装步骤见该文件「安装与分发」一节；
+- 30 分钟 onboarding：`docs/real/onboarding.md`；
+- 机器绑定边界：`docs/real/boundary-policy.md`；
+- 分层与分发决策：`docs/adr/0011-real-test-kit-layering.md`；
+- 文档索引：`docs/real/README.md`。
+
+方法层文档由 `node scripts/check-real-method.mjs --selftest && node scripts/check-real-method.mjs` 校验
+（零机器绑定值 + skill 契约常量与 `harness/report/model.mjs` 同步）。
+
 ## 它做了什么
 
 1. 在临时目录建一次性 `DSH_HOME`；

@@ -54,8 +54,11 @@ try {
 }
 
 // 问 registry（走用户自己的 npm 配置，兼容镜像源）
+// 超时给足 180s：本机走代理时 registry.npmjs.org 的 npm view 实测要 ~71s，60s 会把「网络慢」
+// 误报成红（2026-10-31 收口 spec #183 时遇到，同一台机器上镜像源 0.5s 就回）。查不到仍然 exit 2，
+// 语义不变：这是「无法查证」，不是「通过」。
 const r = spawnSync('npm', ['view', PKG_NAME, 'version'], {
-  cwd: ROOT, encoding: 'utf8', shell: process.platform === 'win32', timeout: 60000,
+  cwd: ROOT, encoding: 'utf8', shell: process.platform === 'win32', timeout: 180000,
 })
 if (r.error || r.status !== 0) {
   console.error('')

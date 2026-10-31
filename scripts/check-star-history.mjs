@@ -122,26 +122,34 @@ test('chaikin：角切端点保留、所有点落在输入范围内（不造假�
   for (let i = 1; i < out.length; i++) assert.ok(out[i][0] > out[i - 1][0], '角切后的点横向仍严格递增')
 })
 
-test('Daily 曲线确实被平滑：顶点不高过原始峰值，且明显低于原始峰值', () => {
+test('Daily 曲线不造假峰：顶点不高过平滑后峰值；峰值不在最后一天时才要求明显低于原始峰值', () => {
   const svg = buildSvg(DATA)
   const daily = (svg.match(/class="daily-stroke" d="([^"]+)" fill="none" stroke-width="1.8"/) || [])[1] || ''
   assert.ok(daily, '应有 Daily 曲线')
   const nums = [...daily.matchAll(/-?\d+(?:\.\d+)?/g)].map((m) => Number(m[0]))
   const ys = nums.filter((_, i) => i % 2 === 1)
-  // 从右轴刻度反推像素/单位：0 刻度在底部，最大值刻度在顶部。
+  // 从右轴刻度反推像素/单位：刻度数字是 Yd(v)+4 摆出来的，回推时要把这 4px 减掉，
+  // 否则整条曲线会被系统性低估（顶部差 4px），数据一更新就会误报“造假峰”。
   const ticks = [...svg.matchAll(/class="daily-fill" x="[^"]+" y="([\d.]+)"[^>]*data-axis="daily">(\d+)</g)].map((m) => ({
-    y: Number(m[1]),
+    y: Number(m[1]) - 4,
     v: Number(m[2]),
   }))
   assert.ok(ticks.length >= 2, '右轴应有两档以上刻度')
   const zero = ticks.find((t) => t.v === 0)
   const top = ticks.reduce((a, b) => (b.v > a.v ? b : a))
   const pxPerUnit = (zero.y - top.y) / top.v
-  const maxDaily = Math.max(...DATA.map((d) => d.daily))
-  const rawApexY = zero.y - maxDaily * pxPerUnit
+  const dailies = DATA.map((d) => d.daily)
+  const maxSmoothed = Math.max(...smoothDaily(dailies, 2))
+  const smoothApexY = zero.y - maxSmoothed * pxPerUnit
   const curveApexY = Math.min(...ys)
-  assert.ok(curveApexY >= rawApexY - 1, `曲线顶点 ${curveApexY} 高过原始峰值 ${rawApexY}：造了假峰`)
-  assert.ok(curveApexY > rawApexY + 5, `曲线顶点 ${curveApexY} 仍贴着原始峰值 ${rawApexY}：平滑没生效`)
+  // 抖动 ±1.1px 是刻意的「手绘感」，等量留余量：曲线不得比平滑后的峰值再高出一截。
+  assert.ok(curveApexY >= smoothApexY - 1.3, `曲线顶点 ${curveApexY} 高过平滑后峰值 ${smoothApexY}：造了假峰`)
+  // 峰值落在最后一天时端点被平滑钉死，曲线顶点必然贴着原始峰值；只有峰值在中间才存在“明显削峰”。
+  const maxDaily = Math.max(...dailies)
+  const rawApexY = zero.y - maxDaily * pxPerUnit
+  if (DATA[DATA.length - 1].daily !== maxDaily) {
+    assert.ok(curveApexY > rawApexY + 5, `曲线顶点 ${curveApexY} 仍贴着原始峰值 ${rawApexY}：平滑没生效`)
+  }
 })
 
 test('峰值标注：两条曲线各自的最高点直接标数字，且来自盘上的数据', () => {

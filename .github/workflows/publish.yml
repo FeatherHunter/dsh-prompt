@@ -1,0 +1,47 @@
+# 发版通道：本机到 registry.npmjs.org 的 TLS 握手被拦（与 dsh-featherhunter-plugin-base 同因），
+# 发布的 tarball 交给能连 registry 的 runner 构建并上传。
+#
+# 用法：Actions 页面 Run workflow（tag 默认 latest），或
+#   gh workflow run publish.yml -R FeatherHunter/dsh-prompt -f tag=latest
+# 前置：仓库 secret 里要有 NPM_TOKEN（对 dsh-prompt 有写权限的 npm token）。
+name: publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "npm dist-tag to publish under (latest / next / beta)"
+        required: false
+        default: latest
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish dsh-prompt
+    runs-on: ubuntu-latest
+    steps:
+      # 第三方步骤统一固定到提交哈希：井号后面的版本只给人看，实际跑的是前面的哈希（与仓库其它 workflow 一致）。
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # 与 check.yml 一致：Node 22.18 是仓库脚本下限（.ts/.mts 靠原生类型剥离直跑）。
+          node-version: 22.18
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Show release version
+        run: node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version"
+      - name: Build
+        run: npm run build
+      - name: Publish to npm
+        run: npm publish --access public --tag "${{ inputs.tag }}"
+        env:
+          NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"

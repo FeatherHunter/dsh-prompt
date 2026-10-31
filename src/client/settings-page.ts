@@ -741,7 +741,7 @@ export function SettingsPage(props: any): any {
     logGroup,
     // 存储说明那句（原「自定义模板与使用次数保存在 DSH 缓存目录…」）已按作者决定删除：
     // 它孤零零悬在两张卡之间，说的是上面那张模板卡的事，却谁也不属于。
-    // 底部只留「作者其他插件」引流区；联系入口已收进页头 ActionCluster（base 0.1.3），全页只此一处。
+    // 底部只留「作者其他插件」引流区；联系入口已收进页头 ActionCluster（base 0.1.4），全页只此一处。
     h(AuthorPlugins, { key: 'more', lang }),
   ])
 }

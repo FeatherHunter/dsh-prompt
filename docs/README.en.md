@@ -164,6 +164,7 @@ Thanks to everyone who filed issues, sent PRs, or starred the repo — you make 
 | Contributor | Tribute | Contributions |
 | --- | --- | --- |
 | [@wqzhellohhwy](https://github.com/wqzhellohhwy) | 🌹🌹🌹 | [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) [#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) [#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) |
+| [@SunWe-success](https://github.com/SunWe-success) | 🌹 | [#194](https://github.com/FeatherHunter/dsh-prompt/issues/194) |
 | [@minevery512](https://github.com/minevery512) | 🌹 | [#179](https://github.com/FeatherHunter/dsh-prompt/issues/179) |
 | [@kBlankii](https://github.com/kBlankii) | 🌹 | [#178](https://github.com/FeatherHunter/dsh-prompt/issues/178) |
 | [@dagangwo](https://github.com/dagangwo) | 🌹 | [#175](https://github.com/FeatherHunter/dsh-prompt/issues/175) |
@@ -181,7 +182,7 @@ Thanks to everyone who filed issues, sent PRs, or starred the repo — you make 
 
 👏Welcome PRs and issues. A single spark can start a prairie fire 🔥. Any suggestion, opinion, idea or rant — come join the group and talk.
 
-<table align="center"><tr><td align="center"><b>Feishu Group (Main)</b></td><td align="center"><b>QQ Group (New)</b></td><td align="center"><b>WeChat Group (New)</b></td></tr><tr><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.0.2/data/img/card-feishu.png" width="260" alt="DSH plugin community group Feishu QR code" /></td><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.0.2/data/img/card-qq.png" width="260" alt="DSH plugin community group QQ QR code" /></td><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.0.2/data/img/card-wechat-2026-10-23.png?v=20261023" width="260" alt="DSH plugin community group WeChat QR code" /></td></tr></table>
+<table align="center"><tr><td align="center"><b>Feishu Group (Main)</b></td><td align="center"><b>QQ Group (New)</b></td><td align="center"><b>WeChat Group (New)</b></td></tr><tr><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.1.1/data/img/card-feishu.png" width="260" alt="DSH plugin community group Feishu QR code" /></td><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.1.1/data/img/card-qq.png" width="260" alt="DSH plugin community group QQ QR code" /></td><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.1.1/data/img/card-wechat-2026-10-31.png?v=20261031" width="260" alt="DSH plugin community group WeChat QR code" /></td></tr></table>
 
 </div>
 <!-- CONTACT-END -->

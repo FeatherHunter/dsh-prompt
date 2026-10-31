@@ -156,9 +156,11 @@ export const STR = {
   // #141：智能卡行内后缀（'·常用' 是 0 分兜底行，'·分N' 是评分行）——与上面 smartCommon（命中列文案）语义不同
   smartCommonSuffix: { zh: '·常用', en: '·Common' },
   smartScoreSuffix: { zh: '·分{n}', en: '·Score {n}' },
+  // #37/#254：页头入口（原 🌟 仓库 / 💬 ISSUE 两枚图标）已换成 base 包 ActionGroup 三件套，
+  // 图标、地址与悬停文案全由 base 的 MESSAGES 提供（starLabel / issueLabel / contact / actionsLabel
+  // 与 starTip / issueTip / contactTip）；以下四键自 #254 起不再有引用，仅作历史保留，勿在新增代码里用。
   gitHubRepo: { zh: 'GitHub 仓库', en: 'GitHub repo' },
   feedback: { zh: '反馈故障', en: 'Report issue' },
-  // #37：设置页右上角两个图标按钮的悬停气泡（底部「作者其他插件」文案表已随 #254 迁到 base 包数据）
   starTip: { zh: '你的 ⭐是我夜空中最亮的星。', en: 'Your ⭐ is the brightest star in my night sky.' },
   feedbackTip: { zh: '提交反馈、建议和意见🌹', en: 'Feedback, suggestions and ideas — all welcome 🌹' },
   // 注：原「自定义模板与使用次数保存在 DSH 缓存目录…」那句界面文案已按作者决定删除 —— 它摆在

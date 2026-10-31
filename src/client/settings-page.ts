@@ -695,10 +695,10 @@ export function SettingsPage(props: any): any {
     padding: 4, display: 'flex', flexDirection: 'column',
     fontSize: scaledBaseFontSize(remote.enabled, remote.size),
   }
-  // #37：旧的一行文字链接（⛭ GitHub 仓库 / ⚠ 反馈故障）已由顶部右上角两个图标按钮取代，不再保留第二处入口。
+  // #37：旧的一行文字链接（⛭ GitHub 仓库 / ⚠ 反馈故障）已由顶部右上角「联系 / Star / Issue」三件套取代，不再保留第二处入口。
   return h('div', { style: settingsRootStyle, 'data-dsh-prompt-settings-root': '1' }, [
-    // 标题栏置顶（身份行：提示词模板 + 更新入口 + 版本 + 🌟💬）。
-    // #128 新整组件接回：入口按钮落位与 #60 旧位一致（🌟/💬 之前）。
+    // 标题栏置顶（身份行：提示词模板 + 更新入口 + 版本 + 联系/Star/Issue 三件套）。
+    // #128 新整组件接回：入口按钮落位与 #60 旧位一致（三件套之前）。
     // 更新入口一枚（0.5.1 direct：点开即弹窗，面板挂载自查；更新卡已删，弹窗只按需出现）。
     h(SettingsHeaderLinks, { key: 'links', lang, entry: h(UpdateEntryButton, { key: 'update' }) }),
     // 模板管理栏紧随标题栏（主体功能优先）：预制·自定义模板区为第 1 块，其余段顺序不变相对后移。

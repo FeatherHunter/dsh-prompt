@@ -1,22 +1,22 @@
-// 回归测试 #37：设置页「作者其他插件」引流区 + 右上角 GitHub/ISSUE 图标按钮
-// 契约（对应用户故事与验收标准）：
-//  1) 右上角两个图标按钮：🌟 → 仓库首页、💬 → ISSUE 列表页（不是 issues/new），双语 aria-label，新标签页打开；
-//  2) 悬停 / 键盘聚焦出气泡，mouseleave / blur / Esc 收（气泡走顶层 portal，无 DOM 环境内联回退）；
-//  3) 底部四行引流区：slug→URL 映射与顺序、中英双语描述、整行可点；
-//  4) 不动的东西：智能开关 / 模板列表顺序与行为一字不动；旧的一行文字链接不再渲染（同一入口不留两处）。
-//  5) #77 收尾：那句存储说明已按作者决定删除（页面顶层 6 → 5 块），模板区改成一张卡片。
+// 回归测试 #37（#254 现行口径）：设置页对外入口区 —— 页头「联系 / Star / Issue」三件套 + 底部作者插件引流区
+// 契约（对应 #254 迁移后的用户故事与验收标准）：
+//  1) 页头三件套由 dsh-featherhunter-plugin-base 的 ActionGroup 渲染：联系是 <button>（开群码弹窗）、
+//     Star 是 <a> → 仓库首页、Issue 是 <a> → ISSUE 列表页（不是 issues/new）；顺序固定 联系 → Star → Issue，
+//     两枚地址由本仓 createBaseUI({ repoUrl, issuesUrl }) 交给 base；无障碍名 / 悬停文案由 base MESSAGES 提供；
+//  2) 本仓不再自绘页头图标与气泡：无 data-dsh-prompt-tip 节点、无 TopPortal 挂载（气泡是 base 的文档级单例）；
+//  3) 底部引流区 = base AuthorPlugins：标题与行数据来自 base 包清单，自动排除本仓（selfId = prompt）；
+//  4) 不动的东西：智能开关 / 模板列表顺序与行为一字不动；旧的 ⛭ / ⚠ 一行文字链接不再渲染（同一入口不留两处）；
+//  5) 版式：模板区是一张卡片；页面顶层 6 块（身份行 / 模板列表卡 / 远程模式 / 诊断日志 / 联系行 / 引流区）。
 const fs = require('node:fs');
 const path = require('node:path');
 let ts;
 try { ts = require('typescript') } catch (e) { ts = require('D:/0Tools/DSHDesktop/DSH Desktop/resources/app/node_modules/typescript') }
 const DIR = path.join(__dirname, '.rt-tmp');
 fs.mkdirSync(DIR, { recursive: true });
-const SRC = (f) => path.join(__dirname, '..', '..', 'src', 'client', f);
-const UPD = (f) => path.join(__dirname, '..', '..', 'src', 'update', f);
+const ROOT = path.join(__dirname, '..', '..');
+const SRC = (f) => path.join(ROOT, 'src', 'client', f);
 // P1：只声明根；闭包与 require 改写由共享件顺着源码 import 推导（不再是手抄表）。
 const { buildFlat } = require('../lib/transpile-client.cjs');
-// #129：旧更新三件套/bridge/派生已删（#127），本票只验头行图标+引流区，不再转译它们；
-// settings 的闭包（panel/about/update-http 等）由 buildFlat 顺 import 自动推导。
 buildFlat(DIR, [
   SRC('settings-page.ts'),
   SRC('settings-links.ts'),
@@ -24,6 +24,8 @@ buildFlat(DIR, [
 ]);
 const React = require('react');
 const TR = require('react-test-renderer');
+const base = require('dsh-featherhunter-plugin-base/client');
+const MSG = base.MESSAGES;
 const about = require(path.join(DIR, 'settings-links.cjs'));
 const panel = require(path.join(DIR, 'template-browser.cjs'));
 const settings = require(path.join(DIR, 'settings-page.cjs'));
@@ -31,17 +33,18 @@ const { tr, STR } = require(path.join(DIR, 'strings.cjs'));
 
 const REPO = 'https://github.com/FeatherHunter/dsh-prompt';
 const ISSUES = REPO + '/issues';
-const MORE = [
-  ['dsh-mattpocock-skills-deck', 'https://github.com/FeatherHunter/dsh-mattpocock-skills-deck', 'moreDescDeck', '25'],
-  ['dsh-opencode-palette', 'https://github.com/FeatherHunter/dsh-opencode-palette', 'moreDescPalette', '38'],
-  ['dsh-prompt', REPO, 'moreDescPrompt', '24'],
-  ['dsh-im-companion', 'https://github.com/FeatherHunter/dsh-im-companion', 'moreDescCompanion', '9'],
-];
-const I18N_KEYS = ['starTip', 'feedbackTip', 'moreTitle', 'moreDescDeck', 'moreDescPalette', 'moreDescPrompt', 'moreDescCompanion', 'sectionName'];
+// base 包发布数据里的作者插件清单：渲染结果必须与它一致（本仓不再持有第二份文案表/地址表）。
+const MANIFEST = JSON.parse(fs.readFileSync(path.join(ROOT, 'node_modules', 'dsh-featherhunter-plugin-base', 'data', 'manifest.json'), 'utf8'));
+const SELF_ID = 'prompt';
+const pluginRows = () => (MANIFEST.plugins || []).slice()
+  .filter((p) => p.id !== SELF_ID)
+  .sort((a, b) => a.order - b.order)
+  .slice(0, 5);
+const hrefOf = (p) => (typeof p.url === 'string' && p.url.length > 0 ? p.url : 'https://github.com/' + p.repo);
 
 let failures = 0;
 function ok(cond, msg) { if (!cond) { failures++; console.log('  FAIL: ' + msg) } else { console.log('  ok: ' + msg) } }
-function eq(actual, expected, msg) { ok(actual === expected, msg + '（实际 ' + JSON.stringify(actual) + ' ≠ 期望 ' + JSON.stringify(expected) + '）') }
+function eq(actual, expected, msg) { ok(actual === expected, actual === expected ? msg : msg + '（实际 ' + JSON.stringify(actual) + ' ≠ 期望 ' + JSON.stringify(expected) + '）') }
 
 const txt = (n) => {
   // 传 TestRenderer 进来也算数（renderer 上没有 children，非得先 toJSON，否则取到空串、断言变成空转）
@@ -57,13 +60,18 @@ const txt = (n) => {
   return parts.join('');
 };
 const mount = (el) => { let c; TR.act(() => { c = TR.create(el) }); return c };
-const anchors = (c, pred) => c.root.findAll((x) => x.type === 'a' && (!pred || pred(x)));
-// 引流区按 DOM 子树取行：🌟 按钮的地址和 dsh-prompt 那一行相同，只按 href 认会把按钮也算成一行
-const cardNode = (c) => c.root.findAll((x) => x.props && x.props['data-dsh-prompt-more'] === '')[0];
-const rowsIn = (node) => node.findAll((x) => x.type === 'a');
-// 顶部按钮按 aria-label 认（只有这两个按钮带 aria-label），避开引流区四行的干扰
-const headBtns = (c) => c.root.findAll((x) => x.type === 'a' && !!x.props['aria-label']);
-// 从 toJSON 的宿主树里捞 <a>：气泡宿主是 span，不能按 div 认
+const cls = (n) => String((n && n.props && n.props.className) || '');
+const hasClass = (n, name) => cls(n).split(/\s+/).indexOf(name) >= 0;
+// 三件套控件按 base 标记类认（图标容器是 dsh-base-icon-action__icon，按 token 比，不能按子串）
+const iconActions = (c) => c.root.findAll((x) => (x.type === 'a' || x.type === 'button') && hasClass(x, 'dsh-base-icon-action'));
+const groupOf = (c) => c.root.findAll((x) => x.props && hasClass(x, 'dsh-base-actions--group'));
+const tipAnchors = (c) => c.root.findAll((x) => x.props && hasClass(x, 'dsh-base-tip-anchor'));
+const tips = (c) => c.root.findAll((x) => x.props && x.props['data-dsh-prompt-tip'] !== undefined);
+const svgCount = (n) => {
+  const root = typeof n.findAll === 'function' ? n : n.root;
+  return root.findAll((x) => x.type === 'svg').length;
+};
+const fire = (node, name, ev) => { TR.act(() => { node.props[name](ev || {}) }); TR.act(() => {}) };
 const jsonAnchors = (n) => {
   const out = [];
   const walk = (c) => {
@@ -75,10 +83,6 @@ const jsonAnchors = (n) => {
   walk(n);
   return out;
 };
-const wrappers = (c) => c.root.findAll((x) => x.props && typeof x.props.onMouseEnter === 'function' && typeof x.props.onFocus === 'function');
-const tips = (c) => c.root.findAll((x) => x.props && x.props['data-dsh-prompt-tip'] === '');
-const fire = (node, name, ev) => { TR.act(() => { node.props[name](ev || {}) }); TR.act(() => {}) };
-/* 宿主树（toJSON）按文档序展开 + 父子表：#60 追加交付 A 的「同一行、同一父节点、排在图标之前」靠它们判定。 */
 const domSeq = (n) => {
   const out = [];
   const walk = (c) => {
@@ -90,151 +94,164 @@ const domSeq = (n) => {
   walk(n);
   return out;
 };
-const parentMap = (root) => {
-  const map = new Map();
-  const walk = (c, p) => {
-    if (!c || typeof c !== 'object') return;
-    if (Array.isArray(c)) { c.forEach((x) => walk(x, p)); return }
-    map.set(c, p);
-    (c.children || []).forEach((x) => walk(x, c));
-  };
-  walk(root, null);
-  return map;
-};
 
-console.log('=== T1: i18n 双语齐全（英文不许夹中文） ===');
-for (const k of I18N_KEYS) {
+console.log('=== T0: 源码层（页头交回 base，本仓不再自绘） ===');
+const linksSrc = fs.readFileSync(SRC('settings-links.ts'), 'utf8');
+ok(linksSrc.indexOf('ActionGroup') >= 0, '页头用 base ActionGroup 渲染三件套');
+ok(linksSrc.indexOf('repoUrl: REPO_URL') >= 0, '仓库地址交给 createBaseUI（repoUrl: REPO_URL）');
+ok(linksSrc.indexOf('issuesUrl: ISSUES_URL') >= 0, 'ISSUE 地址交给 createBaseUI（issuesUrl: ISSUES_URL）');
+for (const stale of ['data-dsh-prompt-tip', 'IconLink', 'TopPortal', 'starTip', 'feedbackTip', '🌟', '💬']) {
+  ok(linksSrc.indexOf(stale) < 0, 'settings-links.ts 不再出现 ' + stale);
+}
+
+console.log('=== T1: 文案双语齐全（header 用 base MESSAGES，品牌名用本仓 STR） ===');
+const BASE_KEYS = ['contact', 'starLabel', 'issueLabel', 'actionsLabel', 'starTip', 'issueTip', 'contactTip'];
+for (const k of BASE_KEYS) {
+  const zh = MSG.zh && MSG.zh[k], en = MSG.en && MSG.en[k];
+  ok(typeof zh === 'string' && zh.length > 0, 'MESSAGES.zh.' + k + ' 非空');
+  ok(typeof en === 'string' && en.length > 0, 'MESSAGES.en.' + k + ' 非空');
+  ok(zh !== en, 'MESSAGES.' + k + ' zh/en 不同（不是复制粘贴同一份）');
+  ok(/[\u4e00-\u9fff]/.test(String(zh)), 'MESSAGES.' + k + '.zh 是中文');
+  ok(!/[\u4e00-\u9fff]/.test(String(en)), 'MESSAGES.' + k + '.en 不含中文');
+}
+for (const k of ['sectionName']) {
   const zh = STR[k] && STR[k].zh, en = STR[k] && STR[k].en;
   ok(typeof zh === 'string' && zh.length > 0, k + '.zh 非空');
   ok(typeof en === 'string' && en.length > 0, k + '.en 非空');
-  ok(zh !== en, k + ' zh/en 不同（不是复制粘贴同一份）');
+  ok(zh !== en, k + ' zh/en 不同');
   ok(/[\u4e00-\u9fff]/.test(String(zh)), k + '.zh 是中文');
   ok(!/[\u4e00-\u9fff]/.test(String(en)), k + '.en 不含中文');
 }
-eq(STR.starTip.zh, '你的 ⭐是我夜空中最亮的星。', 'starTip 中文口径');
-eq(STR.starTip.en, 'Your ⭐ is the brightest star in my night sky.', 'starTip 英文口径');
-eq(STR.feedbackTip.zh, '提交反馈、建议和意见🌹', 'feedbackTip 中文口径');
-eq(STR.feedbackTip.en, 'Feedback, suggestions and ideas — all welcome 🌹', 'feedbackTip 英文口径');
-eq(STR.moreTitle.zh, '作者其他插件', 'moreTitle 中文口径');
-eq(STR.moreTitle.en, 'More plugins by the author', 'moreTitle 英文口径');
 
-console.log('=== T2: 顶部两个图标按钮（中文界面） ===');
+console.log('=== T2: 页头三件套（中文界面） ===');
 let zhHdr = mount(React.createElement(about.SettingsHeaderLinks, { lang: 'zh' }));
-let zhLinks = anchors(zhHdr);
-eq(zhLinks.length, 2, '只有两个按钮（旧的一行文字链接不再出现）');
-eq(zhLinks[0].props.href, REPO, '🌟 指向仓库首页');
-eq(zhLinks[1].props.href, ISSUES, '💬 指向 ISSUE 列表页');
-ok(!/\/issues\/new$/.test(zhLinks[1].props.href), '💬 不是 issues/new');
-for (const [i, a] of zhLinks.entries()) {
-  eq(a.props.target, '_blank', '按钮 ' + i + ' 新标签页打开');
-  eq(a.props.rel, 'noreferrer', '按钮 ' + i + ' rel=noreferrer');
-  eq(a.props['aria-label'], i === 0 ? STR.gitHubRepo.zh : STR.feedback.zh, '按钮 ' + i + ' aria-label 复用既有键（中文）');
-  const icon = a.children.filter((c) => c && c.props)[0];
-  eq(icon.props['aria-hidden'], 'true', '按钮 ' + i + ' 图标 aria-hidden');
-  eq(txt(icon), i === 0 ? '🌟' : '💬', '按钮 ' + i + ' 图标是 emoji');
+const zhCtrls = iconActions(zhHdr);
+eq(zhCtrls.length, 3, '三件套三枚控件（联系按钮 + 两枚外链）');
+const [contact, star, issue] = zhCtrls;
+eq(contact.type, 'button', '联系是 <button>（开群码弹窗，不是外链）');
+eq(contact.props.type, 'button', '联系按钮 type=button');
+ok(hasClass(contact, 'dsh-base-contact-button'), '联系按钮带 base 标记类 dsh-base-contact-button');
+eq(contact.props['aria-label'], MSG.zh.contact, '联系无障碍名 = MESSAGES.zh.contact');
+eq(star.type, 'a', 'Star 是链接');
+eq(star.props.href, REPO, 'Star 指向仓库首页');
+eq(star.props['aria-label'], MSG.zh.starLabel, 'Star 无障碍名 = MESSAGES.zh.starLabel');
+eq(issue.type, 'a', 'Issue 是链接');
+eq(issue.props.href, ISSUES, 'Issue 指向 ISSUE 列表页');
+ok(!/\/issues\/new$/.test(issue.props.href), 'Issue 不是 issues/new');
+for (const [i, a] of [star, issue].entries()) {
+  eq(a.props.target, '_blank', '外链 ' + i + ' 新标签页打开');
+  ok(String(a.props.rel || '').indexOf('noreferrer') >= 0, '外链 ' + i + ' rel 含 noreferrer');
+  ok(String(a.props.rel || '').indexOf('noopener') >= 0, '外链 ' + i + ' rel 含 noopener');
 }
-const hdrRow = zhHdr.root.findAll((x) => x.type === 'div' && x.props.style && x.props.style.display === 'flex')[0];
-eq(hdrRow.props.style.justifyContent, 'space-between', '#53：头行两端布局（左标志+名字 / 右两个按钮）');
+const zhGroup = groupOf(zhHdr);
+eq(zhGroup.length, 1, '三枚控件收在一枚胶囊里');
+eq(zhGroup[0].props.role, 'group', '胶囊 role=group');
+eq(zhGroup[0].props['aria-label'], MSG.zh.actionsLabel, '胶囊 aria-label = MESSAGES.zh.actionsLabel');
+ok(hasClass(zhGroup[0], 'dsh-base-actions'), '胶囊带 base 类名 dsh-base-actions');
+ok(txt(zhHdr).indexOf('🌟') < 0 && txt(zhHdr).indexOf('💬') < 0, '不再用 emoji 当图标（改 base 线稿 svg）');
+for (const [i, ctl] of zhCtrls.entries()) {
+  const icon = ctl.findAll((x) => x.type === 'span' && x.props['aria-hidden'] === 'true')[0];
+  ok(!!icon, '控件 ' + i + ' 图标容器 aria-hidden');
+  eq(icon ? svgCount(icon) : 0, 1, '控件 ' + i + ' 图标是一枚线稿 svg');
+}
+const zhTipAnchors = tipAnchors(zhHdr);
+eq(zhTipAnchors.length, 3, '三枚控件各挂一个 base 气泡锚点（悬停文案由 base 提供）');
+eq(tips(zhHdr).length, 0, '本仓不再自绘气泡节点（data-dsh-prompt-tip）');
+const hdrRow = zhHdr.root.findAll((x) => x.type === 'div' && x.props.style && x.props.style.display === 'flex' && x.props.style.justifyContent === 'space-between')[0];
+ok(!!hdrRow, '#53：头行两端布局（左标志+名字 / 右三件套）');
 const brand = zhHdr.root.findAll((x) => x.type === 'span' && x.props.style && x.props.style.display === 'inline-flex' && txt(x).indexOf(STR.sectionName.zh) >= 0)[0];
 ok(!!brand, '#53：头行左边有插件名字（' + STR.sectionName.zh + '）');
-ok(!!brand && brand.findAll((x) => x.type === 'svg').length === 1, '#53：名字左边是插件标志（一个 svg）');
+ok(!!brand && svgCount(brand) === 1, '#53：名字左边是插件标志（一个 svg）');
 eq(brand ? txt(brand) : '', STR.sectionName.zh, '#53：左边只显示页面名，不带别的字');
-eq(hdrRow.findAll((x) => x.type === 'svg').length, 1, '#53：整个头行只有一个标志 svg（没混进别的图形）');
+eq(svgCount(zhHdr), 4, '整个头行四枚 svg：品牌标志 1 + 三件套线稿图标 3（没混进别的图形）');
 zhHdr.unmount();
 
-console.log('=== T3: 悬停 / 聚焦气泡（中文界面） ===');
+console.log('=== T3: 气泡接线（base HoverTip；本仓不渲染气泡本体） ===');
 let tipHost = mount(React.createElement(about.SettingsHeaderLinks, { lang: 'zh' }));
-let wraps = wrappers(tipHost);
-eq(wraps.length, 2, '两个按钮各挂一个气泡宿主');
-eq(tips(tipHost).length, 0, '初始不显示气泡');
-fire(wraps[0], 'onMouseEnter');
-eq(tips(tipHost).length, 1, '鼠标进入出气泡');
-eq(txt(tips(tipHost)[0]), STR.starTip.zh, '🌟 气泡文案 = starTip');
-fire(wraps[0], 'onMouseLeave');
-eq(tips(tipHost).length, 0, '鼠标离开收气泡');
-fire(wraps[0], 'onFocus');
-eq(tips(tipHost).length, 1, '键盘聚焦出气泡（用户故事 4）');
-fire(wraps[0], 'onKeyDown', { key: 'Escape' });
-eq(tips(tipHost).length, 0, 'Esc 收气泡');
-fire(wraps[1], 'onFocus');
-eq(txt(tips(tipHost)[0]), STR.feedbackTip.zh, '💬 气泡文案 = feedbackTip');
-fire(wraps[1], 'onBlur');
-eq(tips(tipHost).length, 0, '失焦收气泡');
+const tipWraps = tipAnchors(tipHost);
+eq(tipWraps.length, 3, '三件套各有一个悬停/聚焦锚点');
+for (const [i, w] of tipWraps.entries()) {
+  eq(typeof w.props.onMouseEnter, 'function', '锚点 ' + i + ' 接 onMouseEnter');
+  eq(typeof w.props.onFocus, 'function', '锚点 ' + i + ' 接 onFocus（键盘可达）');
+  eq(w.findAll((x) => (x.type === 'a' || x.type === 'button')).length, 1, '锚点 ' + i + ' 里恰好一枚控件');
+}
+// 无 document 的测试环境里 base 不会把气泡挂进渲染树：本仓也不该有内联气泡或内联文案副本
+fire(tipWraps[0], 'onMouseEnter');
+fire(tipWraps[0], 'onFocus');
+eq(tips(tipHost).length, 0, '悬停/聚焦后仍没有本仓自绘气泡节点');
+eq(txt(tipHost).indexOf(MSG.zh.starTip) < 0, true, '气泡文案不写进内联树（由 base 文档级单例负责）');
 tipHost.unmount();
 
 console.log('=== T4: 英文界面（文案不许只写中文） ===');
 let enHdr = mount(React.createElement(about.SettingsHeaderLinks, { lang: 'en' }));
-let enLinks = anchors(enHdr);
-eq(enLinks[0].props['aria-label'], STR.gitHubRepo.en, '🌟 aria-label 英文');
-eq(enLinks[1].props['aria-label'], STR.feedback.en, '💬 aria-label 英文');
-let enWraps = wrappers(enHdr);
-fire(enWraps[0], 'onFocus');
-eq(txt(tips(enHdr)[0]), STR.starTip.en, '🌟 气泡英文');
-fire(enWraps[0], 'onBlur');
-fire(enWraps[1], 'onFocus');
-eq(txt(tips(enHdr)[0]), STR.feedbackTip.en, '💬 气泡英文');
-// #53：头行左边的插件名字也要跟着界面语言走
+const enCtrls = iconActions(enHdr);
+eq(enCtrls.length, 3, '英文界面仍三枚控件');
+eq(enCtrls[0].props['aria-label'], MSG.en.contact, '联系无障碍名英文');
+eq(enCtrls[1].props['aria-label'], MSG.en.starLabel, 'Star 无障碍名英文');
+eq(enCtrls[2].props['aria-label'], MSG.en.issueLabel, 'Issue 无障碍名英文');
+eq(groupOf(enHdr)[0].props['aria-label'], MSG.en.actionsLabel, '胶囊 aria-label 英文');
+eq(enCtrls[1].props.href, REPO, '英文界面 Star 地址不变');
+eq(enCtrls[2].props.href, ISSUES, '英文界面 Issue 地址不变');
 eq(txt(enHdr).indexOf(STR.sectionName.en) >= 0, true, '#53：头行左边名字英文（' + STR.sectionName.en + '）');
-eq(txt(enHdr).indexOf(STR.sectionName.zh) < 0, true, '#53：英文界面下不出现中文名字');
+eq(/[\u4e00-\u9fff]/.test(txt(enHdr)), false, '英文界面头行不含中文（含品牌名与无障碍名）');
 enHdr.unmount();
 
-console.log('=== T5: 底部四行引流区 ===');
+console.log('=== T5: 底部引流区（base AuthorPlugins，数据来自 base 清单） ===');
 for (const lang of ['zh', 'en']) {
   const card = mount(React.createElement(about.AuthorPlugins, { lang }));
-  eq(card.root.findAll((x) => x.props && x.props['data-dsh-prompt-more'] === '').length, 1, lang + '：一块引流区卡片');
-  const rows = rowsIn(cardNode(card));
-  eq(rows.length, 4, lang + '：四行');
-  for (let i = 0; i < MORE.length; i++) {
-    const [slug, url, descKey, count] = MORE[i];
-    eq(txt(rows[i]).indexOf(slug) >= 0, true, lang + ' 第 ' + (i + 1) + ' 行 slug = ' + slug + '（顺序与 skills-deck 配置页一致）');
-    eq(rows[i].props.href, url, lang + ' 第 ' + (i + 1) + ' 行地址');
+  const cards = card.root.findAll((x) => x.props && cls(x).split(/\s+/).indexOf('dsh-base-plugins') >= 0);
+  eq(cards.length, 1, lang + '：一块引流区卡片');
+  eq(txt(card).indexOf(MSG[lang].plugins) >= 0, true, lang + '：卡片标题 = base MESSAGES.' + lang + '.plugins');
+  const rows = card.root.findAll((x) => x.type === 'a' && cls(x).split(/\s+/).indexOf('dsh-base-plugins__row') >= 0);
+  const expected = pluginRows();
+  eq(rows.length, expected.length, lang + '：行数 = base 清单去掉本仓（selfId=' + SELF_ID + '）');
+  for (let i = 0; i < expected.length; i++) {
+    const p = expected[i];
+    eq(rows[i].props.href, hrefOf(p), lang + ' 第 ' + (i + 1) + ' 行地址');
     eq(rows[i].props.target, '_blank', lang + ' 第 ' + (i + 1) + ' 行新标签页打开');
-    eq(rows[i].props.rel, 'noreferrer', lang + ' 第 ' + (i + 1) + ' 行 rel=noreferrer');
-    eq(txt(rows[i]).indexOf(tr(lang, STR[descKey])) >= 0, true, lang + ' 第 ' + (i + 1) + ' 行描述 = ' + descKey);
-    eq(txt(rows[i]).indexOf(count) >= 0, true, lang + ' 第 ' + (i + 1) + ' 行带实测数字 ' + count);
-    eq(txt(rows[i]).indexOf('https://') < 0, true, lang + ' 第 ' + (i + 1) + ' 行不把网址糊给用户看');
+    ok(String(rows[i].props.rel || '').indexOf('noopener') >= 0, lang + ' 第 ' + (i + 1) + ' 行 rel 含 noopener');
+    const rowText = txt(rows[i]);
+    ok(rowText.indexOf(p.name) >= 0, lang + ' 第 ' + (i + 1) + ' 行插件名 = ' + p.name);
+    ok(rowText.indexOf(p.desc[lang]) >= 0, lang + ' 第 ' + (i + 1) + ' 行描述跟随语言');
+    ok(rowText.indexOf('https://') < 0, lang + ' 第 ' + (i + 1) + ' 行不把网址糊给用户看');
   }
+  eq(rows.filter((r) => txt(r).indexOf('dsh-prompt') >= 0).length, 0, lang + '：本仓自己不出现在推荐卡里');
   card.unmount();
 }
 
 console.log('=== T6: 设置页装配（顺序与不动的东西） ===');
 const page = mount(React.createElement(settings.SettingsPage, {}));
-const pageHead = headBtns(page);
-eq(pageHead.length, 2, '页面里两个图标按钮');
-eq(pageHead.map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '两个按钮的地址分别是仓库首页与 ISSUE 列表页');
-eq(rowsIn(cardNode(page)).length, 4, '页面里四行引流区');
-eq(anchors(page).filter((a) => /\/issues\/new$/.test(a.props.href)).length, 0, '旧的 ⚠ 反馈故障 issues/new 链接已下线');
+const pageCtrls = iconActions(page);
+eq(pageCtrls.length, 3, '页面里三件套三枚控件（联系 + 两枚外链）');
+eq(pageCtrls.filter((x) => x.type === 'a').map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '两枚外链地址分别是仓库首页与 ISSUE 列表页');
+eq(page.root.findAll((x) => x.type === 'a' && /\/issues\/new$/.test(String(x.props.href))).length, 0, '旧的 ⚠ 反馈故障 issues/new 链接已下线');
 eq(txt(page).indexOf('⛭') < 0, true, '旧的 ⛭ GitHub 仓库文字链接已下线（同一入口不留两处）');
 const tree = page.toJSON();
 const kids = tree.children;
-// #52 改版：版式变了（每个功能各收进一张卡片：智能推荐组 / 诊断日志组），所以这几条改成**按内容找**，
-// 不再按索引钉死（索引断言会随版式变化而失去意义）。#37 自己的四条保证一条不减：
-// 两个图标按钮、四行引流区、旧文字链接下线、末尾是引流区。
-// #40 连带：设置页顶层多了一行「检查更新」入口，块数 6 → 7。
-// #60 追加交付 A（用户第二次真机反馈）：那一行/卡片**并进了插件身份行**（与 🌟 / 💬 同一行），
-// ⇒ 顶层又回到 6 块，入口不再是独立的一块。四条保证一条不减，只是入口换了住处。
-const hasCheckbox = (node) => !!(node && ((node.props && node.props.type === 'checkbox')
-  || (Array.isArray(node.children) && node.children.some(hasCheckbox))));
-// 更新卡已删（dialog 只由入口 direct 按需开）：顶层回到 5 块。
-eq(kids.length, 5, '设置页顶层五块：身份行（含更新入口）/ 模板列表卡 / 远程模式 / 诊断日志 / 引流区');
-eq(jsonAnchors(kids[0]).map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '第 0 块是右上角两个按钮（顺序：🌟 仓库、💬 ISSUE）');
+// #254 版式：身份行 / 模板列表卡 / 远程模式 / 诊断日志 / 联系行 / 引流区。
+eq(kids.length, 6, '设置页顶层六块：身份行 / 模板列表卡 / 远程模式 / 诊断日志 / 联系行 / 引流区');
+eq(jsonAnchors(kids[0]).length, 2, '第 0 块是右上角三件套里的两枚外链（更新入口为可选外挂，不挤掉它）');
 eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 0 块左边有插件名字');
 // #129（0.3.1 整组件，接替 #60-A）：入口是 http 挂载容器（data-dsh-prompt-update-entry，
-// 上游 button 形态，空容器 fail-soft），与两图标同属头行；更新面板是独立更新卡
-//（data-dsh-prompt-update-panel，模板卡后）。旧 STR.updateEntry 文案与版本徽标已随自研 UI 删除。
+// 上游 button 形态，空容器 fail-soft），与三件套同属头行且在胶囊之前；更新面板是独立 dialog（点开才挂）。
 {
   const seq0 = domSeq(kids[0]);
   const entryNode = seq0.find((n) => n.props && n.props['data-dsh-prompt-update-entry'] !== undefined);
   ok(!!entryNode, '#129：更新入口容器在身份行内部（data-dsh-prompt-update-entry）');
-  eq(jsonAnchors(kids[0]).length, 2, '头行仍有两个图标（入口+档案为可选外挂，不挤掉图标）');
+  const groupNode = seq0.find((n) => hasClass(n, 'dsh-base-actions--group'));
+  ok(!!groupNode, '#254：身份行内部有三件套胶囊');
+  ok(!!entryNode && !!groupNode && seq0.indexOf(entryNode) < seq0.indexOf(groupNode), '#60：更新入口落在三件套**之前**（同一行、同一父级）');
   const stray = domSeq(page.toJSON()).filter((n) => n.props && (n.props['data-dsh-prompt-update-archive'] !== undefined || n.props['data-dsh-prompt-update-panel'] !== undefined));
   eq(stray.length, 0, '无手写开关无常驻面板容器（dialog 只由入口开）');
   eq(STR.updateEntry, undefined, '#129：旧 STR.updateEntry 文案已删除（自研弹窗退役）');
 }
-// 实测版式（2026-09-30）：[0] 身份行 / [1] 模板列表 / [2] 远程模式 / [3] 诊断日志 / [4] 引流区。
-//   · 智能推荐配置区按 #36 的裁定**整组不渲染**（settings-page.ts 里逻辑 / i18n / persist 全保留，接回即恢复）；
-//   · #82 起多了「远程模式」组。
-// 按本文件自己的纪律**按内容找、不按索引钉死**：索引断言会随版式漂移，且会假绿。
+// 联系行：base ContactRow（整行按钮）夹在日志组和引流区之间，全页只此一处。
+{
+  const contactBtns = page.root.findAll((x) => x.type === 'button' && hasClass(x, 'dsh-base-contact-row'));
+  eq(contactBtns.length, 1, '页面里恰有一处整行式联系入口（base ContactRow）');
+  eq(txt(contactBtns[0]), MSG.zh.contact, '联系行文案 = MESSAGES.zh.contact');
+}
+// 按内容找、不按索引钉死（索引断言会随版式漂移，且会假绿）。
 const blockWith = (s) => kids.find((k) => txt(k).indexOf(s) >= 0);
 const logBlock = blockWith(STR.logGroup.zh);
 eq(!!logBlock, true, '有「诊断日志」组（带组标题）');
@@ -242,12 +259,11 @@ eq([STR.logExport.zh, STR.logCopyPath.zh, STR.logClear.zh].every((s) => txt(logB
 eq(txt(logBlock).indexOf(STR.logWhere.zh) >= 0, true, '组内有落点行（等宽字体，不再写尖括号）');
 const listBlock = kids.find((k) => k.type === 'section' && txt(k).indexOf(STR.addShort.zh) >= 0);
 eq(!!listBlock, true, '#77：模板浏览列表仍是有壳的卡片（section），且带新增入口');
-eq(!listBlock.props['data-dsh-prompt-more'], true, '模板列表不是引流区');
 eq(blockWith(STR.smartGroup.zh) === undefined, true, '智能推荐组整组不渲染（#36 裁定废弃后暂不放开）');
 eq(blockWith(STR.smartToggle.zh) === undefined, true, '智能开关的文案也不出现');
-// 那句存储说明已按作者决定删除：#20 与 #37 原先钉着的「存储说明块」随之撤掉。
-eq(txt(kids[kids.length - 1]).indexOf(STR.moreTitle.zh) >= 0, true, '末块（页面底部）是引流区');
-eq(kids[kids.length - 1].props['data-dsh-prompt-more'], '', '末块带引流区标记');
+// 末块（页面底部）是引流区，且由 base 渲染（本仓不再带 data-dsh-prompt-more 标记）。
+eq(txt(kids[kids.length - 1]).indexOf(MSG.zh.plugins) >= 0, true, '末块（页面底部）是引流区');
+eq(cls(kids[kids.length - 1]).split(/\s+/).indexOf('dsh-base-plugins') >= 0, true, '末块带 base 引流区类名 dsh-base-plugins');
 // #53 回归：template-browser.ts 头行两处内联灯泡 SVG 换成 logo.ts 的 promptMark 后，设置页头行必须照旧（标志 + Prompt + 新增）
 const browser = mount(React.createElement(panel.TemplateBrowser, { compact: false }));
 eq(browser.root.findAll((x) => x.type === 'svg').length >= 1, true, '#53：模板列表头行仍有标志 svg');
@@ -256,5 +272,5 @@ eq(txt(browser).indexOf(STR.addShort.zh) >= 0, true, '#53：模板列表头行�
 browser.unmount();
 page.unmount();
 
-console.log(failures === 0 ? 'ALL PASS: #37 设置页引流区 + 图标按钮' : 'FAILURES: ' + failures);
+console.log(failures === 0 ? 'ALL PASS: #37 设置页对外入口区（三件套 + 引流区，base 通用件口径）' : 'FAILURES: ' + failures);
 process.exit(failures === 0 ? 0 : 1);

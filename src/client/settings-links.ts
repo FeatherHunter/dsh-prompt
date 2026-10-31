@@ -12,7 +12,7 @@
  * 图标、簇、悬停气泡与弹窗都是 base 包内部实现。
  * #254：入口区与作者推荐卡改由 dsh-featherhunter-plugin-base/client 提供；推荐清单与群码都来自
  * base 包的发布数据（CDN @latest），本仓不再持有第二份「作者其他插件」文案表、群码地址或图标文案。
- * base 0.1.2：旧 ActionGroup 胶囊换成 ActionCluster 静默簇（v2 视觉）；底部整行 ContactRow 退役，
+ * base 0.1.3：旧 ActionGroup 胶囊换成 ActionCluster 静默簇（v2 视觉）；底部整行 ContactRow 退役，
  * 联系入口全页只留页头一处。
  * #60 追加交付 A 起多一个可选的 `entry`：调用方（settings-page.ts）把更新入口那枚按钮交进来，与三件套同排。
  */

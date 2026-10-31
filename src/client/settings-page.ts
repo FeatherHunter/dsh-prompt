@@ -13,7 +13,7 @@
  * 不可逆操作（清空日志）不与常规操作平权：单独一行、默认低调、hover 才显示危险色，并两步确认。
  */
 import { getReact, TemplateBrowser, TriggerModeButton, PresetEyeIcon, TriggerPointerIcon } from './template-browser'
-import { SettingsHeaderLinks, ContactRow, AuthorPlugins } from './settings-links'
+import { SettingsHeaderLinks, AuthorPlugins } from './settings-links'
 import { UpdateEntryButton } from './update-client'
 
 import { isSmartEnabled, setSmartEnabled } from './smart-draft'
@@ -741,8 +741,7 @@ export function SettingsPage(props: any): any {
     logGroup,
     // 存储说明那句（原「自定义模板与使用次数保存在 DSH 缓存目录…」）已按作者决定删除：
     // 它孤零零悬在两张卡之间，说的是上面那张模板卡的事，却谁也不属于。
-    // 联系入口（整行式，base 包 ContactRow）：放在提示词模板 section 底部、推荐卡之前，全页只此一处。
-    h(ContactRow, { key: 'contact', lang }),
+    // 底部只留「作者其他插件」引流区；联系入口已收进页头 ActionCluster（base 0.1.2），全页只此一处。
     h(AuthorPlugins, { key: 'more', lang }),
   ])
 }

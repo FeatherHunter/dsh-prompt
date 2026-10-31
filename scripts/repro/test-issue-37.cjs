@@ -1,12 +1,15 @@
-// 回归测试 #37（#254 现行口径）：设置页对外入口区 —— 页头「联系 / Star / Issue」三件套 + 底部作者插件引流区
-// 契约（对应 #254 迁移后的用户故事与验收标准）：
-//  1) 页头三件套由 dsh-featherhunter-plugin-base 的 ActionGroup 渲染：联系是 <button>（开群码弹窗）、
+// 回归测试 #37（#254 / header-action-cluster-v2 现行口径）：设置页对外入口区 —— 页头「联系 / Star / Issue」
+// 三件套 + 底部作者插件引流区。
+// 契约（对应 base 0.1.2 ActionCluster v2 与 #254 的用户故事 / 验收标准）：
+//  1) 页头三件套由 dsh-featherhunter-plugin-base 的 ActionCluster（静默簇）渲染：联系是 <button>（开群码弹窗）、
 //     Star 是 <a> → 仓库首页、Issue 是 <a> → ISSUE 列表页（不是 issues/new）；顺序固定 联系 → Star → Issue，
 //     两枚地址由本仓 createBaseUI({ repoUrl, issuesUrl }) 交给 base；无障碍名 / 悬停文案由 base MESSAGES 提供；
 //  2) 本仓不再自绘页头图标与气泡：无 data-dsh-prompt-tip 节点、无 TopPortal 挂载（气泡是 base 的文档级单例）；
+//     旧 ActionGroup 胶囊（dsh-base-actions--group）退役，彩色 16px 图标带渐变，簇无托盘外框；
 //  3) 底部引流区 = base AuthorPlugins：标题与行数据来自 base 包清单，自动排除本仓（selfId = prompt）；
 //  4) 不动的东西：智能开关 / 模板列表顺序与行为一字不动；旧的 ⛭ / ⚠ 一行文字链接不再渲染（同一入口不留两处）；
-//  5) 版式：模板区是一张卡片；页面顶层 6 块（身份行 / 模板列表卡 / 远程模式 / 诊断日志 / 联系行 / 引流区）。
+//     底部整行 ContactRow 已退役（联系入口全页只在页头）；
+//  5) 版式：模板区是一张卡片；页面顶层 5 块（身份行 / 模板列表卡 / 远程模式 / 诊断日志 / 引流区）。
 const fs = require('node:fs');
 const path = require('node:path');
 let ts;
@@ -62,10 +65,10 @@ const txt = (n) => {
 const mount = (el) => { let c; TR.act(() => { c = TR.create(el) }); return c };
 const cls = (n) => String((n && n.props && n.props.className) || '');
 const hasClass = (n, name) => cls(n).split(/\s+/).indexOf(name) >= 0;
-// 三件套控件按 base 标记类认（图标容器是 dsh-base-icon-action__icon，按 token 比，不能按子串）
-const iconActions = (c) => c.root.findAll((x) => (x.type === 'a' || x.type === 'button') && hasClass(x, 'dsh-base-icon-action'));
-const groupOf = (c) => c.root.findAll((x) => x.props && hasClass(x, 'dsh-base-actions--group'));
-const tipAnchors = (c) => c.root.findAll((x) => x.props && hasClass(x, 'dsh-base-tip-anchor'));
+// 三件套控件按 base 标记类认（ActionCluster v2：控件本身带 dsh-base-cluster__btn，按 token 比，不能按子串）
+const clusterBtns = (c) => c.root.findAll((x) => (x.type === 'a' || x.type === 'button') && hasClass(x, 'dsh-base-cluster__btn'));
+const clusterOf = (c) => c.root.findAll((x) => x.props && hasClass(x, 'dsh-base-cluster'));
+const legacyGroupOf = (c) => c.root.findAll((x) => x.props && hasClass(x, 'dsh-base-actions--group'));
 const tips = (c) => c.root.findAll((x) => x.props && x.props['data-dsh-prompt-tip'] !== undefined);
 const svgCount = (n) => {
   const root = typeof n.findAll === 'function' ? n : n.root;
@@ -97,7 +100,9 @@ const domSeq = (n) => {
 
 console.log('=== T0: 源码层（页头交回 base，本仓不再自绘） ===');
 const linksSrc = fs.readFileSync(SRC('settings-links.ts'), 'utf8');
-ok(linksSrc.indexOf('ActionGroup') >= 0, '页头用 base ActionGroup 渲染三件套');
+ok(linksSrc.indexOf('ActionCluster') >= 0, '页头用 base ActionCluster 渲染三件套');
+ok(linksSrc.indexOf('ui.ActionGroup') < 0, '旧 ActionGroup 用法已退役（源码不再渲染它）');
+ok(linksSrc.indexOf('ui.ContactRow') < 0, '旧底部整行 ContactRow 包装已退役（源码不再渲染它）');
 ok(linksSrc.indexOf('repoUrl: REPO_URL') >= 0, '仓库地址交给 createBaseUI（repoUrl: REPO_URL）');
 ok(linksSrc.indexOf('issuesUrl: ISSUES_URL') >= 0, 'ISSUE 地址交给 createBaseUI（issuesUrl: ISSUES_URL）');
 for (const stale of ['data-dsh-prompt-tip', 'IconLink', 'TopPortal', 'starTip', 'feedbackTip', '🌟', '💬']) {
@@ -123,14 +128,14 @@ for (const k of ['sectionName']) {
   ok(!/[\u4e00-\u9fff]/.test(String(en)), k + '.en 不含中文');
 }
 
-console.log('=== T2: 页头三件套（中文界面） ===');
+console.log('=== T2: 页头三件套（中文界面，base ActionCluster 静默簇） ===');
 let zhHdr = mount(React.createElement(about.SettingsHeaderLinks, { lang: 'zh' }));
-const zhCtrls = iconActions(zhHdr);
+const zhCtrls = clusterBtns(zhHdr);
 eq(zhCtrls.length, 3, '三件套三枚控件（联系按钮 + 两枚外链）');
 const [contact, star, issue] = zhCtrls;
 eq(contact.type, 'button', '联系是 <button>（开群码弹窗，不是外链）');
 eq(contact.props.type, 'button', '联系按钮 type=button');
-ok(hasClass(contact, 'dsh-base-contact-button'), '联系按钮带 base 标记类 dsh-base-contact-button');
+ok(hasClass(contact, 'dsh-base-cluster__btn--contact'), '联系按钮带 base 簇标记类 dsh-base-cluster__btn--contact');
 eq(contact.props['aria-label'], MSG.zh.contact, '联系无障碍名 = MESSAGES.zh.contact');
 eq(star.type, 'a', 'Star 是链接');
 eq(star.props.href, REPO, 'Star 指向仓库首页');
@@ -143,19 +148,26 @@ for (const [i, a] of [star, issue].entries()) {
   ok(String(a.props.rel || '').indexOf('noreferrer') >= 0, '外链 ' + i + ' rel 含 noreferrer');
   ok(String(a.props.rel || '').indexOf('noopener') >= 0, '外链 ' + i + ' rel 含 noopener');
 }
-const zhGroup = groupOf(zhHdr);
-eq(zhGroup.length, 1, '三枚控件收在一枚胶囊里');
-eq(zhGroup[0].props.role, 'group', '胶囊 role=group');
-eq(zhGroup[0].props['aria-label'], MSG.zh.actionsLabel, '胶囊 aria-label = MESSAGES.zh.actionsLabel');
-ok(hasClass(zhGroup[0], 'dsh-base-actions'), '胶囊带 base 类名 dsh-base-actions');
-ok(txt(zhHdr).indexOf('🌟') < 0 && txt(zhHdr).indexOf('💬') < 0, '不再用 emoji 当图标（改 base 线稿 svg）');
+const zhClusters = clusterOf(zhHdr);
+eq(zhClusters.length, 1, '三枚控件收在一枚静默簇里');
+eq(zhClusters[0].props.role, 'group', '簇 role=group');
+eq(zhClusters[0].props['aria-label'], MSG.zh.actionsLabel, '簇 aria-label = MESSAGES.zh.actionsLabel');
+ok(hasClass(zhClusters[0], 'dsh-base-cluster'), '簇带 base 类名 dsh-base-cluster');
+ok(!hasClass(zhClusters[0], 'dsh-base-cluster--tray'), 'quiet 变体：无托盘外框');
+eq(legacyGroupOf(zhHdr).length, 0, '旧 ActionGroup 胶囊类名 dsh-base-actions--group 不在场');
+ok(txt(zhHdr).indexOf('🌟') < 0 && txt(zhHdr).indexOf('💬') < 0, '不再用 emoji 当图标（改 base 彩色 svg）');
 for (const [i, ctl] of zhCtrls.entries()) {
   const icon = ctl.findAll((x) => x.type === 'span' && x.props['aria-hidden'] === 'true')[0];
   ok(!!icon, '控件 ' + i + ' 图标容器 aria-hidden');
-  eq(icon ? svgCount(icon) : 0, 1, '控件 ' + i + ' 图标是一枚线稿 svg');
+  eq(icon ? svgCount(icon) : 0, 1, '控件 ' + i + ' 图标是一枚 16px svg');
+  const svg = ctl.findAll((x) => x.type === 'svg')[0];
+  eq(svg ? svg.props.width : 0, 16, '控件 ' + i + ' 图标 16px 宽');
+  eq(svg ? svg.props.height : 0, 16, '控件 ' + i + ' 图标 16px 高');
+  const gradients = svg ? svg.findAll((x) => x.type === 'linearGradient' || x.type === 'radialGradient').length : 0;
+  ok(gradients >= 1, '控件 ' + i + ' 彩色图标带渐变定义（linearGradient / radialGradient）');
+  eq(ctl.props.style ? ctl.props.style.width : 0, 28, '控件 ' + i + ' 按钮 28×28（size 16 + 内边距）');
+  eq(ctl.props['data-cluster-item'], ['contact', 'star', 'issue'][i], '控件 ' + i + ' 带 data-cluster-item 标记');
 }
-const zhTipAnchors = tipAnchors(zhHdr);
-eq(zhTipAnchors.length, 3, '三枚控件各挂一个 base 气泡锚点（悬停文案由 base 提供）');
 eq(tips(zhHdr).length, 0, '本仓不再自绘气泡节点（data-dsh-prompt-tip）');
 const hdrRow = zhHdr.root.findAll((x) => x.type === 'div' && x.props.style && x.props.style.display === 'flex' && x.props.style.justifyContent === 'space-between')[0];
 ok(!!hdrRow, '#53：头行两端布局（左标志+名字 / 右三件套）');
@@ -163,17 +175,16 @@ const brand = zhHdr.root.findAll((x) => x.type === 'span' && x.props.style && x.
 ok(!!brand, '#53：头行左边有插件名字（' + STR.sectionName.zh + '）');
 ok(!!brand && svgCount(brand) === 1, '#53：名字左边是插件标志（一个 svg）');
 eq(brand ? txt(brand) : '', STR.sectionName.zh, '#53：左边只显示页面名，不带别的字');
-eq(svgCount(zhHdr), 4, '整个头行四枚 svg：品牌标志 1 + 三件套线稿图标 3（没混进别的图形）');
+eq(svgCount(zhHdr), 4, '整个头行四枚 svg：品牌标志 1 + 三件套彩色图标 3（没混进别的图形）');
 zhHdr.unmount();
 
 console.log('=== T3: 气泡接线（base HoverTip；本仓不渲染气泡本体） ===');
 let tipHost = mount(React.createElement(about.SettingsHeaderLinks, { lang: 'zh' }));
-const tipWraps = tipAnchors(tipHost);
-eq(tipWraps.length, 3, '三件套各有一个悬停/聚焦锚点');
+const tipWraps = clusterBtns(tipHost);
+eq(tipWraps.length, 3, '三件套三枚控件各自接悬停/聚焦');
 for (const [i, w] of tipWraps.entries()) {
-  eq(typeof w.props.onMouseEnter, 'function', '锚点 ' + i + ' 接 onMouseEnter');
-  eq(typeof w.props.onFocus, 'function', '锚点 ' + i + ' 接 onFocus（键盘可达）');
-  eq(w.findAll((x) => (x.type === 'a' || x.type === 'button')).length, 1, '锚点 ' + i + ' 里恰好一枚控件');
+  eq(typeof w.props.onMouseEnter, 'function', '控件 ' + i + ' 接 onMouseEnter');
+  eq(typeof w.props.onFocus, 'function', '控件 ' + i + ' 接 onFocus（键盘可达）');
 }
 // 无 document 的测试环境里 base 不会把气泡挂进渲染树：本仓也不该有内联气泡或内联文案副本
 fire(tipWraps[0], 'onMouseEnter');
@@ -184,12 +195,12 @@ tipHost.unmount();
 
 console.log('=== T4: 英文界面（文案不许只写中文） ===');
 let enHdr = mount(React.createElement(about.SettingsHeaderLinks, { lang: 'en' }));
-const enCtrls = iconActions(enHdr);
+const enCtrls = clusterBtns(enHdr);
 eq(enCtrls.length, 3, '英文界面仍三枚控件');
 eq(enCtrls[0].props['aria-label'], MSG.en.contact, '联系无障碍名英文');
 eq(enCtrls[1].props['aria-label'], MSG.en.starLabel, 'Star 无障碍名英文');
 eq(enCtrls[2].props['aria-label'], MSG.en.issueLabel, 'Issue 无障碍名英文');
-eq(groupOf(enHdr)[0].props['aria-label'], MSG.en.actionsLabel, '胶囊 aria-label 英文');
+eq(clusterOf(enHdr)[0].props['aria-label'], MSG.en.actionsLabel, '簇 aria-label 英文');
 eq(enCtrls[1].props.href, REPO, '英文界面 Star 地址不变');
 eq(enCtrls[2].props.href, ISSUES, '英文界面 Issue 地址不变');
 eq(txt(enHdr).indexOf(STR.sectionName.en) >= 0, true, '#53：头行左边名字英文（' + STR.sectionName.en + '）');
@@ -221,35 +232,35 @@ for (const lang of ['zh', 'en']) {
 
 console.log('=== T6: 设置页装配（顺序与不动的东西） ===');
 const page = mount(React.createElement(settings.SettingsPage, {}));
-const pageCtrls = iconActions(page);
+const pageCtrls = clusterBtns(page);
 eq(pageCtrls.length, 3, '页面里三件套三枚控件（联系 + 两枚外链）');
 eq(pageCtrls.filter((x) => x.type === 'a').map((a) => a.props.href).join('|'), REPO + '|' + ISSUES, '两枚外链地址分别是仓库首页与 ISSUE 列表页');
 eq(page.root.findAll((x) => x.type === 'a' && /\/issues\/new$/.test(String(x.props.href))).length, 0, '旧的 ⚠ 反馈故障 issues/new 链接已下线');
 eq(txt(page).indexOf('⛭') < 0, true, '旧的 ⛭ GitHub 仓库文字链接已下线（同一入口不留两处）');
 const tree = page.toJSON();
 const kids = tree.children;
-// #254 版式：身份行 / 模板列表卡 / 远程模式 / 诊断日志 / 联系行 / 引流区。
-eq(kids.length, 6, '设置页顶层六块：身份行 / 模板列表卡 / 远程模式 / 诊断日志 / 联系行 / 引流区');
+// header-action-cluster-v2 版式：身份行 / 模板列表卡 / 远程模式 / 诊断日志 / 引流区。
+eq(kids.length, 5, '设置页顶层五块：身份行 / 模板列表卡 / 远程模式 / 诊断日志 / 引流区');
 eq(jsonAnchors(kids[0]).length, 2, '第 0 块是右上角三件套里的两枚外链（更新入口为可选外挂，不挤掉它）');
 eq(txt(kids[0]).indexOf(STR.sectionName.zh) >= 0, true, '#53：第 0 块左边有插件名字');
 // #129（0.3.1 整组件，接替 #60-A）：入口是 http 挂载容器（data-dsh-prompt-update-entry，
-// 上游 button 形态，空容器 fail-soft），与三件套同属头行且在胶囊之前；更新面板是独立 dialog（点开才挂）。
+// 上游 button 形态，空容器 fail-soft），与三件套同属头行且在静默簇之前；更新面板是独立 dialog（点开才挂）。
 {
   const seq0 = domSeq(kids[0]);
   const entryNode = seq0.find((n) => n.props && n.props['data-dsh-prompt-update-entry'] !== undefined);
   ok(!!entryNode, '#129：更新入口容器在身份行内部（data-dsh-prompt-update-entry）');
-  const groupNode = seq0.find((n) => hasClass(n, 'dsh-base-actions--group'));
-  ok(!!groupNode, '#254：身份行内部有三件套胶囊');
-  ok(!!entryNode && !!groupNode && seq0.indexOf(entryNode) < seq0.indexOf(groupNode), '#60：更新入口落在三件套**之前**（同一行、同一父级）');
+  const clusterNode = seq0.find((n) => hasClass(n, 'dsh-base-cluster'));
+  ok(!!clusterNode, 'header-action-cluster-v2：身份行内部有三件套静默簇');
+  ok(!!entryNode && !!clusterNode && seq0.indexOf(entryNode) < seq0.indexOf(clusterNode), '#60：更新入口落在三件套**之前**（同一行、同一父级）');
   const stray = domSeq(page.toJSON()).filter((n) => n.props && (n.props['data-dsh-prompt-update-archive'] !== undefined || n.props['data-dsh-prompt-update-panel'] !== undefined));
   eq(stray.length, 0, '无手写开关无常驻面板容器（dialog 只由入口开）');
   eq(STR.updateEntry, undefined, '#129：旧 STR.updateEntry 文案已删除（自研弹窗退役）');
 }
-// 联系行：base ContactRow（整行按钮）夹在日志组和引流区之间，全页只此一处。
+// 底部整行 ContactRow 已退役：页面里不该再出现 dsh-base-contact-row，联系入口全页只在页头。
 {
-  const contactBtns = page.root.findAll((x) => x.type === 'button' && hasClass(x, 'dsh-base-contact-row'));
-  eq(contactBtns.length, 1, '页面里恰有一处整行式联系入口（base ContactRow）');
-  eq(txt(contactBtns[0]), MSG.zh.contact, '联系行文案 = MESSAGES.zh.contact');
+  const contactRows = page.root.findAll((x) => x.props && hasClass(x, 'dsh-base-contact-row'));
+  eq(contactRows.length, 0, '底部整行联系入口（base ContactRow）已退役，全页只留页头一处');
+  eq(legacyGroupOf(page).length, 0, '旧 ActionGroup 胶囊（dsh-base-actions--group）不在页面里');
 }
 // 按内容找、不按索引钉死（索引断言会随版式漂移，且会假绿）。
 const blockWith = (s) => kids.find((k) => txt(k).indexOf(s) >= 0);
@@ -272,5 +283,5 @@ eq(txt(browser).indexOf(STR.addShort.zh) >= 0, true, '#53：模板列表头行�
 browser.unmount();
 page.unmount();
 
-console.log(failures === 0 ? 'ALL PASS: #37 设置页对外入口区（三件套 + 引流区，base 通用件口径）' : 'FAILURES: ' + failures);
+console.log(failures === 0 ? 'ALL PASS: #37 设置页对外入口区（三件套 + 引流区，base ActionCluster 口径）' : 'FAILURES: ' + failures);
 process.exit(failures === 0 ? 0 : 1);

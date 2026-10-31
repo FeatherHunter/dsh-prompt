@@ -26,7 +26,7 @@ jobs:
       # README 的四块（联系 / 星图 / 致谢 / 作者作品）统一由 base 包渲染：
       # 星图 ?v= 取 docs/star-history.json 末条日期（YYYYMMDDHHmm），图换了缓存戳自动跟着换。
       - name: Sync managed README blocks
-        run: npx -y dsh-featherhunter-plugin-base@0.1.1 readme:sync --repo .
+        run: npx -y dsh-featherhunter-plugin-base@0.1.2 readme:sync --repo .
       - name: Commit if changed
         run: |
           if git diff --quiet README.md docs/README.en.md docs/star-history.json docs/star-history.svg; then echo "No change"; exit 0; fi

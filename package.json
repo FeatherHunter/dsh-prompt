@@ -159,7 +159,7 @@
   "devDependencies": {
     "@deepseek-ai/dsh-storage-domain": "^0.2.0-rc.2",
     "@types/node": "^26.5.0",
-    "dsh-featherhunter-plugin-base": "0.1.1",
+    "dsh-featherhunter-plugin-base": "0.1.2",
     "dsh-plugin-update": "0.18.39",
     "esbuild": "^0.28.2",
     "marked": "^18.0.9",

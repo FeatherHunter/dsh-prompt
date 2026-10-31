@@ -4,6 +4,9 @@
 # 用法：Actions 页面 Run workflow（tag 默认 latest），或
 #   gh workflow run publish.yml -R FeatherHunter/dsh-prompt -f tag=latest
 # 前置：仓库 secret 里要有 NPM_TOKEN（对 dsh-prompt 有写权限的 npm token）。
+#
+# 一次 Run 做两件事：npm publish；发 latest 时再建 GitHub Release（tag vX.Y.Z + 两个 tarball 资产）。
+# 重复 Run 是幂等的：npm 上已有该版本、GitHub 上已有该 release 时各自跳过。
 name: publish
 
 on:
@@ -16,7 +19,8 @@ on:
         type: string
 
 permissions:
-  contents: read
+  # 建 GitHub Release 与 tag 需要写 contents；其余只读。
+  contents: write
 
 concurrency:
   group: publish
@@ -42,6 +46,38 @@ jobs:
       - name: Build
         run: npm run build
       - name: Publish to npm
-        run: npm publish --access public --tag "${{ inputs.tag }}"
         env:
           NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")
+          if npm view "dsh-prompt@$VERSION" version >/dev/null 2>&1; then
+            echo "dsh-prompt@$VERSION 已在 npm 上，跳过 publish"
+          else
+            npm publish --access public --tag "${{ inputs.tag }}"
+          fi
+      - name: Create GitHub release
+        if: inputs.tag == 'latest'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")
+          node -e '
+          const fs = require("fs");
+          const v = process.argv[1];
+          const lines = fs.readFileSync("CHANGELOG.md", "utf8").split(/\r?\n/);
+          const start = lines.findIndex((l) => l.startsWith("## [" + v + "]"));
+          if (start < 0) { console.error("CHANGELOG 缺少 " + v + " 段"); process.exit(1); }
+          let end = lines.findIndex((l, i) => i > start && l.startsWith("## ["));
+          if (end < 0) end = lines.length;
+          fs.writeFileSync("release-notes.md", lines.slice(start + 2, end).join("\n").trim() + "\n");
+          ' "$VERSION"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "release v$VERSION 已存在，跳过"
+          else
+            npm pack --silent >/dev/null
+            TARBALL=$(ls dsh-prompt-*.tgz | head -n 1)
+            cp "$TARBALL" dsh-prompt.tgz
+            gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --notes-file release-notes.md --latest "$TARBALL" dsh-prompt.tgz
+          fi

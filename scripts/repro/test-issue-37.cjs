@@ -1,6 +1,6 @@
 // 回归测试 #37（#254 / header-action-cluster-v2 现行口径）：设置页对外入口区 —— 页头「联系 / Star / Issue」
 // 三件套 + 底部作者插件引流区。
-// 契约（对应 base 0.1.4 ActionCluster v2 与 #254 的用户故事 / 验收标准）：
+// 契约（对应 base 0.1.5 ActionCluster v2 与 #254 的用户故事 / 验收标准）：
 //  1) 页头三件套由 dsh-featherhunter-plugin-base 的 ActionCluster（静默簇）渲染：联系是 <button>（开群码弹窗）、
 //     Star 是 <a> → 仓库首页、Issue 是 <a> → ISSUE 列表页（不是 issues/new）；顺序固定 联系 → Star → Issue，
 //     两枚地址由本仓 createBaseUI({ repoUrl, issuesUrl }) 交给 base；无障碍名 / 悬停文案由 base MESSAGES 提供；

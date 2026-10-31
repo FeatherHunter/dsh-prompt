@@ -336,7 +336,7 @@ async function rendererChecks() {
 ['workspace-picker.cjs', path.join(ROOT, 'src', 'client', 'workspace-picker.ts'), ['./template-browser', './remote-grid', './strings', './workspace-contract', './pager', './locale', './style-ownership']],
     ['entry-button.cjs', path.join(ROOT, 'src', 'client', 'entry-button.ts'), ['./template-browser', './panel-visibility', './settings-page', './remote-mode', './remote-grid', './strings', './workspace-contract', './workspace-picker', './smart-draft', './locale', './style-ownership', './remote-draft', './remote-sheet']],
   ];
-  fs.writeFileSync(path.join(DIR, 'settings-links.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;');
+  fs.writeFileSync(path.join(DIR, 'settings-links.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;module.exports.ContactRow=()=>null;');
   fs.writeFileSync(path.join(DIR, 'update.cjs'), 'module.exports.UpdateEntry=()=>null;');
 fs.writeFileSync(path.join(DIR, 'update-client.cjs'), 'module.exports.UpdateEntryButton=()=>null;module.exports.UpdatePanelEmbedded=()=>null;'); // update-http 桩：#127 起 settings 引 ./update-http
   // 先落 workspace（button/picker 依赖它，require 时必须已存在）

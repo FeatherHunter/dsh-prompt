@@ -127,6 +127,7 @@ dsh plugin --profile desktop add dsh-prompt@0.4.39 --registry https://registry.n
 
 </div>
 
+<!-- MORE-START -->
 <div align="center">
 
 ## 作者的其他作品 <sub>MORE</sub>
@@ -134,6 +135,8 @@ dsh plugin --profile desktop add dsh-prompt@0.4.39 --registry https://registry.n
 </div>
 
 <div align="left">
+
+喜欢这个插件的话，这些可能你也用得上：
 
 **[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** —— 近 30 万 star 的 mattpocock/skills 整套预置好（27 个技能），装好即用。
 
@@ -144,6 +147,7 @@ dsh plugin --profile desktop add dsh-prompt@0.4.39 --registry https://registry.n
 **[ilife](https://github.com/FeatherHunter/ilife)** —— ⚠️建设中⚠️爱生活：居家生活套件，记账、运动、饮食、体重、食谱、物品管理、作息规划、备忘录等。
 
 </div>
+<!-- MORE-END -->
 
 <div align="center">
 
@@ -171,19 +175,23 @@ dsh plugin --profile desktop add dsh-prompt@0.4.39 --registry https://registry.n
 
 ---
 
+<!-- CONTACT-START -->
 ## 反馈与联系 <sub>CONNECT</sub>
 
 <div align="center">
 
 👏欢迎提交PR、ISSUE。星星之火可以燎原🔥有任何建议、意见、想法、吐槽、idea都可以进群交流。
 
-<table align="center"><tr><td align="center"><b>飞书群（主）</b></td><td align="center"><b>QQ群（新）</b></td><td align="center"><b>微信群（新）</b></td></tr><tr><td><img src="assets/readme/contact-feishu-permanent.png" width="260" alt="DSH 插件交流群 飞书群二维码" style="border:1px solid #30363d;border-radius:6px" /></td><td><img src="assets/readme/contact-qq-permanent.jpg" width="260" alt="DSH 插件交流群 QQ 群二维码" style="border:1px solid #30363d;border-radius:6px" /></td><td><img src="assets/readme/contact-wechat-weekly.png" width="260" alt="DSH 插件交流群微信群二维码" style="border:1px solid #30363d;border-radius:6px" /></td></tr></table>
+<table align="center"><tr><td align="center"><b>飞书群（主）</b></td><td align="center"><b>QQ群（新）</b></td><td align="center"><b>微信群（新）</b></td></tr><tr><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.0.2/data/img/card-feishu.png" width="260" alt="DSH 插件交流群 飞书群二维码" /></td><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.0.2/data/img/card-qq.png" width="260" alt="DSH 插件交流群 QQ 群二维码" /></td><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.0.2/data/img/card-wechat-2026-10-23.png?v=20261023" width="260" alt="DSH 插件交流群微信群二维码" /></td></tr></table>
 
 </div>
+<!-- CONTACT-END -->
 
+<!-- STAR-HISTORY-START -->
 <div align="center">
 
-![星标增长曲线（双轴）：左轴累计星标，右轴每日新增](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=20261030)
+![星标增长曲线（双轴）：左轴累计星标，右轴每日新增](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=202610300000)
 
 </div>
+<!-- STAR-HISTORY-END -->
 

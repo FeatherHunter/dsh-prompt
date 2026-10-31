@@ -8,7 +8,8 @@
 //   2. 盘上的 SVG 与盘上的 JSON 必须是同一份数据画的（改了数据忘了重画就红）；
 //   3. B3 的双轴视觉契约 + 曲线圆滑契约（两轴各用系列色、横排轴名、无竖排文字、
 //      曲线全是三次段、不造假峰、峰值数字来自数据）；
-//   4. 两页 README 都在交流群二维码之后引用这张图，且带 ?v= 缓存戳（图片代理按 URL 缓存）。
+//   4. 两页 README 都在交流群二维码之后引用这张图，且带 ?v=YYYYMMDDHHmm 缓存戳
+//      （图片代理按 URL 缓存；12 位戳来自 base 包 readme:sync 读 docs/star-history.json 的末条日期）。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -186,12 +187,15 @@ test('docs/star-history.json：零星日起点，Daily New 从 0,0 开始', () =
   assert.deepEqual(withZeroStart(DATA), DATA, '已有零星行必须幂等返回')
 })
 
-test('两页 README 都在交流群二维码之后引用星标图，且带 ?v= 缓存戳', () => {
+test('两页 README 都在交流群二维码之后引用星标图，且带 ?v=YYYYMMDDHHmm 缓存戳', () => {
+  const lastDate = DATA[DATA.length - 1].date
+  const stamp = lastDate.replace(/-/g, '') + '0000'
   for (const [name, doc] of [['中文页', ZH], ['英文页', EN]]) {
-    const qr = doc.indexOf('contact-feishu-permanent.png')
+    // 群码现在来自 base 包的 CDN 整卡（card-feishu.png），不再是仓内 contact-feishu-permanent.png。
+    const qr = doc.search(/data\/img\/card-feishu\.png/)
     const at = doc.indexOf(CHART_URL)
-    assert.ok(qr > -1, `${name} 应有交流群二维码`)
+    assert.ok(qr > -1, `${name} 应有交流群二维码（base CDN 整卡）`)
     assert.ok(at > qr, `${name} 的星标图应落在交流群二维码之后`)
-    assert.ok(/star-history\.svg\?v=[0-9]{8}/.test(doc), `${name} 的星标图 URL 应带 ?v= 缓存戳`)
+    assert.ok(doc.includes(`${CHART_URL}?v=${stamp}`), `${name} 的星标图 URL 应带 ?v=${stamp}`)
   }
 })

@@ -158,14 +158,9 @@ export const STR = {
   smartScoreSuffix: { zh: '·分{n}', en: '·Score {n}' },
   gitHubRepo: { zh: 'GitHub 仓库', en: 'GitHub repo' },
   feedback: { zh: '反馈故障', en: 'Report issue' },
-  // #37：设置页右上角两个图标按钮的悬停气泡 + 底部「作者其他插件」引流区（数字均为实测：25 / 38 / 24 / 9）
+  // #37：设置页右上角两个图标按钮的悬停气泡（底部「作者其他插件」文案表已随 #254 迁到 base 包数据）
   starTip: { zh: '你的 ⭐是我夜空中最亮的星。', en: 'Your ⭐ is the brightest star in my night sky.' },
   feedbackTip: { zh: '提交反馈、建议和意见🌹', en: 'Feedback, suggestions and ideas — all welcome 🌹' },
-  moreTitle: { zh: '作者其他插件', en: 'More plugins by the author' },
-  moreDescDeck: { zh: '装好就有 25 个工程技能在右侧直接用', en: '25 engineering skills ready on the side once installed' },
-  moreDescPalette: { zh: '38 款长时间编程护眼配色，一键换上', en: '38 eye-friendly palettes for long coding sessions, applied in one click' },
-  moreDescPrompt: { zh: '本面板自己：24 条常用提示模板随手点，不用来回复制粘贴', en: 'This panel itself: 24 everyday prompt templates at hand — no more copy-paste round trips' },
-  moreDescCompanion: { zh: '聊天机器人的伴侣插件：扫码或填凭据就把飞书、微信等 9 路聊天接进来', en: 'Companion plugin for chat bots: bring in 9 chat channels such as Feishu and WeChat by scanning a code or filling in credentials' },
   // 注：原「自定义模板与使用次数保存在 DSH 缓存目录…」那句界面文案已按作者决定删除 —— 它摆在
   // 两张卡片之间像一句游离的声明，而说明的对象就是上面那张模板卡，不再单独占一行。
   // 地图 #45 / #51：配置页的日志开关 + 导出 + 清空三个入口（文案写明「错误与告警始终记录」）

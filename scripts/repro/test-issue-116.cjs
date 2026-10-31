@@ -36,7 +36,7 @@ const MODULES = [
   ['template-browser.cjs', path.join(ROOT, 'src', 'client', 'template-browser.ts'), ['./templates', './template-library', './panel-visibility', './strings', './smart-draft', './remote-mode', './remote-grid', './locale', './label-identity']],
   ['settings-page.cjs', path.join(ROOT, 'src', 'client', 'settings-page.ts'), ['./template-browser', './settings-links', './update', './update-client', './smart-draft', './remote-mode', './remote-grid', './system-orientation', './strings', './locale', './template-library']], // #165 起 settings 引 ./store（屏蔽预置开关），手抄表跟上
 ];
-fs.writeFileSync(path.join(DIR, 'settings-links.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;');
+fs.writeFileSync(path.join(DIR, 'settings-links.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;module.exports.ContactRow=()=>null;');
 fs.writeFileSync(path.join(DIR, 'update.cjs'), 'module.exports.UpdateEntry=()=>null;');
 // #127 后 settings 改引 ./update-http（本票只断模板列表缩放，更新入口桩掉）
 fs.writeFileSync(path.join(DIR, 'update-client.cjs'), 'module.exports.UpdateEntryButton=()=>null;module.exports.UpdatePanelEmbedded=()=>null;');

@@ -68,7 +68,7 @@ installDom();
 installFetch();
 const built = buildFlat(DIR, [SRC('settings-page.ts')]);
 // 转译闭包里带宿主 UI 的重模块换成桩（本票只关心 Check 的透传与 CSS，不测更新/链接入口）。
-fs.writeFileSync(path.join(DIR, 'settings-links.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;');
+fs.writeFileSync(path.join(DIR, 'settings-links.cjs'), 'module.exports.SettingsHeaderLinks=()=>null;module.exports.AuthorPlugins=()=>null;module.exports.ContactRow=()=>null;');
 fs.writeFileSync(path.join(DIR, 'update.cjs'), 'module.exports.UpdateEntry=()=>null;');
 fs.writeFileSync(path.join(DIR, 'update-client.cjs'), 'module.exports.UpdateEntryButton=()=>null;module.exports.UpdatePanelEmbedded=()=>null;');
 

@@ -28,6 +28,9 @@ jobs:
           # 只拉比游标新的编号：脚本自己会停在游标处，老数据一个都不重看；
           # 拿到一半、gh 报错、第一页是空的，脚本直接退出，一个字节都不写。
           node scripts/update-thanks.mts
+      # 数据变了，README 的中英致谢表交给 base 包同源渲染（不再由 update-thanks 自己画表）。
+      - name: Sync managed README blocks
+        run: npx -y dsh-featherhunter-plugin-base@0.0.2 readme:sync --repo .
       - name: Commit if changed
         run: |
           if git diff --quiet README.md docs/README.en.md docs/thanks-data.json; then echo "No change"; exit 0; fi

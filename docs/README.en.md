@@ -126,6 +126,7 @@ The body is kept exactly as you write it: line breaks survive, including blank l
 
 </div>
 
+<!-- MORE-START -->
 <div align="center">
 
 ## More from the author <sub>MORE</sub>
@@ -134,15 +135,18 @@ The body is kept exactly as you write it: line breaks survive, including blank l
 
 <div align="left">
 
-**[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** — the whole mattpocock/skills set (nearly 300k stars) pre-installed: 27 skill packs, ready out of the box
+If you like this plugin, these might help too:
 
-**[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** — 38 classic opencode themes + 20+ custom themes, one click to reskin DSH
+**[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck)** — The whole mattpocock/skills set (nearly 300k stars) preinstalled — 27 skills, ready as soon as it is installed.
 
-**[dsh-im-companion](https://github.com/FeatherHunter/dsh-im-companion)** — adds the notions of "assistants" and "homes" to dsh-im
+**[dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette)** — 38 classic opencode themes + 20+ custom themes — reskin DSH in one click.
 
-**[ilife](https://github.com/FeatherHunter/ilife)** — ⚠️under construction⚠️ love life: a home-life suite covering accounting, exercise, diet, weight, recipes, item management, routine planning, memos, and more
+**[dsh-im-companion](https://github.com/FeatherHunter/dsh-im-companion)** — Adds the ideas of an “assistant” and a “home” to dsh-im.
+
+**[ilife](https://github.com/FeatherHunter/ilife)** — ⚠️Work in progress⚠️ iLife, the home-life suite: bookkeeping, exercise, diet, weight, recipes, item management, schedule planning, memos and more.
 
 </div>
+<!-- MORE-END -->
 
 <div align="center">
 
@@ -170,19 +174,23 @@ Thanks to everyone who filed issues, sent PRs, or starred the repo — you make 
 
 ---
 
+<!-- CONTACT-START -->
 ## Feedback and Contact <sub>CONNECT</sub>
 
 <div align="center">
 
 👏Welcome PRs and issues. A single spark can start a prairie fire 🔥. Any suggestion, opinion, idea or rant — come join the group and talk.
 
-<table align="center"><tr><td align="center"><b>Feishu Group (Main)</b></td><td align="center"><b>QQ Group (New)</b></td><td align="center"><b>WeChat Group (New)</b></td></tr><tr><td><img src="../assets/readme/contact-feishu-permanent.png" width="260" alt="DSH plugin community group Feishu QR code" style="border:1px solid #30363d;border-radius:6px" /></td><td><img src="../assets/readme/contact-qq-permanent.jpg" width="260" alt="DSH plugin community group QQ QR code" style="border:1px solid #30363d;border-radius:6px" /></td><td><img src="../assets/readme/contact-wechat-weekly.png" width="260" alt="DSH plugin community group WeChat QR code" style="border:1px solid #30363d;border-radius:6px" /></td></tr></table>
+<table align="center"><tr><td align="center"><b>Feishu Group (Main)</b></td><td align="center"><b>QQ Group (New)</b></td><td align="center"><b>WeChat Group (New)</b></td></tr><tr><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.0.2/data/img/card-feishu.png" width="260" alt="DSH plugin community group Feishu QR code" /></td><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.0.2/data/img/card-qq.png" width="260" alt="DSH plugin community group QQ QR code" /></td><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.0.2/data/img/card-wechat-2026-10-23.png?v=20261023" width="260" alt="DSH plugin community group WeChat QR code" /></td></tr></table>
 
 </div>
+<!-- CONTACT-END -->
 
+<!-- STAR-HISTORY-START -->
 <div align="center">
 
-![Star history chart (dual axis): total stars on the left, daily new stars on the right](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=20261030)
+![Star history chart (dual axis): total stars on the left, daily new stars on the right](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=202610300000)
 
 </div>
+<!-- STAR-HISTORY-END -->
 

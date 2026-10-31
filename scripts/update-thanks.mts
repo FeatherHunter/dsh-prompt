@@ -1,22 +1,22 @@
-// scripts/update-thanks.mts —— 致谢表自动追加：拉新编号、进位算花、重排、重画中英两表。
+// scripts/update-thanks.mts —— 致谢数据自动追加：拉新编号、合并进 JSON。
 //
 // 为什么要有它：
-//   致谢表以前是人肉维护的——新开了 Issue、合了 PR，都要人翻记录、
+//   致谢数据以前是人肉维护的——新开了 Issue、合了 PR，都要人翻记录、
 //   数花、排顺序，还要在中英两份 README 里逐行对齐。两处对不齐、漏数一朵，
 //   读到的人一眼就能看出来。机器做这件事不会漏、不会数错，跑完直接能合。
 //
-// 数据流只有一条：docs/thanks-data.json 是唯一数据源，README.md 与
-// docs/README.en.md 里标记之间的表格是它的渲染结果。脚本先联网拉新
-// （只看比游标新的编号，老的不再碰），合并进 JSON，再把两表重画。
+// 数据流只有一条：docs/thanks-data.json 是唯一数据源。脚本只联网拉新
+// （只看比游标新的编号，老的不再碰）并合并进 JSON；README.md 与
+// docs/README.en.md 里标记之间的表格由 dsh-featherhunter-plugin-base 的
+// readme:sync 渲染（同源渲染，不再由本脚本画表）。
 // 中间任何一步拿不到数据（gh 报错、第一页就是空的），直接退出，一个字节都不写——
-// 宁可这次不更新，也不能把表画残。
+// 宁可这次不更新，也不能把数据写残。
 //
 // 用法（都在仓库根目录下跑）：
-//   node scripts/update-thanks.mts              拉新并重画（每日任务与手动都走这条）
-//   node scripts/update-thanks.mts --render-only 不联网，只按 JSON 重画（手工改完 JSON 后用）
+//   node scripts/update-thanks.mts   拉新并写回 docs/thanks-data.json
 //
 // 手工补漏：直接改 docs/thanks-data.json（字段含义见文件头的 _说明），
-// 改完跑 --render-only，表格与 JSON 一起落盘，照常走门禁与提交。
+// 然后跑 npm run readme:sync 重画两页 README 的表格，照常走门禁与提交。
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,8 +26,6 @@ const ROOT: string = path.dirname(path.dirname(url.fileURLToPath(import.meta.url
 const REPO_OWNER: string = 'FeatherHunter';
 const REPO_NAME: string = 'dsh-prompt';
 const DATA_PATH: string = path.join(ROOT, 'docs', 'thanks-data.json');
-const README_ZH: string = path.join(ROOT, 'README.md');
-const README_EN: string = path.join(ROOT, 'docs', 'README.en.md');
 
 // 表格在正文里的起止标记：脚本只替换标记之间的内容，标记之外的介绍语、结尾语一个字都不碰。
 export const ZH_START: string = '<!-- THANKS-TABLE-ZH-START -->';
@@ -88,12 +86,6 @@ export function rosesFor(total: number): string {
   return out;
 }
 
-function itemLink(n: number, k: ItemKind, thread?: 'issue' | 'pr'): string {
-  const pathSeg: string =
-    k === 'issue' ? 'issues' : k === 'pr' ? 'pull' : k === 'discussion' ? 'discussions' : thread === 'pr' ? 'pull' : 'issues';
-  return `[#${n}](https://github.com/${REPO_OWNER}/${REPO_NAME}/${pathSeg}/${n})`;
-}
-
 // 一个人的全部事项拍平成带时间的条目：门禁拿它重算总数与最后活跃时间。
 export function itemsOf(rec: AuthorRec): ThanksItem[] {
   const out: ThanksItem[] = [];
@@ -120,34 +112,6 @@ export function orderedLogins(authors: Record<string, AuthorRec>): string[] {
     if (la !== lb) return la < lb ? 1 : -1;
     return a < b ? -1 : a > b ? 1 : 0;
   });
-}
-
-export function renderRow(login: string, rec: AuthorRec): string {
-  const links: string[] = [];
-  for (const d of [...(rec.issues || [])].sort((x, y) => x.n - y.n)) links.push(itemLink(d.n, 'issue'));
-  for (const d of [...(rec.prs || [])].sort((x, y) => x.n - y.n)) links.push(itemLink(d.n, 'pr'));
-  for (const d of [...(rec.discussions || [])].sort((x, y) => x.n - y.n)) links.push(itemLink(d.n, 'discussion'));
-  const comments: Array<{ n: number; thread: 'issue' | 'pr'; at: string }> = [...(rec.comments || [])].sort((x, y) => x.n - y.n);
-  for (const c of comments) links.push(itemLink(c.n, 'comment', c.thread));
-  return `| [@${login}](https://github.com/${login}) | ${rosesFor(totalOf(rec))} | ${links.join(' ')} |`;
-}
-
-export function renderTable(authors: Record<string, AuthorRec>, chinese: boolean): string {
-  const header: string = chinese ? '| 贡献者 | 致敬 | 贡献 |' : '| Contributor | Tribute | Contributions |';
-  const lines: string[] = [header, '| --- | --- | --- |'];
-  for (const login of orderedLogins(authors)) lines.push(renderRow(login, authors[login]));
-  return lines.join('\n');
-}
-
-// 把正文里起止标记之间的内容换成新表；找不到标记就抛错，不静默跳过。
-export function applyTable(text: string, start: string, end: string, table: string): { text: string; changed: boolean } {
-  const si: number = text.indexOf(start);
-  const ei: number = text.indexOf(end);
-  if (si < 0 || ei < 0 || ei < si) throw new Error(`找不到完整的表格标记：${start} / ${end}`);
-  const before: string = text.slice(0, si + start.length);
-  const after: string = text.slice(ei);
-  const next: string = `${before}\n${table}\n${after}`;
-  return { text: next, changed: next !== text };
 }
 
 // ---------------------------------------------------------------------------
@@ -248,7 +212,6 @@ function pushUniqueDated(list: DatedNum[], n: number, at: string): void {
 }
 
 function main(): void {
-  const renderOnly: boolean = process.argv.includes('--render-only');
   const data = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8')) as ThanksData;
   if (!data || typeof data !== 'object' || !data.cursors || !data.authors) {
     console.error('贡献数据读不出来（docs/thanks-data.json 结构不对），什么都不改。');
@@ -263,7 +226,7 @@ function main(): void {
 
   let addedItems: number = 0;
   const addedAuthors: string[] = [];
-  if (!renderOnly) {
+  {
     const issues = fetchNewIssues(data.cursors.issues);
     if (issues.maxSeen <= 0) {
       console.error('议题列表一页都没拉到（网络或令牌问题），什么都不改。');
@@ -315,36 +278,14 @@ function main(): void {
   data.authors = sortedAuthors;
   const jsonText: string = JSON.stringify(data, null, 2) + '\n';
   const oldJson: string = fs.existsSync(DATA_PATH) ? fs.readFileSync(DATA_PATH, 'utf8') : '';
-  const zhTable: string = renderTable(data.authors, true);
-  const enTable: string = renderTable(data.authors, false);
-
-  const targets: Array<{ file: string; start: string; end: string; table: string }> = [
-    { file: README_ZH, start: ZH_START, end: ZH_END, table: zhTable },
-    { file: README_EN, start: EN_START, end: EN_END, table: enTable },
-  ];
-  let changedFiles: string[] = [];
-  const pending: Array<{ file: string; text: string }> = [];
-  for (const t of targets) {
-    if (!fs.existsSync(t.file)) {
-      console.error(`找不到 ${t.file}，什么都不改。`);
-      process.exit(1);
-    }
-    const { text, changed } = applyTable(fs.readFileSync(t.file, 'utf8'), t.start, t.end, t.table);
-    if (changed) {
-      pending.push({ file: t.file, text });
-      changedFiles.push(t.file);
-    }
-  }
-  const jsonChanged: boolean = jsonText !== oldJson;
-  if (!jsonChanged && pending.length === 0) {
-    console.log(`致谢表已是最新（议题看到 ${data.cursors.issues} 号、讨论看到 ${data.cursors.discussions} 号），无需更新。`);
+  if (jsonText === oldJson) {
+    console.log(`致谢数据已是最新（议题看到 ${data.cursors.issues} 号、讨论看到 ${data.cursors.discussions} 号），无需更新。`);
     return;
   }
-  if (jsonChanged) fs.writeFileSync(DATA_PATH, jsonText);
-  for (const p of pending) fs.writeFileSync(p.file, p.text);
+  fs.writeFileSync(DATA_PATH, jsonText);
   console.log(
-    `致谢表已更新：新增事项 ${addedItems} 条${addedAuthors.length ? '、新人 ' + addedAuthors.join('、') : ''}；` +
-      `游标推到议题 ${data.cursors.issues} 号、讨论 ${data.cursors.discussions} 号；改动文件：${[...(jsonChanged ? [DATA_PATH] : []), ...changedFiles].join('、')}`,
+    `致谢数据已更新：新增事项 ${addedItems} 条${addedAuthors.length ? '、新人 ' + addedAuthors.join('、') : ''}；` +
+      `游标推到议题 ${data.cursors.issues} 号、讨论 ${data.cursors.discussions} 号；改动文件：${DATA_PATH}`,
   );
 }
 

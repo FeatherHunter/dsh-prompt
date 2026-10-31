@@ -39,3 +39,6 @@ jobs:
       # 这一步现在是全绿门禁：任何新增红都会被拦住。
       - name: Check (static gates, no browser)
         run: npm run check
+      # README 四块由 base 包渲染：有漂移/缺标记/脏行/标记不配对就非零退出（只读，不改文件）。
+      - name: Check managed README blocks
+        run: npm run readme:check

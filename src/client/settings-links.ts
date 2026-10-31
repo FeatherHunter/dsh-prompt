@@ -4,12 +4,16 @@
  */
 /**
  * dsh-prompt — 设置页对外入口区（#37）
- * 两件东西：顶部右上角两个图标按钮（🌟 仓库 / 💬 ISSUE 列表，各带自绘悬停气泡）+ 底部「作者其他插件」四行引流区。
+ * 两件东西：顶部右上角两个图标按钮（🌟 仓库 / 💬 ISSUE 列表，各带自绘悬停气泡）+ 底部「作者其他插件」引流区。
  * 边界：纯前端展示，不发网络请求、不写本地存档键、不碰模板数据与智能召回。
  * 顶层显示：气泡经 panel 的 TopPortal 挂到 body —— 设置面板自身会滚动、且带层叠上下文，内联气泡会被裁剪或遮挡。
- * 契约：导出 SettingsHeaderLinks({ lang, entry? }) 与 AuthorPlugins({ lang }) 两个组件；气泡、定位、清单常量都是内部实现。
+ * 契约：导出 SettingsHeaderLinks({ lang, entry? })、ContactRow({ lang }) 与 AuthorPlugins({ lang }) 三个组件；
+ * 气泡、定位都是内部实现。
+ * 联系入口与作者推荐卡改由 dsh-featherhunter-plugin-base/client 提供（#254）：推荐清单与群码都来自 base 包的
+ * 发布数据（CDN @latest），本仓不再持有第二份「作者其他插件」文案表或群码地址。
  * #60 追加交付 A 起多一个可选的 `entry`：调用方（settings-page.ts）把更新入口那枚按钮交进来，与两个图标同排。
  */
+import { createBaseUI, ensureBaseStyles } from 'dsh-featherhunter-plugin-base/client'
 import { getReact, TopPortal, MODAL_Z, PromptMark } from './template-browser'
 import { tr, STR, type Lang } from './strings'
 
@@ -19,15 +23,26 @@ const REPO_URL = 'https://github.com/FeatherHunter/dsh-prompt'
 // 💬 落 ISSUE 列表页（不是 issues/new，与 dsh-opencode-palette 口径一致）
 const ISSUES_URL = REPO_URL + '/issues'
 
-// 作者其他插件清单：网址写死，不拉网络、不新增本地存档键。
-// 描述文案里的数字都是实测（2026-09-12）：skills-deck 25 个 bundled-skills 目录、palette v1.7.1 设置面板 38 项配色、
-// 本插件 24 条 PRESET_TEMPLATES、im-companion 9 路渠道。数字过期就改这里。
-const MORE_PLUGINS: { slug: string; url: string; descKey: StrKey }[] = [
-  { slug: 'dsh-mattpocock-skills-deck', url: 'https://github.com/FeatherHunter/dsh-mattpocock-skills-deck', descKey: 'moreDescDeck' },
-  { slug: 'dsh-opencode-palette', url: 'https://github.com/FeatherHunter/dsh-opencode-palette', descKey: 'moreDescPalette' },
-  { slug: 'dsh-prompt', url: REPO_URL, descKey: 'moreDescPrompt' },
-  { slug: 'dsh-im-companion', url: 'https://github.com/FeatherHunter/dsh-im-companion', descKey: 'moreDescCompanion' },
-]
+// base 包共享 UI 单例：宿主 React 或界面语言变了才重建（createBaseUI 的组件都绑定建实例时的选项）。
+// 推荐清单、群码地址与文案全部来自 base 包的发布数据，本仓不持有副本。
+let baseUIReact: any = null
+let baseUILang: Lang | undefined
+let baseUICache: any = null
+function baseUI(lang?: Lang): any {
+  const react = getReact()
+  if (!react) return null
+  if (!baseUICache || baseUIReact !== react || baseUILang !== lang) {
+    baseUIReact = react
+    baseUILang = lang
+    baseUICache = createBaseUI(react, { lang, selfId: 'prompt' })
+  }
+  return baseUICache
+}
+
+/** base 包的样式是文档级一次性注入（id: dsh-base-ui-style），首帧前补齐。 */
+function ensureBaseStylesOnce(): void {
+  if (typeof document !== 'undefined') ensureBaseStyles(document)
+}
 
 /** 气泡层级：高于选择类浮层（PANEL_Z 9999）与设置面板自身，低于弹窗（MODAL_Z 11000）——弹窗打开时永远压住气泡。 */
 const TIP_Z = MODAL_Z - 100
@@ -51,20 +66,6 @@ const tipStyle: any = {
   border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 8, padding: '6px 10px',
   boxShadow: 'var(--dsw-shadow-lv3)', fontFamily: 'var(--dsw-font-family)', fontSize: 12, lineHeight: 1.55,
 }
-const moreCardStyle: any = {
-  // 与 SettingGroup 同轨：左右 margin 归零（此前 4px 导致与上方卡片左右错位）、同圆角 12、内容左轨 14px。
-  display: 'flex', flexDirection: 'column', gap: 2, margin: '12px 0 4px', padding: '10px 14px',
-  border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 12, fontFamily: 'var(--dsw-font-family)',
-}
-const moreTitleStyle: any = { fontSize: '0.9em', fontWeight: 600, color: 'var(--dsw-alias-label-secondary)', paddingBottom: 4 }
-const moreRowStyle: any = {
-  display: 'flex', alignItems: 'center', gap: 8, padding: '7px 4px', borderRadius: 7,
-  textDecoration: 'none', color: 'var(--dsw-alias-label-primary)',
-}
-const moreRowHover: any = { background: 'var(--dsw-alias-bg-layer-3)' }
-const moreSlugStyle: any = { flex: 'none', fontFamily: 'Consolas,Menlo,monospace', fontSize: 12, fontWeight: 650, whiteSpace: 'nowrap' }
-const moreDescStyle: any = { flex: 1, minWidth: 0, fontSize: 11.5, color: 'var(--dsw-alias-label-secondary)', lineHeight: 1.5 }
-
 /**
  * 自绘悬停气泡：hover 与键盘 focus 都出，mouseleave / blur / Esc 收。
  * 坐标以锚点 rect 现算（fixed + 右对齐锚点右缘；下方放不下就翻到上方）。
@@ -147,33 +148,6 @@ function IconLink(props: any): any {
   }, h('span', { 'aria-hidden': 'true', style: { fontSize: 15, lineHeight: 1 } }, props.emoji))
 }
 
-/** 引流区一行：等宽 slug + 灰色描述 + 右侧外链图标，整行可点跳仓库首页。 */
-function PluginRow(props: any): any {
-  const react = getReact()
-  if (!react) return null
-  const h = react.createElement
-  const st = react.useState(false)
-  const over = st[0]
-  const setOver = st[1]
-  return h('a', {
-    href: props.url, target: '_blank', rel: 'noreferrer',
-    style: Object.assign({}, moreRowStyle, over ? moreRowHover : null),
-    onMouseEnter: () => setOver(true), onMouseLeave: () => setOver(false),
-  }, [
-    h('span', { key: 'slug', style: moreSlugStyle }, props.slug),
-    h('span', { key: 'desc', style: moreDescStyle }, props.desc),
-    h('svg', {
-      key: 'ext', width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
-      strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true',
-      style: { flex: 'none', opacity: 0.7 },
-    }, [
-      h('path', { key: 'a', d: 'M14 4h6v6' }),
-      h('path', { key: 'b', d: 'M20 4l-8.6 8.6' }),
-      h('path', { key: 'c', d: 'M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5' }),
-    ]),
-  ])
-}
-
 /**
  * 顶部头行：左边插件标志与页面名，右边「入口位（调用方给了就渲染）+ 两个图标按钮」。
  *
@@ -201,12 +175,27 @@ export function SettingsHeaderLinks(props: { lang: Lang; entry?: any }): any {
   ])
 }
 
-/** 底部「作者其他插件」引流区：四行，每一行都能点开对应仓库首页。 */
+/**
+ * 底部「作者其他插件」引流区：base 包 AuthorPlugins。
+ * 首帧渲染包内基线清单（不白屏），挂载后由共享内容加载器静默换成 CDN 上的最新清单；
+ * 行整行可点、新标签页打开，selfId 已交给 createBaseUI，自动排除本仓。
+ */
 export function AuthorPlugins(props: { lang: Lang }): any {
   const react = getReact()
-  if (!react) return null
-  const h = react.createElement
-  const t = (k: StrKey) => tr(props.lang, STR[k])
-  const rows = MORE_PLUGINS.map((p) => h(PluginRow, { key: p.slug, slug: p.slug, url: p.url, desc: t(p.descKey) }))
-  return h('div', { style: moreCardStyle, 'data-dsh-prompt-more': '' }, [h('div', { key: 'title', style: moreTitleStyle }, t('moreTitle'))].concat(rows))
+  const ui = baseUI(props.lang)
+  if (!react || !ui) return null
+  ensureBaseStylesOnce()
+  return react.createElement(ui.AuthorPlugins, { lang: props.lang })
+}
+
+/**
+ * 整行式联系入口：base 包 ContactRow（图标 + 文案 + 外链箭头），点击在设置面板上层弹联系弹窗。
+ * 文案与群码来自 base 包数据；语言跟本页当前语言（base 实例按 lang 重建）。
+ */
+export function ContactRow(props: { lang: Lang }): any {
+  const react = getReact()
+  const ui = baseUI(props.lang)
+  if (!react || !ui) return null
+  ensureBaseStylesOnce()
+  return react.createElement(ui.ContactRow, {})
 }

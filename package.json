@@ -34,6 +34,9 @@
     "build": "node scripts/build.mjs",
     "build:client": "tsdown",
     "build:update-host": "node scripts/update/build-host.mjs",
+    "readme:init": "node node_modules/dsh-featherhunter-plugin-base/dist/node/cli.js readme:init --repo .",
+    "readme:sync": "node node_modules/dsh-featherhunter-plugin-base/dist/node/cli.js readme:sync --repo .",
+    "readme:check": "node node_modules/dsh-featherhunter-plugin-base/dist/node/cli.js readme:sync --check --repo .",
     "gen:update-catalog": "node scripts/update/gen-event-catalog.mjs",
     "ensure:update-pkg": "node scripts/update/ensure-latest.mjs",
     "prepare": "npm run build",
@@ -156,6 +159,7 @@
   "devDependencies": {
     "@deepseek-ai/dsh-storage-domain": "^0.2.0-rc.2",
     "@types/node": "^26.5.0",
+    "dsh-featherhunter-plugin-base": "0.0.2",
     "dsh-plugin-update": "0.18.39",
     "esbuild": "^0.28.2",
     "marked": "^18.0.9",

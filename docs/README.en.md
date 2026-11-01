@@ -164,6 +164,7 @@ Thanks to everyone who filed issues, sent PRs, or starred the repo — you make 
 | Contributor | Tribute | Contributions |
 | --- | --- | --- |
 | [@wqzhellohhwy](https://github.com/wqzhellohhwy) | 🌹🌹🌹 | [#146](https://github.com/FeatherHunter/dsh-prompt/issues/146) [#147](https://github.com/FeatherHunter/dsh-prompt/issues/147) [#148](https://github.com/FeatherHunter/dsh-prompt/issues/148) |
+| [@zuojinxin](https://github.com/zuojinxin) | 🌹🌹 | [#195](https://github.com/FeatherHunter/dsh-prompt/issues/195) [#196](https://github.com/FeatherHunter/dsh-prompt/issues/196) |
 | [@SunWe-success](https://github.com/SunWe-success) | 🌹 | [#194](https://github.com/FeatherHunter/dsh-prompt/issues/194) |
 | [@minevery512](https://github.com/minevery512) | 🌹 | [#179](https://github.com/FeatherHunter/dsh-prompt/issues/179) |
 | [@kBlankii](https://github.com/kBlankii) | 🌹 | [#178](https://github.com/FeatherHunter/dsh-prompt/issues/178) |

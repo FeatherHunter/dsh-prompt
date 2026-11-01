@@ -80,10 +80,26 @@
       ],
       "lastActive": "2026-10-11T17:49:08Z",
       "prs": []
+    },
+    "zuojinxin": {
+      "issues": [
+        {
+          "n": 196,
+          "at": "2026-10-31T16:31:20Z"
+        },
+        {
+          "n": 195,
+          "at": "2026-10-31T16:30:56Z"
+        }
+      ],
+      "prs": [],
+      "discussions": [],
+      "comments": [],
+      "lastActive": "2026-10-31T16:31:20Z"
     }
   },
   "cursors": {
     "discussions": 0,
-    "issues": 194
+    "issues": 196
   }
 }

@@ -8,6 +8,9 @@ lib/client.js.map
 # 例外：.github/ 必须入库 —— Star History 每日更新的 Actions 工作流住在这里
 !.github/
 !.github/**
+# 例外：.out-of-scope/ 必须入库 —— triage 的 wontfix 决策记录要能从票里链接
+!.out-of-scope/
+!.out-of-scope/**
 .wayfinder/
 .tmp-*
 .tmp-*/

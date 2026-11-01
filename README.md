@@ -191,7 +191,7 @@ dsh plugin --profile desktop add dsh-prompt@0.4.40 --registry https://registry.n
 <!-- STAR-HISTORY-START -->
 <div align="center">
 
-![星标增长曲线（双轴）：左轴累计星标，右轴每日新增](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=202610300000)
+![星标增长曲线（双轴）：左轴累计星标，右轴每日新增](https://raw.githubusercontent.com/FeatherHunter/dsh-prompt/main/docs/star-history.svg?v=202611010000)
 
 </div>
 <!-- STAR-HISTORY-END -->

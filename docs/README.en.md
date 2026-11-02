@@ -35,10 +35,10 @@ npm install -g @deepseek-ai/dsh
 dsh plugin --profile web add dsh-prompt       # self-hosted web service (dsh web)
 #     or
 dsh plugin --profile desktop add dsh-prompt   # DSH Desktop app
-# Pin a version for stability (current 0.4.40):
-dsh plugin --profile web add dsh-prompt@0.4.40 --registry https://registry.npmjs.org
+# Pin a version for stability (current 0.4.41):
+dsh plugin --profile web add dsh-prompt@0.4.41 --registry https://registry.npmjs.org
 #     or
-dsh plugin --profile desktop add dsh-prompt@0.4.40 --registry https://registry.npmjs.org
+dsh plugin --profile desktop add dsh-prompt@0.4.41 --registry https://registry.npmjs.org
 ```
 
 <div align="center">
@@ -177,13 +177,17 @@ Thanks to everyone who filed issues, sent PRs, or starred the repo — you make 
 ---
 
 <!-- CONTACT-START -->
+<div align="center">
+
 ## Feedback and Contact <sub>CONNECT</sub>
+
+</div>
 
 <div align="center">
 
 👏Welcome PRs and issues. A single spark can start a prairie fire 🔥. Any suggestion, opinion, idea or rant — come join the group and talk.
 
-<table align="center"><tr><td align="center"><b>Feishu Group (Main)</b></td><td align="center"><b>QQ Group (New)</b></td><td align="center"><b>WeChat Group (New)</b></td></tr><tr><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.1.7/data/img/card-feishu.png" width="260" alt="DSH plugin community group Feishu QR code" /></td><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.1.7/data/img/card-qq.png" width="260" alt="DSH plugin community group QQ QR code" /></td><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.1.7/data/img/card-wechat-2026-10-31.png?v=20261031" width="260" alt="DSH plugin community group WeChat QR code" /></td></tr></table>
+<table align="center"><tr><td align="center"><b>Feishu Group (Main)</b></td><td align="center"><b>QQ Group (New)</b></td><td align="center"><b>WeChat Group (New)</b></td></tr><tr><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.1.8/data/img/card-feishu.png" width="260" alt="DSH plugin community group Feishu QR code" /></td><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.1.8/data/img/card-qq.png" width="260" alt="DSH plugin community group QQ QR code" /></td><td><img src="https://cdn.jsdelivr.net/npm/dsh-featherhunter-plugin-base@0.1.8/data/img/card-wechat-2026-10-31.png?v=20261031" width="260" alt="DSH plugin community group WeChat QR code" /></td></tr></table>
 
 </div>
 <!-- CONTACT-END -->

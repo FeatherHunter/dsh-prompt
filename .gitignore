@@ -16,3 +16,5 @@ lib/client.js.map
 .tmp-*/
 scripts/.rt-tmp/
 .tmp-rt2/
+# 真机自检默认工作根（base real-machine-verification），避免误提交证据
+.scratch/

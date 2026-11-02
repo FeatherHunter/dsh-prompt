@@ -40,6 +40,8 @@
     "gen:update-catalog": "node scripts/update/gen-event-catalog.mjs",
     "ensure:update-pkg": "node scripts/update/ensure-latest.mjs",
     "prepare": "npm run build",
+    "verify:self-check": "dsh-verify self-check",
+    "verify:self-check:json": "dsh-verify self-check --json",
     "check:update-pkg": "node scripts/check-update-pkg.mjs",
     "check:lib-sync": "node scripts/check-lib-sync.mjs",
     "check:modal": "node scripts/check-modal.mjs",
@@ -159,7 +161,7 @@
   "devDependencies": {
     "@deepseek-ai/dsh-storage-domain": "^0.2.0-rc.2",
     "@types/node": "^26.5.0",
-    "dsh-featherhunter-plugin-base": "0.1.5",
+    "dsh-featherhunter-plugin-base": "0.1.7",
     "dsh-plugin-update": "0.18.39",
     "esbuild": "^0.28.2",
     "marked": "^18.0.9",

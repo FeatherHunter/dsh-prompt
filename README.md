@@ -80,8 +80,8 @@ dsh plugin --profile desktop add dsh-prompt@0.4.40 --registry https://registry.n
 
 <div align="center">
 
-输入框敲 `/prompt` 或者 `/p`。<br>
-`/prompt 复盘`可以缩小范围。
+只敲一个 `/` 不再列出模板，命令菜单保持干净；敲 `/prompt` 或者 `/p` 才看到全部模板。<br>
+`/prompt` 后面继续输入可以缩小范围（如 `/prompt复盘`；不要加空格，宿主遇到空格会关掉菜单）。
 
 **👇 /prompt 看到全部模板。**
 

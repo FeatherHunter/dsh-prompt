@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict'
 /**
- * dsh-prompt issue #178「对转义符的支持」回归脚本 —— 契约版本 3（R1 + R2 + #180 失焦焦点次序 + #181 撤销分组，ADR-0010 accepted）
+ * dsh-prompt issue #178「对转义符的支持」回归脚本 —— 契约版本 3（R1 + R2 + #180 失焦焦点次序 + #181 撤销分组 + #196 斜杠入口，ADR-0010 accepted）
  *
  * 覆盖：
  *   [R1 保存] 正文只削开头/结尾的空格(0x20)与 tab，保留所有换行（含首尾空行）；
@@ -17,6 +17,8 @@
  *              mode=degraded（有标记与无标记两条路一致），text 永远逐字符正确、无标记残留、不抛用户可见错误。
  *              不变量：成功路径（span / plain）不得调用 setDraft。
  *   [R2 其它入口] /prompt onPick 返回剥标记正文且候选描述无标记；smart-card.smartInsert 走 applyInsert（静态 + 行为）。
+ *   [#196 入口] 裸 `/`（宿主空 query）不出候选（宿主不渲染空组）；只有显式 `/prompt` 与精确 `/p` 出全量；
+ *              `/prompt<词>` 过滤不变，`/p<词>` 不在承诺内（按普通检索，不剥 p 前缀）。
  *   [集成] insertBody 仍返回插入前草稿长度；pick.insert 日志字段不变。
  *   [#180 失焦] 失焦插入时宿主编辑前必须先把焦点送回同一个作曲家根（两编辑在失焦态不写 DOM 选择，
  *              插入后才 focus 会把浏览器 caret 归零）；已聚焦不重复抢焦；编辑期采样落点仍被尊重。
@@ -760,31 +762,58 @@ function groupI() {
   }
 }
 
-/* ── J. /prompt 候选与 onPick ── */
+/* ── J. /prompt 入口与候选（#196：裸 / 不出模板；/prompt 与 /p 出全量） ── */
 
 async function groupJ() {
-  section('J. /prompt：候选描述无标记、onPick 返回剥标记文本')
+  section('J. /prompt：裸 / 不出候选；/prompt 与 /p 出全量；描述无标记、onPick 剥标记')
   const src = promptTrigger.buildPromptSource()
   eq(src.trigger, '/', 'J1 trigger = /')
-  const cands = await src.candidates({}, { query: '' })
-  ok(Array.isArray(cands) && cands.length > 0, 'J2 候选人非空')
+
+  // 先 await 一次 candidates 让 store 完成 load，后续同步断言与 candidates 看同一份数据。
+  const emptyCands = await src.candidates({}, { query: '' })
+  eq(emptyCands, [], 'J2 空 query（裸 /）候选 = []：宿主不渲染空组，命令/技能组不再被 30 条模板挤下去')
+  eq(promptTrigger.filterPromptTemplates(''), [], 'J3 filterPromptTemplates(\'\') = []')
+  eq(promptTrigger.filterPromptTemplates('   '), [], 'J4 纯空白 query 也 = []')
+
+  const allIds = store.sortedTemplates(store.allTemplates()).map((t) => t.id)
+  const wantAll = allIds.slice(0, promptTrigger.MAX_ITEMS)
+  const promptCands = await src.candidates({}, { query: 'prompt' })
+  eq(promptCands.map((c) => c.templateId), wantAll, 'J5 /prompt 出全量（用量降序、截 MAX_ITEMS）')
+  eq(promptTrigger.filterPromptTemplates('prompt ').map((t) => t.id), allIds, 'J5b 尾部空白不影响 /prompt 全量（filter 不截断，与 candidates 的 30 上限无关）')
+  const pCands = await src.candidates({}, { query: 'p' })
+  eq(pCands.map((c) => c.templateId), wantAll, 'J6 /p 是精确别名：与 /prompt 同一份全量')
+  eq(promptTrigger.filterPromptTemplates('p').map((t) => t.id), allIds, 'J7 filterPromptTemplates(\'p\') = 全量（filter 不截断）')
+  eq(promptTrigger.filterPromptTemplates('P').map((t) => t.id), allIds, 'J8 别名大小写不敏感')
+
+  // /prompt<词>：沿用 #23 规则（标签 OR 全文检索）；宿主 slash 会话遇空白即结束，无空格是唯一可达形态。
+  const retroWant = store.sortedTemplates(store.allTemplates().filter((t) => store.matchLabel(t, '复盘') || store.templateHaystack(t).indexOf('复盘') >= 0)).map((t) => t.id).slice(0, promptTrigger.MAX_ITEMS)
+  const retroCands = await src.candidates({}, { query: 'prompt复盘' })
+  eq(retroCands.map((c) => c.templateId), retroWant, 'J9 /prompt复盘 按标签/全文过滤')
+  ok(retroCands.every((c) => c.templateId !== 'x-plain'), 'J9b /prompt复盘 不含不相关模板')
+  // /p<词> 不在 README 承诺内：不剥 p 前缀（按普通检索词），也不静默变成全量。
+  // 夹具（24 预制 + 3 自定义）没有任何标签/正文含字面 'p复盘'：结果必须为空，且不得退化成 /prompt复盘 的过滤结果。
+  const pRetro = promptTrigger.filterPromptTemplates('p复盘').map((t) => t.id)
+  eq(pRetro, [], 'J9c /p<词> 按字面检索（不剥 p 前缀），夹具中无匹配')
+  ok(pRetro.join() !== retroWant.join(), 'J9d /p<词> 不静默退化成 /prompt<词> 的过滤结果')
+
+  const cands = promptCands
   const markerCand = cands.filter((c) => c.templateId === 'x-marker')[0]
-  ok(!!markerCand, 'J3 候选人含 x-marker')
+  ok(!!markerCand, 'J10 全量候选含 x-marker')
   if (markerCand) {
-    ok(markerCand.description.indexOf('{{cursor}}') < 0, 'J4 候选 description 不含标记')
-    ok(markerCand.description.indexOf('前后') >= 0, 'J5 候选 description 用剥标记正文')
+    ok(markerCand.description.indexOf('{{cursor}}') < 0, 'J11 候选 description 不含标记')
+    ok(markerCand.description.indexOf('前后') >= 0, 'J12 候选 description 用剥标记正文')
   }
   const lineCand = cands.filter((c) => c.templateId === 'x-lines')[0]
-  ok(!!lineCand, 'J6 候选人含 x-lines')
+  ok(!!lineCand, 'J13 全量候选含 x-lines')
   if (lineCand) {
-    ok(lineCand.description.indexOf('真首行') >= 0, 'J7 以空行开头的正文：描述含第一个非空行')
-    ok(lineCand.description.indexOf('\n') < 0, 'J8 描述是单行（不出空首行/多行）')
-    ok(lineCand.description.indexOf('{{cursor}}') < 0, 'J9 描述无标记')
+    ok(lineCand.description.indexOf('真首行') >= 0, 'J14 以空行开头的正文：描述含第一个非空行')
+    ok(lineCand.description.indexOf('\n') < 0, 'J15 描述是单行（不出空首行/多行）')
+    ok(lineCand.description.indexOf('{{cursor}}') < 0, 'J16 描述无标记')
   }
   const out = src.onPick({ candidate: { templateId: 'x-marker' } })
-  eq(out && out.text, '前后', 'J10 onPick 返回剥标记正文')
-  eq(out && typeof out.text === 'string' && out.text.indexOf('{{cursor}}') < 0, true, 'J11 onPick 文本无标记')
-  ok(out && Object.keys(out).length === 1 && Object.prototype.hasOwnProperty.call(out, 'text'), 'J12 onPick 只返回 { text }（不携带光标定位）')
+  eq(out && out.text, '前后', 'J17 onPick 返回剥标记正文')
+  eq(out && typeof out.text === 'string' && out.text.indexOf('{{cursor}}') < 0, true, 'J18 onPick 文本无标记')
+  ok(out && Object.keys(out).length === 1 && Object.prototype.hasOwnProperty.call(out, 'text'), 'J19 onPick 只返回 { text }（不携带光标定位）')
 }
 
 /* ── K. smart-card.smartInsert 走 applyInsert ── */

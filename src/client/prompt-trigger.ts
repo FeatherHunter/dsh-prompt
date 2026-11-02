@@ -20,7 +20,8 @@ import { displayLabelString } from './label-identity'
 import { resolveLocale } from './locale'
 
 const SOURCE_NAME = 'prompt'
-const MAX_ITEMS = 30
+/** 候选上限（宿主一屏可容纳量）；导出供回归脚本对齐，不参与持久化。 */
+export const MAX_ITEMS = 30
 
 export interface PromptTriggerSource {
   trigger: string
@@ -31,20 +32,29 @@ export interface PromptTriggerSource {
 }
 
 /**
- * /prompt 过滤：先剥离源名前缀（`/prompt` 本身 → 全量列出；`/prompt <词>` 与
- * `/prompt<词>`（无空格，宿主 slash 会话遇到空白即结束、带空格的 query 到不了这里）
- * → 按词过滤），剩余词匹配同一标签（含预制派生与自定义自选）或全文检索（haystack 兼容旧找法）。
+ * /prompt 过滤（#196：裸 `/` 不再列出模板）。
+ *  - 空 query（宿主触发组刚打开、用户只敲了 `/`）→ []：宿主对空候选组整组不渲染，
+ *    命令/技能组不会再被 30 条模板挤到下面；要看模板必须显式敲源名。
+ *  - `/prompt`（大小写不敏感）→ 全量；尾部空白不影响。
+ *  - 精确 `/p` → 全量：README 两页一直把 `/p` 写成入口，这里补成精确别名（#196）。
+ *    `/p<词>` 不在承诺内 —— 按普通检索词处理（不剥 p 前缀），不会静默变成全量。
+ *  - `/prompt<词>`：剥掉源名前缀后按「标签 OR 全文检索」过滤（#23 规则；宿主 slash 会话
+ *    遇空白即结束，无空格是唯一可达形态，带空格形式仅作宽容处理）。
  */
 export function filterPromptTemplates(query: string): PromptTemplate[] {
-  let q = (query || '').trim()
-  const ql = q.toLowerCase()
-  const src = SOURCE_NAME.toLowerCase()
-  if (ql.startsWith(src)) {
-    q = q.slice(src.length).trim()
+  const trimmed = (query || '').trim()
+  if (!trimmed) return []
+  const lower = trimmed.toLowerCase()
+  const sourceLower = SOURCE_NAME.toLowerCase()
+  let keyword = trimmed
+  if (lower.startsWith(sourceLower)) {
+    keyword = trimmed.slice(SOURCE_NAME.length).trim()
+  } else if (lower === 'p') {
+    keyword = '' // 精确 /p = 全量别名，与 /prompt 同一条路径
   }
-  if (!q) return sortedTemplates(allTemplates())
-  const needle = q.toLowerCase()
-  return sortedTemplates(allTemplates().filter((x) => matchLabel(x, q) || templateHaystack(x).indexOf(needle) >= 0))
+  if (!keyword) return sortedTemplates(allTemplates())
+  const needle = keyword.toLowerCase()
+  return sortedTemplates(allTemplates().filter((x) => matchLabel(x, keyword) || templateHaystack(x).indexOf(needle) >= 0))
 }
 
 /** /prompt 触发源（inputTriggers source 契约：candidates → onPick → {text} span 替换） */

@@ -79,8 +79,8 @@ Do not want it to open merely because the pointer passed over the button? Hit "C
 
 <div align="center">
 
-Type `/prompt` or `/p` in the box.<br>
-`/prompt retro` narrows it down.
+A bare `/` no longer lists templates, so the command menu stays clean; type `/prompt` or `/p` to see every template.<br>
+Keep typing after `/prompt` to narrow it down (e.g. `/promptretro`; no space — the host closes the menu at whitespace).
 
 **👇 `/prompt` shows every template.**
 
